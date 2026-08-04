@@ -9,12 +9,12 @@ function addBox(parent, materials, name, size, position, materialKey, shadows = 
   return object
 }
 
-function addCylinder(parent, materials, name, radiusTop, radiusBottom, height, position, materialKey) {
+function addCylinder(parent, materials, name, radiusTop, radiusBottom, height, position, materialKey, shadows = {}) {
   const object = createOutlinedMesh(
     new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 20),
     materialKey,
     materials,
-    { castShadow: true },
+    shadows,
   )
   object.name = name
   object.position.copy(position)
@@ -56,16 +56,17 @@ export function createRecordZone({ materials }) {
   addBox(cabinet, materials, 'cabinet-top', new THREE.Vector3(5.2, 0.18, 0.92), new THREE.Vector3(0, 1.38, 0.46), 'dark', cabinetShadows)
   addBox(cabinet, materials, 'cabinet-bottom', new THREE.Vector3(5.2, 0.16, 0.88), new THREE.Vector3(0, 0.16, 0.44), 'dark', cabinetShadows)
   for (const x of [-2.5, -0.82, 0.82, 2.5]) {
-    addBox(cabinet, materials, `cabinet-divider-${x}`, new THREE.Vector3(0.16, 1.18, 0.88), new THREE.Vector3(x, 0.76, 0.44), 'dark', cabinetShadows)
+    const dividerShadows = Math.abs(x) > 2 ? cabinetShadows : { receiveShadow: true }
+    addBox(cabinet, materials, `cabinet-divider-${x}`, new THREE.Vector3(0.16, 1.18, 0.88), new THREE.Vector3(x, 0.76, 0.44), 'dark', dividerShadows)
   }
-  addBox(cabinet, materials, 'cabinet-middle-shelf', new THREE.Vector3(1.52, 0.11, 0.82), new THREE.Vector3(0, 0.75, 0.42), 'dark', cabinetShadows)
+  addBox(cabinet, materials, 'cabinet-middle-shelf', new THREE.Vector3(1.52, 0.11, 0.82), new THREE.Vector3(0, 0.75, 0.42), 'dark', { receiveShadow: true })
   group.add(cabinet)
 
   const recordPlayer = new THREE.Group()
   recordPlayer.name = 'record-player'
   recordPlayer.position.set(-1.35, 1.53, 0.42)
   addBox(recordPlayer, materials, 'record-player-plinth', new THREE.Vector3(1.72, 0.18, 0.76), new THREE.Vector3(0, 0, 0), 'wood', { castShadow: true })
-  const record = addCylinder(recordPlayer, materials, 'spinning-record', 0.48, 0.48, 0.055, new THREE.Vector3(-0.18, 0.13, 0), 'record')
+  const record = addCylinder(recordPlayer, materials, 'spinning-record', 0.48, 0.48, 0.055, new THREE.Vector3(-0.18, 0.13, 0), 'record', { castShadow: true })
   addCylinder(record, materials, 'record-label', 0.13, 0.13, 0.062, new THREE.Vector3(0, 0.005, 0), 'accent')
   const tonearm = createTonearm(materials)
   recordPlayer.add(tonearm)
@@ -77,8 +78,8 @@ export function createRecordZone({ materials }) {
   rack.name = 'album-rack'
   rack.position.set(1.72, 1.48, 0.43)
   addBox(rack, materials, 'album-rack-base', new THREE.Vector3(1.68, 0.12, 0.78), new THREE.Vector3(0, 0.03, 0), 'dark', { castShadow: true })
-  addBox(rack, materials, 'album-rack-left', new THREE.Vector3(0.1, 0.8, 0.76), new THREE.Vector3(-0.79, 0.42, 0), 'dark', { castShadow: true })
-  addBox(rack, materials, 'album-rack-right', new THREE.Vector3(0.1, 0.8, 0.76), new THREE.Vector3(0.79, 0.42, 0), 'dark', { castShadow: true })
+  addBox(rack, materials, 'album-rack-left', new THREE.Vector3(0.1, 0.8, 0.76), new THREE.Vector3(-0.79, 0.42, 0), 'dark')
+  addBox(rack, materials, 'album-rack-right', new THREE.Vector3(0.1, 0.8, 0.76), new THREE.Vector3(0.79, 0.42, 0), 'dark')
   const albumCards = []
   for (let index = 0; index < 15; index += 1) {
     const album = addBox(
@@ -88,7 +89,7 @@ export function createRecordZone({ materials }) {
       new THREE.Vector3(0.055, 0.72 + (index % 3) * 0.035, 0.68),
       new THREE.Vector3(-0.65 + index * 0.093, 0.43, 0),
       index % 4 === 0 ? 'accent' : index % 3 === 0 ? 'paper' : 'wood',
-      { castShadow: true },
+      {},
     )
     album.rotation.z = (index % 5 === 0 ? -1 : index % 6 === 0 ? 1 : 0) * 0.05
     albumCards.push(album)
@@ -114,7 +115,7 @@ export function createRecordZone({ materials }) {
       new THREE.Vector3(width, 0.58 + (index % 4) * 0.055, 0.38),
       new THREE.Vector3(-1.38 + index * 0.24, 0.31, 0),
       index % 4 === 0 ? 'accent' : index % 3 === 0 ? 'wood' : 'paper',
-      { castShadow: true },
+      {},
     )
     book.rotation.z = index === 10 ? -0.12 : 0
   }
@@ -132,7 +133,7 @@ export function createRecordZone({ materials }) {
   shelfPlant.name = 'shelf-plant'
   shelfPlant.position.set(-0.95, 4.76, 0.34)
   addCylinder(shelfPlant, materials, 'shelf-plant-pot', 0.2, 0.14, 0.34, new THREE.Vector3(0, 0.17, 0), 'paper')
-  const leaves = createOutlinedMesh(new THREE.SphereGeometry(0.28, 12, 8), 'plant', materials, { castShadow: true })
+  const leaves = createOutlinedMesh(new THREE.SphereGeometry(0.28, 12, 8), 'plant', materials)
   leaves.name = 'shelf-plant-leaves'
   leaves.position.set(0, 0.47, 0)
   leaves.scale.set(0.85, 1.2, 0.85)

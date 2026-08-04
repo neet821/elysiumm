@@ -83,4 +83,39 @@ describe('furnished room structure', () => {
     room.dispose()
     materials.dispose()
   })
+
+  it('casts shadows only from a restrained set of large furniture silhouettes', () => {
+    const { materials, room } = makeRoom()
+    const shadowCasters = []
+    room.group.traverse((object) => {
+      if (object.isMesh && object.castShadow) shadowCasters.push(object.parent.name)
+    })
+
+    expect(shadowCasters).toEqual(expect.arrayContaining([
+      'desk-top',
+      'monitor-screen',
+      'desk-lamp-shade',
+      'chair-back',
+      'cabinet-top',
+      'record-player-plinth',
+      'spinning-record',
+      'album-rack-base',
+      'wall-shelf-1',
+      'movie-poster-border',
+    ]))
+    expect(shadowCasters).not.toEqual(expect.arrayContaining([
+      'desk-lamp-stem',
+      'desk-plant-pot',
+      'record-label',
+      'tonearm-arm',
+      'album-1',
+      'book-1',
+      'shelf-plant-pot',
+      'photo-1',
+    ]))
+    expect(shadowCasters.length).toBeLessThanOrEqual(32)
+
+    room.dispose()
+    materials.dispose()
+  })
 })

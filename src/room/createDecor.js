@@ -62,7 +62,7 @@ function createPhotoWall(materials) {
     [-0.32, -0.72, 0.04, 0.38, 0.5],
   ]
   placements.forEach(([x, y, rotation, width, height], index) => {
-    const photo = addBox(wall, materials, `photo-${index + 1}`, new THREE.Vector3(width, height, 0.065), new THREE.Vector3(x, y, 0.07), index % 2 === 0 ? 'paper' : 'wood', { castShadow: true })
+    const photo = addBox(wall, materials, `photo-${index + 1}`, new THREE.Vector3(width, height, 0.065), new THREE.Vector3(x, y, 0.07), index % 2 === 0 ? 'paper' : 'wood')
     photo.rotation.z = rotation
     addBox(photo, materials, `photo-image-${index + 1}`, new THREE.Vector3(width * 0.7, height * 0.62, 0.025), new THREE.Vector3(0, 0.03, 0.055), index % 3 === 0 ? 'accent' : 'dark')
     photos.push(photo)
@@ -87,7 +87,7 @@ function createMoviePoster(materials) {
 function createBackWallArt(materials) {
   const art = new THREE.Group()
   art.name = 'back-wall-art'
-  const frame = addBox(art, materials, 'small-wall-frame', new THREE.Vector3(1.15, 0.9, 0.08), new THREE.Vector3(-5.35, 3.85, -3.87), 'dark', { castShadow: true })
+  const frame = addBox(art, materials, 'small-wall-frame', new THREE.Vector3(1.15, 0.9, 0.08), new THREE.Vector3(-5.35, 3.85, -3.87), 'dark')
   frame.rotation.y = 0.02
   addBox(art, materials, 'small-wall-print', new THREE.Vector3(0.98, 0.73, 0.055), new THREE.Vector3(-5.35, 3.85, -3.81), 'paper')
   addBox(art, materials, 'small-wall-print-mark', new THREE.Vector3(0.48, 0.32, 0.03), new THREE.Vector3(-5.35, 3.87, -3.77), 'accent')
