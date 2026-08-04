@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createOutlinedBox, createOutlinedMesh } from '../scene/primitives.js'
+import { createOutlinedBox } from '../scene/primitives.js'
 
 function addBox(parent, materials, name, size, position, materialKey, shadows = {}) {
   const object = createOutlinedBox(size, materialKey, materials, shadows)
