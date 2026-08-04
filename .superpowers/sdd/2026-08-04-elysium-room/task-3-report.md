@@ -66,3 +66,36 @@ Observed and confirmed:
 ## Concerns
 
 None for Task 3. Final camera framing remains intentionally owned by Task 4.
+
+## Fix round 1 — restrained shadow cost
+
+Implementation commit: `6f2719d`
+
+### Review finding
+
+The first implementation allowed 86 of 143 meshes to cast shadows. Small record labels, tonearm pieces, individual album sleeves and books, lamp stems, pots, and photo cards were paying shadow-map cost without materially improving the composition.
+
+### RED / GREEN
+
+- RED command: `npm test -- --run tests/roomFurniture.test.js`
+- RED result: the new shadow-budget test failed against 86 casters and identified every forbidden small caster.
+- GREEN command: `npm test -- --run tests/roomFurniture.test.js`
+- GREEN result: 4/4 focused tests passed with 30 total casters, below the enforced maximum of 32.
+- Preserved major casters include the desk top and legs, monitor screen, lamp shade, chair seat/back, cabinet shell, record-player plinth, spinning record, rack base, wall shelves, movie-poster frame, shell trim, and window frame.
+- Confirmed non-casters include the lamp stem, plant pots, record label, tonearm, individual album sleeves, individual books, and photo cards.
+
+### Verification
+
+- `npm test -- --run`: 3 files passed, 15/15 tests passed.
+- `npm run build`: passed with Vite 7.3.6, exit code 0.
+- `git diff --check`: passed.
+- Runtime count: shadow casters reduced from 86 to 30, a 65% reduction.
+- Browser check: rendered the real scene at 1920×1080 using Chromium software WebGL. Major furniture grounding and visual hierarchy remained intact; no visible regression was found.
+- Screenshot: `/home/neet821/.codex/visualizations/2026/08/04/019fcb78-e1b6-7951-90bb-ffbe54c51c98/task3-shadow-fix.png`
+- The temporary browser harness was removed before commit.
+
+### Fix-round self-review
+
+- Change scope is limited to shadow flags and the focused regression test.
+- The review's Minor notes about outline color and the unused import were intentionally not changed.
+- No camera or interaction behavior was added.
