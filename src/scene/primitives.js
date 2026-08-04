@@ -5,7 +5,15 @@ const DEFAULT_DEFINITIONS = Object.freeze({
   shell: Object.freeze({ fill: 'horizon', edge: 'ink' }),
   trim: Object.freeze({ fill: 'text', edge: 'ink' }),
   frame: Object.freeze({ fill: 'accent', edge: 'ink' }),
+  accent: Object.freeze({ fill: 'accent', edge: 'ink' }),
   glass: Object.freeze({ fill: 'sky', edge: 'ink', transparent: true, opacity: 0.22 }),
+  wood: Object.freeze({ fill: 'ambient', edge: 'ink' }),
+  dark: Object.freeze({ fill: 'ink', edge: 'accent' }),
+  screen: Object.freeze({ fill: 'ink', edge: 'text' }),
+  paper: Object.freeze({ fill: 'text', edge: 'ink' }),
+  plant: Object.freeze({ fill: 'accent', edge: 'ink' }),
+  metal: Object.freeze({ fill: 'text', edge: 'ink' }),
+  record: Object.freeze({ fill: 'ink', edge: 'text' }),
 })
 
 export function createMaterialRegistry(definitions = DEFAULT_DEFINITIONS) {
