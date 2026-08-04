@@ -73,3 +73,56 @@
 ## 提交
 
 - 实现提交：`7141552`（`feat: add fixed camera rig`）
+
+---
+
+## Fix round 1：移除瞬间跳转并补齐可信浏览器验收
+
+### 审查问题
+
+1. `setPreset`/`focus` 曾允许 `immediate` 选项完全跳过 0.8–2 秒动画，违反全局硬约束，并可能造成方向突变。
+2. 旧报告中的六张截图实际是 “Room foundation ready” 占位页，视觉验收不可复核，且缺少 2560×1440 证据。
+3. Minor：`setPreset`/`focus`/`restore` 会先改内部状态再校验非法时长，出错后恢复目标可能丢失。
+
+### 修复
+
+- 彻底移除 `immediate` 快速路径；三个固定机位与临时聚焦、恢复全部强制走 0.8–2 秒动画。
+- 时长校验提前到状态变更之前：`setPreset`、`focus`、`restore` 收到非法时长会直接抛出，且不改变机位、聚焦状态或恢复目标。
+- 重新采集可信截图：使用真实 Chrome（SwiftShader WebGL）渲染真实房间场景，覆盖 overview / desk / right × 1920×1080 / 1920×1200 / 2560×1440 共九张。
+
+### 截图真实性验证
+
+- 预览页加载后 `data-ready="true"`，证明真实场景与机位代码已执行。
+- 三个机位同分辨率两两 RMSE 为 55–61，画面内容明显不同；不再存在“多张截图完全相同”的占位页问题。
+- 三张总览截图在 1920×1080、1920×1200、2560×1440 下两两 RMSE 为 11–22（含比例差异），分辨率变化会正确改变画面。
+- 所有截图均为浅色底 + 大量深色轮廓线（边缘强度 6–12），符合线稿房间而非占位文本页的特征。
+- 截图路径：
+  - `.superpowers/sdd/2026-08-04-elysium-room/task-4-screenshots/overview-1920x1080.png` 等九张
+  - `.superpowers/sdd/2026-08-04-elysium-room/task-4-screenshots/contact-sheet-latest.png`（汇总图）
+
+### 浏览器动画端点验证
+
+预览页支持 `mode=animate`，在真实 Chrome 中以固定 0.02s 步长执行五段完整切换并回写结果，全部 `ok: true`：
+
+| 切换 | 帧数 | 折算时长 | 端点 |
+| --- | ---: | ---: | --- |
+| overview → desk | 55 | 1.10s | `[-1.2, 2.9, 4.2]`, FOV 42 |
+| desk → right | 60 | 1.20s | `[0.5, 2.85, 0.05]`, FOV 52 |
+| right → overview | 68 | 1.36s | `[-9.8, 6.6, 11.5]`, FOV 38 |
+| focus（推近电脑） | 50 | 1.00s | `[1, 3, 3]`, FOV 34 |
+| restore（返回机位） | 40 | 0.80s | `[-9.8, 6.6, 11.5]`, FOV 38 |
+
+所有切换结束后 `isTransitioning=false`，位置与 FOV 精确等于目标值。
+
+### 回归测试
+
+- 新增：`setPreset` 传 `immediate:true` 时仍必须走最小动画。
+- 新增：`focus` 传 `immediate:true` 时仍必须走最小动画。
+- 新增：非法时长在改变 preset / focus / restore 状态前即被拒绝。
+- `npm test -- --run`：4 个文件 25/25 通过。
+- `npm run build`：通过。
+- `git diff --check`：通过。
+
+### 本轮提交
+
+- `待提交`（`fix: enforce minimum camera transitions`）

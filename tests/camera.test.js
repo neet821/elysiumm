@@ -95,6 +95,37 @@ describe('CameraRig transitions', () => {
     expect(rig.isTransitioning).toBe(false)
   })
 
+  it('does not let setPreset immediate options bypass the minimum transition', () => {
+    const camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 100)
+    const rig = new CameraRig(camera, { initialPreset: 'overview' })
+
+    rig.setPreset('desk', { immediate: true, duration: 0 })
+
+    expect(rig.isTransitioning).toBe(true)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.overview.position)
+    rig.update(0.79, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(true)
+    rig.update(0.01, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(false)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.desk.position)
+  })
+
+  it('does not let focus immediate options bypass the minimum transition', () => {
+    const camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 100)
+    const rig = new CameraRig(camera, { initialPreset: 'desk' })
+    const focusPose = { position: [1, 3, 3], target: [0, 2, -2], fov: 34, duration: 1 }
+
+    rig.focus(focusPose, { immediate: true, duration: 0 })
+
+    expect(rig.isTransitioning).toBe(true)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.desk.position)
+    rig.update(0.79, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(true)
+    rig.update(0.01, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(false)
+    expect(camera.position.toArray()).toEqual(focusPose.position)
+  })
+
   it('restores the fixed view that was active before a temporary focus pose', () => {
     const camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 100)
     const rig = new CameraRig(camera, { initialPreset: 'desk' })
@@ -107,6 +138,31 @@ describe('CameraRig transitions', () => {
     expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.desk.position)
     expect(camera.fov).toBe(CAMERA_PRESETS.desk.fov)
     expectCameraLooksAt(camera, CAMERA_PRESETS.desk.target)
+  })
+
+  it('rejects invalid durations before changing preset, focus, or restore state', () => {
+    const camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 100)
+    const rig = new CameraRig(camera, { initialPreset: 'overview' })
+
+    expect(() => rig.setPreset('desk', { duration: Number.NaN })).toThrow(TypeError)
+    expect(rig.isTransitioning).toBe(false)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.overview.position)
+
+    const focusPose = { position: [1, 3, 3], target: [0, 2, -2], fov: 34, duration: 1 }
+    expect(() => rig.focus(focusPose, { duration: Number.NaN })).toThrow(TypeError)
+    expect(rig.isTransitioning).toBe(false)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.overview.position)
+
+    rig.focus(focusPose)
+    rig.update(1, { x: 0, y: 0 })
+    expect(() => rig.restore({ duration: Number.NaN })).toThrow(TypeError)
+    rig.restore({ duration: 0.8 })
+    rig.update(0.79, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(true)
+    rig.update(0.01, { x: 0, y: 0 })
+    expect(rig.isTransitioning).toBe(false)
+    expect(camera.position.toArray()).toEqual(CAMERA_PRESETS.overview.position)
+    expectCameraLooksAt(camera, CAMERA_PRESETS.overview.target)
   })
 })
 

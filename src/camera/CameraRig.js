@@ -47,6 +47,12 @@ function clampDuration(duration) {
   return THREE.MathUtils.clamp(duration, MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION)
 }
 
+function validateDuration(duration) {
+  if (!Number.isFinite(duration)) {
+    throw new TypeError('camera transition requires a finite duration')
+  }
+}
+
 function finitePointerComponent(value) {
   return THREE.MathUtils.clamp(Number.isFinite(value) ? value : 0, -1, 1)
 }
@@ -84,6 +90,7 @@ export class CameraRig {
   setPreset(name, options = {}) {
     const preset = CAMERA_PRESETS[name]
     if (!preset) throw new RangeError(`Unknown camera preset: ${name}`)
+    validateDuration(options.duration ?? preset.duration)
 
     this._activePreset = name
     this._isFocused = false
@@ -94,6 +101,7 @@ export class CameraRig {
 
   focus(targetPose, options = {}) {
     validatePose(targetPose, 'focus pose')
+    validateDuration(options.duration ?? targetPose.duration)
     if (!this._isFocused) {
       const returnPose = this._activePreset ? CAMERA_PRESETS[this._activePreset] : {
         position: this._basePosition.toArray(),
@@ -111,6 +119,7 @@ export class CameraRig {
   restore(options = {}) {
     if (!this._restorePose) return this
     const targetPose = serializablePose(this._restorePose)
+    validateDuration(options.duration ?? targetPose.duration)
     this._isFocused = false
     this._restorePose = null
     this._startTransition(targetPose, options)
@@ -166,19 +175,7 @@ export class CameraRig {
     validatePose(sourcePose)
     const end = copyPose(sourcePose)
     const requestedDuration = options.duration ?? sourcePose.duration
-    if (!Number.isFinite(requestedDuration)) {
-      throw new TypeError('camera transition requires a finite duration')
-    }
-
-    if (options.immediate === true) {
-      this._basePosition.copy(end.position)
-      this._baseTarget.copy(end.target)
-      this._baseFov = end.fov
-      this._transition = null
-      this.isTransitioning = false
-      this._applyCamera(this._pointer)
-      return
-    }
+    validateDuration(requestedDuration)
 
     this._transition = {
       start: {
