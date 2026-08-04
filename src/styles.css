@@ -1,6 +1,6 @@
 :root {
-  color: #f6f7fb;
-  background: #10182f;
+  color: var(--text);
+  background: var(--sky);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -46,7 +46,7 @@ button {
 
 .environment-readout {
   margin-top: 0.75rem !important;
-  color: color-mix(in srgb, var(--ambient), white 18%);
+  color: var(--text);
   text-transform: capitalize;
 }
 
@@ -82,5 +82,5 @@ button {
 .environment-controls button[aria-pressed='true'] {
   border-color: var(--accent);
   background: var(--accent);
-  color: #101010;
+  color: var(--ink);
 }

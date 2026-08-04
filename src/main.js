@@ -1,6 +1,6 @@
 import './styles.css'
 import { createEnvironmentState } from './environment/environmentState.js'
-import { environmentPalettes } from './environment/palette.js'
+import { createPageThemeVariables, environmentPalettes } from './environment/palette.js'
 
 const environment = createEnvironmentState()
 const app = document.querySelector('#app')
@@ -27,16 +27,18 @@ app.innerHTML = `
 
 const readout = app.querySelector('.environment-readout')
 const controls = [...app.querySelectorAll('[data-mode]')]
+const themeColorMeta = document.querySelector('meta[name="theme-color"]')
 
 function renderEnvironment() {
   const state = environment.getState()
   const palette = environmentPalettes[state.mode]
 
-  for (const [name, value] of Object.entries(palette)) {
-    document.documentElement.style.setProperty(`--${name}`, value)
+  for (const [name, value] of Object.entries(createPageThemeVariables(palette))) {
+    document.documentElement.style.setProperty(name, value)
   }
 
   document.documentElement.dataset.environment = state.mode
+  themeColorMeta.setAttribute('content', palette.sky)
   readout.textContent = `${state.mode} · ${state.isAuto ? 'auto' : 'manual'}`
   controls.forEach((control) => {
     const selected = control.dataset.mode === (state.isAuto ? 'auto' : state.mode)

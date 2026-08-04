@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { classifyLocalHour, createEnvironmentState } from '../src/environment/environmentState.js'
-import { environmentPalettes } from '../src/environment/palette.js'
+import { createPageThemeVariables, environmentPalettes } from '../src/environment/palette.js'
 
 describe('classifyLocalHour', () => {
   it('assigns every transition hour to its intended environment mode', () => {
@@ -31,5 +31,25 @@ describe('createEnvironmentState', () => {
 describe('environmentPalettes', () => {
   it('provides a palette for every environment mode the state can select', () => {
     expect(Object.keys(environmentPalettes).sort()).toEqual(['dawn', 'day', 'dusk', 'night'])
+  })
+
+  it('maps every page theme color to a CSS variable from the selected palette', () => {
+    const palette = {
+      sky: '#111111',
+      horizon: '#222222',
+      ambient: '#333333',
+      accent: '#444444',
+      text: '#555555',
+      ink: '#666666',
+    }
+
+    expect(createPageThemeVariables(palette)).toEqual({
+      '--sky': '#111111',
+      '--horizon': '#222222',
+      '--ambient': '#333333',
+      '--accent': '#444444',
+      '--text': '#555555',
+      '--ink': '#666666',
+    })
   })
 })
