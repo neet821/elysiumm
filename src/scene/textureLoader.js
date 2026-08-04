@@ -34,18 +34,25 @@ function prepareTexture(texture) {
 }
 
 export async function loadSceneryTexture(scenery, loader = new THREE.TextureLoader()) {
-  const requestedUrl = resolveSceneryUrl(scenery)
+  const requestedScenery = Object.hasOwn(SCENERY_URLS, scenery) ? scenery : DEFAULT_SCENERY
+  const requestedUrl = resolveSceneryUrl(requestedScenery)
 
   try {
-    return prepareTexture(await loader.loadAsync(requestedUrl))
+    return {
+      texture: prepareTexture(await loader.loadAsync(requestedUrl)),
+      scenery: requestedScenery,
+    }
   } catch {
     if (requestedUrl !== SCENERY_URLS[DEFAULT_SCENERY]) {
       try {
-        return prepareTexture(await loader.loadAsync(SCENERY_URLS[DEFAULT_SCENERY]))
+        return {
+          texture: prepareTexture(await loader.loadAsync(SCENERY_URLS[DEFAULT_SCENERY])),
+          scenery: DEFAULT_SCENERY,
+        }
       } catch {
-        return createGeneratedFallbackTexture()
+        return { texture: createGeneratedFallbackTexture(), scenery: DEFAULT_SCENERY }
       }
     }
-    return createGeneratedFallbackTexture()
+    return { texture: createGeneratedFallbackTexture(), scenery: DEFAULT_SCENERY }
   }
 }

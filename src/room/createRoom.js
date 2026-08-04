@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { materialRegistry } from '../scene/primitives.js'
+import { disposeObjectGeometries, materialRegistry } from '../scene/primitives.js'
 import { createBayWindow } from './createBayWindow.js'
 import { createShell } from './createShell.js'
 
@@ -35,11 +35,7 @@ export function createRoom(context = {}) {
     ready: bayWindow.ready,
     dispose() {
       bayWindow.dispose()
-      group.traverse((object) => {
-        if (object.isMesh && object !== bayWindow.sceneryMesh && object !== bayWindow.interactionProxy) {
-          object.geometry?.dispose()
-        }
-      })
+      disposeObjectGeometries(shell)
       group.removeFromParent()
     },
   }

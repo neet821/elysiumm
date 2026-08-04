@@ -66,14 +66,14 @@ export function createMaterialRegistry(definitions = DEFAULT_DEFINITIONS) {
 
 export const materialRegistry = createMaterialRegistry()
 
-export function createOutlinedMesh(geometry, materialKey, registry = materialRegistry) {
+export function createOutlinedMesh(geometry, materialKey, registry = materialRegistry, shadows = {}) {
   const { fill, edge } = registry.get(materialKey)
   const group = new THREE.Group()
   const mesh = new THREE.Mesh(geometry, fill)
   const outline = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edge)
 
-  mesh.castShadow = true
-  mesh.receiveShadow = true
+  mesh.castShadow = shadows.castShadow ?? false
+  mesh.receiveShadow = shadows.receiveShadow ?? false
   outline.renderOrder = 2
   group.add(mesh, outline)
   group.userData.fillMesh = mesh
@@ -81,6 +81,14 @@ export function createOutlinedMesh(geometry, materialKey, registry = materialReg
   return group
 }
 
-export function createOutlinedBox(size, materialKey, registry = materialRegistry) {
-  return createOutlinedMesh(new THREE.BoxGeometry(size.x, size.y, size.z), materialKey, registry)
+export function createOutlinedBox(size, materialKey, registry = materialRegistry, shadows = {}) {
+  return createOutlinedMesh(new THREE.BoxGeometry(size.x, size.y, size.z), materialKey, registry, shadows)
+}
+
+export function disposeObjectGeometries(root) {
+  const geometries = new Set()
+  root.traverse((object) => {
+    if (object.geometry) geometries.add(object.geometry)
+  })
+  geometries.forEach((geometry) => geometry.dispose())
 }

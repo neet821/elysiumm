@@ -19,7 +19,7 @@ export function createScene(canvas) {
   const sun = new THREE.DirectionalLight('#fff2d1', 2.8)
   sun.position.set(-4, 9, 7)
   sun.castShadow = true
-  sun.shadow.mapSize.set(1024, 1024)
+  sun.shadow.mapSize.set(512, 512)
   sun.shadow.camera.left = -10
   sun.shadow.camera.right = 10
   sun.shadow.camera.top = 10
