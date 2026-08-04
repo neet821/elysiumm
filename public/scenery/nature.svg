@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-label="Soft green valley beneath a blue sky">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#91c9e8"/><stop offset="1" stop-color="#f4dfb2"/></linearGradient>
+    <linearGradient id="hill" x2="0" y2="1"><stop stop-color="#91b987"/><stop offset="1" stop-color="#4f765d"/></linearGradient>
+  </defs>
+  <rect width="1600" height="720" fill="url(#sky)"/>
+  <circle cx="1290" cy="145" r="68" fill="#fff3bd" opacity=".82"/>
+  <path d="M0 470 Q210 280 410 450 T790 420 T1120 430 T1600 365 V720 H0Z" fill="#b7c59b"/>
+  <path d="M0 535 Q230 390 470 520 T900 475 T1250 500 T1600 455 V720 H0Z" fill="url(#hill)"/>
+  <path d="M0 650 Q320 520 590 625 T1050 585 T1600 600 V720 H0Z" fill="#385c4c"/>
+  <g fill="none" stroke="#243f38" stroke-width="8" stroke-linecap="round" opacity=".58">
+    <path d="M0 535 Q230 390 470 520 T900 475 T1250 500 T1600 455"/>
+    <path d="M90 620l28-78 26 78m-13-43h-28M1440 592l32-94 35 94m-17-48h-38"/>
+  </g>
+</svg>
