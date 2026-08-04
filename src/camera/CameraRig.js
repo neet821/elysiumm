@@ -126,6 +126,10 @@ export class CameraRig {
     return this
   }
 
+  getActivePreset() {
+    return this._activePreset
+  }
+
   update(delta, pointer = {}) {
     const elapsed = Number.isFinite(delta) && delta > 0 ? delta : 0
 
