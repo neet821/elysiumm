@@ -44,7 +44,7 @@ function StatePanel({ state, retry }) {
       <span className="live-state__icon" aria-hidden="true">
         {isWaiting ? <Clock3 /> : <ShieldCheck />}
       </span>
-      <p className="live-state__eyebrow">Blue Album Live</p>
+      <p className="live-state__eyebrow">Elysium Live</p>
       <h2>{message.title}</h2>
       <p>{message.description}</p>
       {isEnded ? null : isLogin ? (
@@ -84,9 +84,9 @@ export default function LivePage() {
         <div>
           <p className="live-hero__eyebrow">
             <Radio aria-hidden="true" />
-            {isLive ? '正在直播' : 'Blue Album Live'}
+            {isLive ? '正在直播' : 'Elysium Live'}
           </p>
-          <h1>{status?.title || 'Blue Album 直播'}</h1>
+          <h1>{status?.title || 'Elysium 直播'}</h1>
           {status?.description ? <p>{status.description}</p> : null}
         </div>
       </header>

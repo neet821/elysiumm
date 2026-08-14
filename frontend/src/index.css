@@ -3239,3 +3239,286 @@ html.dark .polaroid-card:hover,
 @media (max-width: 480px) {
   .admin-live__status dl, .admin-live__invite-create { grid-template-columns: 1fr; }
 }
+
+/* Plain service presentation: the 3D room keeps its own visual system. */
+:root {
+  --surface-page: #fff;
+  --surface-card: #fff;
+  --surface-card-muted: #f7f7f7;
+  --surface-elevated: #fff;
+  --surface-inverse: #111;
+  --text-primary: #111;
+  --text-secondary: #444;
+  --text-muted: #666;
+  --text-inverse: #fff;
+  --accent-blue: #0645ad;
+  --accent-cyan: #0645ad;
+  --accent-warm: #111;
+  --accent-danger: #b00020;
+  --accent-success: #176b36;
+  --border-subtle: #c8c8c8;
+  --border-strong: #888;
+  --border-active: #0645ad;
+  --radius-control: 0;
+  --radius-card: 0;
+  --radius-dialog: 0;
+  --shadow-card: none;
+  --shadow-hover: none;
+  --shadow-floating: none;
+  --motion-fast: 0ms;
+  --motion-normal: 0ms;
+  --motion-slow: 0ms;
+  --font-interface: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-editorial: inherit;
+  --font-handwritten: inherit;
+  color-scheme: light;
+  font-family: var(--font-interface);
+}
+
+html { background: #fff; color-scheme: light; }
+body { background: #fff; color: #111; font-family: var(--font-interface); }
+body::before { display: none !important; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) {
+  background: #fff;
+  color: #111;
+  isolation: isolate;
+}
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)::before,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)::after,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-background::before,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-background::after {
+  background: none !important;
+  display: none !important;
+}
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell__main { min-height: 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #fff;
+  border-bottom: 1px solid #bdbdbd;
+  padding: 0.75rem 1.25rem;
+  position: static;
+  transition: none;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header[data-scrolled="true"] {
+  background: #fff;
+  border-bottom-color: #bdbdbd;
+  padding-block: 0.75rem;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__inner { max-width: 70rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .brand-logo { color: #111; gap: 0.5rem; text-decoration: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .brand-logo__image { height: 1.5rem; width: 1.5rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .brand-logo__text {
+  color: #111;
+  font: 600 1rem/1 var(--font-interface);
+  letter-spacing: 0;
+  rotate: none;
+  text-shadow: none;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav { gap: 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav-link,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__current {
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  color: #444;
+  display: inline-flex;
+  font: 400 0.9rem/1.2 var(--font-interface);
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  text-decoration: none;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav-link::after { display: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav-link:hover,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav-link:focus-visible,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav-link.is-active,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__current {
+  background: #111;
+  color: #fff;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__current { cursor: default; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__menu { display: none; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .skip-link {
+  background: #111;
+  border-radius: 0;
+  color: #fff;
+  transition: none;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-shell {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 70rem;
+  min-height: 0;
+  padding: 2rem 1.25rem 3rem;
+  width: 100%;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-shell__intro { margin-bottom: 2rem; max-width: 52rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-shell__eyebrow {
+  color: #555;
+  font: 600 0.75rem/1.2 var(--font-interface);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+  text-transform: none;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-shell__intro h1 {
+  color: #111;
+  font: 600 clamp(1.7rem, 4vw, 2.4rem)/1.15 var(--font-interface);
+  letter-spacing: 0;
+  margin: 0;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-shell__intro > p:last-child { color: #444; line-height: 1.55; margin-top: 0.75rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-footer {
+  background: #fff;
+  border-top: 1px solid #bdbdbd;
+  color: #666;
+  font-size: 0.8rem;
+  margin-top: auto;
+  padding: 1rem 1.25rem;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-footer__inner { justify-content: flex-start; margin: 0 auto; max-width: 70rem; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(
+  .ui-card,
+  .ui-card--muted,
+  .ui-dialog,
+  .ui-drawer,
+  .ui-overlay__body,
+  .ui-overlay__header,
+  .ui-empty-state,
+  .ui-toast,
+  .admin-dashboard__card,
+  .admin-live__card,
+  .toolbox-portal,
+  .live-hero,
+  .live-state,
+  .game-card
+) {
+  background: #fff !important;
+  border: 1px solid #c8c8c8 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #111;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(
+  [class*="rounded"],
+  [class*="shadow"],
+  [class*="backdrop"],
+  [class*="gradient"]
+) { border-radius: 0 !important; box-shadow: none !important; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(
+  .ui-button,
+  button:not(.home-experience__mode-switch),
+  input,
+  textarea,
+  select
+) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(
+  .ui-button,
+  button:not(.home-experience__mode-switch)
+) {
+  background: #fff;
+  border: 1px solid #777;
+  color: #111;
+  cursor: pointer;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-button--primary, .ui-button--danger) {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-button--danger) { background: #fff; border-color: #b00020; color: #b00020; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(button:hover, button:focus-visible, .ui-button:hover, .ui-button:focus-visible) { background: #eee; color: #111; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-button--primary:hover, .ui-button--primary:focus-visible) { background: #333; color: #fff; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(input, textarea, select) {
+  background: #fff !important;
+  border: 1px solid #888 !important;
+  color: #111 !important;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.6rem;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(a) { color: #0645ad; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-tabs__list, .archive-page__types) { border-bottom: 1px solid #bbb; border-radius: 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-tabs__tab, .archive-page__types button) { border-radius: 0 !important; color: #333; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-tabs__tab[aria-selected="true"], .archive-page__types button.is-active) { background: #111; color: #fff; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-overlay__backdrop) { background: rgb(0 0 0 / 35%); backdrop-filter: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) :where(.ui-overlay__close) { border-radius: 0; color: #111; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-page { height: auto; min-height: 0; overflow: visible; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-triptych { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal--video,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal--music,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal--game {
+  background: #fff;
+  color: #111;
+  min-height: 14rem;
+  padding: 1rem;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal::before { display: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal__icon { background: #fff; border: 1px solid #888; border-radius: 0; color: #111; height: 2.25rem; width: 2.25rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal h2 { color: #111; font: 600 1.35rem/1.2 var(--font-interface); margin: 2.5rem 0 0.7rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal p { color: #444; line-height: 1.5; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-portal__action { color: #0645ad; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .live-hero { align-items: flex-start; background: #fff; min-height: 12rem; padding: 1.5rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .live-hero h1 { color: #111; font: 600 2rem/1.2 var(--font-interface); }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .live-player { border: 1px solid #222; box-shadow: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .route-loading__spinner { animation: none; border-color: #888; border-top-color: #111; border-radius: 50% !important; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell { background: #fff; color: #111; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__sidebar { background: #fff; border-right: 1px solid #bbb; box-shadow: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__brand strong { color: #111; font-family: var(--font-interface); }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__link,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__account-link { border-radius: 0; color: #333; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__link--active { background: #111; color: #fff; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .admin-shell__content { background: #fff; }
+
+.service-shell--legacy-review .temporary-review-page { max-width: 70rem; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+.service-shell--legacy-review .temporary-review-page__list { display: grid; gap: 0; }
+.service-shell--legacy-review .temporary-review-page__link { border: 1px solid #bbb; border-bottom: 0; color: #111; display: grid; gap: 0.25rem; padding: 1rem; text-decoration: none; }
+.service-shell--legacy-review .temporary-review-page__link:last-child { border-bottom: 1px solid #bbb; }
+.service-shell--legacy-review .temporary-review-page__link:hover,
+.service-shell--legacy-review .temporary-review-page__link:focus-visible { background: #eee; }
+.service-shell--legacy-review .temporary-review-page__link span { color: #555; font-size: 0.9rem; }
+.legacy-review-surface { background: #111; border: 1px solid #333; color: #eee; padding: 1rem; }
+.legacy-review-surface__notice { border-bottom: 1px solid #555; color: #eee; font: 0.8rem/1.5 system-ui, sans-serif; margin: 0 0 1rem; padding-bottom: 0.75rem; }
+
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory { border-top: 1px solid #bbb; margin-top: 3rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__heading { align-items: baseline; display: flex; justify-content: space-between; padding: 1.25rem 0 0.75rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__heading h2 { font-size: 1.25rem; margin: 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__group { border-top: 1px solid #bbb; padding: 1rem 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__group h3 { font-size: 0.82rem; margin: 0 0 0.65rem; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__items { border-top: 1px solid #ddd; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item { align-items: center; border-bottom: 1px solid #ddd; color: #111; display: flex; justify-content: space-between; min-height: 4.25rem; padding: 0.9rem 0.75rem; text-decoration: none; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item:nth-child(odd) { border-right: 1px solid #ddd; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item:hover,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item:focus-visible { background: #eee; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item strong,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item small { display: block; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item small { color: #555; margin-top: 0.25rem; }
+
+@media (max-width: 800px) {
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav { display: flex; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav > .app-header__nav-link,
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav > .app-header__current { display: none; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__menu { display: inline-flex; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__mobile-nav { display: grid; gap: 0; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__mobile-nav .app-header__nav-link,
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__mobile-nav .app-header__current { display: flex; margin-bottom: 0.35rem; width: 100%; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .toolbox-triptych { grid-template-columns: 1fr; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__items { grid-template-columns: 1fr; }
+  .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item:nth-child(odd) { border-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

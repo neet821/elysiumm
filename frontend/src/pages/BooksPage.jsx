@@ -142,7 +142,7 @@ export default function BooksPage() {
       <header className="route-shell__intro books-route__intro">
         <p className="route-shell__eyebrow"><Library size={15} aria-hidden="true" /> 阅读空间</p>
         <h1>书籍</h1>
-        <p>这里是整理好的个人书架；Blue Album 负责收藏，Kavita 负责打开阅读。</p>
+        <p>这里是整理好的个人书架；Elysium 负责收藏，Kavita 负责打开阅读。</p>
       </header>
 
       {!loading && !catalog.reader_available && (

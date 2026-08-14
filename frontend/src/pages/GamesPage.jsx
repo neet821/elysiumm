@@ -117,7 +117,7 @@ export default function GamesPage({ styles }) {
       <div className="game-shell">
         <header className="game-hero">
           <div>
-            <p className={styles.textMuted}>Blue Album 游戏区</p>
+            <p className={styles.textMuted}>Elysium 游戏区</p>
             <h1 className={styles.text}>桌游大厅</h1>
             <p className={styles.textMuted}>选择规则、公开范围和观战权限，再把六位房间号发给朋友。</p>
           </div>

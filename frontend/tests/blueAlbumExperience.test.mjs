@@ -13,12 +13,11 @@ for (const label of ['网络地址', '上传视频', '本地同步']) assert.mat
 assert.match(sidebar, /MP4、WebM、MOV、Ogg 和 HLS/)
 assert.match(shell, /isMusicRoom[\s\S]*?!isMusicRoom && <Header/)
 assert.match(shell, /!isToolbox && !isMusicRoom && <Footer/)
-assert.match(css, /::view-transition-new\(root\)[\s\S]*?1200ms/)
-assert.match(css, /\.theme-transitioning \.app-header__theme/)
-assert.match(css, /:where\(article, section, aside, dialog, div, li\)[\s\S]*?border-radius:\s*0 !important/)
+assert.match(css, /--surface-page:\s*#fff/)
+assert.match(css, /--shadow-card:\s*none/)
 assert.doesNotMatch(bridge, />ONLINE<|>PRIVATE SYNC<|>ROOMS<|USER ID/)
 for (const label of ['返回首页', '离开房间', '重新同步', '房间成员', '实时聊天', '搜索点歌', '上传共享音频', '房间公共歌单']) {
   assert.match(bridge, new RegExp(label), `Mineradio 房间桥接必须包含 ${label}`)
 }
 
-console.log('Blue Album experience source checks passed')
+console.log('plain service experience source checks passed')

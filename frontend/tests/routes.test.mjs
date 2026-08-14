@@ -38,11 +38,11 @@ assert.match(routesSource, /path="\/posts" element=\{<LegacyRedirect to="\/archi
 assert.match(routesSource, /path="\/photos" element=\{<LegacyRedirect to="\/archive\?type=photo" \/>\}/, "legacy photos should redirect to Archive photos");
 assert.match(routesSource, /path="\/messages" element=\{<LegacyRedirect to="\/" hash="messages" \/>\}/, "legacy messages should redirect to the home message anchor");
 assert.match(routesSource, /const ToolsPage = lazy\(\(\) => import\("\.\/pages\/ToolsPage"\)\);/, "routes should load the tools dashboard on demand");
-assert.match(routesSource, /path="\/tools" element=\{withUserProps\(ToolsPage, styles, isDark\)\}/, "the public tools shell should render in place");
+assert.match(routesSource, /path="\/tools" element=\{withUserProps\(ToolsPage\)\}/, "the public tools shell should render in place");
 assert.match(routesSource, /path="\/tools\/links"[\s\S]*?<LegacyRedirect to="\/account\/admin\/content\/collection" preserveSearch hash=\{true\} \/>/, "legacy links should preserve query and hash while redirecting to administrator Collection management");
 assert.match(routesSource, /path="\/account\/collection"[\s\S]*?withAuth\(<LegacyRedirect to="\/account\/admin\/content\/collection" preserveSearch hash=\{true\} \/>, true\)/, "legacy private Collection must require an administrator before redirecting");
 assert.match(routesSource, /path="content\/collection" element=\{<PrivateCollectionPage \/>\}/, "private Collection should live in the canonical administrator content area");
-assert.match(routesSource, /path="\/collection"[\s\S]*?withAuth\(withUserProps\(CollectionPage, styles, isDark\)\)/, "collection should require login");
+assert.match(routesSource, /path="\/collection"[\s\S]*?withAuth\(withUserProps\(CollectionPage\)\)/, "collection should require login");
 assert.match(routesSource, /path="\/books"[\s\S]*?withAuth\(<BooksPage \/>, true\)/, "books should require an administrator");
 assert.match(routesSource, /path="\/music"[\s\S]*?withAuth\(<MusicLobbyPage \/>\)/, "music should open the authenticated room lobby");
 assert.doesNotMatch(routesSource, /path="\/music"[^\n]*StandalonePlayerPage/, "the local demo must not occupy the music route");
@@ -73,6 +73,10 @@ assert.doesNotMatch(gameControllerSource, /setInterval\([^)]*loadRoom|2000/, "ga
 
 assert.match(
   routesSource,
-  /<Route path="\*" element=\{withUserProps\(NotFoundPage, styles, isDark\)\} \/>/,
+  /<Route path="\*" element=\{withUserProps\(NotFoundPage\)\} \/>/,
   "unknown routes should render a not-found page instead of silently returning home",
 );
+assert.match(routesSource, /path="temporary-review" element=\{<TemporaryReviewPage \/>\}/, "admin temporary review hub should exist");
+for (const page of ["posts", "photos", "messages", "links", "player"]) {
+  assert.match(routesSource, new RegExp(`path="${page}"`), `temporary review page ${page} should exist`);
+}

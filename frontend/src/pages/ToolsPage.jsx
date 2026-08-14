@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import LoginCard from '../components/auth/LoginCard.jsx'
 import { Dialog } from '../components/ui/index.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import { getServiceGroups } from '../navigation.js'
 import { TOOL_ENTRIES } from './toolEntries.js'
 
 function ToolCard({ entry, enabled, onLogin }) {
@@ -28,8 +29,9 @@ function ToolCard({ entry, enabled, onLogin }) {
 }
 
 export default function ToolsPage({ isDark, styles }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isAdmin } = useAuth()
   const [loginOpen, setLoginOpen] = useState(false)
+  const serviceGroups = getServiceGroups(isAuthenticated, isAdmin)
 
   return (
     <section className="route-shell toolbox-page">
@@ -41,6 +43,32 @@ export default function ToolsPage({ isDark, styles }) {
 
       <section className="toolbox-triptych" aria-label="三个核心空间">
         {TOOL_ENTRIES.map((entry) => <ToolCard enabled={isAuthenticated} entry={entry} key={entry.to} onLogin={() => setLoginOpen(true)} />)}
+      </section>
+
+      <section className="service-directory" aria-label="全部服务">
+        <div className="service-directory__heading">
+          <p className="route-shell__eyebrow">按用途浏览</p>
+          <h2>全部服务</h2>
+        </div>
+        {serviceGroups.map((group) => (
+          <section className="service-directory__group" key={group.label} aria-labelledby={`service-group-${group.label}`}>
+            <h3 id={`service-group-${group.label}`}>{group.label}</h3>
+            <div className="service-directory__items">
+              {group.items.map((item) => {
+                const content = (
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.available ? item.description : '登录后可用'}</small>
+                  </span>
+                )
+                if (!item.available) {
+                  return <button aria-label={`登录后打开${item.label}`} className="service-directory__item" key={item.to} onClick={() => setLoginOpen(true)} type="button">{content}<span aria-hidden="true">→</span></button>
+                }
+                return <Link className="service-directory__item" key={item.to} to={item.to}>{content}<span aria-hidden="true">→</span></Link>
+              })}
+            </div>
+          </section>
+        ))}
       </section>
 
       <Dialog open={!isAuthenticated && loginOpen} onOpenChange={setLoginOpen} title="登录后打开工具箱">
