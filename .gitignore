@@ -8,6 +8,10 @@ __pycache__/
 backend/.venv/
 backend/.env
 backend/prod.env
+backend/private_storage/
+backend/uploads/
+backend/sync-storage/
+backend/backups/
 frontend/.env
 frontend/node_modules/
 frontend/dist/
