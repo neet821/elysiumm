@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { BrandLogo } from './brand/BrandLogo.jsx'
 import { Drawer, IconButton, CommandPalette } from './ui/index.js'
-import { SERVICE_DIRECTORY, getCurrentServiceLabel } from '../navigation.js'
+import { SERVICE_DIRECTORY } from '../navigation.js'
 
 export const PUBLIC_NAV_ITEMS = SERVICE_DIRECTORY
 
@@ -28,10 +28,8 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
 
-  const currentService = getCurrentServiceLabel(location.pathname)
   const accountTarget = isAuthenticated ? '/account' : '/login'
   const accountLabel = isAuthenticated ? (user?.username || '账户') : '登录'
-  const showCurrentService = currentService && currentService !== '工具箱' && currentService !== accountLabel
   const commandItems = useMemo(() => [
     { id: '/', label: '首页', description: '返回 Elysium 房间', keywords: ['首页', 'home', '/'], to: '/' },
     ...SERVICE_DIRECTORY
@@ -68,9 +66,6 @@ export function Header() {
     <>
       <CompactLink end to="/" onClick={() => setMobileMenuOpen(false)}>首页</CompactLink>
       <CompactLink to="/tools" onClick={() => setMobileMenuOpen(false)}>工具箱</CompactLink>
-      {showCurrentService && (
-        <span className="app-header__current" aria-current="page">{currentService}</span>
-      )}
       <CompactLink to={accountTarget} onClick={() => setMobileMenuOpen(false)}>{accountLabel}</CompactLink>
     </>
   )

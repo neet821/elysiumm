@@ -2,7 +2,7 @@ import { MemoryRouter } from 'react-router-dom'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
@@ -26,22 +26,25 @@ describe('Elysium plain service shell', () => {
     authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
   })
 
-  it('does not render a global top bar on formal service pages', () => {
+  it('keeps the global top bar but hides the current service label', () => {
     renderShell()
-    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: '主导航' })).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
+    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '工具箱' })).toBeInTheDocument()
+    expect(within(primaryNav).queryByText('归档')).not.toBeInTheDocument()
   })
 
   it('shows login instead of account to signed-out visitors', () => {
     authState = { isAdmin: false, isAuthenticated: false, user: null }
     renderShell()
-    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '登录' })).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
   it('uses the Elysium mark as home and hides the formal shell on the 3D home', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
-    expect(screen.queryByRole('link', { name: 'Elysium 首页' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Elysium 首页' })).toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/' })
@@ -50,10 +53,10 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
-  it('keeps formal pages free of navigation and theme controls', () => {
+  it('keeps formal pages free of current-page and theme controls', () => {
     renderShell()
-    expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('renders a simple footer and the specialized routes remain immersive', () => {

@@ -11,7 +11,7 @@ assert.match(roomList, /const payload = \{ room_name: roomName \}/, '创建观�
 assert.doesNotMatch(roomList.match(/const handleCreateRoom[\s\S]*?const handleJoinRoom/)?.[0] || '', /video_source|control_mode|password/, '创建表单不得提交房内设置')
 for (const label of ['网络地址', '上传视频', '本地同步']) assert.match(sidebar, new RegExp(label))
 assert.match(sidebar, /MP4、WebM、MOV、Ogg 和 HLS/)
-assert.doesNotMatch(shell, /<Header/)
+assert.match(shell, /isMusicRoom[\s\S]*?!isMusicRoom && <Header/)
 assert.match(shell, /!isToolbox && !isMusicRoom && <Footer/)
 assert.match(css, /--surface-page:\s*#fff/)
 assert.match(css, /--shadow-card:\s*none/)
