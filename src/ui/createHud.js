@@ -12,6 +12,17 @@ const SCENERY_LABELS = Object.freeze({
   night: '夜景',
 })
 
+const LEGACY_LINKS = Object.freeze([
+  ['归档', '/archive'],
+  ['直播', '/live'],
+  ['音乐', '/music'],
+  ['工具箱', '/tools'],
+  ['收藏', '/collection'],
+  ['书籍', '/books'],
+  ['桌游', '/games'],
+  ['账户', '/account'],
+])
+
 export function createHud(mount, { onCamera, onTimeMode }) {
   mount.innerHTML = `
     <div class="hud" data-testid="hud">
@@ -20,10 +31,16 @@ export function createHud(mount, { onCamera, onTimeMode }) {
           <p class="eyebrow">ELYSIUM</p>
           <h1>我的数字房间</h1>
         </div>
+        <nav class="legacy-nav" data-testid="legacy-nav" aria-label="站内功能">
+          <span class="legacy-nav__label">站内功能</span>
+          ${LEGACY_LINKS.map(([label, href]) => `<a href="${href}">${label}</a>`).join('')}
+        </nav>
         <div class="hud-status">
           <span class="pill" data-testid="environment-readout"></span>
           <span class="pill" data-testid="scenery-label"></span>
           <span class="pill" data-testid="album-label"></span>
+          <span class="pill" data-testid="lamp-state">台灯：关</span>
+          <span class="pill" data-testid="record-state">唱片机：未播放</span>
         </div>
       </header>
       <div class="hud-bottom">
@@ -44,16 +61,8 @@ export function createHud(mount, { onCamera, onTimeMode }) {
             <button type="button" data-testid="time-night" data-time="night">夜晚</button>
           </div>
         </section>
-        <section class="hud-group" aria-label="房间状态">
-          <h2>状态</h2>
-          <div class="button-row">
-            <span class="pill" data-testid="lamp-state">台灯：关</span>
-            <span class="pill" data-testid="record-state">唱片机：未播放</span>
-          </div>
-        </section>
-        <p class="hover-hint" data-testid="hover-hint" aria-live="polite">把光标放到物体上试试</p>
+        <p class="hover-hint" data-testid="hover-hint" aria-live="polite"></p>
       </div>
-      <p class="legend">点击电脑进 Projects · 照片墙进 Gallery · 书架进 Reading · 海报进 Movies · 唱片机 / 台灯 / 唱片架 / 窗外可直接点击</p>
     </div>
   `
 
@@ -94,7 +103,7 @@ export function createHud(mount, { onCamera, onTimeMode }) {
       })
     },
     setHint(text) {
-      hint.textContent = text || '把光标放到物体上试试'
+      hint.textContent = text || ''
     },
   }
 }

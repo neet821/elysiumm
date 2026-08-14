@@ -15,15 +15,16 @@ export function createScene(canvas) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, 2))
 
-  const hemisphere = new THREE.HemisphereLight('#dbeeff', '#d6b58d', 2.1)
-  const sun = new THREE.DirectionalLight('#fff2d1', 2.8)
-  sun.position.set(-4, 9, 7)
+  const hemisphere = new THREE.HemisphereLight('#f9f4ec', '#d3bc9d', 2.1)
+  const sun = new THREE.DirectionalLight('#fff4df', 0.55)
+  sun.position.set(-4.5, 9.5, -7.5)
   sun.castShadow = true
-  sun.shadow.mapSize.set(512, 512)
-  sun.shadow.camera.left = -10
-  sun.shadow.camera.right = 10
-  sun.shadow.camera.top = 10
-  sun.shadow.camera.bottom = -10
+  sun.shadow.mapSize.set(1024, 1024)
+  sun.shadow.camera.left = -9
+  sun.shadow.camera.right = 9
+  sun.shadow.camera.top = 9
+  sun.shadow.camera.bottom = -9
+  sun.shadow.bias = -0.00035
   scene.add(hemisphere, sun)
 
   const materials = createMaterialRegistry()

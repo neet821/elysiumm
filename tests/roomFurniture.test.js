@@ -66,11 +66,13 @@ describe('furnished room structure', () => {
     const requiredParts = [
       'desk-top',
       'keyboard',
-      'desk-chair',
-      'desk-plant',
       'record-cabinet',
+      'cabinet-left-door',
+      'cabinet-open-shelf',
+      'cabinet-right-door',
       'album-rack',
       'wall-shelves',
+      'shelf-album-display',
       'photo-grid',
       'photo-grid-wires',
       'movie-poster-frame',
@@ -79,6 +81,8 @@ describe('furnished room structure', () => {
     for (const name of requiredParts) {
       expect(room.group.getObjectByName(name), name).toBeTruthy()
     }
+    expect(room.group.getObjectByName('desk-chair')).toBeUndefined()
+    expect(room.group.getObjectByName('desk-plant')).toBeUndefined()
 
     room.dispose()
     materials.dispose()
@@ -95,7 +99,6 @@ describe('furnished room structure', () => {
       'desk-top',
       'monitor-screen',
       'desk-lamp-shade',
-      'chair-back',
       'cabinet-top',
       'record-player-plinth',
       'spinning-record',
@@ -105,15 +108,14 @@ describe('furnished room structure', () => {
     ]))
     expect(shadowCasters).not.toEqual(expect.arrayContaining([
       'desk-lamp-stem',
-      'desk-plant-pot',
       'record-label',
       'tonearm-arm',
       'album-1',
-      'book-1',
+      'compact-disc-1',
       'shelf-plant-pot',
       'photo-1',
     ]))
-    expect(shadowCasters.length).toBeLessThanOrEqual(32)
+    expect(shadowCasters.length).toBeLessThanOrEqual(56)
 
     room.dispose()
     materials.dispose()

@@ -1,0 +1,99 @@
+services:
+  db:
+    image: mariadb:10.6
+    container_name: elysiumm-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_NAME:?set DB_NAME in .env}
+      MYSQL_USER: ${DB_USER:?set DB_USER in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: elysiumm-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://${DB_USER:?set DB_USER in .env}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:3306/${DB_NAME:?set DB_NAME in .env}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      KAVITA_PUBLIC_BASE_URL: ${KAVITA_PUBLIC_BASE_URL:-}
+      EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
+      MUSIC_PROVIDER_BASE_URL: http://mineradio:3000
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      DOCKER_ENV: "true"
+      PRIVATE_STORAGE_DIR: /app/private_storage
+      ADMIN_FILES_STORAGE_DIR: /app/private_storage/admin_files
+      PUBLIC_SYNC_STORAGE: /app/sync-storage
+      BACKUP_OUTPUT_DIR: /app/backups
+    volumes:
+      - backend_uploads:/app/uploads
+      - private_storage:/app/private_storage
+      - public_sync_storage:/app/sync-storage
+      - backup_storage:/app/backups
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  mineradio:
+    build:
+      context: ./mineradio
+    container_name: elysiumm-mineradio
+    restart: always
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      COOKIE_FILE: /data/.cookie
+      QQ_COOKIE_FILE: /data/.qq-cookie
+      BEATMAP_CACHE_DIR: /data/beatmaps
+      MINERADIO_SESSION_DIR: /data/users
+      BLUE_ALBUM_SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+    volumes:
+      - mineradio_data:/data
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: elysiumm-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      mineradio:
+        condition: service_started
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+  backend_uploads:
+  private_storage:
+  public_sync_storage:
+  backup_storage:
+  mineradio_data:
+
+networks:
+  app-network:
+    driver: bridge

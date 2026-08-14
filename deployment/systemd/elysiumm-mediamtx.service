@@ -1,0 +1,30 @@
+[Unit]
+Description=Elysium MediaMTX live streaming
+After=network-online.target elysiumm-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blue-album-live
+Group=blue-album-live
+WorkingDirectory=/home/elysiumm/app
+EnvironmentFile=-/etc/elysiumm/mediamtx.env
+ExecStart=/usr/local/bin/mediamtx /etc/elysiumm/mediamtx.yml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=384M
+TasksMax=96
+UMask=0027
+ReadWritePaths=/home/blue-album/live/recordings
+
+[Install]
+WantedBy=multi-user.target

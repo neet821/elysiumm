@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import { test, expect } from '@playwright/test'
 
-const SCREENSHOT_DIR = '.superpowers/sdd/2026-08-04-elysium-room/task-8-screenshots'
+const SCREENSHOT_DIR = '.superpowers/sdd/2026-08-05-elysium-room-rebuild/final-screenshots'
+const ENVIRONMENT_SCREENSHOT_DIR = '.superpowers/sdd/2026-08-05-elysium-room-rebuild/environment-screenshots'
 
 test.beforeEach(async ({ page }) => {
   page.__errors = []
@@ -40,14 +41,33 @@ test('room loads and renders without console errors', async ({ page }) => {
   await expectNoErrors(page)
 })
 
+test('new Elysium homepage keeps the existing site feature routes reachable', async ({ page }) => {
+  await page.goto('/')
+  await waitForApp(page)
+
+  const links = await page.locator('[data-testid="legacy-nav"] a').evaluateAll((items) => (
+    items.map((item) => [item.textContent.trim(), new URL(item.href).pathname])
+  ))
+  expect(links).toEqual([
+    ['归档', '/archive'],
+    ['直播', '/live'],
+    ['音乐', '/music'],
+    ['工具箱', '/tools'],
+    ['收藏', '/collection'],
+    ['书籍', '/books'],
+    ['桌游', '/games'],
+    ['账户', '/account'],
+  ])
+})
+
 test('three fixed cameras switch through animated transitions', async ({ page }) => {
   await page.goto('/')
   await waitForApp(page)
 
   const cases = [
-    ['camera-desk', 'desk', [-1.2, 2.9, 4.2]],
-    ['camera-right', 'right', [0.5, 2.85, 0.05]],
-    ['camera-overview', 'overview', [-9.8, 6.6, 11.5]],
+    ['camera-desk', 'desk', [0, 3.25, 5.55]],
+    ['camera-right', 'right', [-0.75, 3.1, 0.4]],
+    ['camera-overview', 'overview', [-5.05, 5.2, 7.55]],
   ]
   for (const [testId, name, expected] of cases) {
     await page.click(`[data-testid="${testId}"]`)
@@ -121,8 +141,15 @@ test('record player, lamp, album rack, scenery and time mode interactions work',
 
   await page.click('[data-testid="time-day"]')
   await expect(page.locator('[data-testid="environment-readout"]')).toContainText('白天')
+  fs.mkdirSync(ENVIRONMENT_SCREENSHOT_DIR, { recursive: true })
+  await page.click('[data-testid="time-dusk"]')
+  await expect(page.locator('[data-testid="environment-readout"]')).toContainText('黄昏')
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${ENVIRONMENT_SCREENSHOT_DIR}/overview-dusk.png` })
   await page.click('[data-testid="time-night"]')
   await expect(page.locator('[data-testid="environment-readout"]')).toContainText('夜晚')
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${ENVIRONMENT_SCREENSHOT_DIR}/overview-night.png` })
   await page.click('[data-testid="time-auto"]')
   await expect(page.locator('[data-testid="environment-readout"]')).toContainText('自动')
 
@@ -147,29 +174,27 @@ test('resize and direct route refresh stay stable', async ({ page }) => {
 })
 
 test('captures the three camera views at desktop resolutions', async ({ page }) => {
+  test.setTimeout(120_000)
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true })
-  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.goto('/')
   await waitForApp(page)
   await page.click('[data-testid="time-day"]')
   await page.waitForTimeout(400)
 
-  const shots = [
-    ['camera-overview', 'overview-1920x1080.png'],
-    ['camera-desk', 'desk-1920x1080.png'],
-    ['camera-right', 'right-1920x1080.png'],
+  const cameras = [
+    ['camera-overview', 'overview'],
+    ['camera-desk', 'desk'],
+    ['camera-right', 'right'],
   ]
-  for (const [testId, fileName] of shots) {
-    await page.click(`[data-testid="${testId}"]`)
-    await page.waitForFunction(() => globalThis.__ROOM_APP__.rig.isTransitioning === false)
-    await page.waitForTimeout(250)
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/${fileName}` })
+  const viewports = [[1920, 1080], [1920, 1200], [2560, 1440]]
+  for (const [width, height] of viewports) {
+    await page.setViewportSize({ width, height })
+    for (const [testId, name] of cameras) {
+      await page.click(`[data-testid="${testId}"]`)
+      await page.waitForFunction(() => globalThis.__ROOM_APP__.rig.isTransitioning === false)
+      await page.waitForTimeout(250)
+      await page.screenshot({ path: `${SCREENSHOT_DIR}/${name}-${width}x${height}.png` })
+    }
   }
-
-  await page.setViewportSize({ width: 2560, height: 1440 })
-  await page.click('[data-testid="camera-overview"]')
-  await page.waitForFunction(() => globalThis.__ROOM_APP__.rig.isTransitioning === false)
-  await page.waitForTimeout(250)
-  await page.screenshot({ path: `${SCREENSHOT_DIR}/overview-2560x1440.png` })
   await expectNoErrors(page)
 })

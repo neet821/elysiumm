@@ -1,0 +1,54 @@
+.elysium-room-home {
+  background: #eee9df;
+  color: #26231f;
+  height: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.elysium-room-home__mount { inset: 0; position: absolute; }
+
+.elysium-room-home .room-stage,
+.elysium-room-home #room-canvas {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.elysium-room-home__topbar {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  inset: 0 0 auto;
+  justify-content: space-between;
+  padding: 1rem 9rem 1rem 1.25rem;
+  pointer-events: none;
+  position: absolute;
+  z-index: 30;
+}
+
+.elysium-room-home__topbar > * { pointer-events: auto; }
+.elysium-room-home__eyebrow { color: #8c5538; font-size: .66rem; font-weight: 700; letter-spacing: .18em; }
+.elysium-room-home h1 { font-size: 1rem; margin: .25rem 0 0; }
+.elysium-room-home__nav { align-items: center; background: rgb(247 242 233 / 78%); border: 1px solid rgb(38 35 31 / 18%); display: flex; flex-wrap: wrap; gap: .15rem; justify-content: center; padding: .3rem; }
+.elysium-room-home__nav a { color: #26231f; font-size: .72rem; padding: .35rem .45rem; text-decoration: none; }
+.elysium-room-home__nav a:hover, .elysium-room-home__nav a:focus-visible { background: #8c5538; color: #fffaf2; }
+.elysium-room-home__fallback { align-items: center; display: flex; inset: 0; justify-content: center; pointer-events: none; position: absolute; z-index: 2; }
+.elysium-room-home__fallback:empty { display: none; }
+.elysium-room-home__launcher-backdrop { align-items: center; background: rgb(25 23 20 / 45%); display: flex; inset: 0; justify-content: center; position: absolute; z-index: 40; }
+.elysium-room-home__launcher { background: #f8f2e8; border: 1px solid rgb(38 35 31 / 28%); box-shadow: 0 1.5rem 4rem rgb(25 23 20 / 38%); color: #26231f; max-width: 48rem; padding: 1rem; width: min(88vw, 48rem); }
+.elysium-room-home__launcher-bar { align-items: center; display: flex; justify-content: space-between; }
+.elysium-room-home__launcher-bar button { background: transparent; border: 1px solid rgb(38 35 31 / 25%); color: inherit; cursor: pointer; padding: .4rem .6rem; }
+.elysium-room-home__launcher-links { display: grid; gap: .6rem; grid-template-columns: repeat(4, 1fr); margin-top: 1.5rem; }
+.elysium-room-home__launcher-links a { border: 1px solid rgb(38 35 31 / 18%); color: inherit; padding: 1rem .7rem; text-decoration: none; }
+.elysium-room-home__launcher-links a:hover, .elysium-room-home__launcher-links a:focus-visible { background: #8c5538; color: #fffaf2; }
+
+@media (max-width: 800px) {
+  .elysium-room-home__topbar { flex-wrap: wrap; padding-right: 1.25rem; }
+  .elysium-room-home__nav { order: 3; width: 100%; }
+  .elysium-room-home__launcher-links { grid-template-columns: repeat(2, 1fr); }
+  .elysium-room-home__mode { margin-left: auto; }
+}

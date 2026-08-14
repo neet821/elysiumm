@@ -1,0 +1,25 @@
+[Unit]
+Description=Elysium backend
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blue-album
+Group=blue-album
+WorkingDirectory=/home/elysiumm/app/backend
+EnvironmentFile=-/etc/elysiumm/backend.env
+ExecStart=/home/elysiumm/app/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/blue-album /var/lib/blue-album /var/log/elysiumm
+MemoryMax=768M
+TasksMax=256
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

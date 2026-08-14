@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-label="Warm geometric city skyline">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#a9d1e6"/><stop offset="1" stop-color="#f2c7a5"/></linearGradient></defs>
+  <rect width="1600" height="720" fill="url(#sky)"/>
+  <circle cx="255" cy="155" r="58" fill="#fff0bf" opacity=".8"/>
+  <g stroke="#293943" stroke-width="7" stroke-linejoin="round">
+    <path d="M0 510h120V360h128v150h96V295h174v215h90V390h130v120h92V245h195v265h88V330h142v180h165v210H0Z" fill="#7592a0"/>
+    <path d="M180 510V425h115v85m171 0V352h94v158m310 0V309h84v201m112 0V402h122v108m120 0V382h89v128" fill="#d8dde0"/>
+  </g>
+  <g fill="#ffe4a3" opacity=".9">
+    <path d="M375 335h24v38h-24zm52 0h24v38h-24zm-52 66h24v38h-24zm52 0h24v38h-24z"/>
+    <path d="M855 290h28v42h-28zm58 0h28v42h-28zm-58 75h28v42h-28zm58 0h28v42h-28z"/>
+  </g>
+  <path d="M0 600h1600" stroke="#293943" stroke-width="10"/>
+</svg>

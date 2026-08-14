@@ -1,0 +1,42 @@
+logLevel: info
+readTimeout: 10s
+writeTimeout: 10s
+
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8000/api/internal/live/mediamtx-auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+api: true
+apiAddress: 127.0.0.1:9997
+metrics: false
+pprof: false
+playback: true
+playbackAddress: 127.0.0.1:9996
+rtsp: false
+rtmp: true
+rtmpAddress: :1935
+rtmpEncryption: "no"
+srt: false
+webrtc: false
+hls: true
+hlsAddress: 127.0.0.1:8888
+hlsEncryption: false
+hlsAlwaysRemux: true
+hlsVariant: fmp4
+hlsSegmentCount: 7
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 50M
+
+paths:
+  live/stream:
+    source: publisher
+    overridePublisher: false
+    record: true
+    recordPath: /home/blue-album/live/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    recordFormat: fmp4
+    recordDeleteAfter: 0s
+    runOnRecordSegmentComplete: /home/elysiumm/app/backend/live_recording_hook.py %path %segment_path
+    runOnRecordSegmentCompleteRestart: false

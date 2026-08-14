@@ -1,0 +1,72 @@
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { requestGet, requestPost } = vi.hoisted(() => ({
+  requestGet: vi.fn(),
+  requestPost: vi.fn(),
+}))
+
+vi.mock('../src/utils/request.js', () => ({
+  default: { get: requestGet, post: requestPost },
+}))
+
+import MusicLobbyPage from '../src/pages/MusicLobbyPage.jsx'
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname}</output>
+}
+
+function renderLobby() {
+  return render(
+    <MemoryRouter initialEntries={['/music']} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <Routes>
+        <Route path="/music" element={<MusicLobbyPage />} />
+        <Route path="/music/rooms/:roomId" element={<p>房间页面</p>} />
+      </Routes>
+      <LocationProbe />
+    </MemoryRouter>,
+  )
+}
+
+describe('music room lobby', () => {
+  beforeEach(() => {
+    requestGet.mockReset()
+    requestPost.mockReset()
+    requestGet.mockResolvedValue({
+      data: [
+        { id: 9, mode: 'music', room_name: '蓝色听歌房', member_count: 2 },
+        { id: 10, mode: 'url', room_name: '视频房', member_count: 1 },
+      ],
+    })
+  })
+
+  it('lists only music rooms and links to the Mineradio room player', async () => {
+    renderLobby()
+
+    expect(await screen.findByText('蓝色听歌房')).toBeInTheDocument()
+    expect(screen.queryByText('视频房')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '进入蓝色听歌房' })).toHaveAttribute('href', '/music/rooms/9')
+    expect(screen.getByRole('link', { name: /Mineradio.*GPL-3.0/i })).toBeInTheDocument()
+  })
+
+  it('creates a music room with the existing API and opens it', async () => {
+    requestPost.mockResolvedValue({ data: { id: 27 } })
+    const user = userEvent.setup()
+    renderLobby()
+
+    await user.click(await screen.findByRole('button', { name: '创建听歌房' }))
+    await user.type(screen.getByLabelText('房间名称'), '夜间电台')
+    await user.click(screen.getByRole('button', { name: '确认创建' }))
+
+    expect(requestPost).toHaveBeenCalledWith(expect.stringMatching(/\/api\/sync-rooms$/), {
+      control_mode: 'host_only',
+      mode: 'music',
+      room_name: '夜间电台',
+      type: 'video',
+    })
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/music/rooms/27'))
+  })
+})

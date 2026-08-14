@@ -1,0 +1,25 @@
+[Unit]
+Description=Elysium Mineradio service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blue-album
+Group=blue-album
+WorkingDirectory=/home/elysiumm/app/mineradio
+EnvironmentFile=-/etc/elysiumm/mineradio.env
+ExecStart=/usr/bin/node /home/elysiumm/app/mineradio/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/blue-album/mineradio /home/blue-album
+MemoryMax=512M
+TasksMax=256
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

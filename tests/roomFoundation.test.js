@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BoxGeometry, Texture } from 'three'
 import { createBayWindow } from '../src/room/createBayWindow.js'
 import { createRoom } from '../src/room/createRoom.js'
+import { BAY_WINDOW } from '../src/room/layout.js'
 import { createMaterialRegistry, createOutlinedMesh } from '../src/scene/primitives.js'
 import { SCENERY_URLS, loadSceneryTexture, resolveSceneryUrl } from '../src/scene/textureLoader.js'
 
@@ -48,14 +49,14 @@ describe('material registry', () => {
 describe('scenery URL mapping', () => {
   it('resolves all four local views and safely falls back to nature', () => {
     expect(SCENERY_URLS).toEqual({
-      nature: '/scenery/nature.svg',
+      nature: '/scenery/nature-window.webp',
       city: '/scenery/city.svg',
       cloudy: '/scenery/cloudy.svg',
       night: '/scenery/night.svg',
     })
     expect(resolveSceneryUrl('city')).toBe('/scenery/city.svg')
-    expect(resolveSceneryUrl('missing-view')).toBe('/scenery/nature.svg')
-    expect(resolveSceneryUrl()).toBe('/scenery/nature.svg')
+    expect(resolveSceneryUrl('missing-view')).toBe('/scenery/nature-window.webp')
+    expect(resolveSceneryUrl()).toBe('/scenery/nature-window.webp')
   })
 
   it('records the fallback view after an unknown scenery is requested', async () => {
@@ -69,7 +70,7 @@ describe('scenery URL mapping', () => {
     await bayWindow.ready
 
     expect(bayWindow.group.userData.scenery).toBe('nature')
-    expect(bayWindow.group.userData.sceneryUrl).toBe('/scenery/nature.svg')
+    expect(bayWindow.group.userData.sceneryUrl).toBe('/scenery/nature-window.webp')
     bayWindow.dispose()
     materials.dispose()
   })
@@ -79,7 +80,7 @@ describe('scenery URL mapping', () => {
     const loader = {
       async loadAsync(url) {
         if (url === '/scenery/city.svg') throw new Error('city unavailable')
-        if (url === '/scenery/nature.svg') return fallbackTexture
+        if (url === '/scenery/nature-window.webp') return fallbackTexture
         throw new Error(`unexpected URL: ${url}`)
       },
     }
@@ -106,7 +107,36 @@ describe('scenery URL mapping', () => {
     await bayWindow.ready
 
     expect(bayWindow.group.userData.scenery).toBe('nature')
-    expect(bayWindow.group.userData.sceneryUrl).toBe('/scenery/nature.svg')
+    expect(bayWindow.group.userData.sceneryUrl).toBe('/scenery/nature-window.webp')
+    bayWindow.dispose()
+    materials.dispose()
+  })
+})
+
+describe('bay window structure', () => {
+  it('builds six divided front units and one perpendicular return on each side', () => {
+    const materials = createMaterialRegistry()
+    const bayWindow = createBayWindow({
+      materials,
+      textureLoader: { loadAsync: async () => new Texture() },
+    })
+
+    for (let index = 1; index <= 6; index += 1) {
+      expect(bayWindow.group.getObjectByName(`bay-front-upper-glass-${index}`)).toBeTruthy()
+      expect(bayWindow.group.getObjectByName(`bay-front-lower-glass-${index}`)).toBeTruthy()
+      expect(bayWindow.group.getObjectByName(`bay-front-crossbar-${index}`)).toBeTruthy()
+    }
+    for (const [side, direction] of [['left', -1], ['right', 1]]) {
+      const sideWindow = bayWindow.group.getObjectByName(`bay-${side}-side-window`)
+      expect(sideWindow).toBeTruthy()
+      expect(Math.abs(sideWindow.rotation.y)).toBeCloseTo(Math.PI / 2, 8)
+      expect(sideWindow.position.x).toBeCloseTo(direction * BAY_WINDOW.frontWidth / 2, 8)
+      expect(bayWindow.group.getObjectByName(`bay-${side}-side-window-upper-glass`)).toBeTruthy()
+      expect(bayWindow.group.getObjectByName(`bay-${side}-side-window-lower-glass`)).toBeTruthy()
+      expect(bayWindow.group.getObjectByName(`bay-${side}-side-window-crossbar`)).toBeTruthy()
+      expect(bayWindow.group.getObjectByName(`${side}-side-outside-scenery`)).toBeTruthy()
+    }
+
     bayWindow.dispose()
     materials.dispose()
   })

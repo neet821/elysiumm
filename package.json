@@ -4,11 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run dev:frontend",
+    "build": "npm run build:frontend",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:e2e": "playwright test"
+    "test": "npm run test:room",
+    "test:e2e": "playwright test",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "check:frontend": "npm --prefix frontend run check",
+    "test:e2e:frontend": "playwright test -c playwright.frontend.config.js",
+    "dev:room": "vite --config vite.config.js",
+    "build:room": "vite build --config vite.config.js",
+    "test:room": "vitest run",
+    "test:backend": "./backend/.venv/bin/python -m unittest discover -s backend/tests -p '*_unittest.py'"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
