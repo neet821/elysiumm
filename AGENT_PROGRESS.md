@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 当前阶段：单仓迁移完成，生产切换完成，等待 Obsidian 首次同步验收
-- 总体状态：Elysium 已在新域名正式运行；旧运行服务已停用；Obsidian 加密连接尚未改动
+- 当前阶段：单仓迁移、生产切换和同步迁移全部完成
+- 总体状态：Elysium 已在新域名正式运行；旧运行服务已停用；主设备 Obsidian 已切换并重启验证
 - 发布版本：`c88c840`
 - 私有仓库：[neet821/elysiumm](https://github.com/neet821/elysiumm)
 
@@ -29,7 +29,7 @@
 
 ## 下一步
 
-在主设备 Obsidian 的 LiveSync 设置中，将同步地址改为 `https://sync.elysiumm.top`，然后完成一次上传、下载、重启和恢复检查。连接配置已加密保存，不能直接编辑配置文件。
+其他 Obsidian 设备按需要自行改到 `https://sync.elysiumm.top`；主设备已完成切换，其他设备不保留旧地址兼容期。
 
 ## 追加改造证据
 
@@ -64,4 +64,6 @@
 - 服务器：`elysiumm-backend.service`、`elysiumm-mineradio.service`、`elysiumm-mediamtx.service` 均正常；旧三个 Blue Album 服务已停用
 - 生产检查：主页、八个正式入口、API 健康检查、音乐入口和四个直播媒体端口通过
 - 最终备份：`/home/blue-album/backups/releases/elysium-final-20260814T130313Z`，校验通过
-- 尚未执行：Obsidian LiveSync 首次上传/下载/重启/恢复验收；旧域名 DNS 记录由用户自行管理，服务器已不再启用旧站服务
+- Obsidian LiveSync：新地址连接测试通过，主设备完成 99 项上传、重启后状态为 `Sync: 💤 ↑ 0 ↓ 0`
+- Obsidian 切换后配置备份：`/home/neet821/Documents/Obsidian Backups/elysium-migration-20260814T2050/post-cutover/`
+- 旧域名 DNS 记录由用户自行管理，服务器已不再启用旧站服务
