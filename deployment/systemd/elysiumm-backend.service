@@ -9,6 +9,7 @@ User=blue-album
 Group=blue-album
 WorkingDirectory=/home/elysiumm/app/backend
 EnvironmentFile=-/etc/elysiumm/backend.env
+ExecStartPre=/home/elysiumm/app/backend/.venv/bin/python /home/elysiumm/app/backend/run_migrations.py
 ExecStart=/home/elysiumm/app/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=on-failure
 RestartSec=3
