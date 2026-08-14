@@ -78,8 +78,12 @@ export default function ElysiumRoomHome() {
         {status}
       </div>
       <header className="elysium-room-home__topbar">
-        <div>
-          <span className="elysium-room-home__eyebrow">ELYSIUM</span>
+        <div className="elysium-room-home__brand-block">
+          <Link aria-label="Elysium 首页" className="elysium-room-home__brand" to="/">
+            <img alt="" aria-hidden="true" src="/brand/elysium-mark.svg" />
+            <span>Elysium</span>
+          </Link>
+          <span className="elysium-room-home__eyebrow">数字房间</span>
           <h1>我的数字房间</h1>
         </div>
         <nav aria-label="站内功能" className="elysium-room-home__nav">

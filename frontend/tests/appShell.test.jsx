@@ -2,8 +2,7 @@ import { MemoryRouter } from 'react-router-dom'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
@@ -27,28 +26,22 @@ describe('Elysium plain service shell', () => {
     authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
   })
 
-  it('renders the compact signed-in navigation and current service', () => {
+  it('does not render a global top bar on formal service pages', () => {
     renderShell()
-    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '工具箱' })).toBeInTheDocument()
-    expect(within(primaryNav).getByText('归档')).toHaveAttribute('aria-current', 'page')
-    expect(within(primaryNav).getByRole('link', { name: 'Test User' })).toHaveAttribute('href', '/account')
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '主导航' })).not.toBeInTheDocument()
   })
 
   it('shows login instead of account to signed-out visitors', () => {
     authState = { isAdmin: false, isAuthenticated: false, user: null }
     renderShell()
-    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(primaryNav).getByRole('link', { name: '登录' })).toHaveAttribute('href', '/login')
-    expect(within(primaryNav).queryByText('账户')).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '登录' })).not.toBeInTheDocument()
   })
 
   it('uses the Elysium mark as home and hides the formal shell on the 3D home', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
-    const brandLink = screen.getByRole('link', { name: 'Elysium 首页' })
-    expect(brandLink).toHaveAttribute('href', '/')
-    expect(brandLink.querySelector('img')).toHaveAttribute('src', '/brand/elysium-mark.svg')
+    expect(screen.queryByRole('link', { name: 'Elysium 首页' })).not.toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/' })
@@ -57,13 +50,9 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
-  it('opens the mobile drawer and keeps command navigation available without a theme control', async () => {
-    const user = userEvent.setup()
+  it('keeps formal pages free of navigation and theme controls', () => {
     renderShell()
-    await user.click(screen.getByRole('button', { name: '打开导航' }))
-    expect(screen.getByRole('dialog', { name: '导航' })).toBeInTheDocument()
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
-    expect(screen.getByRole('dialog', { name: '快捷导航' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
   })
 

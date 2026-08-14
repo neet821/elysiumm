@@ -16,7 +16,7 @@ afterEach(() => {
 })
 
 describe('application accessibility contract', () => {
-  it('provides one named main region, a skip link and named navigation controls', () => {
+  it('provides one named main region and a skip link without a global top bar', () => {
     render(
       <MemoryRouter initialEntries={['/archive']}>
         <AppShell isDark={false} toggleTheme={() => {}}>
@@ -29,9 +29,9 @@ describe('application accessibility contract', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
     expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
-    expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '主导航' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
   })
 
   it('shows a generic named alert without disclosing runtime details', () => {

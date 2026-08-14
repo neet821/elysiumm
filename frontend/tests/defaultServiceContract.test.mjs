@@ -44,3 +44,12 @@ test('the room stylesheet cannot lock scrolling on formal pages', () => {
   assert.doesNotMatch(room, /html,\s*body,\s*#app\s*\{[^}]*overflow:\s*hidden/s)
   assert.match(room, /:has\(\.app-shell--home\)/)
 })
+
+test('the 3D home top bar uses the Elysium plain header treatment', () => {
+  const home = read('features/elysium-room/ElysiumRoomHome.jsx')
+  const styles = read('features/elysium-room/elysiumRoom.css')
+  assert.match(home, /elysium-room-home__brand/)
+  assert.match(home, /elysium-mark\.svg/)
+  assert.match(styles, /elysium-room-home__topbar[\s\S]*background:\s*rgb\(255 255 255/)
+  assert.match(styles, /elysium-room-home__nav a[\s\S]*background:\s*#111/)
+})
