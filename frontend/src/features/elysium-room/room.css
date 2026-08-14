@@ -12,6 +12,12 @@ html,
 body,
 #app {
   margin: 0;
+}
+
+html:has(.app-shell--home),
+html:has(.app-shell--home) body,
+html:has(.app-shell--home) #root,
+html:has(.app-shell--home) #app {
   height: 100%;
   overflow: hidden;
 }

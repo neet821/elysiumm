@@ -3294,6 +3294,16 @@ body::before { display: none !important; }
 }
 
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell__main { min-height: 0; }
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive),
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell__main {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell--toolbox,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell__main {
+  overflow: visible;
+}
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;

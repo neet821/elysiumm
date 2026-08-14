@@ -38,3 +38,9 @@ test('toolbox keeps the four plain directory groups', () => {
   assert.match(navigation, /管理入口/)
   assert.match(tools, /全部服务/)
 })
+
+test('the room stylesheet cannot lock scrolling on formal pages', () => {
+  const room = read('features/elysium-room/room.css')
+  assert.doesNotMatch(room, /html,\s*body,\s*#app\s*\{[^}]*overflow:\s*hidden/s)
+  assert.match(room, /:has\(\.app-shell--home\)/)
+})
