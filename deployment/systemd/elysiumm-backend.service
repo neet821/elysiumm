@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=blue-album
-Group=blue-album
+User=www-data
+Group=www-data
 WorkingDirectory=/home/elysiumm/app/backend
 EnvironmentFile=-/etc/elysiumm/backend.env
 ExecStartPre=/home/elysiumm/app/backend/.venv/bin/python /home/elysiumm/app/backend/run_migrations.py
