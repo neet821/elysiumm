@@ -39,4 +39,3 @@ paths:
     recordFormat: fmp4
     recordDeleteAfter: 0s
     runOnRecordSegmentComplete: /home/elysiumm/app/backend/live_recording_hook.py %path %segment_path
-    runOnRecordSegmentCompleteRestart: false
