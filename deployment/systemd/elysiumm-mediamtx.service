@@ -24,7 +24,7 @@ LockPersonality=true
 MemoryMax=384M
 TasksMax=96
 UMask=0027
-ReadWritePaths=/home/blue-album/live/recordings
+ReadWritePaths=/srv/blue-album/live/recordings
 
 [Install]
 WantedBy=multi-user.target
