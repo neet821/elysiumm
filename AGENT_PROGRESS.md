@@ -4,10 +4,10 @@
 
 ## 当前状态
 
-- 当前阶段：单仓迁移与发布门禁
-- 总体状态：本地前端和后端完整回归通过，准备提交并创建私有仓库
-- 开始基线：`5dec553`
-- 现有未提交内容：完整目标文件、3D 房间、Blue Album 功能迁移和 Elysium 部署模板
+- 当前阶段：单仓迁移完成，生产切换完成，等待 Obsidian 首次同步验收
+- 总体状态：Elysium 已在新域名正式运行；旧运行服务已停用；Obsidian 加密连接尚未改动
+- 发布版本：`c88c840`
+- 私有仓库：[neet821/elysiumm](https://github.com/neet821/elysiumm)
 
 ## 已确认基线
 
@@ -29,7 +29,7 @@
 
 ## 下一步
 
-运行完整浏览器回归，确认功能没有因直角改造退化。
+在主设备 Obsidian 的 LiveSync 设置中，将同步地址改为 `https://sync.elysiumm.top`，然后完成一次上传、下载、重启和恢复检查。连接配置已加密保存，不能直接编辑配置文件。
 
 ## 追加改造证据
 
@@ -59,4 +59,9 @@
 - 浏览器验收：默认 3D、轻量模式记忆、镜头切换、显示器启动器共 3 项通过
 - 房间引擎回归：4 个文件、26 项通过
 - 后端完整回归：374 项通过，0 失败，0 错误
-- 尚未执行：GitHub 私有仓库创建、服务器 DNS/HTTPS/Obsidian 切换和旧域名停用
+- GitHub 私有仓库：已创建并推送，仓库历史已清除私人文件
+- DNS/HTTPS：`elysiumm.top`、`www.elysiumm.top`、`sync.elysiumm.top` 均已验证
+- 服务器：`elysiumm-backend.service`、`elysiumm-mineradio.service`、`elysiumm-mediamtx.service` 均正常；旧三个 Blue Album 服务已停用
+- 生产检查：主页、八个正式入口、API 健康检查、音乐入口和四个直播媒体端口通过
+- 最终备份：`/home/blue-album/backups/releases/elysium-final-20260814T130313Z`，校验通过
+- 尚未执行：Obsidian LiveSync 首次上传/下载/重启/恢复验收；旧域名 DNS 记录由用户自行管理，服务器已不再启用旧站服务
