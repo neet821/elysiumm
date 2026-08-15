@@ -65,6 +65,10 @@ export default function VideoStage({ roomState }) {
               onVideoEvent.onLoadedMetadata(event)
             }}
             onPlaying={onVideoEvent.onPlaying}
+            onPause={onVideoEvent.onPause}
+            onPlay={onVideoEvent.onPlay}
+            onRateChange={onVideoEvent.onRateChange}
+            onSeeking={onVideoEvent.onSeeking}
             onStalled={onVideoEvent.onStalled}
             onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
             onWaiting={onVideoEvent.onWaiting}

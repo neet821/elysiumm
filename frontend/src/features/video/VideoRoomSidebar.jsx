@@ -196,7 +196,7 @@ export default function VideoRoomSidebar({ roomState }) {
             <li key={member.user_id} className="flex flex-wrap items-center justify-between gap-2">
               <span className={member.is_online === false ? 'text-slate-400' : ''}>{member.username}</span>
               <span className="text-xs text-slate-500">{currentItem?.source_type === 'legacy_local' ? (localReady[member.user_id]?.ready && localReady[member.user_id]?.item_id === currentItem.id ? '本地文件已准备' : '等待选择本地文件') : buffers[member.user_id] ? '缓冲中' : member.is_online === false ? '离线' : '在线'}</span>
-              {isHost && member.user_id !== userId && (
+              {isHost && String(member.user_id) !== String(userId) && (
                 <span className="flex basis-full justify-end gap-2 text-xs">
                   <button type="button" onClick={() => transferHost(member.user_id)} className="text-sky-700 dark:text-sky-300">转让房主</button>
                   <button type="button" onClick={() => kickMember(member.user_id)} className="text-rose-600">移出房间</button>
@@ -226,7 +226,7 @@ export default function VideoRoomSidebar({ roomState }) {
           <div className="min-w-0 flex-1 space-y-2">
             <select aria-label="消息接收人" value={messageTarget} onChange={(event) => setMessageTarget(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-600">
               <option value="">所有成员</option>
-              {members.filter((member) => member.user_id !== userId).map((member) => (
+              {members.filter((member) => String(member.user_id) !== String(userId)).map((member) => (
                 <option key={member.user_id} value={member.user_id}>私信 {member.username}</option>
               ))}
             </select>

@@ -213,6 +213,17 @@ describe('video room page', () => {
     expect(document.querySelector('main > header')).toHaveClass('top-[4.25rem]')
   })
 
+  it('keeps host video controls when the saved user id is a string', async () => {
+    mocks.user = { id: '1', role: 'user', username: 'host' }
+    renderRoom()
+
+    expect(await screen.findByLabelText('视频网址')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('视频网址'), {
+      target: { value: 'https://media.example/host.mp4' },
+    })
+    expect(screen.getByRole('button', { name: '添加到片单' })).toBeEnabled()
+  })
+
   it('keeps the room usable when the initial video state is temporarily unavailable', async () => {
     mocks.videoError = true
     renderRoom()
@@ -332,6 +343,22 @@ describe('video room page', () => {
 
     fireEvent.error(video)
     expect(screen.getByText('当前视频无法播放，请检查来源或稍后重试')).toHaveAttribute('role', 'status')
+  })
+
+  it('rejects native mobile playback when the member cannot control the room', async () => {
+    mocks.user = { id: 2, role: 'user', username: 'member' }
+    renderRoom()
+    const video = await screen.findByTestId('video-room-media')
+    mocks.adapter.pause.mockClear()
+    mocks.socket.emit.mockClear()
+
+    fireEvent.play(video)
+
+    expect(mocks.adapter.pause).toHaveBeenCalledTimes(1)
+    expect(mocks.socket.emit).not.toHaveBeenCalledWith(
+      'playback_control',
+      expect.anything(),
+    )
   })
 
   it('does not resubmit metadata that already matches the current video', async () => {

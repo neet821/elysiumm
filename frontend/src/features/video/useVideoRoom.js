@@ -14,6 +14,10 @@ import { fingerprintLocalVideo, localFileMatches } from './localVideo.js'
 
 const REMOTE_MEDIA_EVENT_GRACE_MS = 350
 
+function sameUserId(left, right) {
+  return left != null && right != null && String(left) === String(right)
+}
+
 function detailMessage(error, fallback) {
   const detail = error?.response?.data?.detail
   if (typeof detail === 'string') return detail
@@ -51,12 +55,36 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const endedKeyRef = useRef(null)
   const metadataKeyRef = useRef(null)
 
+  const beginRemoteApply = useCallback(() => {
+    remoteApplyRef.current += 1
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      remoteApplyRef.current = Math.max(0, remoteApplyRef.current - 1)
+      remoteApplyUntilRef.current = Date.now() + REMOTE_MEDIA_EVENT_GRACE_MS
+    }
+  }, [])
+
+  const isRemotePlaybackEvent = useCallback(() => (
+    remoteApplyRef.current > 0 || Date.now() < remoteApplyUntilRef.current
+  ), [])
+
+  const runPlaybackCorrection = useCallback((operation) => {
+    const release = beginRemoteApply()
+    try {
+      Promise.resolve(operation()).catch(() => null).finally(release)
+    } catch {
+      release()
+    }
+  }, [beginRemoteApply])
+
   const currentItem = useMemo(() => {
     const item = session.playlist.find((entry) => entry.id === session.current_item_id) || null
     if (!item || item.source_type !== 'legacy_local') return item
     return { ...item, playback_url: localUrls[item.id] || null }
   }, [localUrls, session])
-  const isHost = Boolean(room && user && room.host_user_id === user.id)
+  const isHost = Boolean(room && user && sameUserId(room.host_user_id, user.id))
   const canControl = Boolean(room && user && (
     room.control_mode === 'all_members' || isHost || user.role === 'admin'
   ))
@@ -139,16 +167,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     if (!adapter || !record?.snapshot || !adapterTrack) return
     let active = true
     applyVideoSnapshot(adapter, record.snapshot, adapterTrack, {
-      beginRemoteApply: () => {
-        remoteApplyRef.current += 1
-        let released = false
-        return () => {
-          if (released) return
-          released = true
-          remoteApplyRef.current = Math.max(0, remoteApplyRef.current - 1)
-          remoteApplyUntilRef.current = Date.now() + REMOTE_MEDIA_EVENT_GRACE_MS
-        }
-      },
+      beginRemoteApply,
       receivedAtMs: record.receivedAtMs,
       syncState: syncStateRef.current,
     }).then((result) => {
@@ -162,7 +181,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
       setSyncStatus('error')
     })
     return () => { active = false }
-  }, [currentItem, session.selected_subtitle_id, snapshotRecord, videoElement])
+  }, [beginRemoteApply, currentItem, session.selected_subtitle_id, snapshotRecord, videoElement])
 
   useEffect(() => {
     if (!numericRoomId || !user?.id) return undefined
@@ -175,7 +194,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
         if (detail.data.type !== 'video' || detail.data.mode === 'music') {
           throw new Error('这不是视频房')
         }
-        if (!detail.data.members?.some((member) => member.user_id === user.id)) {
+        if (!detail.data.members?.some((member) => sameUserId(member.user_id, user.id))) {
           await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(numericRoomId))
           detail = await apiClient.get(API_ENDPOINTS.SYNC_ROOM_DETAIL(numericRoomId))
         }
@@ -372,6 +391,33 @@ export function useVideoRoom({ navigate, roomId, user }) {
     adapterRef.current?.setVolume(Number(volume))
   }, [])
 
+  const handleNativePlaybackControl = useCallback((action) => {
+    if (isRemotePlaybackEvent()) return
+    const snapshot = latestSnapshotRef.current?.snapshot
+    const adapter = adapterRef.current
+    const currentTime = adapter?.snapshot().currentTime || 0
+
+    if (!canControl) {
+      setNotice('当前房间仅房主可以控制播放')
+      if (action === 'play') runPlaybackCorrection(() => adapter?.pause())
+      if (action === 'pause' && snapshot?.state === 'playing') {
+        runPlaybackCorrection(() => adapter?.play())
+      }
+      if (action === 'seek') runPlaybackCorrection(() => adapter?.seek(snapshot?.position || 0))
+      if (action === 'rate') runPlaybackCorrection(() => adapter?.setPlaybackRate(snapshot?.playback_rate || 1))
+      requestSnapshot()
+      return
+    }
+
+    const payload = action === 'rate'
+      ? { rate: adapter?.snapshot().playbackRate || 1 }
+      : { time: currentTime }
+    if (!emitControl(action, payload)) {
+      setNotice('实时连接暂不可用，正在重新同步')
+      requestSnapshot()
+    }
+  }, [canControl, emitControl, isRemotePlaybackEvent, requestSnapshot, runPlaybackCorrection])
+
   const reportBuffering = useCallback((buffering) => {
     if (!currentItem || !socketRef.current || bufferReportedRef.current === buffering) return
     bufferReportedRef.current = buffering
@@ -384,6 +430,10 @@ export function useVideoRoom({ navigate, roomId, user }) {
 
   const onVideoEvent = useMemo(() => ({
     onCanPlay: () => reportBuffering(false),
+    onPause: () => handleNativePlaybackControl('pause'),
+    onPlay: () => handleNativePlaybackControl('play'),
+    onRateChange: () => handleNativePlaybackControl('rate'),
+    onSeeking: () => handleNativePlaybackControl('seek'),
     onEnded: () => {
       const version = latestSnapshotRef.current?.snapshot?.version
       if (!canControl || !currentItem || !Number.isInteger(version)) return
@@ -424,7 +474,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     onPlaying: () => reportBuffering(false),
     onStalled: () => reportBuffering(true),
     onWaiting: () => reportBuffering(true),
-  }), [canControl, currentItem, numericRoomId, reportBuffering])
+  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, reportBuffering])
 
   const runMutation = useCallback(async (operation, fallback) => {
     setBusy(true)
