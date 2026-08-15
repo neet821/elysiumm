@@ -386,6 +386,24 @@ def mark_stale_members_offline(
     for member in stale_members:
         member.is_online = False
         member.last_active_at = now
+    # Some callers disable SQLAlchemy autoflush; make the offline state visible
+    # to the online-member count below before deciding whether a room is empty.
+    if stale_members:
+        db.flush()
+    for room in db.query(models.SyncRoom).filter(
+        models.SyncRoom.id.in_(changed_rooms),
+        models.SyncRoom.is_active == True,
+        models.SyncRoom.is_deleted == False,
+    ).all():
+        online_count = db.query(models.SyncRoomMember).filter(
+            models.SyncRoomMember.room_id == room.id,
+            models.SyncRoomMember.is_online == True,
+        ).count()
+        if online_count == 0:
+            room.lifecycle_status = "idle"
+            room.is_playing = False
+            room.last_activity_at = now
+            room.updated_at = now
     if stale_members:
         db.commit()
     return changed_rooms

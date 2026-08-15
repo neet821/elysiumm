@@ -159,6 +159,22 @@ class SyncRoomLifecycleTest(unittest.TestCase):
         listed_room = next(item for item in listed if item["id"] == room.id)
         self.assertEqual(listed_room["member_count"], 0)
 
+    def test_room_list_starts_empty_timeout_when_last_member_heartbeat_expires(self):
+        room = self.create_room()
+        old_activity = datetime.utcnow() - timedelta(minutes=5)
+        member = self.db.query(models.SyncRoomMember).filter_by(room_id=room.id).one()
+        member.last_active_at = datetime.utcnow() - timedelta(seconds=31)
+        room.last_activity_at = old_activity
+        self.db.commit()
+
+        listed = sync_room_crud.get_user_rooms(self.db, self.host.id)
+        listed_room = next(item for item in listed if item["id"] == room.id)
+
+        self.assertEqual(listed_room["member_count"], 0)
+        self.db.refresh(room)
+        self.assertEqual(room.lifecycle_status, "idle")
+        self.assertGreater(room.last_activity_at, old_activity)
+
     def test_recent_presence_prevents_stale_cleanup(self):
         room = self.create_room()
         now = datetime.utcnow()
