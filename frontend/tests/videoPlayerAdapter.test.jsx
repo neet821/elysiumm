@@ -79,6 +79,20 @@ describe('VideoPlayerAdapter', () => {
     expect(adapter.snapshot().track.id).toBe('video:8:file:subtitles:11:0,12:0')
   })
 
+  it('accepts browser blob URLs for local video playback', () => {
+    const video = document.createElement('video')
+    const adapter = createVideoPlayerAdapter(video)
+    const track = videoItemToAdapterTrack(item({
+      playback_url: 'blob:http://localhost/3f6c0e6d-2e10-4b6f-8c91-8d9a2c6f20b8',
+      source_type: 'legacy_local',
+    }))
+
+    expect(track?.playbackUrl).toBe('blob:http://localhost/3f6c0e6d-2e10-4b6f-8c91-8d9a2c6f20b8')
+    adapter.load(track)
+
+    expect(video.getAttribute('src')).toBe('blob:http://localhost/3f6c0e6d-2e10-4b6f-8c91-8d9a2c6f20b8')
+  })
+
   it('uses an HLS engine when the browser has no native m3u8 support and destroys it on replacement', () => {
     const video = document.createElement('video')
     Object.defineProperty(video, 'canPlayType', { configurable: true, value: vi.fn(() => '') })

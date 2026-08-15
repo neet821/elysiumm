@@ -6,13 +6,14 @@ import {
 import Hls from 'hls.js'
 
 
-function safeMediaUrl(value) {
+function safeMediaUrl(value, { allowBlob = false } = {}) {
   if (typeof value !== 'string' || !value.trim()) return null
   const candidate = value.trim()
   if (candidate.startsWith('/')) return candidate
   try {
     const parsed = new URL(candidate, window.location.origin)
-    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    const allowedProtocols = allowBlob ? ['http:', 'https:', 'blob:'] : ['http:', 'https:']
+    if (!allowedProtocols.includes(parsed.protocol) || parsed.username || parsed.password) {
       return null
     }
     return candidate
@@ -23,7 +24,7 @@ function safeMediaUrl(value) {
 
 export function videoItemToAdapterTrack(item, selectedSubtitleId = null) {
   if (!item || !Number.isInteger(Number(item.id)) || Number(item.id) <= 0) return null
-  const playbackUrl = safeMediaUrl(item.playback_url)
+  const playbackUrl = safeMediaUrl(item.playback_url, { allowBlob: true })
   if (!playbackUrl) return null
   const subtitles = (Array.isArray(item.subtitles) ? item.subtitles : [])
     .map((subtitle) => ({
@@ -64,7 +65,7 @@ export function createVideoPlayerAdapter(element, options = {}) {
 
   const adapter = {
     load(track) {
-      if (!track || !safeMediaUrl(track.playbackUrl)) {
+      if (!track || !safeMediaUrl(track.playbackUrl, { allowBlob: true })) {
         throw new Error('视频没有可安全播放的地址')
       }
       element.pause()
