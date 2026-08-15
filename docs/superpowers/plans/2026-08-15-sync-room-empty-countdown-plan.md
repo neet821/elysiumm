@@ -61,7 +61,7 @@ Expected: all lifecycle tests pass.
 
 **Files:**
 - Create: `frontend/src/pages/syncRoomListUtils.js`
-- Test: `frontend/tests/syncRoomListUtils.test.js`
+- Test: `frontend/tests/syncRoomListUtils.test.jsx`
 
 **Interfaces:**
 - Consumes: a room object with `member_count` and `last_activity_at`.
@@ -81,7 +81,7 @@ expect(formatEmptyRoomCountdown('2026-08-15T00:00:00Z', Date.parse('2026-08-15T0
 - [ ] **Step 2: Run the formatter tests to verify they fail**
 
 ```bash
-npm --prefix frontend run test:unit -- tests/syncRoomListUtils.test.js
+npm --prefix frontend run test:unit -- tests/syncRoomListUtils.test.jsx
 ```
 
 Expected: FAIL because the helper module does not exist.
@@ -127,7 +127,7 @@ Run the same Vitest command and confirm all component tests pass.
 - [ ] **Step 5: Run the focused frontend regression set**
 
 ```bash
-npm --prefix frontend run test:unit -- tests/syncRoomListUtils.test.js tests/syncRoomList.test.jsx tests/videoPlayerAdapter.test.jsx tests/videoRoomPage.test.jsx tests/localVideo.test.jsx
+npm --prefix frontend run test:unit -- tests/syncRoomListUtils.test.jsx tests/syncRoomList.test.jsx tests/videoPlayerAdapter.test.jsx tests/videoRoomPage.test.jsx tests/localVideo.test.jsx
 ```
 
 Expected: all listed tests pass.
@@ -153,7 +153,7 @@ Confirm lint has zero errors and the build exits successfully.
 - [ ] **Step 2: Commit the implementation**
 
 ```bash
-git add backend/sync_room_crud.py backend/tests/test_sync_room_lifecycle_unittest.py frontend/src/pages/syncRoomListUtils.js frontend/tests/syncRoomListUtils.test.js frontend/src/pages/SyncRoomList.jsx frontend/tests/syncRoomList.test.jsx
+git add backend/sync_room_crud.py backend/tests/test_sync_room_lifecycle_unittest.py frontend/src/pages/syncRoomListUtils.js frontend/tests/syncRoomListUtils.test.jsx frontend/src/pages/SyncRoomList.jsx frontend/tests/syncRoomList.test.jsx
 git commit -m "feat: show sync room occupancy countdown"
 ```
 

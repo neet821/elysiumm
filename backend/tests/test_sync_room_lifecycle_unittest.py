@@ -127,6 +127,38 @@ class SyncRoomLifecycleTest(unittest.TestCase):
         self.assertEqual(changed_rooms, {room.id})
         self.assertFalse(member.is_online)
 
+    def test_room_list_counts_only_fresh_online_members(self):
+        room = self.create_room()
+        member = models.User(
+            username="member",
+            email="member@example.com",
+            hashed_password="unused",
+            role="user",
+        )
+        self.db.add(member)
+        self.db.commit()
+        self.db.refresh(member)
+        sync_room_crud.join_room(self.db, room.id, member.id)
+
+        stale_member = self.db.query(models.SyncRoomMember).filter_by(
+            room_id=room.id,
+            user_id=member.id,
+        ).one()
+        stale_member.last_active_at = datetime.utcnow() - timedelta(seconds=31)
+        self.db.commit()
+
+        listed = sync_room_crud.get_user_rooms(self.db, self.host.id)
+        listed_room = next(item for item in listed if item["id"] == room.id)
+
+        self.assertEqual(listed_room["member_count"], 1)
+        self.db.refresh(stale_member)
+        self.assertFalse(stale_member.is_online)
+
+        sync_room_crud.leave_room(self.db, room.id, self.host.id)
+        listed = sync_room_crud.get_user_rooms(self.db, self.host.id)
+        listed_room = next(item for item in listed if item["id"] == room.id)
+        self.assertEqual(listed_room["member_count"], 0)
+
     def test_recent_presence_prevents_stale_cleanup(self):
         room = self.create_room()
         now = datetime.utcnow()

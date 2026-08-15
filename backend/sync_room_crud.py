@@ -89,6 +89,7 @@ def get_room_by_id(db: Session, room_id: int) -> models.SyncRoom:
 
 def get_user_rooms(db: Session, user_id: int, skip: int = 0, limit: int = 20):
     """获取所有活跃的房间列表(对所有用户可见)"""
+    mark_stale_members_offline(db, timeout_seconds=ROOM_PRESENCE_TIMEOUT_SECONDS)
     # 查询所有活跃的房间,不再限制为用户参与的房间
     rooms = db.query(models.SyncRoom).filter(
         models.SyncRoom.is_active == True,

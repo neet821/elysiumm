@@ -17,6 +17,10 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import apiClient from "../utils/request";
 import { API_ENDPOINTS } from "../config";
+import {
+  formatEmptyRoomCountdown,
+  getOnlineMemberCount,
+} from "./syncRoomListUtils.js";
 
 const SyncRoomList = ({ styles, isDark, embedded = false }) => {
   const navigate = useNavigate();
@@ -26,11 +30,16 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomName, setRoomName] = useState("");
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     fetchRooms();
-    const interval = setInterval(fetchRooms, 10000); // 每10秒刷新一次
-    return () => clearInterval(interval);
+    const refreshInterval = setInterval(fetchRooms, 10000); // 每10秒刷新一次
+    const clockInterval = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(clockInterval);
+    };
   }, []);
 
   const fetchRooms = async () => {
@@ -101,19 +110,11 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
     setRoomName("");
   };
 
-  const formatTimeLeft = (lastActivityAt) => {
-    if (!lastActivityAt) return "30分钟后关闭";
-    const lastActivity = new Date(lastActivityAt);
-    const autoCloseTime = new Date(lastActivity.getTime() + 30 * 60 * 1000); // 30分钟无活动自动关闭
-    const now = new Date();
-    const remaining = Math.floor((autoCloseTime - now) / 1000 / 60);
+  const RoomCard = ({ room, showDelete = false }) => {
+    const onlineMemberCount = getOnlineMemberCount(room);
+    const isEmpty = onlineMemberCount === 0;
 
-    if (remaining <= 0) return "即将关闭";
-    if (remaining < 60) return `${remaining}分钟后关闭`;
-    return `${Math.floor(remaining / 60)}小时${remaining % 60}分钟后关闭`;
-  };
-
-  const RoomCard = ({ room, showDelete = false }) => (
+    return (
     <div
       className={`${styles.bg} p-4 sm:p-6 rounded-xl border ${
         styles.border
@@ -176,7 +177,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
         >
           <span className={`${styles.textMuted} flex items-center gap-1`}>
             <Users size={14} />
-            {room.current_members || 0} / {room.max_members || 10} 人
+            {isEmpty ? "空房间" : `在线成员 ${onlineMemberCount} / ${room.max_members || 10}`}
           </span>
           <span
             className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
@@ -201,10 +202,12 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
           <span>房间号: {room.room_code}</span>
         </div>
 
-        <div className={`text-xs ${styles.textMuted} flex items-center gap-1`}>
-          <Clock size={12} />
-          {formatTimeLeft(room.last_activity_at)}
-        </div>
+        {isEmpty && (
+          <div className={`text-xs ${styles.textMuted} flex items-center gap-1`} role="status">
+            <Clock size={12} />
+            {formatEmptyRoomCountdown(room.last_activity_at, now)}
+          </div>
+        )}
       </div>
 
       <button
@@ -227,7 +230,8 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
         }`}
       ></div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className={(embedded ? "pt-6" : `pt-24 sm:pt-28 md:pt-32 pb-16 md:pb-20 min-h-screen ${styles.bgSecondary}`) + " transition-colors duration-1000 animate-fade-in"}>
@@ -254,7 +258,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
                 同步观影室管理
               </h3>
               <p className={`text-xs sm:text-sm ${styles.textMuted}`}>
-                创建或加入房间，与朋友一起观看视频 · 房间将在2小时后自动关闭
+                创建或加入房间，与朋友一起观看视频 · 空房间将在10分钟后自动关闭
               </p>
             </div>
             <button
