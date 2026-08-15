@@ -7,18 +7,14 @@ test.describe('Elysium 首页', () => {
     await page.reload()
   })
 
-  test('默认载入 3D 房间和八个入口', async ({ page }) => {
+  test('默认载入 3D 房间和简洁顶部导航', async ({ page }) => {
     await expect(page.getByTestId('home-experience')).toHaveAttribute('data-room-mode', '3d')
     await expect(page.locator('#room-canvas')).toHaveAttribute('data-engine', 'three.js r179')
     await expect(page.getByTestId('camera-overview')).toBeVisible()
-    await expect(page.getByRole('link', { name: '归档' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '直播' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '音乐' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Elysium 首页' })).toBeVisible()
     await expect(page.getByRole('link', { name: '工具箱' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '收藏' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '书籍' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '桌游' })).toBeVisible()
-    await expect(page.getByRole('link', { name: '账户' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '登录' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '归档' })).toHaveCount(0)
   })
 
   test('可以切换镜头并记住轻量模式偏好', async ({ page }) => {
