@@ -161,7 +161,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
               e.stopPropagation();
               handleDeleteRoom(room.id);
             }}
-            className="text-red-500 hover:text-red-600 p-2"
+            className="relative z-10 text-red-500 hover:text-red-600 p-2"
             title="删除房间"
           >
             <Trash2 size={16} />
@@ -225,7 +225,8 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
       </button>
 
       <div
-        className={`absolute right-0 top-0 w-20 h-20 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-150 ${
+        aria-hidden="true"
+        className={`pointer-events-none absolute right-0 top-0 w-20 h-20 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-150 ${
           isDark ? "bg-orange-500/10" : "bg-[#189BCC]/5"
         }`}
       ></div>

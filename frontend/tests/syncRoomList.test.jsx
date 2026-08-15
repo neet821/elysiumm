@@ -83,4 +83,36 @@ describe('同步房间列表', () => {
 
     expect(screen.getByText('09:59 后关闭')).toBeInTheDocument()
   })
+
+  it('让删除按钮位于右上角装饰层之上', async () => {
+    mocks.api.get.mockResolvedValue({
+      data: [
+        {
+          id: 3,
+          room_name: '我的房间',
+          room_code: 'MINE01',
+          host: { id: 1, username: 'host' },
+          member_count: 1,
+          max_members: 10,
+          last_activity_at: '2026-08-15T00:01:30Z',
+          is_playing: false,
+          type: 'video',
+          mode: 'url',
+        },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTitle('删除房间')).toHaveClass('relative', 'z-10')
+  })
 })
