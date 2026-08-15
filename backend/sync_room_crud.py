@@ -98,6 +98,7 @@ def get_user_rooms(db: Session, user_id: int, skip: int = 0, limit: int = 20):
 
     # 添加在线成员数量和成员列表
     result = []
+    rooms_changed = False
     for room in rooms:
         # 总成员数
         total_count = db.query(models.SyncRoomMember).filter(
@@ -109,6 +110,16 @@ def get_user_rooms(db: Session, user_id: int, skip: int = 0, limit: int = 20):
             models.SyncRoomMember.room_id == room.id,
             models.SyncRoomMember.is_online == True
         ).count()
+
+        # 兼容已经提前变成离线、但尚未经过心跳超时清理的旧空房间。
+        # 第一次在列表中确认无在线成员时，才开始新的十分钟空房倒计时。
+        if online_count == 0 and room.lifecycle_status == "active":
+            now = datetime.utcnow()
+            room.lifecycle_status = "idle"
+            room.is_playing = False
+            room.last_activity_at = now
+            room.updated_at = now
+            rooms_changed = True
 
         # 获取成员列表(用于前端显示) - 转换为字典格式
         members_query = db.query(models.SyncRoomMember).filter(
@@ -148,6 +159,9 @@ def get_user_rooms(db: Session, user_id: int, skip: int = 0, limit: int = 20):
         room_dict['host'] = host_info  # 添加房主信息
         room_dict['has_password'] = bool(room.password_hash)  # 修复: 使用 password_hash 字段
         result.append(room_dict)
+
+    if rooms_changed:
+        db.commit()
 
     return result
 

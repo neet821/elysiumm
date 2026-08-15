@@ -175,6 +175,23 @@ class SyncRoomLifecycleTest(unittest.TestCase):
         self.assertEqual(room.lifecycle_status, "idle")
         self.assertGreater(room.last_activity_at, old_activity)
 
+    def test_room_list_starts_empty_timeout_for_already_offline_active_room(self):
+        room = self.create_room()
+        old_activity = datetime.utcnow() - timedelta(minutes=5)
+        member = self.db.query(models.SyncRoomMember).filter_by(room_id=room.id).one()
+        member.is_online = False
+        member.last_active_at = old_activity
+        room.last_activity_at = old_activity
+        self.db.commit()
+
+        listed = sync_room_crud.get_user_rooms(self.db, self.host.id)
+        listed_room = next(item for item in listed if item["id"] == room.id)
+
+        self.assertEqual(listed_room["member_count"], 0)
+        self.db.refresh(room)
+        self.assertEqual(room.lifecycle_status, "idle")
+        self.assertGreater(room.last_activity_at, old_activity)
+
     def test_recent_presence_prevents_stale_cleanup(self):
         room = self.create_room()
         now = datetime.utcnow()
