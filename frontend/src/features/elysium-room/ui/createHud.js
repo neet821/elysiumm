@@ -12,7 +12,7 @@ const SCENERY_LABELS = Object.freeze({
   night: '夜景',
 })
 
-export function createHud(mount, { onCamera, onTimeMode }) {
+export function createHud(mount, { onCamera, onTimeMode, onModeSwitch }) {
   mount.innerHTML = `
     <div class="hud" data-testid="hud">
       <header class="hud-top">
@@ -42,6 +42,12 @@ export function createHud(mount, { onCamera, onTimeMode }) {
             <button type="button" data-testid="time-night" data-time="night">夜晚</button>
           </div>
         </section>
+        <section class="hud-group" aria-label="显示模式">
+          <h2>显示模式</h2>
+          <div class="button-row">
+            <button aria-label="切换到轻量模式" type="button" data-testid="mode-switch">轻量模式</button>
+          </div>
+        </section>
         <p class="hover-hint" data-testid="hover-hint" aria-live="polite"></p>
       </div>
     </div>
@@ -62,6 +68,7 @@ export function createHud(mount, { onCamera, onTimeMode }) {
   timeButtons.forEach((button) => {
     button.addEventListener('click', () => onTimeMode?.(button.dataset.time))
   })
+  mount.querySelector('[data-testid="mode-switch"]')?.addEventListener('click', () => onModeSwitch?.())
 
   return {
     render(snapshot) {

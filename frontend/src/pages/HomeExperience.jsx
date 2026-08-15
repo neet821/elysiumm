@@ -15,6 +15,7 @@ function readMode() {
 
 export default function HomeExperience() {
   const [mode, setMode] = useState(readMode)
+  const canUse3d = typeof globalThis.WebGLRenderingContext !== 'undefined'
   const switchMode = (next) => {
     setMode(next)
     try {
@@ -27,18 +28,20 @@ export default function HomeExperience() {
   return (
     <div className={`home-experience home-experience--${mode}`} data-room-mode={mode} data-testid="home-experience">
       {mode === '3d' ? (
-        <ElysiumRoomHome />
+        <ElysiumRoomHome onSwitchMode={() => switchMode('lite')} />
       ) : (
         <DeskRoomHome />
       )}
-      <button
-        aria-label={mode === '3d' ? '切换到轻量模式' : '切换到三维模式'}
-        className="home-experience__mode-switch"
-        onClick={() => switchMode(mode === '3d' ? 'lite' : '3d')}
-        type="button"
-      >
-        {mode === '3d' ? '轻量模式' : '3D 模式'}
-      </button>
+      {(mode === 'lite' || !canUse3d) && (
+        <button
+          aria-label={mode === '3d' ? '切换到轻量模式' : '切换到三维模式'}
+          className="home-experience__mode-switch"
+          onClick={() => switchMode(mode === '3d' ? 'lite' : '3d')}
+          type="button"
+        >
+          {mode === '3d' ? '轻量模式' : '3D 模式'}
+        </button>
+      )}
     </div>
   )
 }

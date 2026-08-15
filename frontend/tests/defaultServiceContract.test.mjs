@@ -45,11 +45,14 @@ test('the room stylesheet cannot lock scrolling on formal pages', () => {
   assert.match(room, /:has\(\.app-shell--home\)/)
 })
 
-test('the 3D home top bar uses the Elysium plain header treatment', () => {
+test('the 3D home reuses the compact formal header and keeps its mode control at the bottom', () => {
+  const shell = read('components/layout/AppShell.jsx')
   const home = read('features/elysium-room/ElysiumRoomHome.jsx')
-  const styles = read('features/elysium-room/elysiumRoom.css')
-  assert.match(home, /elysium-room-home__brand/)
-  assert.match(home, /elysium-mark\.svg/)
-  assert.match(styles, /elysium-room-home__topbar[\s\S]*background:\s*rgb\(255 255 255/)
-  assert.match(styles, /elysium-room-home__nav a[\s\S]*background:\s*#111/)
+  const experience = read('pages/homeExperience.css')
+  assert.match(shell, /!isMusicRoom\s*&&\s*<Header \/>/)
+  assert.doesNotMatch(home, /elysium-room-home__topbar/)
+  assert.doesNotMatch(home, /NAV_ITEMS/)
+  assert.match(experience, /home-experience__mode-switch[\s\S]*bottom:/)
+  assert.doesNotMatch(experience, /home-experience__mode-switch[\s\S]*top:/)
+  assert.match(read('features/elysium-room/ui/createHud.js'), /aria-label="显示模式"/)
 })

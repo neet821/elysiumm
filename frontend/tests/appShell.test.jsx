@@ -42,14 +42,20 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
-  it('uses the Elysium mark as home and hides the formal shell on the 3D home', () => {
+  it('uses the same compact header on the 3D home without invented service links', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
     expect(screen.getByRole('link', { name: 'Elysium 首页' })).toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/' })
     expect(document.querySelector('.app-shell')).toHaveClass('app-shell--home')
-    expect(document.querySelector('.app-header')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
+    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '工具箱' })).toBeInTheDocument()
+    expect(within(primaryNav).queryByText('直播')).not.toBeInTheDocument()
+    expect(within(primaryNav).queryByText('音乐')).not.toBeInTheDocument()
+    expect(within(primaryNav).queryByText('书籍')).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 

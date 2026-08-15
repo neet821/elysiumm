@@ -3516,7 +3516,51 @@ body::before { display: none !important; }
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item small { display: block; }
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .service-directory__item small { color: #555; margin-top: 0.25rem; }
 
+/* The 3D room uses the same compact site header, laid over the scene. */
+.service-shell.app-shell--home .app-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #fff;
+  border-bottom: 1px solid #bdbdbd;
+  padding: 0.75rem 1.25rem;
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 60;
+}
+.service-shell.app-shell--home .app-header__inner { max-width: 70rem; }
+.service-shell.app-shell--home .brand-logo { color: #111; gap: 0.5rem; text-decoration: none; }
+.service-shell.app-shell--home .brand-logo__image { height: 1.5rem; width: 1.5rem; }
+.service-shell.app-shell--home .brand-logo__text {
+  color: #111;
+  font: 600 1rem/1 var(--font-interface);
+  letter-spacing: 0;
+  rotate: none;
+  text-shadow: none;
+}
+.service-shell.app-shell--home .app-header__nav { gap: 0; }
+.service-shell.app-shell--home .app-header__nav-link {
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  color: #444;
+  display: inline-flex;
+  font: 400 0.9rem/1.2 var(--font-interface);
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  text-decoration: none;
+}
+.service-shell.app-shell--home .app-header__nav-link::after { display: none; }
+.service-shell.app-shell--home .app-header__nav-link:hover,
+.service-shell.app-shell--home .app-header__nav-link:focus-visible,
+.service-shell.app-shell--home .app-header__nav-link.is-active { background: #111; color: #fff; }
+.service-shell.app-shell--home .app-header__menu { display: none; }
+
 @media (max-width: 800px) {
+  .service-shell.app-shell--home .app-header__nav { display: flex; }
+  .service-shell.app-shell--home .app-header__nav > .app-header__nav-link { display: none; }
+  .service-shell.app-shell--home .app-header__menu { display: inline-flex; }
+  .service-shell.app-shell--home .app-header__mobile-nav { display: grid; gap: 0; }
+  .service-shell.app-shell--home .app-header__mobile-nav .app-header__nav-link { display: flex; margin-bottom: 0.35rem; width: 100%; }
   .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav { display: flex; }
   .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav > .app-header__nav-link,
   .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header__nav > .app-header__current { display: none; }
