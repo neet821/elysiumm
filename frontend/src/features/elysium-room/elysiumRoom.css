@@ -20,22 +20,28 @@
 
 .elysium-room-home__topbar {
   align-items: flex-start;
+  background: rgb(255 255 255 / 92%);
+  border-bottom: 1px solid rgb(17 17 17 / 22%);
   display: flex;
   gap: 1rem;
   inset: 0 0 auto;
   justify-content: space-between;
-  padding: 1rem 9rem 1rem 1.25rem;
+  padding: .65rem 1rem;
   pointer-events: none;
   position: absolute;
   z-index: 30;
 }
 
 .elysium-room-home__topbar > * { pointer-events: auto; }
-.elysium-room-home__eyebrow { color: #8c5538; font-size: .66rem; font-weight: 700; letter-spacing: .18em; }
-.elysium-room-home h1 { font-size: 1rem; margin: .25rem 0 0; }
-.elysium-room-home__nav { align-items: center; background: rgb(247 242 233 / 78%); border: 1px solid rgb(38 35 31 / 18%); display: flex; flex-wrap: wrap; gap: .15rem; justify-content: center; padding: .3rem; }
-.elysium-room-home__nav a { color: #26231f; font-size: .72rem; padding: .35rem .45rem; text-decoration: none; }
-.elysium-room-home__nav a:hover, .elysium-room-home__nav a:focus-visible { background: #8c5538; color: #fffaf2; }
+.elysium-room-home__brand-block { display: grid; gap: .1rem; }
+.elysium-room-home__brand { align-items: center; color: #111; display: inline-flex; font-size: .95rem; font-weight: 700; gap: .45rem; text-decoration: none; }
+.elysium-room-home__brand img { height: 1.35rem; width: 1.35rem; }
+.elysium-room-home__eyebrow { color: #555; font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.elysium-room-home h1 { color: #111; font-size: .78rem; font-weight: 500; margin: .1rem 0 0; }
+.elysium-room-home__nav { align-items: center; background: #fff; border: 1px solid #888; display: flex; flex-wrap: wrap; gap: 0; justify-content: center; padding: 0; }
+.elysium-room-home__nav a { border-left: 1px solid #ddd; color: #111; font-size: .72rem; padding: .42rem .55rem; text-decoration: none; }
+.elysium-room-home__nav a:first-child { border-left: 0; }
+.elysium-room-home__nav a:hover, .elysium-room-home__nav a:focus-visible { background: #111; color: #fff; }
 .elysium-room-home__fallback { align-items: center; display: flex; inset: 0; justify-content: center; pointer-events: none; position: absolute; z-index: 2; }
 .elysium-room-home__fallback:empty { display: none; }
 .elysium-room-home__launcher-backdrop { align-items: center; background: rgb(25 23 20 / 45%); display: flex; inset: 0; justify-content: center; position: absolute; z-index: 40; }
@@ -47,7 +53,7 @@
 .elysium-room-home__launcher-links a:hover, .elysium-room-home__launcher-links a:focus-visible { background: #8c5538; color: #fffaf2; }
 
 @media (max-width: 800px) {
-  .elysium-room-home__topbar { flex-wrap: wrap; padding-right: 1.25rem; }
+  .elysium-room-home__topbar { flex-wrap: wrap; padding: .65rem .75rem; }
   .elysium-room-home__nav { order: 3; width: 100%; }
   .elysium-room-home__launcher-links { grid-template-columns: repeat(2, 1fr); }
   .elysium-room-home__mode { margin-left: auto; }

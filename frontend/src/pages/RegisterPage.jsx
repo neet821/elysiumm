@@ -44,7 +44,7 @@ const RegisterPage = ({ styles, isDark }) => {
         <div className="text-center mb-8">
           <h1 className={`text-3xl font-bold ${styles.text} mb-2`}>创建账户</h1>
           <p className={`text-sm ${styles.textMuted}`}>
-            创建你的 Blue Album 账号
+            创建你的 Elysium 账号
           </p>
         </div>
 

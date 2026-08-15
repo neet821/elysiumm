@@ -1,40 +1,50 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Menu, Moon, Sun } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { BrandLogo } from './brand/BrandLogo.jsx'
-import { Avatar, CommandPalette, Drawer, IconButton } from './ui/index.js'
-import { AUTHENTICATED_NAV_ITEMS, getPrimaryNavigation } from '../navigation.js'
+import { Drawer, IconButton, CommandPalette } from './ui/index.js'
+import { SERVICE_DIRECTORY } from '../navigation.js'
 
-// Keep one exported order for route tests and future shells.
-export const PUBLIC_NAV_ITEMS = AUTHENTICATED_NAV_ITEMS
+export const PUBLIC_NAV_ITEMS = SERVICE_DIRECTORY
 
-export function Header({ isDark, toggleTheme }) {
+function CompactLink({ children, to, end = false, onClick }) {
+  return (
+    <NavLink
+      className={({ isActive }) => `app-header__nav-link${isActive ? ' is-active' : ''}`}
+      end={end}
+      onClick={onClick}
+      to={to}
+    >
+      {children}
+    </NavLink>
+  )
+}
+
+export function Header() {
   const { isAuthenticated, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
 
-  const navigationItems = useMemo(() => getPrimaryNavigation(isAuthenticated), [isAuthenticated])
+  const accountTarget = isAuthenticated ? '/account' : '/login'
+  const accountLabel = isAuthenticated ? (user?.username || '账户') : '登录'
   const commandItems = useMemo(() => [
-    { id: '/', label: '首页', description: '返回 Blue Album 首页', keywords: ['首页', 'home', '/'], to: '/' },
-    ...navigationItems.map((item) => ({
-      id: item.to,
-      label: item.label,
-      description: item.description,
-      keywords: [item.label, item.to],
-      to: item.to,
-    })),
-  ], [navigationItems])
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > (location.pathname === '/' ? 180 : 20))
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [location.pathname])
+    { id: '/', label: '首页', description: '返回 Elysium 房间', keywords: ['首页', 'home', '/'], to: '/' },
+    ...SERVICE_DIRECTORY
+      .filter((item) => !item.auth || isAuthenticated)
+      .map((item) => ({
+        id: item.to,
+        label: item.label,
+        description: item.description,
+        keywords: [item.label, item.to],
+        to: item.to,
+      })),
+    ...(isAuthenticated && user?.is_admin
+      ? [{ id: '/account/admin', label: '管理中心', description: '管理内容、用户与服务', keywords: ['管理', 'admin'], to: '/account/admin' }]
+      : []),
+  ], [isAuthenticated, user?.is_admin])
 
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -52,60 +62,30 @@ export function Header({ isDark, toggleTheme }) {
     return () => window.removeEventListener('keydown', handleShortcut)
   }, [])
 
-  const renderNavLink = (item, mobile = false) => {
-    const isAccount = item.id === 'account'
-    const accessibleLabel = isAccount ? (user?.username || '账户') : item.label
-
-    return (
-    <NavLink
-      key={item.to}
-      className={({ isActive }) => [
-        mobile ? 'app-header__mobile-link' : 'app-header__nav-link',
-        isActive && 'is-active',
-      ].filter(Boolean).join(' ')}
-      to={item.to}
-      end={item.end}
-      aria-label={accessibleLabel}
-      title={isAccount ? '账户' : undefined}
-      onClick={() => setMobileMenuOpen(false)}
-    >
-      {isAccount && (
-        <Avatar
-          className="app-header__account-avatar"
-          name={user?.username || 'Account'}
-          src={user?.avatar_url || undefined}
-          size="sm"
-        />
-      )}
-      {!isAccount && <span>{item.label}</span>}
-    </NavLink>
-    )
-  }
+  const compactLinks = (
+    <>
+      <CompactLink end to="/" onClick={() => setMobileMenuOpen(false)}>首页</CompactLink>
+      <CompactLink to="/tools" onClick={() => setMobileMenuOpen(false)}>工具箱</CompactLink>
+      <CompactLink to={accountTarget} onClick={() => setMobileMenuOpen(false)}>{accountLabel}</CompactLink>
+    </>
+  )
 
   return (
     <>
-      <header className="app-header" data-scrolled={isScrolled ? 'true' : 'false'}>
+      <header className="app-header">
         <div className="app-header__inner">
           <BrandLogo />
           <nav className="app-header__nav" aria-label="主导航">
-            {navigationItems.map((item) => renderNavLink(item))}
+            {compactLinks}
             <IconButton
-              className="app-header__theme"
-              aria-label={isDark ? '切换到浅色模式' : '切换到深色模式'}
-              title={isDark ? '切换到浅色模式' : '切换到深色模式'}
-              onClick={toggleTheme}
+              aria-label="打开导航"
+              aria-expanded={mobileMenuOpen}
+              className="app-header__menu"
+              onClick={() => setMobileMenuOpen(true)}
             >
-              {isDark ? <Moon size={17} aria-hidden="true" /> : <Sun size={17} aria-hidden="true" />}
+              <Menu size={18} aria-hidden="true" />
             </IconButton>
           </nav>
-          <IconButton
-            className="app-header__menu"
-            aria-label="打开导航"
-            aria-expanded={mobileMenuOpen}
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu size={21} aria-hidden="true" />
-          </IconButton>
         </div>
       </header>
 
@@ -116,11 +96,7 @@ export function Header({ isDark, toggleTheme }) {
         title="导航"
       >
         <nav className="app-header__mobile-nav" aria-label="移动导航">
-          {navigationItems.map((item) => renderNavLink(item, true))}
-          <button className="app-header__mobile-theme" type="button" onClick={toggleTheme}>
-            {isDark ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
-            {isDark ? '切换到浅色模式' : '切换到深色模式'}
-          </button>
+          {compactLinks}
         </nav>
       </Drawer>
 

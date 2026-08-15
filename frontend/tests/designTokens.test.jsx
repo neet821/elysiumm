@@ -54,7 +54,7 @@ describe('Blue Album brand foundation', () => {
     const brandDirectory = path.join(frontendRoot, 'public', 'brand')
     const filenames = fs.readdirSync(brandDirectory).sort()
 
-    expect(filenames).toEqual(['blue-album-logo-color.svg', 'blue-album-logo-mono.svg'])
+    expect(filenames).toEqual(['blue-album-logo-color.svg', 'blue-album-logo-mono.svg', 'elysium-mark.svg'])
     for (const filename of filenames) {
       const svg = fs.readFileSync(path.join(brandDirectory, filename), 'utf8')
       expect(svg).toContain('<svg')
@@ -64,9 +64,9 @@ describe('Blue Album brand foundation', () => {
     }
   })
 
-  it('uses the color Blue Album icon as the favicon without remote font dependencies', () => {
+  it('uses the Elysium mark as the favicon without remote font dependencies', () => {
     const html = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8')
-    expect(html).toMatch(/rel=["']icon["'][^>]+href=["']\/brand\/blue-album-logo-color\.svg["']/)
+    expect(html).toMatch(/rel=["']icon["'][^>]+href=["']\/brand\/elysium-mark\.svg["']/)
     expect(html).not.toContain('fonts.googleapis.com')
     expect(html).not.toContain('fonts.gstatic.com')
   })

@@ -26,7 +26,7 @@ const ROUTE_PATHS = Object.freeze({
   movies: '/archive',
 })
 
-export async function mountElysiumRoom(root, { onNavigate, onOpenLauncher } = {}) {
+export async function mountElysiumRoom(root, { onNavigate, onOpenLauncher, onModeSwitch } = {}) {
   root.innerHTML = `
     <div class="room-stage"></div>
     <div class="hud-mount"></div>
@@ -81,6 +81,7 @@ export async function mountElysiumRoom(root, { onNavigate, onOpenLauncher } = {}
       onTimeMode(mode) {
         environment.setTimeMode(mode)
       },
+      onModeSwitch,
     })
     environment.subscribe((snapshot) => hud.render(snapshot))
 

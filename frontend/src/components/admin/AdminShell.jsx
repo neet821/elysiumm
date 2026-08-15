@@ -7,6 +7,7 @@ import {
   Files,
   FileText,
   Gauge,
+  History,
   Home,
   Images,
   Menu,
@@ -50,6 +51,12 @@ const navigationGroups = [
       { label: '安全', to: '/account/admin/security', icon: ShieldCheck },
     ],
   },
+  {
+    label: '临时检查',
+    items: [
+      { label: '临时页面检查', to: '/account/admin/temporary-review', icon: History, end: true },
+    ],
+  },
 ]
 
 export default function AdminShell() {
@@ -77,7 +84,7 @@ export default function AdminShell() {
       <aside className="admin-shell__sidebar">
         <NavLink className="admin-shell__brand" to="/account/admin" onClick={() => setNavigationOpen(false)}>
           <span><Network size={20} aria-hidden="true" /></span>
-          <span><strong>Blue Album</strong><small>管理中心</small></span>
+          <span><strong>Elysium</strong><small>管理中心</small></span>
         </NavLink>
         <nav
           id="administrator-navigation"

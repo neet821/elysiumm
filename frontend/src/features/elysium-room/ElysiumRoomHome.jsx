@@ -3,17 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import './room.css'
 import './elysiumRoom.css'
 
-const NAV_ITEMS = [
-  ['归档', '/archive'],
-  ['直播', '/live'],
-  ['音乐', '/music'],
-  ['工具箱', '/tools'],
-  ['收藏', '/collection'],
-  ['书籍', '/books'],
-  ['桌游', '/games'],
-  ['账户', '/account'],
-]
-
 const LAUNCHER_ITEMS = [
   ['看归档', '/archive'],
   ['看直播', '/live'],
@@ -25,15 +14,17 @@ const LAUNCHER_ITEMS = [
   ['账户', '/account'],
 ]
 
-export default function ElysiumRoomHome() {
+export default function ElysiumRoomHome({ onSwitchMode }) {
   const mountRef = useRef(null)
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
+  const onSwitchModeRef = useRef(onSwitchMode)
   const instanceRef = useRef(null)
   const [status, setStatus] = useState('正在载入三维房间…')
   const [launcherClose, setLauncherClose] = useState(null)
 
   navigateRef.current = navigate
+  onSwitchModeRef.current = onSwitchMode
 
   useEffect(() => {
     let active = true
@@ -48,6 +39,7 @@ export default function ElysiumRoomHome() {
       .then(({ mountElysiumRoom }) => mountElysiumRoom(mountRef.current, {
         onNavigate: (path) => navigateRef.current(path),
         onOpenLauncher: (close) => setLauncherClose(() => close),
+        onModeSwitch: () => onSwitchModeRef.current?.(),
       }))
     instance.promise
       .then((dispose) => {
@@ -77,15 +69,6 @@ export default function ElysiumRoomHome() {
       <div className="elysium-room-home__fallback" role={status ? 'status' : undefined}>
         {status}
       </div>
-      <header className="elysium-room-home__topbar">
-        <div>
-          <span className="elysium-room-home__eyebrow">ELYSIUM</span>
-          <h1>我的数字房间</h1>
-        </div>
-        <nav aria-label="站内功能" className="elysium-room-home__nav">
-          {NAV_ITEMS.map(([label, to]) => <Link key={to} to={to}>{label}</Link>)}
-        </nav>
-      </header>
       {launcherClose && (
         <div className="elysium-room-home__launcher-backdrop">
           <section aria-label="电脑桌面" aria-modal="true" className="elysium-room-home__launcher" role="dialog">

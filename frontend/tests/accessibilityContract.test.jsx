@@ -16,7 +16,7 @@ afterEach(() => {
 })
 
 describe('application accessibility contract', () => {
-  it('provides one named main region, a skip link and named navigation controls', () => {
+  it('provides one named main region, a skip link and simple navigation controls', () => {
     render(
       <MemoryRouter initialEntries={['/archive']}>
         <AppShell isDark={false} toggleTheme={() => {}}>
@@ -30,7 +30,7 @@ describe('application accessibility contract', () => {
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
     expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '切换到深色模式' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
   })
 

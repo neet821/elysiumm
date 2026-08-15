@@ -272,7 +272,7 @@ export default function CollectionTransferPanel({ onCollectionChanged = () => {}
             <Upload size={20} aria-hidden="true" />
             <div>
               <h3>导入 {format.toUpperCase()}</h3>
-              <p>{format === 'json' ? 'Blue Album 完整备份。' : '浏览器通用书签文件。'}</p>
+              <p>{format === 'json' ? 'Elysium 完整备份。' : '浏览器通用书签文件。'}</p>
             </div>
             <label className="collection-file-field">
               <span>{format.toUpperCase()} 收藏文件</span>

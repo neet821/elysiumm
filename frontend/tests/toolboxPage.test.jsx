@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -47,9 +47,13 @@ describe('tools dashboard access', () => {
     expect(screen.getByRole('heading', { name: '工具箱' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '欢迎回来' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('用户名或邮箱')).not.toBeInTheDocument()
-    for (const entry of TOOL_ENTRIES) expect(screen.getByText(entry.title)).toBeInTheDocument()
-    for (const entry of TOOL_ENTRIES) expect(screen.getByRole('button', { name: `登录后打开${entry.title}` })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /打开我的收藏/ })).not.toBeInTheDocument()
+    const core = within(screen.getByLabelText('三个核心空间'))
+    for (const entry of TOOL_ENTRIES) expect(core.getByText(entry.title)).toBeInTheDocument()
+    for (const entry of TOOL_ENTRIES) expect(core.getByRole('button', { name: `登录后打开${entry.title}` })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '公开服务' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '协作房间' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '个人内容' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '登录后打开收藏' })).toBeInTheDocument()
     expect(requestGet).not.toHaveBeenCalled()
   })
 
@@ -58,7 +62,7 @@ describe('tools dashboard access', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: '登录后打开同步观影' }))
+    await user.click(within(screen.getByLabelText('三个核心空间')).getByRole('button', { name: '登录后打开同步观影' }))
     expect(screen.getByRole('dialog', { name: '登录后打开工具箱' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('用户名或邮箱'), 'reader@example.com')
     await user.type(screen.getByLabelText('密码'), 'wrong-password')
@@ -83,11 +87,10 @@ describe('tools dashboard access', () => {
     for (const [title, to] of destinations) {
       expect(screen.getByRole('link', { name: new RegExp(`打开${title}`) })).toHaveAttribute('href', to)
     }
-    expect(screen.queryByText('FRP')).not.toBeInTheDocument()
-    expect(screen.queryByText('数据备份')).not.toBeInTheDocument()
-    expect(screen.queryByText('服务器管理')).not.toBeInTheDocument()
-    expect(screen.queryByText('我的收藏')).not.toBeInTheDocument()
-    expect(screen.queryByText('书籍')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '公开服务' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '协作房间' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '个人内容' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /打开收藏|收藏/ })).toHaveAttribute('href', '/collection')
     expect(screen.getByLabelText('三个核心空间').querySelectorAll('.toolbox-portal')).toHaveLength(3)
     expect(screen.queryByRole('heading', { name: '登录后继续' })).not.toBeInTheDocument()
   })

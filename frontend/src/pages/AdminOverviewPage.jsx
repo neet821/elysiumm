@@ -80,7 +80,7 @@ export default function AdminOverviewPage() {
   return (
     <section className="admin-dashboard">
       <header className="admin-dashboard__intro">
-        <div><p>私有管理空间</p><h1>管理总览</h1><p>查看当前 Blue Album 的用户、房间、文件和服务概况。</p></div>
+        <div><p>私有管理空间</p><h1>管理总览</h1><p>查看当前 Elysium 的用户、房间、文件和服务概况。</p></div>
         <Button variant="secondary" onClick={loadOverview}><RefreshCw size={16} aria-hidden="true" /> 刷新</Button>
       </header>
 
