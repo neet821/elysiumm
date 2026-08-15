@@ -62,6 +62,7 @@ SOCKET_EVENT_LIMITS = {
     'video_ended': (6, 10),
     'video_buffer_status': (20, 10),
     'video_local_ready': (12, 10),
+    'presence_heartbeat': (12, 30),
     'game_action': (5, 10),
     'game_chat': (8, 10),
     'request_game_snapshot': (10, 10),
@@ -95,6 +96,17 @@ def _room_snapshot_payload(db, room, *, now_ms=None):
     return _serialize_room_snapshot(
         _room_snapshot(db, room, now_ms=now_ms),
         server_now_ms=now_ms,
+    )
+
+
+async def emit_room_presence(db, room_id: int) -> None:
+    await sio.emit(
+        'room_presence',
+        {
+            'room_id': room_id,
+            'members': sync_room_crud.room_presence_payload(db, room_id),
+        },
+        room=f'room_{room_id}',
     )
 
 
@@ -408,6 +420,7 @@ async def disconnect(sid):
                 'user_id': user_id,
                 'room_id': room_id
             }, room=f'room_{room_id}', skip_sid=sid)
+            await emit_room_presence(db, room_id)
 
             if old_host_id != new_host_id and new_host_id:
                 await sio.emit('host_changed', {
@@ -496,7 +509,7 @@ async def join_room(sid, data):
             )
 
         # 获取房间成员列表
-        members = sync_room_crud.get_room_members(db, room_id)
+        members = sync_room_crud.get_room_members(db, room_id, online_only=False)
         snapshot = _room_snapshot_payload(db, room)
 
         # 通知该用户加入成功
@@ -525,6 +538,7 @@ async def join_room(sid, data):
             ]
             join_payload['video_local_ready'] = list(video_local_ready_states.get(room_id, {}).values())
         await sio.emit('join_success', join_payload, room=sid)
+        await emit_room_presence(db, room_id)
 
         # 不在这里广播 member_joined，由 API join 负责广播，避免重复通知。
         logger.info(
@@ -651,6 +665,7 @@ async def leave_room_event(sid, data):
                 'user_id': user_id,
                 'room_id': room_id
             }, room=f'room_{room_id}')
+            await emit_room_presence(db, room_id)
 
             # 如果房主发生变更，通知所有成员
             if old_host_id != new_host_id and new_host_id:
@@ -1024,6 +1039,49 @@ async def request_snapshot(sid, data):
     except Exception:
         logger.exception("Failed to provide room snapshot")
         await sio.emit('error', {'message': '房间状态暂时无法同步'}, room=sid)
+    finally:
+        db.close()
+
+
+@sio.event
+async def presence_heartbeat(sid, data):
+    """Refresh authenticated room presence and broadcast all member states."""
+    actor = await get_socket_actor(sid)
+    if actor is None or not await ensure_realtime_available(sid):
+        return
+
+    data = data if isinstance(data, dict) else {}
+    room_id = data.get('room_id')
+    audit_room_id = room_id if type(room_id) is int else None
+    if not await ensure_socket_rate_limit(
+        sid,
+        actor,
+        'presence_heartbeat',
+        room_id=audit_room_id,
+    ):
+        return
+    if audit_room_id is None:
+        await sio.emit('error', {'message': '在线状态参数无效'}, room=sid)
+        return
+
+    db = get_db()
+    try:
+        room = sync_room_crud.get_room_by_id(db, room_id)
+        if not room or not sync_room_crud.is_room_member(db, room_id, actor['user_id']):
+            await sio.emit('error', {'message': '您不是该房间成员'}, room=sid)
+            return
+        if not is_sid_connected(room_id, actor['user_id'], sid):
+            await sio.emit('error', {'message': '实时连接尚未加入房间'}, room=sid)
+            return
+
+        sync_room_crud.mark_stale_members_offline(db, room_id)
+        if not sync_room_crud.touch_room_presence(db, room_id, actor['user_id']):
+            await sio.emit('error', {'message': '在线状态暂时无法更新'}, room=sid)
+            return
+        await emit_room_presence(db, room_id)
+    except Exception:
+        logger.exception("Failed to process room presence heartbeat")
+        await sio.emit('error', {'message': '在线状态暂时无法同步'}, room=sid)
     finally:
         db.close()
 

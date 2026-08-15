@@ -130,6 +130,80 @@ def create_playlist_item(
     return item
 
 
+def _item_cleanup_paths(item) -> list[tuple[str, str, bool]]:
+    paths = []
+    if item.storage_path:
+        paths.append(("video", item.storage_path, bool(item.owned_file)))
+    paths.extend(
+        ("subtitle", subtitle.storage_path, True)
+        for subtitle in item.subtitles
+    )
+    return paths
+
+
+def replace_current_video_item(
+    db,
+    room,
+    *,
+    expected_version,
+    **item_kwargs,
+):
+    """Replace a room's visible video with one current item.
+
+    The legacy playlist table remains for compatibility, but every new media
+    choice collapses the room back to one current item and returns managed
+    files that the router can remove after the database commit.
+    """
+    if not isinstance(expected_version, int) or isinstance(expected_version, bool):
+        raise ValueError("替换当前视频时必须提供房间状态版本")
+
+    existing_items = db.query(models.VideoPlaylistItem).filter_by(
+        room_id=room.id,
+    ).all()
+    item = create_playlist_item(db, room, **item_kwargs)
+    try:
+        if not existing_items and int(room.playback_version or 0) == 0:
+            snapshot = initialize_current_item_if_empty(db, room)
+        else:
+            snapshot = select_item(
+                db,
+                room,
+                item,
+                expected_version=expected_version,
+                autoplay=False,
+            )
+    except Exception:
+        db.delete(item)
+        db.commit()
+        raise
+
+    cleanup_paths = []
+    temporary_offset = max(
+        (int(old_item.position or 0) for old_item in existing_items),
+        default=0,
+    ) + len(existing_items) + 1
+    for index, old_item in enumerate(existing_items):
+        if old_item.id == item.id:
+            continue
+        cleanup_paths.extend(_item_cleanup_paths(old_item))
+        # The position column is unique per room. Move old rows out of the
+        # way before the new current row is normalized to position zero.
+        old_item.position = temporary_offset + index
+    if existing_items:
+        db.flush()
+    for old_item in existing_items:
+        if old_item.id != item.id:
+            db.delete(old_item)
+    if existing_items:
+        db.flush()
+    item.position = 0
+    _touch_room(room)
+    db.commit()
+    db.refresh(room)
+    db.refresh(item)
+    return item, snapshot, cleanup_paths
+
+
 def get_video_item(db, room_id, item_id) -> models.VideoPlaylistItem | None:
     return db.query(models.VideoPlaylistItem).filter_by(
         id=item_id,
@@ -571,6 +645,7 @@ def session_payload(db, room) -> dict:
         models.VideoPlaylistItem.id,
     ).all()
     current = next((item for item in items if item.id == session.current_item_id), None)
+    visible_items = [current] if current is not None else []
     return {
         "room_id": room.id,
         "current_item_id": session.current_item_id,
@@ -581,5 +656,5 @@ def session_payload(db, room) -> dict:
             else None
         ),
         "selected_subtitle_id": session.selected_subtitle_id,
-        "playlist": [_item_payload(item) for item in items],
+        "playlist": [_item_payload(item) for item in visible_items],
     }

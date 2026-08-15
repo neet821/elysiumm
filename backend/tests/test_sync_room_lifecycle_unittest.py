@@ -112,6 +112,51 @@ class SyncRoomLifecycleTest(unittest.TestCase):
         self.assertEqual(room.lifecycle_status, "expired")
         self.assertFalse(room.is_deleted)
 
+    def test_stale_online_member_is_marked_offline_before_cleanup(self):
+        room = self.create_room()
+        old = datetime.utcnow() - timedelta(seconds=31)
+        member = self.db.query(models.SyncRoomMember).filter_by(room_id=room.id).one()
+        member.last_active_at = old
+        self.db.commit()
+
+        changed_rooms = sync_room_crud.mark_stale_members_offline(
+            self.db, room.id, now=datetime.utcnow(), timeout_seconds=30
+        )
+        self.db.refresh(member)
+
+        self.assertEqual(changed_rooms, {room.id})
+        self.assertFalse(member.is_online)
+
+    def test_recent_presence_prevents_stale_cleanup(self):
+        room = self.create_room()
+        now = datetime.utcnow()
+        member = self.db.query(models.SyncRoomMember).filter_by(room_id=room.id).one()
+        member.last_active_at = now - timedelta(seconds=10)
+        self.db.commit()
+
+        changed_rooms = sync_room_crud.mark_stale_members_offline(
+            self.db, room.id, now=now, timeout_seconds=30
+        )
+
+        self.assertEqual(changed_rooms, set())
+        self.assertTrue(member.is_online)
+
+    def test_presence_touch_reactivates_member_and_room(self):
+        room = self.create_room()
+        sync_room_crud.leave_room(self.db, room.id, self.host.id)
+        self.db.refresh(room)
+
+        touched = sync_room_crud.touch_room_presence(
+            self.db, room.id, self.host.id, now=datetime.utcnow()
+        )
+        self.db.refresh(room)
+        member = self.db.query(models.SyncRoomMember).filter_by(room_id=room.id).one()
+
+        self.assertTrue(touched)
+        self.assertTrue(member.is_online)
+        self.assertEqual(room.lifecycle_status, "active")
+        self.assertTrue(room.is_active)
+
     def test_playback_update_increments_server_version(self):
         room = self.create_room()
 

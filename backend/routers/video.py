@@ -462,7 +462,7 @@ async def add_external_video(
     room = _video_room(db, room_id, current_user, controller=True)
     try:
         probe = await inspect_external_video(payload.source_url)
-        item = video_service.create_playlist_item(
+        item, snapshot, paths = video_service.replace_current_video_item(
             db,
             room,
             created_by=current_user.id,
@@ -471,10 +471,16 @@ async def add_external_video(
             source_url=probe.resolved_url,
             content_type=probe.content_type,
             file_size=probe.file_size,
+            expected_version=int(room.playback_version or 0),
         )
-        snapshot = video_service.initialize_current_item_if_empty(db, room)
     except (ExternalMediaError, ValueError) as exc:
         _raise_domain_error(exc)
+    for kind, path, owned in paths:
+        if owned:
+            _unlink_managed(
+                path,
+                VIDEO_UPLOAD_ROOT if kind == "video" else VIDEO_SUBTITLE_ROOT,
+            )
     await broadcast_video_state(db, room, snapshot=snapshot)
     session = _member_session_payload(db, room, current_user)
     return {"item": _item_from_payload(session, item.id), "session": session}
@@ -509,7 +515,7 @@ async def upload_video_item(
                 output.write(chunk)
         if size == 0:
             raise HTTPException(400, "视频文件为空")
-        item = video_service.create_playlist_item(
+        item, snapshot, paths = video_service.replace_current_video_item(
             db,
             room,
             created_by=current_user.id,
@@ -520,12 +526,18 @@ async def upload_video_item(
             content_type=file.content_type,
             file_size=size,
             owned_file=True,
+            expected_version=int(room.playback_version or 0),
         )
-        snapshot = video_service.initialize_current_item_if_empty(db, room)
     except Exception:
         if destination.exists():
             destination.unlink()
         raise
+    for kind, path, owned in paths:
+        if owned:
+            _unlink_managed(
+                path,
+                VIDEO_UPLOAD_ROOT if kind == "video" else VIDEO_SUBTITLE_ROOT,
+            )
     await broadcast_video_state(db, room, snapshot=snapshot)
     session = _member_session_payload(db, room, current_user)
     return {"item": _item_from_payload(session, item.id), "session": session}
@@ -539,7 +551,7 @@ async def add_local_video(
     db: Session = Depends(get_db),
 ):
     room = _video_room(db, room_id, current_user, controller=True)
-    item = video_service.create_playlist_item(
+    item, snapshot, paths = video_service.replace_current_video_item(
         db,
         room,
         created_by=current_user.id,
@@ -549,8 +561,14 @@ async def add_local_video(
         file_size=payload.file_size,
         local_fingerprint=payload.fingerprint,
         owned_file=False,
+        expected_version=int(room.playback_version or 0),
     )
-    snapshot = video_service.initialize_current_item_if_empty(db, room)
+    for kind, path, owned in paths:
+        if owned:
+            _unlink_managed(
+                path,
+                VIDEO_UPLOAD_ROOT if kind == "video" else VIDEO_SUBTITLE_ROOT,
+            )
     await broadcast_video_state(db, room, snapshot=snapshot)
     session = _member_session_payload(db, room, current_user)
     return {"item": _item_from_payload(session, item.id), "session": session}

@@ -65,13 +65,17 @@ export default function VideoStage({ roomState }) {
               onVideoEvent.onLoadedMetadata(event)
             }}
             onPlaying={onVideoEvent.onPlaying}
+            onPause={onVideoEvent.onPause}
+            onPlay={onVideoEvent.onPlay}
+            onRateChange={onVideoEvent.onRateChange}
+            onSeeking={onVideoEvent.onSeeking}
             onStalled={onVideoEvent.onStalled}
             onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
             onWaiting={onVideoEvent.onWaiting}
           />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
-            {currentItem?.source_type === 'legacy_local' ? '请先选择房间要求的本地视频，文件不会上传。' : '片单还是空的。添加视频后即可开始同步观看。'}
+            {currentItem?.source_type === 'legacy_local' ? '请先选择房间要求的本地视频，文件不会上传。' : '当前还没有视频，请先选择一个视频来源。'}
           </div>
         )}
         {bufferingCount > 0 && (

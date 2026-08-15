@@ -13,6 +13,11 @@ import { fingerprintLocalVideo, localFileMatches } from './localVideo.js'
 
 
 const REMOTE_MEDIA_EVENT_GRACE_MS = 350
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
+
+function sameUserId(left, right) {
+  return left != null && right != null && String(left) === String(right)
+}
 
 function detailMessage(error, fallback) {
   const detail = error?.response?.data?.detail
@@ -38,8 +43,9 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const [buffers, setBuffers] = useState({})
   const [localReady, setLocalReady] = useState({})
   const [localUrls, setLocalUrls] = useState({})
-  const localUrlsRef = useRef({})
+  const localFilesRef = useRef({})
   const [busy, setBusy] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null)
   const [videoElement, setVideoElement] = useState(null)
   const socketRef = useRef(null)
   const adapterRef = useRef(null)
@@ -50,13 +56,39 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const bufferReportedRef = useRef(false)
   const endedKeyRef = useRef(null)
   const metadataKeyRef = useRef(null)
+  const presenceTimerRef = useRef(null)
+  const presenceJoinedRef = useRef(false)
+
+  const beginRemoteApply = useCallback(() => {
+    remoteApplyRef.current += 1
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      remoteApplyRef.current = Math.max(0, remoteApplyRef.current - 1)
+      remoteApplyUntilRef.current = Date.now() + REMOTE_MEDIA_EVENT_GRACE_MS
+    }
+  }, [])
+
+  const isRemotePlaybackEvent = useCallback(() => (
+    remoteApplyRef.current > 0 || Date.now() < remoteApplyUntilRef.current
+  ), [])
+
+  const runPlaybackCorrection = useCallback((operation) => {
+    const release = beginRemoteApply()
+    try {
+      Promise.resolve(operation()).catch(() => null).finally(release)
+    } catch {
+      release()
+    }
+  }, [beginRemoteApply])
 
   const currentItem = useMemo(() => {
     const item = session.playlist.find((entry) => entry.id === session.current_item_id) || null
     if (!item || item.source_type !== 'legacy_local') return item
     return { ...item, playback_url: localUrls[item.id] || null }
   }, [localUrls, session])
-  const isHost = Boolean(room && user && room.host_user_id === user.id)
+  const isHost = Boolean(room && user && sameUserId(room.host_user_id, user.id))
   const canControl = Boolean(room && user && (
     room.control_mode === 'all_members' || isHost || user.role === 'admin'
   ))
@@ -97,6 +129,19 @@ export function useVideoRoom({ navigate, roomId, user }) {
     if (data.snapshot) acceptSnapshot(data.snapshot)
   }, [acceptSnapshot])
 
+  const announceLocalReady = useCallback((item) => {
+    if (!item || item.source_type !== 'legacy_local' || !socketRef.current) return false
+    const localFile = localFilesRef.current[item.id]
+    const ready = Boolean(localFile && localFileMatches(item, localFile.file, localFile.fingerprint))
+    socketRef.current.emit('video_local_ready', {
+      ...(ready ? { fingerprint: localFile.fingerprint } : {}),
+      item_id: item.id,
+      ready,
+      room_id: numericRoomId,
+    })
+    return ready
+  }, [numericRoomId])
+
   const refreshVideoDetail = useCallback(async ({ quiet = false } = {}) => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.VIDEO_ROOM(numericRoomId))
@@ -117,6 +162,33 @@ export function useVideoRoom({ navigate, roomId, user }) {
     socketRef.current.emit('request_snapshot', { room_id: numericRoomId })
     return true
   }, [numericRoomId])
+
+  const stopPresenceHeartbeat = useCallback(() => {
+    if (presenceTimerRef.current !== null) {
+      window.clearInterval(presenceTimerRef.current)
+      presenceTimerRef.current = null
+    }
+  }, [])
+
+  const sendPresenceHeartbeat = useCallback(() => {
+    if (
+      !socketRef.current
+      || !presenceJoinedRef.current
+      || document.visibilityState !== 'visible'
+    ) return false
+    socketRef.current.emit('presence_heartbeat', { room_id: numericRoomId })
+    return true
+  }, [numericRoomId])
+
+  const startPresenceHeartbeat = useCallback(() => {
+    stopPresenceHeartbeat()
+    presenceJoinedRef.current = true
+    sendPresenceHeartbeat()
+    presenceTimerRef.current = window.setInterval(
+      sendPresenceHeartbeat,
+      PRESENCE_HEARTBEAT_INTERVAL_MS,
+    )
+  }, [sendPresenceHeartbeat, stopPresenceHeartbeat])
 
   useEffect(() => {
     if (!videoElement) return undefined
@@ -139,16 +211,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     if (!adapter || !record?.snapshot || !adapterTrack) return
     let active = true
     applyVideoSnapshot(adapter, record.snapshot, adapterTrack, {
-      beginRemoteApply: () => {
-        remoteApplyRef.current += 1
-        let released = false
-        return () => {
-          if (released) return
-          released = true
-          remoteApplyRef.current = Math.max(0, remoteApplyRef.current - 1)
-          remoteApplyUntilRef.current = Date.now() + REMOTE_MEDIA_EVENT_GRACE_MS
-        }
-      },
+      beginRemoteApply,
       receivedAtMs: record.receivedAtMs,
       syncState: syncStateRef.current,
     }).then((result) => {
@@ -162,7 +225,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
       setSyncStatus('error')
     })
     return () => { active = false }
-  }, [currentItem, session.selected_subtitle_id, snapshotRecord, videoElement])
+  }, [beginRemoteApply, currentItem, session.selected_subtitle_id, snapshotRecord, videoElement])
 
   useEffect(() => {
     if (!numericRoomId || !user?.id) return undefined
@@ -175,7 +238,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
         if (detail.data.type !== 'video' || detail.data.mode === 'music') {
           throw new Error('这不是视频房')
         }
-        if (!detail.data.members?.some((member) => member.user_id === user.id)) {
+        if (!detail.data.members?.some((member) => sameUserId(member.user_id, user.id))) {
           await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(numericRoomId))
           detail = await apiClient.get(API_ENDPOINTS.SYNC_ROOM_DETAIL(numericRoomId))
         }
@@ -215,24 +278,25 @@ export function useVideoRoom({ navigate, roomId, user }) {
       setSyncStatus(latestSnapshotRef.current ? 'syncing' : 'connecting')
       socket.emit('join_room', { room_id: numericRoomId })
     })
-    socket.on('disconnect', () => active && setSyncStatus('reconnecting'))
+    socket.on('disconnect', () => {
+      presenceJoinedRef.current = false
+      stopPresenceHeartbeat()
+      if (active) setSyncStatus('reconnecting')
+    })
     socket.on('connect_error', () => active && setSyncStatus('error'))
     socket.on('join_success', (data) => {
       if (!active) return
       if (data.room) setRoom((previous) => ({ ...previous, ...data.room }))
       if (data.members) setMembers(data.members)
       if (data.snapshot) acceptSnapshot(data.snapshot)
+      startPresenceHeartbeat()
       if (Array.isArray(data.video_local_ready)) {
         setLocalReady(Object.fromEntries(data.video_local_ready.map((entry) => [entry.user_id, entry])))
       }
       const joinedCurrentId = data.video_session?.current_item_id
       const joinedCurrent = data.video_session?.playlist?.find((item) => item.id === joinedCurrentId)
       if (joinedCurrent?.source_type === 'legacy_local') {
-        socket.emit('video_local_ready', {
-          item_id: joinedCurrent.id,
-          ready: false,
-          room_id: numericRoomId,
-        })
+        announceLocalReady(joinedCurrent)
       }
       else socket.emit('request_snapshot', { room_id: numericRoomId })
       refreshVideoDetail({ quiet: true })
@@ -267,20 +331,24 @@ export function useVideoRoom({ navigate, roomId, user }) {
     })
     socket.on('video_local_ready', (data) => {
       if (!active || Number(data?.room_id) !== numericRoomId) return
-      setLocalReady((previous) => ({ ...previous, [data.user_id]: data }))
+      setLocalReady((previous) => ({ ...previous, [String(data.user_id)]: data }))
+    })
+    socket.on('room_presence', (data) => {
+      if (!active || Number(data?.room_id) !== numericRoomId || !Array.isArray(data.members)) return
+      setMembers(data.members)
     })
     socket.on('member_joined', (member) => {
       if (!active) return
-      setMembers((items) => items.some((item) => item.user_id === member.user_id)
-        ? items.map((item) => item.user_id === member.user_id ? { ...item, is_online: true } : item)
+      setMembers((items) => items.some((item) => sameUserId(item.user_id, member.user_id))
+        ? items.map((item) => sameUserId(item.user_id, member.user_id) ? { ...item, is_online: true } : item)
         : [...items, { ...member, is_online: true }])
     })
     socket.on('member_left', (data) => {
       if (!active) return
       setMembers((items) => items.map((item) => (
-        item.user_id === data.user_id ? { ...item, is_online: false } : item
+        sameUserId(item.user_id, data.user_id) ? { ...item, is_online: false } : item
       )))
-      setBuffers((previous) => ({ ...previous, [data.user_id]: false }))
+      setBuffers((previous) => ({ ...previous, [String(data.user_id)]: false }))
     })
     socket.on('host_changed', (data) => {
       if (active) setRoom((previous) => previous ? {
@@ -299,21 +367,40 @@ export function useVideoRoom({ navigate, roomId, user }) {
 
     return () => {
       active = false
+      presenceJoinedRef.current = false
+      stopPresenceHeartbeat()
       socket.disconnect()
       if (socketRef.current === socket) socketRef.current = null
     }
-  }, [acceptSnapshot, applyVideoDetail, navigate, numericRoomId, refreshVideoDetail, user?.id])
+  }, [
+    acceptSnapshot,
+    announceLocalReady,
+    applyVideoDetail,
+    navigate,
+    numericRoomId,
+    refreshVideoDetail,
+    startPresenceHeartbeat,
+    stopPresenceHeartbeat,
+    user?.id,
+  ])
 
-  useEffect(() => { localUrlsRef.current = localUrls }, [localUrls])
   useEffect(() => () => {
-    Object.values(localUrlsRef.current).forEach((url) => URL.revokeObjectURL(url))
+    Object.values(localFilesRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
   }, [])
 
   useEffect(() => {
+    if (currentItem?.source_type === 'legacy_local') announceLocalReady(currentItem)
+  }, [announceLocalReady, currentItem])
+
+  useEffect(() => {
     const restore = () => {
-      if (document.visibilityState !== 'visible') return
+      if (document.visibilityState !== 'visible') {
+        stopPresenceHeartbeat()
+        return
+      }
       requestSnapshot()
       refreshVideoDetail({ quiet: true })
+      if (presenceJoinedRef.current) startPresenceHeartbeat()
     }
     document.addEventListener('visibilitychange', restore)
     window.addEventListener('pageshow', restore)
@@ -321,7 +408,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
       document.removeEventListener('visibilitychange', restore)
       window.removeEventListener('pageshow', restore)
     }
-  }, [refreshVideoDetail, requestSnapshot])
+  }, [refreshVideoDetail, requestSnapshot, startPresenceHeartbeat, stopPresenceHeartbeat])
 
   useEffect(() => {
     if (!isHost || snapshotRecord?.snapshot?.state !== 'playing') return undefined
@@ -372,6 +459,33 @@ export function useVideoRoom({ navigate, roomId, user }) {
     adapterRef.current?.setVolume(Number(volume))
   }, [])
 
+  const handleNativePlaybackControl = useCallback((action) => {
+    if (isRemotePlaybackEvent()) return
+    const snapshot = latestSnapshotRef.current?.snapshot
+    const adapter = adapterRef.current
+    const currentTime = adapter?.snapshot().currentTime || 0
+
+    if (!canControl) {
+      setNotice('当前房间仅房主可以控制播放')
+      if (action === 'play') runPlaybackCorrection(() => adapter?.pause())
+      if (action === 'pause' && snapshot?.state === 'playing') {
+        runPlaybackCorrection(() => adapter?.play())
+      }
+      if (action === 'seek') runPlaybackCorrection(() => adapter?.seek(snapshot?.position || 0))
+      if (action === 'rate') runPlaybackCorrection(() => adapter?.setPlaybackRate(snapshot?.playback_rate || 1))
+      requestSnapshot()
+      return
+    }
+
+    const payload = action === 'rate'
+      ? { rate: adapter?.snapshot().playbackRate || 1 }
+      : { time: currentTime }
+    if (!emitControl(action, payload)) {
+      setNotice('实时连接暂不可用，正在重新同步')
+      requestSnapshot()
+    }
+  }, [canControl, emitControl, isRemotePlaybackEvent, requestSnapshot, runPlaybackCorrection])
+
   const reportBuffering = useCallback((buffering) => {
     if (!currentItem || !socketRef.current || bufferReportedRef.current === buffering) return
     bufferReportedRef.current = buffering
@@ -384,6 +498,10 @@ export function useVideoRoom({ navigate, roomId, user }) {
 
   const onVideoEvent = useMemo(() => ({
     onCanPlay: () => reportBuffering(false),
+    onPause: () => handleNativePlaybackControl('pause'),
+    onPlay: () => handleNativePlaybackControl('play'),
+    onRateChange: () => handleNativePlaybackControl('rate'),
+    onSeeking: () => handleNativePlaybackControl('seek'),
     onEnded: () => {
       const version = latestSnapshotRef.current?.snapshot?.version
       if (!canControl || !currentItem || !Number.isInteger(version)) return
@@ -424,7 +542,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     onPlaying: () => reportBuffering(false),
     onStalled: () => reportBuffering(true),
     onWaiting: () => reportBuffering(true),
-  }), [canControl, currentItem, numericRoomId, reportBuffering])
+  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, reportBuffering])
 
   const runMutation = useCallback(async (operation, fallback) => {
     setBusy(true)
@@ -453,10 +571,18 @@ export function useVideoRoom({ navigate, roomId, user }) {
     const form = new FormData()
     form.append('file', file)
     form.append('title', file.name)
+    setUploadProgress({ active: true, loaded: 0, percent: 0, total: file.size })
     return runMutation(
-      () => apiClient.post(API_ENDPOINTS.VIDEO_UPLOAD(numericRoomId), form),
+      () => apiClient.post(API_ENDPOINTS.VIDEO_UPLOAD(numericRoomId), form, {
+        onUploadProgress: (event) => {
+          const loaded = Math.max(0, Number(event?.loaded) || 0)
+          const total = Math.max(loaded, Number(event?.total) || file.size || 0)
+          const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
+          setUploadProgress({ active: true, loaded, percent, total })
+        },
+      }),
       '视频上传失败',
-    )
+    ).finally(() => setUploadProgress(null))
   }, [numericRoomId, runMutation])
 
   const addLocalVideo = useCallback(async (file) => {
@@ -472,13 +598,10 @@ export function useVideoRoom({ navigate, roomId, user }) {
       })
       const item = response.data.item
       const url = URL.createObjectURL(file)
+      if (localFilesRef.current[item.id]?.url) URL.revokeObjectURL(localFilesRef.current[item.id].url)
+      localFilesRef.current[item.id] = { file, fingerprint, url }
       setLocalUrls((previous) => ({ ...previous, [item.id]: url }))
-      socketRef.current?.emit('video_local_ready', {
-        fingerprint,
-        item_id: item.id,
-        ready: true,
-        room_id: numericRoomId,
-      })
+      announceLocalReady(item)
       await refreshVideoDetail({ quiet: true })
       setNotice('本地视频已登记，文件内容没有上传')
       return item
@@ -488,7 +611,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     } finally {
       setBusy(false)
     }
-  }, [numericRoomId, refreshVideoDetail])
+  }, [announceLocalReady, numericRoomId, refreshVideoDetail])
 
   const chooseLocalVideo = useCallback(async (item, file) => {
     setBusy(true)
@@ -497,16 +620,10 @@ export function useVideoRoom({ navigate, roomId, user }) {
       const fingerprint = await fingerprintLocalVideo(file)
       if (!localFileMatches(item, file, fingerprint)) throw new Error('所选文件与房间要求的本地视频不一致')
       const url = URL.createObjectURL(file)
-      setLocalUrls((previous) => {
-        if (previous[item.id]) URL.revokeObjectURL(previous[item.id])
-        return { ...previous, [item.id]: url }
-      })
-      socketRef.current?.emit('video_local_ready', {
-        fingerprint,
-        item_id: item.id,
-        ready: true,
-        room_id: numericRoomId,
-      })
+      if (localFilesRef.current[item.id]?.url) URL.revokeObjectURL(localFilesRef.current[item.id].url)
+      localFilesRef.current[item.id] = { file, fingerprint, url }
+      setLocalUrls((previous) => ({ ...previous, [item.id]: url }))
+      announceLocalReady(item)
       setNotice('本地视频已准备，可以同步播放')
       return true
     } catch (error) {
@@ -516,7 +633,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     } finally {
       setBusy(false)
     }
-  }, [numericRoomId])
+  }, [announceLocalReady, numericRoomId])
 
   const updateRoomSettings = useCallback((values) => runMutation(
     () => apiClient.put(API_ENDPOINTS.SYNC_ROOM_DETAIL(numericRoomId), values),
@@ -643,6 +760,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     syncStatus,
     togglePlayback,
     transferHost,
+    uploadProgress,
     uploadSubtitle,
     uploadVideo,
     chooseLocalVideo,

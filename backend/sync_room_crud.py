@@ -15,6 +15,8 @@ from datetime import datetime, timezone, timedelta
 # 配置日志
 logger = logging.getLogger(__name__)
 
+ROOM_PRESENCE_TIMEOUT_SECONDS = 30
+
 def to_beijing_time(dt: datetime) -> datetime:
     """将UTC时间转换为北京时间（东八区）"""
     if dt.tzinfo is None:
@@ -330,6 +332,68 @@ def get_room_members(db: Session, room_id: int, online_only: bool = True):
 
     return result
 
+
+def touch_room_presence(
+    db: Session,
+    room_id: int,
+    user_id: int,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Refresh one connected member and reactivate its room."""
+    member = db.query(models.SyncRoomMember).filter(
+        models.SyncRoomMember.room_id == room_id,
+        models.SyncRoomMember.user_id == user_id,
+    ).first()
+    room = get_room_by_id(db, room_id)
+    if member is None or room is None:
+        return False
+
+    now = datetime.utcnow() if now is None else now
+    member.is_online = True
+    member.last_active_at = now
+    room.last_activity_at = now
+    room.lifecycle_status = "active"
+    room.is_active = True
+    room.updated_at = now
+    db.commit()
+    return True
+
+
+def mark_stale_members_offline(
+    db: Session,
+    room_id: int | None = None,
+    *,
+    now: datetime | None = None,
+    timeout_seconds: int = ROOM_PRESENCE_TIMEOUT_SECONDS,
+) -> set[int]:
+    """Mark members without a recent heartbeat offline and return changed rooms."""
+    now = datetime.utcnow() if now is None else now
+    cutoff = now - timedelta(seconds=timeout_seconds)
+    query = db.query(models.SyncRoomMember).filter(
+        models.SyncRoomMember.is_online.is_(True),
+        or_(
+            models.SyncRoomMember.last_active_at.is_(None),
+            models.SyncRoomMember.last_active_at < cutoff,
+        ),
+    )
+    if room_id is not None:
+        query = query.filter(models.SyncRoomMember.room_id == room_id)
+
+    stale_members = query.all()
+    changed_rooms = {member.room_id for member in stale_members}
+    for member in stale_members:
+        member.is_online = False
+        member.last_active_at = now
+    if stale_members:
+        db.commit()
+    return changed_rooms
+
+
+def room_presence_payload(db: Session, room_id: int) -> list[dict]:
+    """Return the complete member state for realtime presence broadcasts."""
+    return get_room_members(db, room_id, online_only=False)
+
 def is_room_member(db: Session, room_id: int, user_id: int) -> bool:
     """检查用户是否是房间成员"""
     return db.query(models.SyncRoomMember).filter(
@@ -369,7 +433,7 @@ def can_perform_room_action(
     if role != "member":
         return False
 
-    if action == "playback_control":
+    if action in {"playback_control", "change_media"}:
         return room.control_mode == "all_members"
     if action == "invite":
         return True
@@ -513,6 +577,11 @@ def cleanup_empty_rooms(db: Session, minutes: int = 10, delete_after_minutes: in
     from datetime import timedelta
 
     now = datetime.utcnow()
+    mark_stale_members_offline(
+        db,
+        now=now,
+        timeout_seconds=ROOM_PRESENCE_TIMEOUT_SECONDS,
+    )
     idle_cutoff = now - timedelta(minutes=minutes)
     delete_cutoff = now - timedelta(minutes=delete_after_minutes)
 

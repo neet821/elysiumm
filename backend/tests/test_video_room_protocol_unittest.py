@@ -172,7 +172,7 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.assertEqual(joined["data"]["snapshot"]["media_id"], self.first.id)
         session = joined["data"]["video_session"]
         self.assertEqual(session["current_item_id"], self.first.id)
-        self.assertEqual(len(session["playlist"]), 2)
+        self.assertEqual(len(session["playlist"]), 1)
         self.assertNotIn("storage_path", str(session))
 
         self.emitted.clear()
@@ -185,6 +185,28 @@ class VideoRoomProtocolTest(unittest.TestCase):
         snapshot = self.events("room_snapshot")[-1]
         self.assertEqual(set(snapshot["data"]), VIDEO_SNAPSHOT_KEYS)
         self.assertEqual(snapshot["data"]["media_id"], self.first.id)
+
+    def test_replacing_current_video_leaves_one_room_item(self):
+        item, snapshot, paths = video_service.replace_current_video_item(
+            self.db,
+            self.room,
+            created_by=self.host.id,
+            source_type="legacy_local",
+            title="Local replacement",
+            original_filename="movie.mp4",
+            file_size=4096,
+            local_fingerprint="ab" * 32,
+            owned_file=False,
+            expected_version=self.room.playback_version,
+        )
+
+        items = self.db.query(models.VideoPlaylistItem).filter_by(room_id=self.room.id).all()
+        session = self.db.get(models.VideoSession, self.room.id)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].id, item.id)
+        self.assertEqual(session.current_item_id, item.id)
+        self.assertEqual(snapshot.media_id, item.id)
+        self.assertEqual(paths, [])
 
     def test_video_control_binds_actor_and_broadcasts_generic_rate_snapshot(self):
         self.join("sid-member", self.member)
@@ -484,6 +506,32 @@ class VideoRoomProtocolTest(unittest.TestCase):
         asyncio.run(websocket_server.disconnect("sid-member"))
         self.assertNotIn(self.room.id, websocket_server.video_local_ready_states)
         self.assertFalse(hasattr(models.SyncRoomMember, "local_video_ready"))
+
+    def test_presence_heartbeat_updates_member_and_broadcasts_full_presence(self):
+        self.join("sid-member", self.member)
+        self.emitted.clear()
+
+        asyncio.run(websocket_server.presence_heartbeat(
+            "sid-member", {"room_id": self.room.id}
+        ))
+
+        event = self.events("room_presence")[-1]
+        self.assertEqual(event["room"], f"room_{self.room.id}")
+        self.assertEqual(event["data"]["room_id"], self.room.id)
+        self.assertEqual(
+            {entry["user_id"] for entry in event["data"]["members"]},
+            {self.host.id, self.member.id},
+        )
+
+    def test_non_member_presence_heartbeat_is_rejected(self):
+        self.sessions["sid-attacker"] = self.trusted_session(self.attacker)
+
+        asyncio.run(websocket_server.presence_heartbeat(
+            "sid-attacker", {"room_id": self.room.id}
+        ))
+
+        self.assertEqual(self.events("room_presence"), [])
+        self.assertEqual(self.events("error")[-1]["room"], "sid-attacker")
 
     def test_video_heartbeat_reuses_shared_clock_without_mutation(self):
         self.join("sid-host", self.host)

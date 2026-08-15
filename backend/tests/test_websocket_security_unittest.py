@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -19,6 +20,7 @@ import schemas  # noqa: E402
 import security  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from routers import video as video_router  # noqa: E402
 from config import config  # noqa: E402
 from database import Base  # noqa: E402
 
@@ -263,6 +265,70 @@ class WebsocketSecurityTest(unittest.TestCase):
                 event["event"] == "error" and event["room"] == "sid-anonymous"
                 for event in self.emitted
             )
+        )
+
+    def test_non_host_cannot_change_host_only_playback(self):
+        room = sync_room_crud.create_room(
+            self.db,
+            schemas.SyncRoomCreate(
+                room_name="host only video",
+                mode="url",
+                type="video",
+                control_mode="host_only",
+            ),
+            self.host.id,
+        )
+        sync_room_crud.join_room(self.db, room.id, self.member.id)
+        self.sessions["sid-member"] = self.trusted_session(self.member)
+
+        asyncio.run(
+            websocket_server.playback_control(
+                "sid-member",
+                {
+                    "room_id": room.id,
+                    "user_id": self.host.id,
+                    "action": "play",
+                    "time": 99,
+                    "playback_version": 0,
+                },
+            )
+        )
+
+        self.db.refresh(room)
+        self.assertFalse(room.is_playing)
+        self.assertEqual(room.playback_version, 0)
+        self.assertFalse(
+            any(event["event"] in {"room_snapshot", "playback_sync"} for event in self.emitted)
+        )
+        self.assertTrue(
+            any(
+                event["event"] == "error" and event["room"] == "sid-member"
+                for event in self.emitted
+            )
+        )
+
+    def test_media_management_uses_room_control_mode(self):
+        room = sync_room_crud.create_room(
+            self.db,
+            schemas.SyncRoomCreate(
+                room_name="media permission",
+                mode="url",
+                type="video",
+                control_mode="host_only",
+            ),
+            self.host.id,
+        )
+        sync_room_crud.join_room(self.db, room.id, self.member.id)
+
+        with self.assertRaises(HTTPException) as context:
+            video_router._video_room(self.db, room.id, self.member, controller=True)
+        self.assertEqual(context.exception.status_code, 403)
+
+        room.control_mode = "all_members"
+        self.db.commit()
+        self.assertIs(
+            video_router._video_room(self.db, room.id, self.member, controller=True),
+            room,
         )
 
     def test_non_member_cannot_enter_game_room_by_spoofing_owner_id(self):

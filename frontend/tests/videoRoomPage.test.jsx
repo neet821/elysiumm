@@ -51,6 +51,7 @@ vi.mock('../src/features/video/VideoPlayerAdapter.js', async (importOriginal) =>
 }))
 
 import SyncRoomPlayer from '../src/pages/SyncRoomPlayer.jsx'
+import { fingerprintLocalVideo } from '../src/features/video/localVideo.js'
 
 const originalRequestFullscreen = window.HTMLElement.prototype.requestFullscreen
 
@@ -213,6 +214,66 @@ describe('video room page', () => {
     expect(document.querySelector('main > header')).toHaveClass('top-[4.25rem]')
   })
 
+  it('keeps host video controls when the saved user id is a string', async () => {
+    mocks.user = { id: '1', role: 'user', username: 'host' }
+    renderRoom()
+
+    expect(await screen.findByLabelText('视频网址')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('视频网址'), {
+      target: { value: 'https://media.example/host.mp4' },
+    })
+    expect(screen.getByRole('button', { name: '替换当前视频' })).toBeEnabled()
+  })
+
+  it('hides source controls from members when the room is host-only', async () => {
+    mocks.user = { id: 2, role: 'user', username: 'member' }
+    renderRoom()
+
+    expect(await screen.findByRole('heading', { name: 'Video room' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('视频网址')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '上传视频' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '本地同步' })).not.toBeInTheDocument()
+  })
+
+  it('shows source controls to members when the room allows all members to control media', async () => {
+    mocks.user = { id: 2, role: 'user', username: 'member' }
+    mocks.api.get.mockImplementation((url) => {
+      if (url.endsWith('/api/sync-rooms/9/messages')) return Promise.resolve({ data: [] })
+      if (url.endsWith('/api/sync-rooms/9')) return Promise.resolve({ data: {
+        control_mode: 'all_members',
+        host_user_id: 1,
+        id: 9,
+        members: [{ is_online: true, user_id: 1, username: 'host' }, { is_online: true, user_id: 2, username: 'member' }],
+        mode: 'url',
+        room_code: 'VIDEO9',
+        room_name: 'Video room',
+        type: 'video',
+      } })
+      if (url.endsWith('/api/video/rooms/9')) return Promise.resolve({ data: videoDetail({ room: {
+        control_mode: 'all_members',
+        host_user_id: 1,
+        id: 9,
+        lifecycle_status: 'active',
+        room_code: 'VIDEO9',
+        room_name: 'Video room',
+      } }) })
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    renderRoom()
+
+    expect(await screen.findByLabelText('视频网址')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '上传视频' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '本地同步' })).toBeInTheDocument()
+  })
+
+  it('renders one current-video panel instead of a playlist', async () => {
+    renderRoom()
+
+    expect(await screen.findByText('当前视频')).toBeInTheDocument()
+    expect(screen.queryByText('Next film')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /上移|下移|播放下一项/ })).not.toBeInTheDocument()
+  })
+
   it('keeps the room usable when the initial video state is temporarily unavailable', async () => {
     mocks.videoError = true
     renderRoom()
@@ -278,6 +339,36 @@ describe('video room page', () => {
     expect(await screen.findByText('操作与房间新状态冲突，已重新同步')).toHaveAttribute('role', 'status')
   })
 
+  it('sends presence heartbeats only while the room page is visible', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    vi.useFakeTimers()
+    try {
+      act(() => mocks.handlers.get('join_success')({
+        members: [
+          { is_online: true, user_id: 1, username: 'host' },
+          { is_online: true, user_id: 2, username: 'member' },
+        ],
+        snapshot: snapshot(),
+      }))
+      mocks.socket.emit.mockClear()
+      act(() => vi.advanceTimersByTime(10_000))
+      expect(mocks.socket.emit).toHaveBeenCalledWith('presence_heartbeat', { room_id: 9 })
+
+      mocks.socket.emit.mockClear()
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+      act(() => vi.advanceTimersByTime(20_000))
+      expect(mocks.socket.emit).not.toHaveBeenCalledWith('presence_heartbeat', { room_id: 9 })
+
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+      expect(mocks.socket.emit).toHaveBeenCalledWith('presence_heartbeat', { room_id: 9 })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('applies a matching host heartbeat as a fresh video clock anchor', async () => {
     renderRoom()
     await screen.findByRole('heading', { name: 'Video room' })
@@ -334,6 +425,145 @@ describe('video room page', () => {
     expect(screen.getByText('当前视频无法播放，请检查来源或稍后重试')).toHaveAttribute('role', 'status')
   })
 
+  it('rejects native mobile playback when the member cannot control the room', async () => {
+    mocks.user = { id: 2, role: 'user', username: 'member' }
+    renderRoom()
+    const video = await screen.findByTestId('video-room-media')
+    mocks.adapter.pause.mockClear()
+    mocks.socket.emit.mockClear()
+
+    fireEvent.play(video)
+
+    expect(mocks.adapter.pause).toHaveBeenCalledTimes(1)
+    expect(mocks.socket.emit).not.toHaveBeenCalledWith(
+      'playback_control',
+      expect.anything(),
+    )
+  })
+
+  it('shows upload progress while the video request is pending', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    fireEvent.click(screen.getByRole('button', { name: '上传视频' }))
+    const input = screen.getByLabelText('上传视频')
+    const file = new File(['video'], 'movie.mp4', { type: 'video/mp4' })
+    let resolveUpload
+    let uploadConfig
+    mocks.api.post.mockImplementationOnce((url, form, config) => {
+      uploadConfig = config
+      return new Promise((resolve) => { resolveUpload = resolve })
+    })
+
+    fireEvent.change(input, { target: { files: [file] } })
+    await waitFor(() => expect(screen.getByLabelText('视频上传进度')).toBeInTheDocument())
+    act(() => uploadConfig.onUploadProgress({ loaded: 50, total: 100 }))
+
+    expect(screen.getByText('50%')).toBeInTheDocument()
+    expect(screen.getByText('50 B / 100 B')).toBeInTheDocument()
+    expect(input).toBeDisabled()
+
+    await act(async () => { resolveUpload({ data: {} }) })
+    await waitFor(() => expect(screen.queryByLabelText('视频上传进度')).not.toBeInTheDocument())
+  })
+
+  it('clears upload progress and shows the server error after upload failure', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    fireEvent.click(screen.getByRole('button', { name: '上传视频' }))
+    const input = screen.getByLabelText('上传视频')
+    mocks.api.post.mockImplementationOnce(() => Promise.reject({ response: { data: { detail: '视频太大' } } }))
+
+    fireEvent.change(input, {
+      target: { files: [new File(['video'], 'movie.mp4', { type: 'video/mp4' })] },
+    })
+
+    expect(await screen.findByText('视频太大')).toHaveAttribute('role', 'status')
+    expect(screen.queryByLabelText('视频上传进度')).not.toBeInTheDocument()
+  })
+
+  it('re-announces a matching local video after the realtime room reconnects', async () => {
+    const file = new File(['local'], 'movie.mp4', { type: 'video/mp4' })
+    Object.defineProperty(file, 'slice', {
+      configurable: true,
+      value: vi.fn(() => ({ arrayBuffer: async () => Uint8Array.from([1, 2, 3]).buffer })),
+    })
+    const fingerprint = await fingerprintLocalVideo(file)
+    const localItem = {
+      ...playlist[0],
+      file_size: file.size,
+      id: 20,
+      local_fingerprint: fingerprint,
+      playback_url: null,
+      source_type: 'legacy_local',
+      title: 'movie.mp4',
+    }
+    const localDetail = videoDetail({
+      session: { ...videoDetail().session, current_item_id: 20, playlist: [localItem] },
+      snapshot: snapshot({ media_id: 20 }),
+    })
+    mocks.api.get.mockImplementation((url) => {
+      if (url.endsWith('/api/sync-rooms/9/messages')) return Promise.resolve({ data: [] })
+      if (url.endsWith('/api/sync-rooms/9')) return Promise.resolve({ data: {
+        control_mode: 'host_only', host_user_id: 1, id: 9,
+        members: [{ is_online: true, user_id: 1, username: 'host' }],
+        mode: 'local', room_code: 'VIDEO9', room_name: 'Video room', type: 'video',
+      } })
+      if (url.endsWith('/api/video/rooms/9')) return Promise.resolve({ data: localDetail })
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    mocks.api.post.mockImplementation((url) => url.endsWith('/items/local')
+      ? Promise.resolve({ data: { item: localItem } })
+      : Promise.resolve({ data: {} }))
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    fireEvent.click(screen.getByRole('button', { name: '本地同步' }))
+    fireEvent.change(screen.getByLabelText('登记本地视频'), { target: { files: [file] } })
+    await waitFor(() => expect(mocks.socket.emit).toHaveBeenCalledWith('video_local_ready', {
+      fingerprint,
+      item_id: 20,
+      ready: true,
+      room_id: 9,
+    }))
+
+    mocks.socket.emit.mockClear()
+    act(() => mocks.handlers.get('join_success')({
+      room: { control_mode: 'host_only', host_user_id: 1 },
+      members: [{ is_online: true, user_id: 1, username: 'host' }],
+      snapshot: snapshot({ media_id: 20 }),
+      video_session: localDetail.session,
+    }))
+
+    expect(mocks.socket.emit).toHaveBeenCalledWith('video_local_ready', {
+      fingerprint,
+      item_id: 20,
+      ready: true,
+      room_id: 9,
+    })
+  })
+
+  it('applies realtime online and offline member states without duplicating members', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+
+    act(() => mocks.handlers.get('room_presence')({
+      room_id: 9,
+      members: [
+        { is_online: false, user_id: 1, username: 'host' },
+        { is_online: true, user_id: 2, username: 'member' },
+      ],
+    }))
+    expect(screen.getByText('离线')).toBeInTheDocument()
+
+    act(() => mocks.handlers.get('room_presence')({
+      room_id: 9,
+      members: [
+        { is_online: true, user_id: 1, username: 'host' },
+        { is_online: true, user_id: 2, username: 'member' },
+      ],
+    }))
+    expect(screen.getAllByText('在线')).toHaveLength(2)
+  })
+
   it('does not resubmit metadata that already matches the current video', async () => {
     renderRoom()
     await screen.findByRole('heading', { name: 'Video room' })
@@ -379,7 +609,7 @@ describe('video room page', () => {
     fireEvent.change(screen.getByLabelText('视频网址'), {
       target: { value: 'https://media.example/new.mp4' },
     })
-    fireEvent.click(screen.getByRole('button', { name: '添加到片单' }))
+    fireEvent.click(screen.getByRole('button', { name: '替换当前视频' }))
 
     await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/video\/rooms\/9\/items\/url$/),

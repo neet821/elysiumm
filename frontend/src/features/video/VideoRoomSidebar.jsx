@@ -1,32 +1,38 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, Film, Link2, MessageCircle, Settings, Trash2, Upload, Users } from 'lucide-react'
+import { Film, Link2, MessageCircle, Settings, Upload, Users } from 'lucide-react'
+
+
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0)
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
 
 
 export default function VideoRoomSidebar({ roomState }) {
   const {
     addUrl,
     addLocalVideo,
-    advance,
     buffers,
     busy,
     canControl,
     currentItem,
     chooseLocalVideo,
-    deleteItem,
     deleteSubtitle,
     isHost,
     localReady,
     kickMember,
     members,
     messages,
-    reorder,
-    selectItem,
     sendMessage,
     session,
     uploadSubtitle,
     uploadVideo,
     transferHost,
     updateRoomSettings,
+    uploadProgress,
     userId,
   } = roomState
   const [url, setUrl] = useState('')
@@ -41,18 +47,10 @@ export default function VideoRoomSidebar({ roomState }) {
     setRoomName(roomState.room?.room_name || '')
   }, [roomState.room?.room_name])
 
-  const move = (index, offset) => {
-    const nextIndex = index + offset
-    if (nextIndex < 0 || nextIndex >= session.playlist.length) return
-    const ids = session.playlist.map((item) => item.id)
-    ;[ids[index], ids[nextIndex]] = [ids[nextIndex], ids[index]]
-    reorder(ids)
-  }
-
   return (
     <aside className="grid min-w-0 gap-4 xl:grid-rows-[auto_auto_1fr]">
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="mb-3 flex items-center gap-2 font-semibold"><Film size={18} />片单</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-semibold"><Film size={18} />当前视频</h2>
         {canControl && (
           <div className="mb-4 grid gap-2">
             <div className="grid grid-cols-3 gap-1" aria-label="视频来源方式">
@@ -82,7 +80,7 @@ export default function VideoRoomSidebar({ roomState }) {
               }}
               className="rounded-lg bg-sky-600 px-3 py-2 text-sm text-white disabled:opacity-40"
             >
-              <Link2 size={15} /> 添加到片单
+              <Link2 size={15} /> 替换当前视频
             </button>}
             {sourceMode === 'upload' && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
               <Upload size={16} /> 上传视频
@@ -90,10 +88,30 @@ export default function VideoRoomSidebar({ roomState }) {
                 className="sr-only"
                 type="file"
                 accept="video/mp4,video/webm,video/quicktime,video/ogg,.m4v"
-                disabled={busy}
+                disabled={busy || uploadProgress?.active}
                 onChange={(event) => event.target.files?.[0] && uploadVideo(event.target.files[0])}
               />
             </label>}
+            {uploadProgress?.active && (
+              <div className="grid gap-1" aria-live="polite">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+                  <span>正在上传视频</span>
+                  <span>{uploadProgress.percent}%</span>
+                </div>
+                <progress
+                  aria-label="视频上传进度"
+                  aria-valuemax="100"
+                  aria-valuemin="0"
+                  aria-valuenow={uploadProgress.percent}
+                  className="h-2 w-full accent-sky-600"
+                  max="100"
+                  value={uploadProgress.percent}
+                />
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+                </span>
+              </div>
+            )}
             {sourceMode === 'local' && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
               <Film size={16} /> 登记本地视频
               <input className="sr-only" type="file" accept="video/*,.mkv,.m4v,.mov,.ogv" disabled={busy} onChange={(event) => event.target.files?.[0] && addLocalVideo(event.target.files[0])} />
@@ -107,37 +125,15 @@ export default function VideoRoomSidebar({ roomState }) {
             <input className="sr-only" type="file" accept="video/*,.mkv,.m4v,.mov,.ogv" disabled={busy} onChange={(event) => event.target.files?.[0] && chooseLocalVideo(currentItem, event.target.files[0])} />
           </label>
         )}
-        <ol className="max-h-64 space-y-2 overflow-y-auto">
-          {session.playlist.map((item, index) => (
-            <li
-              key={item.id}
-              className={`rounded-xl border p-2 ${item.id === currentItem?.id ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/30' : 'border-slate-200 dark:border-slate-700'}`}
-            >
-              <button
-                type="button"
-                disabled={!canControl || item.id === currentItem?.id}
-                onClick={() => selectItem(item.id)}
-                className="w-full truncate text-left text-sm font-medium disabled:cursor-default"
-              >
-                {index + 1}. {item.title}
-              </button>
-              <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                {item.source_type === 'legacy_local' ? '本地同步' : item.playback_kind === 'hls' ? 'HLS 流媒体' : item.source_type === 'upload' ? '服务器上传' : '网络地址'}
-              </span>
-              {canControl && (
-                <div className="mt-2 flex gap-1">
-                  <button type="button" aria-label={`上移 ${item.title}`} onClick={() => move(index, -1)} disabled={index === 0 || busy} className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button>
-                  <button type="button" aria-label={`下移 ${item.title}`} onClick={() => move(index, 1)} disabled={index === session.playlist.length - 1 || busy} className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button>
-                  <button type="button" aria-label={`删除 ${item.title}`} onClick={() => deleteItem(item.id)} disabled={busy} className="ml-auto rounded p-1 text-rose-600 disabled:opacity-30"><Trash2 size={14} /></button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-        {canControl && currentItem && (
-          <button type="button" onClick={advance} disabled={busy} className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
-            播放下一项
-          </button>
+        {currentItem ? (
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm dark:border-sky-900 dark:bg-sky-950/30">
+            <p className="truncate font-medium text-slate-800 dark:text-slate-100">{currentItem.title}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {currentItem.source_type === 'legacy_local' ? '本地同步播放' : currentItem.source_type === 'upload' ? '服务器上传视频' : currentItem.playback_kind === 'hls' ? 'HLS 流媒体' : '网络视频'}
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-700">还没有当前视频，请先选择一个视频来源。</p>
         )}
         {canControl && currentItem && (
           <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
@@ -196,7 +192,7 @@ export default function VideoRoomSidebar({ roomState }) {
             <li key={member.user_id} className="flex flex-wrap items-center justify-between gap-2">
               <span className={member.is_online === false ? 'text-slate-400' : ''}>{member.username}</span>
               <span className="text-xs text-slate-500">{currentItem?.source_type === 'legacy_local' ? (localReady[member.user_id]?.ready && localReady[member.user_id]?.item_id === currentItem.id ? '本地文件已准备' : '等待选择本地文件') : buffers[member.user_id] ? '缓冲中' : member.is_online === false ? '离线' : '在线'}</span>
-              {isHost && member.user_id !== userId && (
+              {isHost && String(member.user_id) !== String(userId) && (
                 <span className="flex basis-full justify-end gap-2 text-xs">
                   <button type="button" onClick={() => transferHost(member.user_id)} className="text-sky-700 dark:text-sky-300">转让房主</button>
                   <button type="button" onClick={() => kickMember(member.user_id)} className="text-rose-600">移出房间</button>
@@ -226,7 +222,7 @@ export default function VideoRoomSidebar({ roomState }) {
           <div className="min-w-0 flex-1 space-y-2">
             <select aria-label="消息接收人" value={messageTarget} onChange={(event) => setMessageTarget(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-600">
               <option value="">所有成员</option>
-              {members.filter((member) => member.user_id !== userId).map((member) => (
+              {members.filter((member) => String(member.user_id) !== String(userId)).map((member) => (
                 <option key={member.user_id} value={member.user_id}>私信 {member.username}</option>
               ))}
             </select>

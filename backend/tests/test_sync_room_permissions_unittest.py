@@ -73,9 +73,19 @@ class SyncRoomPermissionsTest(unittest.TestCase):
                 self.db, host_only_room, self.member, "playback_control"
             )
         )
+        self.assertFalse(
+            sync_room_crud.can_perform_room_action(
+                self.db, host_only_room, self.member, "change_media"
+            )
+        )
         self.assertTrue(
             sync_room_crud.can_perform_room_action(
                 self.db, all_members_room, self.member, "playback_control"
+            )
+        )
+        self.assertTrue(
+            sync_room_crud.can_perform_room_action(
+                self.db, all_members_room, self.member, "change_media"
             )
         )
 

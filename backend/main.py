@@ -1473,7 +1473,7 @@ def get_room_by_code(
         raise HTTPException(status_code=404, detail="房间不存在")
 
     # 获取成员列表和数量
-    members = sync_room_crud.get_room_members(db, room.id)
+    members = sync_room_crud.get_room_members(db, room.id, online_only=False)
 
     room_dict = room.__dict__.copy()
     room_dict['member_count'] = len(members)
@@ -1496,7 +1496,7 @@ def get_room(
     # 用户需要调用 join 端点才能真正加入房间
 
     # 获取成员列表和数量
-    members = sync_room_crud.get_room_members(db, room.id)
+    members = sync_room_crud.get_room_members(db, room.id, online_only=False)
 
     # 获取房主信息
     host_user = crud.get_user_by_id(db, room.host_user_id)
@@ -1694,7 +1694,7 @@ def get_room_members(
         raise HTTPException(status_code=403, detail="不是房间成员")
 
     # 默认只返回在线成员
-    members = sync_room_crud.get_room_members(db, room_id, online_only=True)
+    members = sync_room_crud.get_room_members(db, room_id, online_only=False)
     return members
 
 @app.get("/api/sync-rooms/{room_id}/messages", response_model=List[schemas.SyncRoomMessage])
@@ -1739,15 +1739,14 @@ async def update_sync_room(
     if not sync_room_crud.can_perform_room_action(db, room, current_user, "change_media"):
         raise HTTPException(status_code=403, detail="没有权限更新房间")
 
-    # One-release compatibility wrapper: the old page still submits a single
-    # URL here, but video selection now goes through the independent playlist
-    # and the shared versioned playback clock.
+    # Compatibility wrapper for the old room endpoint. Video selection still
+    # follows the same single-current-video rule as the dedicated API.
     if room.type == "video" and room_update.video_source is not None:
         if room_update.mode not in (None, "url"):
             raise HTTPException(status_code=400, detail="请使用视频上传接口")
         try:
             probe = await video.inspect_external_video(room_update.video_source)
-            item = video_service.create_playlist_item(
+            item, snapshot, paths = video_service.replace_current_video_item(
                 db,
                 room,
                 created_by=current_user.id,
@@ -1756,16 +1755,16 @@ async def update_sync_room(
                 source_url=probe.resolved_url,
                 content_type=probe.content_type,
                 file_size=probe.file_size,
-            )
-            snapshot = video_service.select_item(
-                db,
-                room,
-                item,
                 expected_version=int(room.playback_version or 0),
-                autoplay=False,
             )
         except (ValueError, room_core.InvalidRoomTransition) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        for kind, path, owned in paths:
+            if owned:
+                video._unlink_managed(
+                    path,
+                    video.VIDEO_UPLOAD_ROOT if kind == "video" else video.VIDEO_SUBTITLE_ROOT,
+                )
         await video.broadcast_video_state(db, room, snapshot=snapshot)
 
         remaining = room_update.model_dump(
@@ -1850,17 +1849,7 @@ async def upload_video(
         db=db,
     )
     item = video_service.get_video_item(db, room.id, result["item"]["id"])
-    try:
-        snapshot = video_service.select_item(
-            db,
-            room,
-            item,
-            expected_version=int(room.playback_version or 0),
-            autoplay=False,
-        )
-    except (ValueError, room_core.InvalidRoomTransition) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    await video.broadcast_video_state(db, room, snapshot=snapshot)
+    snapshot = video_service.current_video_snapshot(db, room)
     return {
         "message": "视频上传成功",
         "filename": item.original_filename,

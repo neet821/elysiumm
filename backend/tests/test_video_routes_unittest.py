@@ -266,7 +266,7 @@ class VideoRoutesTest(unittest.TestCase):
         self.assertEqual(detail.json()["session"]["current_item_id"], item.id)
         self.assertEqual(detail.json()["snapshot"]["media_id"], item.id)
 
-    def test_url_playlist_selection_reorder_metadata_and_conflict(self):
+    def test_url_replacement_keeps_one_current_item_and_updates_metadata(self):
         forbidden = self.client.post(
             f"/api/video/rooms/{self.room.id}/items/url",
             headers=self.headers(self.member),
@@ -289,59 +289,22 @@ class VideoRoutesTest(unittest.TestCase):
 
         first = self.create_external("first")
         second = self.create_external("second")
-        self.emitted.clear()
-        reorder = self.client.put(
-            f"/api/video/rooms/{self.room.id}/playlist",
-            headers=self.headers(self.host),
-            json={"item_ids": [second["id"], first["id"]]},
-        )
-        self.assertEqual(reorder.status_code, 200, reorder.text)
+        self.assertNotEqual(first["id"], second["id"])
+        detail = self.client.get(
+            f"/api/video/rooms/{self.room.id}",
+            headers=self.headers(self.member),
+        ).json()
+        self.assertEqual(detail["session"]["current_item_id"], second["id"])
         self.assertEqual(
-            [item["id"] for item in reorder.json()["playlist"]],
-            [second["id"], first["id"]],
+            [item["id"] for item in detail["session"]["playlist"]],
+            [second["id"]],
         )
         self.db.refresh(self.room)
-        self.assertEqual(self.room.playback_version, 0)
-        self.assertEqual(
-            [event["event"] for event in self.emitted],
-            ["video_session_updated"],
-        )
-
-        self.emitted.clear()
-        video_router.video_buffer_states[self.room.id] = {
-            self.member.id: {
-                "stale-tab": {
-                    "item_id": second["id"],
-                    "buffering": True,
-                }
-            }
-        }
-        select = self.client.post(
-            f"/api/video/rooms/{self.room.id}/items/{first['id']}/select",
-            headers=self.headers(self.host),
-            json={"expected_version": 0, "autoplay": False},
-        )
-        self.assertEqual(select.status_code, 200, select.text)
-        self.assertEqual(select.json()["snapshot"]["version"], 1)
-        self.assertEqual(select.json()["snapshot"]["media_id"], first["id"])
-        self.assertEqual(select.json()["snapshot"]["state"], "paused")
-        self.assertEqual(
-            [event["event"] for event in self.emitted],
-            ["video_session_updated", "room_snapshot"],
-        )
-        self.assertNotIn(self.room.id, video_router.video_buffer_states)
-
-        stale = self.client.post(
-            f"/api/video/rooms/{self.room.id}/items/{second['id']}/select",
-            headers=self.headers(self.host),
-            json={"expected_version": 0, "autoplay": True},
-        )
-        self.assertEqual(stale.status_code, 409, stale.text)
-        self.assertEqual(stale.json()["detail"]["snapshot"]["version"], 1)
-        self.assertEqual(stale.json()["detail"]["snapshot"]["media_id"], first["id"])
+        self.assertEqual(self.room.playback_version, 1)
+        self.assertIsNone(self.db.get(models.VideoPlaylistItem, first["id"]))
 
         metadata = self.client.put(
-            f"/api/video/rooms/{self.room.id}/items/{first['id']}/metadata",
+            f"/api/video/rooms/{self.room.id}/items/{second['id']}/metadata",
             headers=self.headers(self.host),
             json={"duration_seconds": 120.25, "width": 1920, "height": 1080},
         )
@@ -351,7 +314,7 @@ class VideoRoutesTest(unittest.TestCase):
         self.db.refresh(self.room)
         self.assertEqual(self.room.playback_version, 1)
         invalid_metadata = self.client.put(
-            f"/api/video/rooms/{self.room.id}/items/{first['id']}/metadata",
+            f"/api/video/rooms/{self.room.id}/items/{second['id']}/metadata",
             headers=self.headers(self.host),
             json={"duration_seconds": -1, "width": 99999, "height": 0},
         )
@@ -579,41 +542,15 @@ class VideoRoutesTest(unittest.TestCase):
         )
         self.assertEqual(oversized.status_code, 413)
 
-    def test_advance_and_current_delete_each_increment_exactly_once(self):
+    def test_replacing_current_video_removes_previous_items(self):
         first = self.create_external("one")
         second = self.create_external("two")
         third = self.create_external("three")
-        selected = self.client.post(
-            f"/api/video/rooms/{self.room.id}/items/{first['id']}/select",
-            headers=self.headers(self.host),
-            json={"expected_version": 0, "autoplay": True},
-        )
-        self.assertEqual(selected.status_code, 200)
-        self.assertEqual(selected.json()["snapshot"]["version"], 1)
-
-        advanced = self.client.post(
-            f"/api/video/rooms/{self.room.id}/advance",
-            headers=self.headers(self.host),
-            json={"expected_version": 1, "autoplay": True},
-        )
-        self.assertEqual(advanced.status_code, 200, advanced.text)
-        self.assertEqual(advanced.json()["snapshot"]["media_id"], second["id"])
-        self.assertEqual(advanced.json()["snapshot"]["version"], 2)
-
-        deleted = self.client.delete(
-            f"/api/video/rooms/{self.room.id}/items/{second['id']}?expected_version=2",
-            headers=self.headers(self.host),
-        )
-        self.assertEqual(deleted.status_code, 200, deleted.text)
-        self.assertEqual(deleted.json()["snapshot"]["media_id"], third["id"])
-        self.assertEqual(deleted.json()["snapshot"]["version"], 3)
-
-        non_current = self.client.delete(
-            f"/api/video/rooms/{self.room.id}/items/{first['id']}?expected_version=0",
-            headers=self.headers(self.host),
-        )
-        self.assertEqual(non_current.status_code, 200, non_current.text)
-        self.assertEqual(non_current.json()["snapshot"]["version"], 3)
+        session = video_service.ensure_video_session(self.db, self.room)
+        self.db.refresh(session)
+        self.assertEqual(third["id"], session.current_item_id)
+        self.assertIsNone(self.db.get(models.VideoPlaylistItem, first["id"]))
+        self.assertIsNone(self.db.get(models.VideoPlaylistItem, second["id"]))
 
     def test_legacy_video_endpoints_delegate_to_the_video_session(self):
         legacy_url = self.client.put(
@@ -629,7 +566,7 @@ class VideoRoutesTest(unittest.TestCase):
             f"/api/video/rooms/{self.room.id}",
             headers=self.headers(self.member),
         ).json()
-        self.assertEqual(detail["snapshot"]["version"], 1)
+        self.assertEqual(detail["snapshot"]["version"], 0)
         current = next(
             item
             for item in detail["session"]["playlist"]
@@ -643,13 +580,13 @@ class VideoRoutesTest(unittest.TestCase):
             files={"file": ("legacy.mp4", b"legacy-video", "video/mp4")},
         )
         self.assertEqual(uploaded.status_code, 200, uploaded.text)
-        self.assertEqual(uploaded.json()["playback_version"], 2)
+        self.assertEqual(uploaded.json()["playback_version"], 1)
         self.assertIn("access=", uploaded.json()["video_url"])
         detail = self.client.get(
             f"/api/video/rooms/{self.room.id}",
             headers=self.headers(self.member),
         ).json()
-        self.assertEqual(detail["snapshot"]["version"], 2)
+        self.assertEqual(detail["snapshot"]["version"], 1)
         current = next(
             item
             for item in detail["session"]["playlist"]
@@ -666,12 +603,9 @@ class VideoRoutesTest(unittest.TestCase):
             f"/api/video/rooms/{self.room.id}",
             headers=self.headers(self.member),
         ).json()
-        self.assertEqual(detail["snapshot"]["version"], 3)
+        self.assertEqual(detail["snapshot"]["version"], 2)
         self.assertIsNone(detail["session"]["current_item_id"])
-        self.assertEqual(
-            [item["source_type"] for item in detail["session"]["playlist"]],
-            ["external"],
-        )
+        self.assertEqual(detail["session"]["playlist"], [])
         self.assertEqual(len(list(self.video_root.iterdir())), 0)
 
     def test_cleanup_and_streaming_never_follow_a_tampered_outside_path(self):
