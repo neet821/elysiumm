@@ -154,9 +154,16 @@ async function startQQBrowserLogin() {
     },
     ...(executablePath ? { executablePath } : {}),
   });
-  const context = await browser.newContext({ userAgent: UA });
-  const page = await context.newPage();
-  await page.goto('https://y.qq.com/portal/profile.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  let context;
+  let page;
+  try {
+    context = await browser.newContext({ userAgent: UA });
+    page = await context.newPage();
+    await page.goto('https://y.qq.com/portal/profile.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  } catch (error) {
+    await browser.close().catch(() => {});
+    throw error;
+  }
   try {
     const login = page.getByText('登录').first();
     if (await login.count()) await login.click({ timeout: 3000 });
@@ -3539,6 +3546,8 @@ const server = http.createServer((req, res) => {
       const session = await startQQBrowserLogin();
       sendJSON(res, providerLoginPublic(session));
     } catch (error) {
+      const detail = String(error?.message || '').replace(/[\r\n\t]+/g, ' ').slice(0, 240);
+      console.warn('[ProviderLogin] QQ login start failed', error?.code || 'UNKNOWN', detail);
       sendJSON(res, { error: error.code || 'QQ_LOGIN_START_FAILED', message: error.code === 'CHROMIUM_NOT_INSTALLED' ? '服务器未安装受控浏览器' : 'QQ 登录任务无法启动' }, 503);
     }
     return;
