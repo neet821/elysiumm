@@ -27,11 +27,11 @@
 - Consumes: the existing lobby test harness and room payloads.
 - Produces: coverage for occupied-room count, empty-room countdown, one-second ticking, and stale `members` fallback rejection.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add a fixture with one music room containing `member_count: 2`, conflicting `members` data, and a second music room with `member_count: 0` plus a known UTC `last_activity_at`. Assert the first card shows `在线成员 2 / 10`, the second shows `空房间` and `10:00 后关闭`, and after advancing one second it shows `09:59 后关闭`. Assert the existing internal room route test remains unchanged.
 
-- [ ] **Step 2: Run the focused tests to verify the new assertions fail**
+- [x] **Step 2: Run the focused tests to verify the new assertions fail**
 
 Run:
 
@@ -50,15 +50,15 @@ Expected: FAIL because the current lobby only renders `N 人在线`, has no empt
 - Consumes: `getOnlineMemberCount(room)` and `formatEmptyRoomCountdown(lastActivityAt, nowMs)` from `syncRoomListUtils.js`.
 - Produces: music lobby cards with the same member and empty-room semantics as the video lobby.
 
-- [ ] **Step 1: Import the shared helpers and add the display clock**
+- [x] **Step 1: Import the shared helpers and add the display clock**
 
 Add `useState` clock state initialized from `Date.now()`. In the existing lobby effect, keep the initial `loadRooms()` call and add a ten-second refresh interval plus a one-second clock interval; clear both on unmount and depend on the memoized `loadRooms` callback.
 
-- [ ] **Step 2: Render the authoritative count and countdown**
+- [x] **Step 2: Render the authoritative count and countdown**
 
 For each music room, compute `onlineMemberCount = getOnlineMemberCount(room)` and `isEmpty = onlineMemberCount === 0`. Render `空房间` for empty rooms; otherwise render `在线成员 ${onlineMemberCount} / ${room.max_members || 10}`. For empty rooms add a status line using `formatEmptyRoomCountdown(room.last_activity_at, now)`. Keep all current lobby classes and leave `MineradioPage.jsx` untouched.
 
-- [ ] **Step 3: Run the focused tests to verify they pass**
+- [x] **Step 3: Run the focused tests to verify they pass**
 
 Run the same Vitest command and confirm all music-lobby tests pass.
 
@@ -71,7 +71,7 @@ Run the same Vitest command and confirm all music-lobby tests pass.
 - Consumes: the tested lobby-only change and existing backend room lifecycle.
 - Produces: a published Elysium frontend with a preserved previous release.
 
-- [ ] **Step 1: Run focused regression, project tests, lint, and build**
+- [x] **Step 1: Run focused regression, project tests, lint, and build**
 
 ```bash
 npm --prefix frontend run test:unit -- tests/musicLobby.test.jsx tests/syncRoomListUtils.test.jsx tests/syncRoomList.test.jsx tests/videoPlayerAdapter.test.jsx tests/videoRoomPage.test.jsx tests/localVideo.test.jsx
@@ -80,7 +80,7 @@ npm --prefix frontend run lint
 npm --prefix frontend run build
 ```
 
-- [ ] **Step 2: Commit and push the lobby change**
+- [x] **Step 2: Commit and push the lobby change**
 
 ```bash
 git add frontend/src/pages/MusicLobbyPage.jsx frontend/tests/musicLobby.test.jsx docs/superpowers/plans/2026-08-16-music-lobby-occupancy-countdown-plan.md
@@ -88,10 +88,10 @@ git commit -m "feat: show music lobby occupancy countdown"
 git push origin main
 ```
 
-- [ ] **Step 3: Publish the frontend atomically**
+- [x] **Step 3: Publish the frontend atomically**
 
 Transfer `frontend/dist` to a unique staging directory on `aliyun`, verify the Elysium branding, move `/var/www/elysiumm` to a unique rollback directory, and promote the staged directory. Do not modify the music-room internal page or use the old Blue Album deployment path.
 
-- [ ] **Step 4: Verify production**
+- [x] **Step 4: Verify production**
 
 Check `https://elysiumm.top/`, `https://elysiumm.top/api/health`, all four production services, the live `MusicLobbyPage` chunk for `member_count`, `空房间`, `后关闭`, and the existence of the previous frontend release directory.
