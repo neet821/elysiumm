@@ -62,6 +62,8 @@ const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
 const MUSIC_SESSION_DIR = process.env.MINERADIO_SESSION_DIR || path.join(path.dirname(COOKIE_FILE), 'users');
 const BLUE_ALBUM_SECRET_KEY = process.env.BLUE_ALBUM_SECRET_KEY || process.env.SECRET_KEY || '';
+const MUSIC_PROVIDER_ADMIN_TOKEN = String(process.env.MUSIC_PROVIDER_ADMIN_TOKEN || '').trim();
+const AUDIO_TICKET_TTL_SECONDS = 30 * 60;
 const UPDATE_WORK_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
 const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DOWNLOAD_DIR || path.join(UPDATE_WORK_DIR, 'downloads');
 const UPDATE_PATCH_BACKUP_DIR = process.env.MINERADIO_PATCH_BACKUP_DIR || path.join(UPDATE_WORK_DIR, 'backups', 'patches');
@@ -89,6 +91,81 @@ const WEATHER_DEFAULT_LOCATION = {
 };
 
 const updateDownloadJobs = new Map();
+const providerLoginSessions = new Map();
+
+function purgeProviderLoginSessions() {
+  const now = Date.now();
+  for (const [id, session] of providerLoginSessions) {
+    if (session.expiresAt > now) continue;
+    providerLoginSessions.delete(id);
+    if (session.browser) session.browser.close().catch(() => {});
+  }
+}
+function providerLoginPublic(session) {
+  return {
+    session_id: session.id,
+    provider: session.provider,
+    status: session.status,
+    expires_at: new Date(session.expiresAt).toISOString(),
+    message: session.message || '',
+  };
+}
+async function startQQBrowserLogin() {
+  purgeProviderLoginSessions();
+  for (const session of providerLoginSessions.values()) {
+    if (session.provider === 'qq' && session.expiresAt > Date.now() && session.status === 'pending') {
+      const error = new Error('QQ 音乐已有登录任务进行中');
+      error.code = 'LOGIN_ALREADY_ACTIVE';
+      throw error;
+    }
+  }
+  let chromium;
+  try { chromium = require('playwright-core').chromium; }
+  catch (error) {
+    error.code = 'CHROMIUM_NOT_INSTALLED';
+    throw error;
+  }
+  const executablePath = process.env.MINERADIO_CHROMIUM_PATH || process.env.CHROMIUM_PATH || '';
+  const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+  const context = await browser.newContext({ userAgent: UA });
+  const page = await context.newPage();
+  await page.goto('https://y.qq.com/portal/profile.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  try {
+    const login = page.getByText('登录').first();
+    if (await login.count()) await login.click({ timeout: 3000 });
+  } catch (_) {}
+  const id = crypto.randomUUID();
+  const session = { id, provider: 'qq', status: 'pending', message: '请使用手机 QQ 扫描官方登录二维码', expiresAt: Date.now() + 5 * 60 * 1000, browser, context, page };
+  providerLoginSessions.set(id, session);
+  session.expiryTimer = setTimeout(() => {
+    if (session.status === 'pending') session.status = 'expired';
+    clearInterval(session.timer);
+    browser.close().catch(() => {});
+  }, 5 * 60 * 1000);
+  session.timer = setInterval(async () => {
+    if (session.status !== 'pending') return;
+    try {
+      const cookies = await context.cookies(['https://y.qq.com', 'https://qq.com', 'https://i.y.qq.com']);
+      const normalized = normalizeQQCookieInput(cookies);
+      const cookieObj = parseCookieString(normalized);
+      if (qqCookieUin(cookieObj) && qqCookieMusicKey(cookieObj)) {
+        musicSessionContext.run(loadMusicSession(null), () => saveQQCookie(normalized));
+        session.status = 'ready';
+        session.message = 'QQ 音乐共享账号已登录';
+        clearInterval(session.timer);
+        clearTimeout(session.expiryTimer);
+        await browser.close().catch(() => {});
+      }
+    } catch (error) {
+      session.status = 'error';
+      session.message = 'QQ 登录状态检查失败';
+      clearInterval(session.timer);
+      clearTimeout(session.expiryTimer);
+      await browser.close().catch(() => {});
+    }
+  }, 1500);
+  return session;
+}
 
 function applySystemCertificateAuthorities() {
   try {
@@ -183,6 +260,25 @@ function base64UrlJson(value) {
 function hmacValue(value) {
   return crypto.createHmac('sha256', BLUE_ALBUM_SECRET_KEY).update(String(value)).digest('base64url');
 }
+function isInternalProviderRequest(req) {
+  return !!MUSIC_PROVIDER_ADMIN_TOKEN
+    && safeEqualText(String(req.headers['x-music-provider-token'] || ''), MUSIC_PROVIDER_ADMIN_TOKEN);
+}
+function createAudioTicket(provider, id, mediaMid) {
+  const expiresAt = Math.floor(Date.now() / 1000) + AUDIO_TICKET_TTL_SECONDS;
+  const payload = Buffer.from(JSON.stringify({ provider, id, mediaMid: mediaMid || '', exp: expiresAt })).toString('base64url');
+  return { ticket: payload + '.' + hmacValue('audio.' + payload), expiresAt };
+}
+function verifyAudioTicket(ticket, provider, id, mediaMid) {
+  const parts = String(ticket || '').split('.');
+  if (parts.length !== 2 || !safeEqualText(hmacValue('audio.' + parts[0]), parts[1])) return false;
+  const payload = base64UrlJson(parts[0]);
+  return !!payload
+    && payload.provider === provider
+    && payload.id === id
+    && String(payload.mediaMid || '') === String(mediaMid || '')
+    && Number(payload.exp) > Math.floor(Date.now() / 1000);
+}
 function safeEqualText(left, right) {
   const a = Buffer.from(String(left || ''));
   const b = Buffer.from(String(right || ''));
@@ -225,8 +321,8 @@ function loadMusicSession(identity) {
   const neteaseFile = identity && identity.userId ? path.join(baseDir, 'netease.cookie') : COOKIE_FILE;
   const qqFile = identity && identity.userId ? path.join(baseDir, 'qq.cookie') : QQ_COOKIE_FILE;
   const state = { key, userId: identity && identity.userId || null, neteaseFile, qqFile, neteaseCookie: '', qqCookie: '' };
-  try { if (fs.existsSync(neteaseFile)) state.neteaseCookie = fs.readFileSync(neteaseFile, 'utf8').trim(); } catch (e) {}
-  try { if (fs.existsSync(qqFile)) state.qqCookie = fs.readFileSync(qqFile, 'utf8').trim(); } catch (e) {}
+  try { if (fs.existsSync(neteaseFile)) { state.neteaseCookie = fs.readFileSync(neteaseFile, 'utf8').trim(); fs.chmodSync(neteaseFile, 0o600); } } catch (e) {}
+  try { if (fs.existsSync(qqFile)) { state.qqCookie = fs.readFileSync(qqFile, 'utf8').trim(); fs.chmodSync(qqFile, 0o600); } } catch (e) {}
   musicSessions.set(key, state);
   return state;
 }
@@ -236,12 +332,12 @@ function getQQCookie() { return currentMusicSession().qqCookie; }
 function saveCookie(c) {
   const state = currentMusicSession();
   state.neteaseCookie = normalizeCookieHeader(c) || rawCookieFallback(c);
-  try { fs.mkdirSync(path.dirname(state.neteaseFile), { recursive: true }); fs.writeFileSync(state.neteaseFile, state.neteaseCookie, { mode: 0o600 }); } catch (e) {}
+  try { fs.mkdirSync(path.dirname(state.neteaseFile), { recursive: true }); fs.writeFileSync(state.neteaseFile, state.neteaseCookie, { mode: 0o600 }); fs.chmodSync(state.neteaseFile, 0o600); } catch (e) {}
 }
 function saveQQCookie(c) {
   const state = currentMusicSession();
   state.qqCookie = normalizeCookieHeader(c) || rawCookieFallback(c);
-  try { fs.mkdirSync(path.dirname(state.qqFile), { recursive: true }); fs.writeFileSync(state.qqFile, state.qqCookie, { mode: 0o600 }); } catch (e) {}
+  try { fs.mkdirSync(path.dirname(state.qqFile), { recursive: true }); fs.writeFileSync(state.qqFile, state.qqCookie, { mode: 0o600 }); fs.chmodSync(state.qqFile, 0o600); } catch (e) {}
 }
 
 // ---------- 工具 ----------
@@ -3327,6 +3423,15 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost:' + PORT);
   const pn = url.pathname;
 
+  if (/^\/api\/(?:login\/|qq\/login\/)/.test(pn) && !isInternalProviderRequest(req)) {
+    sendJSON(res, { error: 'NOT_FOUND' }, 404);
+    return;
+  }
+  if ((pn === '/api/song/url' || pn === '/api/qq/song/url') && !identity && !isInternalProviderRequest(req)) {
+    sendJSON(res, { error: 'NOT_FOUND' }, 404);
+    return;
+  }
+
   if (pn === '/api/app/version') {
     sendJSON(res, {
       name: APP_PACKAGE.name || 'mineradio',
@@ -3355,14 +3460,123 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (pn === '/api/room/provider-status') {
+  if (pn === '/api/internal/room/provider-status') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
     const shared = loadMusicSession(null);
+    let neteaseStatus = shared.neteaseCookie ? 'ready' : 'missing';
+    let qqStatus = shared.qqCookie ? 'ready' : 'missing';
+    if (shared.neteaseCookie) {
+      try { if (!(await musicSessionContext.run(shared, () => getLoginInfo())).loggedIn) neteaseStatus = 'expired'; } catch (_) { neteaseStatus = 'error'; }
+    }
+    if (shared.qqCookie) {
+      try { if (!(await musicSessionContext.run(shared, () => getQQLoginInfo())).loggedIn) qqStatus = 'expired'; } catch (_) { qqStatus = 'error'; }
+    }
+    const checkedAt = new Date().toISOString();
     sendJSON(res, {
       providers: {
-        netease: { configured: !!shared.neteaseCookie },
-        qq: { configured: !!shared.qqCookie },
+        netease: { configured: neteaseStatus === 'ready', status: neteaseStatus, checked_at: checkedAt },
+        qq: { configured: qqStatus === 'ready', status: qqStatus, checked_at: checkedAt },
       },
     });
+    return;
+  }
+  if (pn === '/api/room/provider-status') {
+    sendJSON(res, { error: 'NOT_FOUND' }, 404);
+    return;
+  }
+
+  if (pn === '/api/internal/provider/netease/login/start' && req.method === 'POST') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
+    purgeProviderLoginSessions();
+    if (Array.from(providerLoginSessions.values()).some(item => item.provider === 'netease' && item.expiresAt > Date.now() && item.status === 'pending')) {
+      sendJSON(res, { error: 'LOGIN_ALREADY_ACTIVE' }, 409);
+      return;
+    }
+    try {
+      const keyResponse = await login_qr_key({ timestamp: Date.now() });
+      const key = keyResponse.body && keyResponse.body.data && keyResponse.body.data.unikey;
+      const qrResponse = await login_qr_create({ key, qrimg: true, timestamp: Date.now() });
+      const qr = qrResponse.body && qrResponse.body.data;
+      const session = { id: crypto.randomUUID(), provider: 'netease', key, qrimg: qr && qr.qrimg || '', status: 'pending', message: '请使用网易云音乐 App 扫码', expiresAt: Date.now() + 5 * 60 * 1000 };
+      providerLoginSessions.set(session.id, session);
+      sendJSON(res, { ...providerLoginPublic(session), image: session.qrimg });
+    } catch (error) {
+      sendJSON(res, { error: 'NETEASE_LOGIN_START_FAILED', message: '网易云二维码暂时无法生成' }, 502);
+    }
+    return;
+  }
+
+  if (pn === '/api/internal/provider/qq/login/start' && req.method === 'POST') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
+    try {
+      const session = await startQQBrowserLogin();
+      sendJSON(res, providerLoginPublic(session));
+    } catch (error) {
+      sendJSON(res, { error: error.code || 'QQ_LOGIN_START_FAILED', message: error.code === 'CHROMIUM_NOT_INSTALLED' ? '服务器未安装受控浏览器' : 'QQ 登录任务无法启动' }, 503);
+    }
+    return;
+  }
+
+  const providerLoginMatch = pn.match(/^\/api\/internal\/provider\/(netease|qq)\/login\/([^/]+)$/);
+  if (providerLoginMatch && req.method === 'GET') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
+    purgeProviderLoginSessions();
+    const session = providerLoginSessions.get(providerLoginMatch[2]);
+    if (!session || session.provider !== providerLoginMatch[1]) { sendJSON(res, { error: 'LOGIN_SESSION_NOT_FOUND' }, 404); return; }
+    if (session.expiresAt <= Date.now() && session.status === 'pending') {
+      session.status = 'expired'; session.message = '二维码已过期';
+    }
+    if (session.provider === 'netease' && session.status === 'pending') {
+      try {
+        const result = await login_qr_check({ key: session.key, noCookie: true, timestamp: Date.now() });
+        const body = result.body || {};
+        const code = Number(body.code || result.code);
+        if (code === 803) {
+          let cookie = readCookieFromResponse(result);
+          if (!cookie) {
+            const retry = await login_qr_check({ key: session.key, timestamp: Date.now() });
+            cookie = readCookieFromResponse(retry);
+          }
+          if (cookie) {
+            musicSessionContext.run(loadMusicSession(null), () => saveCookie(cookie));
+            session.status = 'ready';
+            session.message = '网易云共享账号已登录';
+          }
+        } else if (code === 800) {
+          session.status = 'expired'; session.message = '二维码已过期';
+        } else if (code === 802) {
+          session.message = '已扫码，请在手机上确认';
+        }
+      } catch (_) {
+        session.status = 'error'; session.message = '二维码状态检查失败';
+      }
+    }
+    sendJSON(res, providerLoginPublic(session));
+    return;
+  }
+
+  const providerImageMatch = pn.match(/^\/api\/internal\/provider\/(netease|qq)\/login\/([^/]+)\/image$/);
+  if (providerImageMatch && req.method === 'GET') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
+    const session = providerLoginSessions.get(providerImageMatch[2]);
+    if (!session || session.provider !== providerImageMatch[1]) { sendJSON(res, { error: 'LOGIN_SESSION_NOT_FOUND' }, 404); return; }
+    try {
+      let image = session.qrimg || '';
+      if (session.provider === 'qq' && session.page && session.status === 'pending') image = 'data:image/png;base64,' + (await session.page.screenshot({ type: 'png' })).toString('base64');
+      const match = String(image).match(/^data:image\/(png|jpeg);base64,(.+)$/);
+      if (!match) { sendJSON(res, { error: 'LOGIN_IMAGE_NOT_READY' }, 404); return; }
+      res.writeHead(200, { 'Content-Type': match[1] === 'jpeg' ? 'image/jpeg' : 'image/png', 'Cache-Control': 'no-store' });
+      res.end(Buffer.from(match[2], 'base64'));
+    } catch (_) { sendJSON(res, { error: 'LOGIN_IMAGE_NOT_READY' }, 404); }
+    return;
+  }
+
+  const credentialMatch = pn.match(/^\/api\/internal\/provider\/(netease|qq)\/credential$/);
+  if (credentialMatch && req.method === 'DELETE') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
+    const shared = loadMusicSession(null);
+    musicSessionContext.run(shared, () => credentialMatch[1] === 'qq' ? saveQQCookie('') : saveCookie(''));
+    sendJSON(res, { provider: credentialMatch[1], status: 'missing' });
     return;
   }
 
@@ -4265,7 +4479,8 @@ const server = http.createServer((req, res) => {
   }
 
   // ---------- 音频代理 (支持 Range) ----------
-  if (pn === '/api/room/check') {
+  if (pn === '/api/internal/room/check') {
+    if (!isInternalProviderRequest(req)) { sendJSON(res, { error: 'NOT_FOUND' }, 404); return; }
     try {
       const provider = String(url.searchParams.get('provider') || '').toLowerCase();
       const id = String(url.searchParams.get('id') || '').trim();
@@ -4282,10 +4497,13 @@ const server = http.createServer((req, res) => {
           : { loggedIn: false, vipType: 0, vipLevel: 'none' };
         return handleSongUrl(id, loginInfo, 'exhigh');
       });
+      const signed = info && info.url ? createAudioTicket(provider, id, mediaMid) : null;
       sendJSON(res, {
         playable: !!(info && info.url),
         provider,
         preview: !!(info && info.trial),
+        ticket: signed && signed.ticket,
+        expires_at: signed && new Date(signed.expiresAt * 1000).toISOString(),
         reason: info && (info.reason || info.error) || null,
       });
     } catch (err) {
@@ -4295,13 +4513,23 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pn === '/api/room/check') {
+    sendJSON(res, { error: 'NOT_FOUND' }, 404);
+    return;
+  }
+
   if (pn === '/api/room/audio') {
     try {
       const provider = String(url.searchParams.get('provider') || '').toLowerCase();
       const id = String(url.searchParams.get('id') || '').trim();
       const mediaMid = String(url.searchParams.get('mediaMid') || '').trim();
+      const ticket = String(url.searchParams.get('ticket') || '').trim();
       if (!/^(netease|qq)$/.test(provider) || !/^[A-Za-z0-9_-]{1,120}$/.test(id)) {
         sendJSON(res, { error: 'INVALID_ROOM_TRACK' }, 400);
+        return;
+      }
+      if (!verifyAudioTicket(ticket, provider, id, mediaMid)) {
+        sendJSON(res, { error: 'INVALID_OR_EXPIRED_AUDIO_TICKET' }, 403);
         return;
       }
       const shared = loadMusicSession(null);

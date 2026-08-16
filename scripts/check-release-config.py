@@ -21,6 +21,8 @@ REQUIRED_ENV = (
     "DB_PASSWORD",
     "SECRET_KEY",
     "CORS_ORIGINS",
+    "MUSIC_PROVIDER_BASE_URL",
+    "MUSIC_PROVIDER_ADMIN_TOKEN",
 )
 
 
@@ -72,6 +74,12 @@ def validate_environment(path: Path) -> list[str]:
         parsed = urlparse(origin)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             errors.append(f"CORS_ORIGINS contains an invalid origin: {origin}")
+    provider_url = values.get("MUSIC_PROVIDER_BASE_URL", "")
+    parsed_provider = urlparse(provider_url)
+    if provider_url and (parsed_provider.scheme not in {"http", "https"} or not parsed_provider.netloc):
+        errors.append("MUSIC_PROVIDER_BASE_URL must be an absolute HTTP URL")
+    if values.get("MUSIC_PROVIDER_ADMIN_TOKEN", "") and len(values["MUSIC_PROVIDER_ADMIN_TOKEN"]) < 24:
+        errors.append("MUSIC_PROVIDER_ADMIN_TOKEN must contain at least 24 characters")
     return errors
 
 
@@ -87,7 +95,7 @@ def validate_repository() -> list[str]:
     require(
         compose,
         "docker-compose.yml",
-        tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"))
+        tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS", "MUSIC_PROVIDER_ADMIN_TOKEN"))
         + (
             'DOCKER_ENV: "true"',
             "backend_uploads:/app/uploads",

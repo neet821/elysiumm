@@ -106,6 +106,8 @@ def _cached_source(
     registry: dict[str, MusicProviderAdapter],
     now: datetime,
     force_refresh: bool,
+    provider: str | None = None,
+    provider_track_id: str | None = None,
 ) -> models.TrackAudioSource | None:
     sources = catalog_repository.audio_sources_for_track(db, canonical_id)
     sources.sort(
@@ -125,10 +127,16 @@ def _cached_source(
             continue
         if source.failed_at is not None or source.availability == "unavailable":
             continue
-        provider = _provider_for_source(db, source)
+        source_provider = _provider_for_source(db, source)
+        if provider is not None and source_provider != provider:
+            continue
+        if provider_track_id is not None and source.provider_mapping_id is not None:
+            mapping = db.get(models.TrackProviderMapping, source.provider_mapping_id)
+            if mapping is None or mapping.provider_track_id != provider_track_id:
+                continue
         if is_safe_playback_url(
             source.playback_url,
-            _approved_hosts(registry, provider),
+            _approved_hosts(registry, source_provider),
         ):
             return source
     return None
@@ -141,6 +149,8 @@ async def resolve_audio(
     *,
     now: datetime | None = None,
     force_refresh: bool = False,
+    provider: str | None = None,
+    provider_track_id: str | None = None,
 ) -> dict[str, object]:
     canonical = db.get(models.CanonicalTrack, canonical_id)
     if canonical is None:
@@ -153,6 +163,8 @@ async def resolve_audio(
         registry,
         current_time,
         force_refresh,
+        provider=provider,
+        provider_track_id=provider_track_id,
     )
     if cached is not None:
         provider = _provider_for_source(db, cached)
@@ -170,6 +182,12 @@ async def resolve_audio(
         .filter(models.TrackProviderMapping.canonical_track_id == canonical_id)
         .all()
     )
+    mappings = [
+        mapping
+        for mapping in mappings
+        if (provider is None or mapping.provider == provider)
+        and (provider_track_id is None or mapping.provider_track_id == provider_track_id)
+    ]
     mappings.sort(
         key=lambda mapping: (
             0 if mapping.availability == "playable" else 1,

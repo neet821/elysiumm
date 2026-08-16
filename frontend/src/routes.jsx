@@ -25,6 +25,7 @@ const AdminHomepagePage = lazy(() => import("./pages/AdminHomepagePage"));
 const AdminBooksPage = lazy(() => import("./pages/AdminBooksPage"));
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"));
 const AdminSecurityPage = lazy(() => import("./pages/AdminSecurityPage"));
+const MusicProvidersAdminPage = lazy(() => import("./pages/MusicProvidersAdminPage"));
 const AdminRoomsPage = lazy(() => import("./pages/AdminRoomsPage"));
 const BackupPage = lazy(() => import("./pages/BackupPage"));
 const FrpAdminPage = lazy(() => import("./pages/FrpAdminPage"));
@@ -115,6 +116,7 @@ const AppRoutes = () => (
         <Route path="services/frp" element={withUserProps(FrpAdminPage)} />
         <Route path="backups" element={withUserProps(BackupPage)} />
         <Route path="security" element={<AdminSecurityPage />} />
+        <Route path="music-providers" element={<MusicProvidersAdminPage />} />
         <Route path="temporary-review" element={<TemporaryReviewPage />}>
           <Route path="posts" element={withLegacyProps(LegacyPostsPage)} />
           <Route path="photos" element={withLegacyProps(LegacyPhotosPage)} />
@@ -126,6 +128,7 @@ const AppRoutes = () => (
       <Route path="/account/admin/homepage" element={withAuth(<LegacyRedirect to="/account/admin/content/homepage" preserveSearch hash={true} />, true)} />
       <Route path="/admin/users" element={withAuth(<LegacyRedirect to="/account/admin/users" preserveSearch hash={true} />, true)} />
       <Route path="/admin/rooms" element={withAuth(<LegacyRedirect to="/account/admin/rooms" preserveSearch hash={true} />, true)} />
+      <Route path="/admin/music-providers" element={withAuth(<LegacyRedirect to="/account/admin/music-providers" preserveSearch hash={true} />, true)} />
       <Route path="/admin/photos" element={withAuth(<LegacyRedirect to="/account/admin/content/photos" preserveSearch hash={true} />, true)} />
       <Route path="/admin/files" element={withAuth(<LegacyRedirect to="/account/admin/files" preserveSearch hash={true} />, true)} />
       <Route path="/admin/agent-console" element={withAuth(<LegacyRedirect to="/account/admin/services" preserveSearch hash={true} />, true)} />

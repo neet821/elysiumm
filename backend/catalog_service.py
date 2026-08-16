@@ -69,6 +69,8 @@ async def get_catalog_lyrics(
     registry: Mapping[str, MusicProviderAdapter],
     *,
     language: str = "original",
+    provider: str | None = None,
+    provider_track_id: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
     if db.get(models.CanonicalTrack, canonical_id) is None:
@@ -80,7 +82,7 @@ async def get_catalog_lyrics(
         language,
         current_time,
     )
-    if cached is not None:
+    if cached is not None and (provider is None or cached.provider == provider):
         return _lyrics_payload(
             canonical_id,
             cached.provider,
@@ -96,6 +98,12 @@ async def get_catalog_lyrics(
         .all()
     )
     mappings.sort(key=lambda item: (_PROVIDER_ORDER.get(item.provider, 100), item.id))
+    mappings = [
+        mapping
+        for mapping in mappings
+        if (provider is None or mapping.provider == provider)
+        and (provider_track_id is None or mapping.provider_track_id == provider_track_id)
+    ]
     empty_result = None
     for mapping in mappings:
         adapter = registry.get(mapping.provider)

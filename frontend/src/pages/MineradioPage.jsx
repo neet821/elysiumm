@@ -33,11 +33,14 @@ const availabilityLabels = {
   unavailable: '不可用',
 }
 
-const normalizeCatalogTrack = (song) => {
+const normalizeCatalogTrack = (song, preferredProvider = null) => {
   const providers = Array.isArray(song?.providers) ? song.providers : []
-  const mapping = providers.find((item) => item.availability === 'playable')
-    || providers.find((item) => item.availability === 'preview')
-    || providers[0]
+  const selected = preferredProvider
+    ? providers.filter((item) => item.provider === preferredProvider)
+    : providers
+  const mapping = selected.find((item) => item.availability === 'playable')
+    || selected.find((item) => item.availability === 'preview')
+    || selected[0]
   return {
     album: song?.album || null,
     artist: String(song?.artist || '未知音乐人'),
@@ -104,7 +107,14 @@ export default function MineradioPage() {
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [catalog, setCatalog] = useState([])
-  const [catalogSource, setCatalogSource] = useState('netease')
+  const [catalogSource, setCatalogSource] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('elysium.music.catalogSource')
+      return saved === 'qq' ? 'qq' : 'netease'
+    } catch (_) {
+      return 'netease'
+    }
+  })
   const [providerCapabilities, setProviderCapabilities] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -135,8 +145,16 @@ export default function MineradioPage() {
     }
     setResolvedCurrent(null)
     Promise.all([
-      apiClient.get(API_ENDPOINTS.MUSIC_AUDIO(current.canonical_track_id), { params: { refresh: true } }),
-      apiClient.get(API_ENDPOINTS.MUSIC_LYRICS(current.canonical_track_id)).catch(() => ({ data: { lines: [] } })),
+      apiClient.get(API_ENDPOINTS.MUSIC_AUDIO(current.canonical_track_id), {
+        params: {
+          provider: current.provider,
+          provider_track_id: current.provider_track_id,
+          refresh: true,
+        },
+      }),
+      apiClient.get(API_ENDPOINTS.MUSIC_LYRICS(current.canonical_track_id), {
+        params: { provider: current.provider, provider_track_id: current.provider_track_id },
+      }).catch(() => ({ data: { lines: [] } })),
     ]).then(([audioResponse, lyricsResponse]) => {
       if (!active) return
       const audio = audioResponse.data || {}
@@ -552,11 +570,10 @@ export default function MineradioPage() {
     if (!keyword || searching) return
     setSearching(true)
     try {
-      const providers = sourceValue === 'all' ? 'netease' : sourceValue
       const response = await apiClient.get(API_ENDPOINTS.MUSIC_SEARCH, {
-        params: { limit: 30, providers, q: keyword },
+        params: { limit: 30, provider: sourceValue, q: keyword },
       })
-      const tracks = (response.data.items || []).map(normalizeCatalogTrack)
+      const tracks = (response.data.items || []).map((item) => normalizeCatalogTrack(item, sourceValue))
       setCatalog(tracks)
       setNotice(`找到 ${tracks.length} 首歌曲`)
     } catch (error) {
@@ -631,13 +648,17 @@ export default function MineradioPage() {
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'source') {
-      setCatalogSource(payload.source || 'netease')
+      const source = payload.source === 'qq' ? 'qq' : 'netease'
+      setCatalogSource(source)
+      try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
       setCatalog([])
     } else if (action === 'propose-catalog') await proposeCatalogTrack(payload.track)
     else if (action === 'search') {
       setSearchQuery(payload.query || '')
-      setCatalogSource(payload.source || 'netease')
-      await runCatalogSearch(payload.query, payload.source || 'netease')
+      const source = payload.source === 'qq' ? 'qq' : 'netease'
+      setCatalogSource(source)
+      try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
+      await runCatalogSearch(payload.query, source)
     } else if (action === 'chat') sendChatMessage(payload.message)
   }
 

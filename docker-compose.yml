@@ -33,6 +33,7 @@ services:
       KAVITA_PUBLIC_BASE_URL: ${KAVITA_PUBLIC_BASE_URL:-}
       EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
       MUSIC_PROVIDER_BASE_URL: http://mineradio:3000
+      MUSIC_PROVIDER_ADMIN_TOKEN: ${MUSIC_PROVIDER_ADMIN_TOKEN:?set MUSIC_PROVIDER_ADMIN_TOKEN in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       DOCKER_ENV: "true"
       PRIVATE_STORAGE_DIR: /app/private_storage
@@ -66,6 +67,8 @@ services:
       BEATMAP_CACHE_DIR: /data/beatmaps
       MINERADIO_SESSION_DIR: /data/users
       BLUE_ALBUM_SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      MUSIC_PROVIDER_ADMIN_TOKEN: ${MUSIC_PROVIDER_ADMIN_TOKEN:?set MUSIC_PROVIDER_ADMIN_TOKEN in .env}
+      MINERADIO_CHROMIUM_PATH: /usr/bin/chromium
     volumes:
       - mineradio_data:/data
     networks:

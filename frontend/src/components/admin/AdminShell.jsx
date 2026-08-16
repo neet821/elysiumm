@@ -11,6 +11,7 @@ import {
   Home,
   Images,
   Menu,
+  Music2,
   Network,
   Radio,
   RadioTower,
@@ -45,6 +46,7 @@ const navigationGroups = [
     label: '运维',
     items: [
       { label: '服务状态', to: '/account/admin/services', icon: Activity, end: true },
+      { label: '共享曲库', to: '/account/admin/music-providers', icon: Music2 },
       { label: '直播', to: '/account/admin/services/live', icon: Radio },
       { label: 'FRP', to: '/account/admin/services/frp', icon: RadioTower },
       { label: '备份', to: '/account/admin/backups', icon: DatabaseBackup },

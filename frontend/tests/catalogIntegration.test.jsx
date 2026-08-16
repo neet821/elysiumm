@@ -66,6 +66,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  window.localStorage.removeItem('elysium.music.catalogSource')
   mocks.api.post.mockReset().mockResolvedValue({ data: { approved: false, queue: [] } })
   mocks.api.get.mockReset().mockImplementation((url) => {
     if (url.endsWith('/api/sync-rooms')) return Promise.resolve({ data: [{ id: 9, mode: 'music', room_name: 'Blue room' }] })
@@ -153,7 +154,7 @@ describe('unified room catalog integration', () => {
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
 
-    roomAction(frame, 'search', { query: 'blue', source: 'all' })
+    roomAction(frame, 'search', { query: 'blue', source: 'netease' })
 
     await waitFor(() => expect(latestRoomState(postMessage)?.catalog).toHaveLength(3))
     expect(latestRoomState(postMessage).catalog.map((item) => item.title)).toEqual([
@@ -164,14 +165,14 @@ describe('unified room catalog integration', () => {
     ])
     expect(mocks.api.get).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/music\/search$/),
-      { params: { limit: 30, providers: 'netease,qq,audius', q: 'blue' } },
+      { params: { limit: 30, provider: 'netease', q: 'blue' } },
     )
   })
 
   it('proposes the selected safe provider mapping for previews', async () => {
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
-    roomAction(frame, 'search', { query: 'preview', source: 'all' })
+    roomAction(frame, 'search', { query: 'preview', source: 'qq' })
     await waitFor(() => expect(latestRoomState(postMessage)?.catalog).toHaveLength(3))
     roomAction(frame, 'propose-catalog', { track: latestRoomState(postMessage).catalog[1] })
 

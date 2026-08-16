@@ -181,8 +181,9 @@ class PlatformConfig:
     # Provider-neutral music catalog. Player clients never receive provider cookies.
     MUSIC_PROVIDER_BASE_URL = os.getenv(
         "MUSIC_PROVIDER_BASE_URL",
-        "http://127.0.0.1:18181",
+        "http://127.0.0.1:3000",
     ).rstrip("/")
+    MUSIC_PROVIDER_ADMIN_TOKEN = os.getenv("MUSIC_PROVIDER_ADMIN_TOKEN", "").strip()
     MUSIC_PROVIDER_TIMEOUT_SECONDS = float(
         os.getenv("MUSIC_PROVIDER_TIMEOUT_SECONDS", "5")
     )

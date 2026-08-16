@@ -5,7 +5,8 @@
   if (!roomModeId) return;
   document.body.classList.add('blue-album-room-mode');
 
-  var SOURCE = 'blue-album-mineradio';
+   var SOURCE = 'blue-album-mineradio';
+   // Legacy provider names are intentionally not rendered in room tabs (Spotify is retired).
   var boundAudio = null;
   var lastTrackKey = '';
   var lastTimeSentAt = 0;
@@ -416,16 +417,18 @@
     var providerCapabilities = roomState.providerCapabilities && roomState.providerCapabilities.length ? roomState.providerCapabilities : [
       { provider: 'netease', label: '网易云', searchable: true },
       { provider: 'qq', label: 'QQ 音乐', searchable: true },
-      { provider: 'kugou', label: '酷狗', searchable: false, reason: '房间音频接口暂不支持' },
-      { provider: 'qishui', label: '汽水', searchable: false, reason: '房间音频接口暂不支持' },
-      { provider: 'spotify', label: 'Spotify', searchable: false, reason: '房间音频接口暂不支持' },
-    ];
+    ].filter(function (provider) { return provider.provider === 'netease' || provider.provider === 'qq'; });
     var sourceOptions = providerCapabilities.map(function (provider) {
       var active = (roomState.catalogSource || 'netease') === provider.provider;
       var disabled = !provider.searchable;
       return '<button class="br-source ' + (active ? 'active' : '') + '" data-action="source" data-source="' + esc(provider.provider) + '" title="' + esc(provider.reason || '') + '" ' + (disabled ? 'disabled' : '') + '>' + esc(provider.label) + (disabled ? ' · 不可用' : '') + '</button>';
     }).join('');
-    var catalogEmpty = '<div class="br-empty">输入歌曲名或音乐人，搜索 Mineradio 在线曲库</div>';
+    var otherProvider = roomState.catalogSource === 'qq' ? 'netease' : 'qq';
+    var otherLabel = otherProvider === 'qq' ? 'QQ 音乐' : '网易云';
+    var catalogError = roomState.notice && /曲库|搜索|连接|播放/.test(String(roomState.notice));
+    var catalogEmpty = catalogError
+      ? '<div class="br-empty">' + esc(roomState.notice) + '<br><button class="br-btn ghost" data-action="source" data-source="' + otherProvider + '">切换到 ' + otherLabel + '</button><small>切换后请重新点击搜索</small></div>'
+      : '<div class="br-empty">输入歌曲名或音乐人，搜索当前平台曲库</div>';
     var core = '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '在线曲库') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">在线点歌<span>' + esc(roomState.catalogSource || 'netease') + '</span></div><div class="br-source-tabs">' + sourceOptions + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><div class="br-list" style="margin-top:8px">' + (catalogRows || catalogEmpty) + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
     if (!isHost) return core;
     return core + '<details class="br-host-fold"><summary>房主功能</summary><div class="br-host-fold-body">' + (current ? '<button class="br-btn primary" data-action="skip">立即切歌</button>' : '<div class="br-empty">当前没有正在播放的歌曲</div>') + '<label class="br-section-head" style="margin:0">切歌门槛<select class="br-input" data-setting="music_skip_vote_percent"><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></label></div></details>';

@@ -45,10 +45,12 @@ class MusicProviderAdapter(ABC):
         base_url: str,
         timeout_seconds: float = 5,
         *,
+        internal_token: str = "",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = str(base_url).rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
+        self.internal_token = str(internal_token or "").strip()
         self.transport = transport
 
     async def _request_json(
@@ -65,7 +67,12 @@ class MusicProviderAdapter(ABC):
                 transport=self.transport,
                 trust_env=False,
             ) as client:
-                response = await client.get(path, params=params)
+                headers = (
+                    {"X-Music-Provider-Token": self.internal_token}
+                    if self.internal_token
+                    else {}
+                )
+                response = await client.get(path, params=params, headers=headers)
                 response.raise_for_status()
                 declared_size = int(response.headers.get("content-length", "0") or 0)
                 if declared_size > MAX_PROVIDER_RESPONSE_BYTES:

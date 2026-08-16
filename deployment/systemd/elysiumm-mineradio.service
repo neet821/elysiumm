@@ -9,6 +9,8 @@ User=www-data
 Group=www-data
 WorkingDirectory=/home/elysiumm/app/mineradio
 EnvironmentFile=-/etc/elysiumm/mineradio.env
+Environment=PORT=3000
+# mineradio.env must define MUSIC_PROVIDER_ADMIN_TOKEN and BLUE_ALBUM_SECRET_KEY.
 ExecStart=/usr/bin/node /home/elysiumm/app/mineradio/server.js
 Restart=on-failure
 RestartSec=3

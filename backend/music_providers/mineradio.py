@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import re
 from urllib.parse import urlencode
 
@@ -65,11 +66,13 @@ class MineradioProviderAdapter(MusicProviderAdapter):
         base_url: str,
         timeout_seconds: float = 5,
         *,
+        internal_token: str = "",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         super().__init__(
             base_url,
             timeout_seconds,
+            internal_token=internal_token,
             transport=transport,
         )
 
@@ -148,7 +151,8 @@ class MineradioProviderAdapter(MusicProviderAdapter):
         if self.provider == "qq" and media_mid and _SAFE_TRACK_ID.fullmatch(media_mid):
             query["mediaMid"] = media_mid
         try:
-            check = await self._request_json("/api/room/check", params=query)
+            check_path = "/api/internal/room/check" if self.internal_token else "/api/room/check"
+            check = await self._request_json(check_path, params=query)
         except ProviderError:
             return ProviderResolution(
                 provider=self.provider,
@@ -156,7 +160,8 @@ class MineradioProviderAdapter(MusicProviderAdapter):
                 playback_url=None,
                 source_type="unavailable",
             )
-        if check.get("playable") is not True:
+        ticket = _text(check.get("ticket"), 2048)
+        if check.get("playable") is not True or (self.internal_token and not ticket):
             return ProviderResolution(
                 provider=self.provider,
                 availability=TrackAvailability.UNAVAILABLE,
@@ -166,11 +171,16 @@ class MineradioProviderAdapter(MusicProviderAdapter):
         return ProviderResolution(
             provider=self.provider,
             availability=availability,
-            playback_url=f"/mineradio-api/room/audio?{urlencode(query)}",
+            playback_url=f"/mineradio-api/room/audio?{urlencode({**query, **({'ticket': ticket} if ticket else {})})}",
             source_type=(
                 "public_preview"
                 if availability is TrackAvailability.PREVIEW
                 else "anonymous_full"
+            ),
+            expires_at=(
+                datetime.fromisoformat(str(check["expires_at"]))
+                if check.get("expires_at")
+                else None
             ),
         )
 

@@ -82,7 +82,8 @@ required = (
     "DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
     "SECRET_KEY", "ALGORITHM", "ACCESS_TOKEN_EXPIRE_MINUTES", "HOST", "PORT",
     "CORS_ORIGINS", "VITE_API_BASE_URL", "VITE_WS_BASE_URL", "DOMAIN",
-    "PUBLIC_SYNC_STORAGE", "PRIVATE_STORAGE_DIR", "BACKUP_OUTPUT_DIR",
+  "PUBLIC_SYNC_STORAGE", "PRIVATE_STORAGE_DIR", "BACKUP_OUTPUT_DIR",
+  "MUSIC_PROVIDER_BASE_URL", "MUSIC_PROVIDER_ADMIN_TOKEN",
 )
 errors = []
 for name in required:
@@ -104,6 +105,12 @@ for name in ("PUBLIC_SYNC_STORAGE", "PRIVATE_STORAGE_DIR", "BACKUP_OUTPUT_DIR"):
     value = values.get(name, "")
     if value and not Path(value).is_absolute():
         errors.append(f"{name} must be an absolute path")
+provider_url = values.get("MUSIC_PROVIDER_BASE_URL", "")
+parsed_provider = urlparse(provider_url)
+if provider_url and (parsed_provider.scheme not in {"http", "https"} or not parsed_provider.netloc):
+    errors.append("MUSIC_PROVIDER_BASE_URL must be an absolute HTTP URL")
+if values.get("MUSIC_PROVIDER_ADMIN_TOKEN", "") and len(values["MUSIC_PROVIDER_ADMIN_TOKEN"]) < 24:
+    errors.append("MUSIC_PROVIDER_ADMIN_TOKEN must contain at least 24 characters")
 if errors:
     for error in errors:
         print(f"preflight: {error}", file=sys.stderr)

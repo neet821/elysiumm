@@ -16,6 +16,7 @@ async def provider_configuration_status(
     base_url: str,
     timeout_seconds: float,
     *,
+    internal_token: str = "",
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, object]:
     try:
@@ -26,7 +27,13 @@ async def provider_configuration_status(
             transport=transport,
             trust_env=False,
         ) as client:
-            response = await client.get("/api/room/provider-status")
+            headers = (
+                {"X-Music-Provider-Token": str(internal_token).strip()}
+                if str(internal_token).strip()
+                else {}
+            )
+            status_path = "/api/internal/room/provider-status" if str(internal_token).strip() else "/api/room/provider-status"
+            response = await client.get(status_path, headers=headers)
             response.raise_for_status()
             payload = response.json()
     except (httpx.HTTPError, ValueError):
@@ -38,30 +45,33 @@ async def provider_configuration_status(
             },
         }
     providers = payload.get("providers") if isinstance(payload, dict) else {}
-    return {
+    normalized = {
         "service_available": True,
-        "providers": {
-            name: {
-                "configured": bool(
-                    isinstance(providers, dict)
-                    and isinstance(providers.get(name), dict)
-                    and providers[name].get("configured") is True
-                )
-            }
-            for name in ("netease", "qq")
-        },
+        "providers": {},
     }
+    for name in ("netease", "qq"):
+        item = providers.get(name) if isinstance(providers, dict) else None
+        entry = {
+            "configured": bool(isinstance(item, dict) and item.get("configured") is True),
+        }
+        if isinstance(item, dict) and item.get("status") is not None:
+            entry["status"] = item.get("status")
+        if isinstance(item, dict) and item.get("checked_at") is not None:
+            entry["checked_at"] = item.get("checked_at")
+        normalized["providers"][name] = entry
+    return normalized
 
 
 def build_provider_registry(config) -> dict[str, MusicProviderAdapter]:
     timeout = float(config.MUSIC_PROVIDER_TIMEOUT_SECONDS)
     mineradio_base = str(config.MUSIC_PROVIDER_BASE_URL)
+    internal_token = str(getattr(config, "MUSIC_PROVIDER_ADMIN_TOKEN", ""))
     audius_base = str(
         getattr(config, "AUDIUS_API_BASE_URL", "https://api.audius.co/v1")
     )
     return {
-        "netease": NeteaseProviderAdapter(mineradio_base, timeout),
-        "qq": QQProviderAdapter(mineradio_base, timeout),
+        "netease": NeteaseProviderAdapter(mineradio_base, timeout, internal_token=internal_token),
+        "qq": QQProviderAdapter(mineradio_base, timeout, internal_token=internal_token),
         "audius": AudiusProviderAdapter(audius_base, timeout),
     }
 

@@ -43,6 +43,8 @@ class ReleaseScriptsTest(unittest.TestCase):
                     "PUBLIC_SYNC_STORAGE=/var/lib/blue-album/sync",
                     "PRIVATE_STORAGE_DIR=/var/lib/blue-album/private",
                     "BACKUP_OUTPUT_DIR=/var/lib/blue-album/backups",
+                    "MUSIC_PROVIDER_BASE_URL=http://127.0.0.1:3000",
+                    "MUSIC_PROVIDER_ADMIN_TOKEN=fixture_music_provider_admin_token_123456",
                     "",
                 )
             ),
