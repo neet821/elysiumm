@@ -61,6 +61,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
 const MUSIC_SESSION_DIR = process.env.MINERADIO_SESSION_DIR || path.join(path.dirname(COOKIE_FILE), 'users');
+const BROWSER_RUNTIME_DIR = process.env.MINERADIO_BROWSER_RUNTIME_DIR || path.join(path.dirname(COOKIE_FILE), 'browser-runtime');
 const BLUE_ALBUM_SECRET_KEY = process.env.BLUE_ALBUM_SECRET_KEY || process.env.SECRET_KEY || '';
 const MUSIC_PROVIDER_ADMIN_TOKEN = String(process.env.MUSIC_PROVIDER_ADMIN_TOKEN || '').trim();
 const AUDIO_TICKET_TTL_SECONDS = 30 * 60;
@@ -126,7 +127,33 @@ async function startQQBrowserLogin() {
     throw error;
   }
   const executablePath = process.env.MINERADIO_CHROMIUM_PATH || process.env.CHROMIUM_PATH || '';
-  const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+  // Debian's Chromium crash reporter requires a writable per-user home. The
+  // systemd service has no real home directory, so give it an isolated runtime
+  // tree instead of letting it fall back to /var/www or /tmp.
+  const runtimeDirs = {
+    home: path.join(BROWSER_RUNTIME_DIR, 'home'),
+    config: path.join(BROWSER_RUNTIME_DIR, 'config'),
+    cache: path.join(BROWSER_RUNTIME_DIR, 'cache'),
+    data: path.join(BROWSER_RUNTIME_DIR, 'data'),
+    tmp: path.join(BROWSER_RUNTIME_DIR, 'tmp'),
+  };
+  Object.values(runtimeDirs).forEach(dir => {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    try { fs.chmodSync(dir, 0o700); } catch (_) {}
+  });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    env: {
+      ...process.env,
+      HOME: runtimeDirs.home,
+      XDG_CONFIG_HOME: runtimeDirs.config,
+      XDG_CACHE_HOME: runtimeDirs.cache,
+      XDG_DATA_HOME: runtimeDirs.data,
+      TMPDIR: runtimeDirs.tmp,
+    },
+    ...(executablePath ? { executablePath } : {}),
+  });
   const context = await browser.newContext({ userAgent: UA });
   const page = await context.newPage();
   await page.goto('https://y.qq.com/portal/profile.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
