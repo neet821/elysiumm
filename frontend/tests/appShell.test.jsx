@@ -76,6 +76,8 @@ describe('Elysium plain service shell', () => {
     unmount()
     renderShell({ initialPath: '/music/rooms/9' })
     expect(screen.queryByRole('link', { name: 'Elysium 首页' })).not.toBeInTheDocument()
+    expect(document.querySelector('.app-shell')).toHaveClass('app-shell--music-room')
+    expect(document.querySelector('.app-shell')).not.toHaveClass('app-shell--immersive')
   })
 
   it('publishes the plain surface tokens and no decorative service background', () => {

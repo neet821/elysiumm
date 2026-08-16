@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Copy, LogOut, RefreshCw, Users } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 
@@ -18,6 +19,14 @@ import apiClient from '../utils/request'
 
 const currentQueueTrack = (queue) => queue.find((item) => item.status === 'playing') || null
 const REMOTE_MEDIA_EVENT_GRACE_MS = 300
+
+const ROOM_STATUS_LABELS = {
+  connecting: '正在连接…',
+  error: '同步暂时失败',
+  reconnecting: '连接中断，正在恢复…',
+  synced: '已与服务器同步',
+  syncing: '正在同步…',
+}
 
 const availabilityLabels = {
   playable: '可播放',
@@ -657,19 +666,43 @@ export default function MineradioPage() {
     userId,
   }
 
-  if (loading) {
+  if (loading || !room) {
     return (
-      <div className="room-player-immersive">
-        <p className="room-player-immersive__loading" role="status">正在进入听歌房…</p>
-      </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">
+        <p role="status">正在进入听歌房…</p>
+      </main>
     )
   }
 
   return (
-    <div className="room-player-immersive">
-      <h1 className="sr-only">{roomTitle(room, roomId)}</h1>
-      <div className="room-player-layout is-mineradio-embedded">
-        <section className="room-player-layout__stage" aria-label="房间播放器">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3">
+          <button type="button" onClick={leaveRoom} className="rounded-lg p-2" aria-label="退出房间"><LogOut size={18} /></button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-bold">{roomTitle(room, roomId)}</h1>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>房间号 {room.room_code || roomId}</span>
+              <button type="button" aria-label="复制房间号" onClick={() => navigator.clipboard?.writeText(room.room_code || String(roomId))}><Copy size={13} /></button>
+              <span>{room.control_mode === 'host_only' ? '房主控制' : '全员控制'}</span>
+            </div>
+          </div>
+          <span className="flex items-center gap-1 text-sm"><Users size={16} />{members.filter((member) => member.is_online !== false).length}</span>
+          <span role="status" className="rounded-full bg-slate-200 px-3 py-1 text-xs">
+            {ROOM_STATUS_LABELS[syncStatus] || ROOM_STATUS_LABELS.connecting}
+          </span>
+          <button type="button" onClick={requestSnapshot} className="rounded-lg p-2" aria-label="重新同步"><RefreshCw size={17} /></button>
+        </div>
+      </header>
+
+      {notice && (
+        <div className="mx-auto mt-3 max-w-[1600px] px-4">
+          <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">{notice}</p>
+        </div>
+      )}
+
+      <div className="mx-auto max-w-[1600px] p-4">
+        <section className="music-room-shell__stage" aria-label="房间播放器">
           <MineradioRoomEmbed
             onAdapterReady={handleAdapterReady}
             onEvent={handlePlayerEvent}
@@ -835,6 +868,6 @@ export default function MineradioPage() {
           </section>
         </aside>
       </div>
-    </div>
+    </main>
   )
 }

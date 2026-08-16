@@ -46,11 +46,13 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.SYNC_ROOMS);
       const allRooms = response.data || [];
-      setRooms(allRooms);
+      // The shared endpoint also returns music rooms; this page is only the video-room lobby.
+      const videoRooms = allRooms.filter((room) => room.mode !== "music");
+      setRooms(videoRooms);
 
       // 筛选出我创建的房间
       if (user) {
-        const userRooms = allRooms.filter(room => room.host?.id === user.id);
+        const userRooms = videoRooms.filter(room => room.host?.id === user.id);
         setMyRooms(userRooms);
       }
     } catch (error) {

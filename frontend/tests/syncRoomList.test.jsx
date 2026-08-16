@@ -53,6 +53,18 @@ describe('同步房间列表', () => {
           type: 'video',
           mode: 'url',
         },
+        {
+          id: 3,
+          room_name: '听歌房不应出现在这里',
+          room_code: 'MUSIC1',
+          host: { id: 1, username: 'host' },
+          member_count: 1,
+          max_members: 10,
+          last_activity_at: '2026-08-15T00:01:30Z',
+          is_playing: false,
+          type: 'video',
+          mode: 'music',
+        },
       ],
     })
   })
@@ -82,6 +94,22 @@ describe('同步房间列表', () => {
     act(() => vi.advanceTimersByTime(1000))
 
     expect(screen.getByText('09:59 后关闭')).toBeInTheDocument()
+  })
+
+  it('只显示观影房，不显示听歌房', async () => {
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByRole('heading', { name: '听歌房不应出现在这里' })).not.toBeInTheDocument()
+    expect(screen.getByText('所有活跃房间 (2)')).toBeInTheDocument()
   })
 
   it('让删除按钮位于右上角装饰层之上', async () => {

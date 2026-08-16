@@ -112,7 +112,12 @@ describe('Mineradio listening room page', () => {
 
     const frame = await screen.findByTitle('Mineradio 原版房间播放器')
     expect(frame).toHaveAttribute('src', '/mineradio/?blue-room=9')
-    expect(document.querySelector('.room-player-immersive')).toBeInTheDocument()
+    expect(document.querySelector('.room-player-immersive')).not.toBeInTheDocument()
+    expect(document.querySelector('main.min-h-screen')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '退出房间' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '复制房间号' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新同步' })).toBeInTheDocument()
+    expect(screen.getByText('房间号 9')).toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: '听歌房控制台' })).not.toBeInTheDocument()
     expect(screen.queryByText(/登录|账号中心|个人歌单/)).not.toBeInTheDocument()
     expect(document.querySelector('audio')).not.toBeInTheDocument()
