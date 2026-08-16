@@ -104,7 +104,8 @@ export default function MineradioPage() {
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [catalog, setCatalog] = useState([])
-  const [catalogSource, setCatalogSource] = useState('all')
+  const [catalogSource, setCatalogSource] = useState('netease')
+  const [providerCapabilities, setProviderCapabilities] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
@@ -315,8 +316,8 @@ export default function MineradioPage() {
         setQueue(queueResponse.data.queue || [])
         setMessages((messageHistory.data || []).reverse())
         setHistory(activityHistory?.data?.items || [])
-        apiClient.get(API_ENDPOINTS.MUSIC_CATALOG).then((response) => {
-          if (active) setCatalog((response.data?.items || []).map(normalizeCatalogTrack))
+        apiClient.get(API_ENDPOINTS.MUSIC_PROVIDER_CAPABILITIES).then((response) => {
+          if (active) setProviderCapabilities(response.data?.providers || [])
         }).catch(() => {})
         if (snapshotResponse) {
           acceptSnapshot(snapshotResponse.data)
@@ -514,7 +515,9 @@ export default function MineradioPage() {
       const response = await apiClient.post(API_ENDPOINTS.MUSIC_QUEUE_LIKE(roomId, itemId))
       setQueue(response.data.queue || [])
       loadHistory({ quiet: true })
-      setNotice(`已点赞，当前 ${response.data.likes} 票`)
+      setNotice(response.data.liked
+        ? `已点赞，当前 ${response.data.likes} 票`
+        : `已取消点赞，当前 ${response.data.likes} 票`)
     } catch (error) {
       setNotice(error.response?.data?.detail || '点赞失败')
     }
@@ -549,7 +552,7 @@ export default function MineradioPage() {
     if (!keyword || searching) return
     setSearching(true)
     try {
-      const providers = sourceValue === 'all' ? 'netease,qq,audius' : sourceValue
+      const providers = sourceValue === 'all' ? 'netease' : sourceValue
       const response = await apiClient.get(API_ENDPOINTS.MUSIC_SEARCH, {
         params: { limit: 30, providers, q: keyword },
       })
@@ -628,19 +631,20 @@ export default function MineradioPage() {
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'source') {
-      setCatalogSource(payload.source || 'all')
+      setCatalogSource(payload.source || 'netease')
       setCatalog([])
     } else if (action === 'propose-catalog') await proposeCatalogTrack(payload.track)
     else if (action === 'search') {
       setSearchQuery(payload.query || '')
-      setCatalogSource(payload.source || 'all')
-      await runCatalogSearch(payload.query, payload.source || 'all')
+      setCatalogSource(payload.source || 'netease')
+      await runCatalogSearch(payload.query, payload.source || 'netease')
     } else if (action === 'chat') sendChatMessage(payload.message)
   }
 
   const mineradioRoomState = {
     catalog,
     catalogSource,
+    providerCapabilities,
     canControl,
     inRoom: Boolean(room),
     loading,
@@ -699,7 +703,7 @@ export default function MineradioPage() {
           <section className="room-player-card">
             <h2>搜索点歌</h2>
             <form className="room-player-search" onSubmit={searchCatalog}>
-              <span className="room-player-fixed-catalog">固定测试曲库 · 5 首</span>
+              <span className="room-player-fixed-catalog">Mineradio 在线曲库</span>
               <input
                 aria-label="歌曲或音乐人"
                 value={searchQuery}

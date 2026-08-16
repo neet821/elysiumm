@@ -3,15 +3,15 @@ from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 import models
 import schemas
+import audio_resolver
 import catalog_service
 import music_service
-import music_test_catalog
 import sync_room_crud
 from music_providers import build_provider_registry, provider_configuration_status
 from rate_limit import SlidingWindowRateLimiter
@@ -40,13 +40,33 @@ async def music_provider_status(user=Depends(get_current_user)):
     )
 
 
+@router.get("/providers/capabilities")
+async def music_provider_capabilities(user=Depends(get_current_user)):
+    configured = await provider_configuration_status(
+        config.MUSIC_PROVIDER_BASE_URL,
+        config.MUSIC_PROVIDER_TIMEOUT_SECONDS,
+    )
+    configured_providers = configured.get("providers") or {}
+    netease_ready = bool((configured_providers.get("netease") or {}).get("configured"))
+    qq_ready = bool((configured_providers.get("qq") or {}).get("configured"))
+    return {
+        "providers": [
+            {"provider": "netease", "label": "网易云", "searchable": True, "playable": netease_ready, "reason": None if netease_ready else "歌曲播放地址会按曲目实时验证"},
+            {"provider": "qq", "label": "QQ 音乐", "searchable": True, "playable": qq_ready, "reason": None if qq_ready else "需要服务器配置 QQ 播放凭据"},
+            {"provider": "kugou", "label": "酷狗", "searchable": False, "playable": False, "reason": "房间音频接口暂不支持"},
+            {"provider": "qishui", "label": "汽水", "searchable": False, "playable": False, "reason": "房间音频接口暂不支持"},
+            {"provider": "spotify", "label": "Spotify", "searchable": False, "playable": False, "reason": "房间音频接口暂不支持"},
+        ],
+    }
+
+
 class TrackReference(BaseModel):
     provider: str = Field(default="audius", max_length=30)
     provider_track_id: str = Field(min_length=1, max_length=120)
 
 
 class MineradioTrack(BaseModel):
-    provider: str = Field(pattern="^netease$")
+    provider: str = Field(pattern="^(netease|qq)$")
     provider_track_id: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=255)
     artist: str = Field(default="未知音乐人", max_length=255)
@@ -122,19 +142,23 @@ async def search_music(
             "搜索过于频繁，请稍后重试",
             headers={"Retry-After": str(retry_after)},
         )
-    needle = query.casefold()
-    items = [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)]
-    return {"query": query, "items": [item for item in items if needle in f"{item['title']} {item['artist']} {item['album']}".casefold()][:limit], "providers": [{"provider": "local", "status": "ok", "count": len(items)}]}
+    requested = list(dict.fromkeys(provider.strip().lower() for provider in providers.split(",") if provider.strip()))
+    # Audius remains available to the legacy trending/search client; room
+    # enqueue validation still only accepts Mineradio's room-capable sources.
+    if not requested or any(provider not in ("netease", "qq", "audius") for provider in requested):
+        raise HTTPException(422, "当前房间只支持网易云、QQ 音乐和 Audius 在线搜索")
+    try:
+        return await catalog_service.search_catalog(db, query, requested, limit, music_provider_registry)
+    except catalog_service.AllProvidersUnavailable as exc:
+        raise HTTPException(502, "曲库暂时无法连接，请稍后重试") from exc
 
 
 @router.get("/trending")
-def trending_music(limit: int = Query(default=18, ge=1, le=30), db: Session = Depends(get_db), user=Depends(get_current_user)):
-    return {"provider": "local", "items": [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)][:limit]}
-
-
-@router.get("/catalog")
-def fixed_catalog(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    return {"provider": "local", "items": [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)]}
+async def trending_music(limit: int = Query(default=18, ge=1, le=30), user=Depends(get_current_user)):
+    try:
+        return {"provider": "audius", "items": await music_service.trending_tracks(limit)}
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "曲库暂时无法连接，请稍后重试") from exc
 
 
 @router.get("/tracks/{canonical_id}/audio")
@@ -145,17 +169,12 @@ async def get_catalog_audio(
     user=Depends(get_current_user),
 ):
     try:
-        canonical, item = music_test_catalog.item_for(db, canonical_id=canonical_id)
-    except ValueError as exc:
+        payload = await audio_resolver.resolve_audio(db, canonical_id, music_provider_registry, force_refresh=refresh)
+    except audio_resolver.CanonicalTrackNotFound as exc:
         raise HTTPException(404, "曲目不存在") from exc
-    result = {
-        "availability": "playable",
-        "playback_url": f"/music-test/{item['slug']}.mp3",
-        "expires_at": None,
-        "source_type": "local",
-        "provider": "local",
-    }
-    return result
+    if payload["availability"] == "unavailable":
+        return JSONResponse(status_code=409, content=payload)
+    return payload
 
 
 @router.get("/tracks/{canonical_id}/lyrics")
@@ -171,11 +190,9 @@ async def get_catalog_lyrics(
     user=Depends(get_current_user),
 ):
     try:
-        canonical, item = music_test_catalog.item_for(db, canonical_id=canonical_id)
-    except ValueError as exc:
+        return await catalog_service.get_catalog_lyrics(db, canonical_id, music_provider_registry, language=language)
+    except catalog_service.CatalogTrackNotFound as exc:
         raise HTTPException(404, "曲目不存在") from exc
-    lyrics = db.query(models.TrackLyrics).filter_by(canonical_track_id=canonical.id, provider="local", language=language).first()
-    return catalog_service._lyrics_payload(canonical.id, "local", language, lyrics.timed_text if lyrics else "", lyrics.translation_text if lyrics else None, cached=True)
 
 
 @router.get("/stream/audius/{track_id}")
@@ -185,16 +202,7 @@ async def stream_audius(track_id: str):
     return RedirectResponse(f"{music_service.AUDIUS_API}/tracks/{track_id}/stream", status_code=307)
 
 
-def _catalog_track(payload: MineradioTrack, db: Session | None = None):
-    if payload.provider != "netease":
-        raise ValueError("只允许固定测试曲库歌曲")
-    if db is not None:
-        canonical, fixed = music_test_catalog.item_for(db, provider_track_id=payload.provider_track_id)
-        payload = MineradioTrack(
-            provider="netease", provider_track_id=fixed["provider_track_id"], title=fixed["title"],
-            artist=fixed["artist"], album=fixed["album"], artwork_url=f"/music-test/{fixed['slug']}.jpg",
-            duration_seconds=fixed["duration"], canonical_track_id=canonical.id,
-        )
+def _catalog_track(payload: MineradioTrack):
     stream_url = None
     if payload.provider == "audius":
         stream_url = f"/api/music/stream/audius/{payload.provider_track_id}"
@@ -217,10 +225,21 @@ def _catalog_track(payload: MineradioTrack, db: Session | None = None):
         "source_url": payload.media_mid,
         "stream_url": stream_url,
     }
-    if db is not None:
-        result["stream_url"] = f"/music-test/{music_test_catalog.item_for(db, provider_track_id=payload.provider_track_id)[1]['slug']}.mp3"
-        result["source_url"] = result["stream_url"]
     return result
+
+
+async def _validated_room_track(payload: MineradioTrack, db: Session):
+    track = _catalog_track(payload)
+    if track["canonical_track_id"] is not None:
+        resolved = await audio_resolver.resolve_audio(
+            db,
+            track["canonical_track_id"],
+            music_provider_registry,
+            force_refresh=True,
+        )
+        if resolved["availability"] == "unavailable":
+            raise ValueError(resolved.get("unavailable_reason") or "这首歌当前没有可播放地址")
+    return track
 
 
 @router.get("/rooms/{room_id}/snapshot", response_model=schemas.RoomSnapshotPayload)
@@ -281,7 +300,7 @@ async def add_track(room_id: int, payload: MineradioTrack, db: Session = Depends
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     try:
-        item = music_service.add_to_queue(db, room, user, _catalog_track(payload, db))
+        item = music_service.add_to_queue(db, room, user, await _validated_room_track(payload, db))
     except ValueError as exc:
         if "已经在" in str(exc):
             raise HTTPException(409, str(exc)) from exc
@@ -298,8 +317,8 @@ async def select_mineradio_track(
 ):
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
-    track = _catalog_track(payload, db)
     try:
+        track = await _validated_room_track(payload, db)
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
         if "已经在" in str(exc):
@@ -317,8 +336,8 @@ async def propose_mineradio_track(
 ):
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
-    track = _catalog_track(payload, db)
     try:
+        track = await _validated_room_track(payload, db)
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
         if "已经在" in str(exc):
@@ -335,7 +354,11 @@ async def like_track(room_id: int, item_id: int, db: Session = Depends(get_db), 
     if not item:
         raise HTTPException(404, "待播歌曲不存在")
     result = _translate(lambda: music_service.like_queue_item(db, room, user, item))
-    return {"likes": result["likes"], "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
+    return {
+        "likes": result["likes"],
+        "liked": result["liked"],
+        "queue": await _broadcast_queue(db, room, previous_version=previous_version),
+    }
 
 
 @router.post("/rooms/{room_id}/proposals/{item_id}/vote")

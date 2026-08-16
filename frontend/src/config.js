@@ -148,6 +148,7 @@ export const API_ENDPOINTS = {
 
   // 在线曲库与同步听歌
   MUSIC_SEARCH: `${API_BASE_URL}/api/music/search`,
+  MUSIC_PROVIDER_CAPABILITIES: `${API_BASE_URL}/api/music/providers/capabilities`,
   MUSIC_CATALOG: `${API_BASE_URL}/api/music/catalog`,
   MUSIC_AUDIO: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/audio`,
   MUSIC_LYRICS: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/lyrics`,

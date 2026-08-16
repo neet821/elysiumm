@@ -197,17 +197,27 @@ def queue_payload(db, room_id):
     ).order_by(models.MusicQueueItem.position, models.MusicQueueItem.created_at).all()
     skip_votes = {}
     proposal_votes = {}
+    like_users = {}
+    skip_vote_users = {}
     if items:
         rows = db.query(models.MusicSkipVote.queue_item_id, models.MusicSkipVote.id).filter(
             models.MusicSkipVote.queue_item_id.in_([item.id for item in items])
         ).all()
         for item_id, _ in rows:
             skip_votes[item_id] = skip_votes.get(item_id, 0) + 1
+        for item_id, user_id in db.query(models.MusicSkipVote.queue_item_id, models.MusicSkipVote.user_id).filter(
+            models.MusicSkipVote.queue_item_id.in_([item.id for item in items])
+        ).all():
+            skip_vote_users.setdefault(item_id, []).append(user_id)
         proposal_rows = db.query(models.MusicTrackVote.queue_item_id, models.MusicTrackVote.id).filter(
             models.MusicTrackVote.queue_item_id.in_([item.id for item in items])
         ).all()
         for item_id, _ in proposal_rows:
             proposal_votes[item_id] = proposal_votes.get(item_id, 0) + 1
+        for item_id, user_id in db.query(models.MusicTrackVote.queue_item_id, models.MusicTrackVote.user_id).filter(
+            models.MusicTrackVote.queue_item_id.in_([item.id for item in items])
+        ).all():
+            like_users.setdefault(item_id, []).append(user_id)
     items.sort(key=lambda item: (
         {"playing": 0, "queued": 1, "proposed": 2}.get(item.status, 3),
         -proposal_votes.get(item.id, 0) if item.status == "queued" else item.position,
@@ -234,7 +244,10 @@ def queue_payload(db, room_id):
             "status": item.status,
             "position": item.position,
             "skip_votes": skip_votes.get(item.id, 0),
+            "skip_voted_by_user_ids": skip_vote_users.get(item.id, []),
+            "skip_required": skip_vote_required(db, room_id),
             "like_count": proposal_votes.get(item.id, 0),
+            "liked_by_user_ids": like_users.get(item.id, []),
             "proposal_votes": proposal_votes.get(item.id, 0),
             "proposal_required": required,
             "created_at": item.created_at.isoformat() if item.created_at else None,
@@ -248,6 +261,13 @@ def proposal_vote_required(db, room_id):
     if active_members < 1:
         active_members = db.query(models.SyncRoomMember).filter_by(room_id=room_id).count()
     return max(1, math.floor(max(active_members, 1) / 2) + 1)
+
+
+def skip_vote_required(db, room_id):
+    room = db.query(models.SyncRoom).filter_by(id=room_id).first()
+    online = db.query(models.SyncRoomMember).filter_by(room_id=room_id, is_online=True).count()
+    percent = getattr(room, "music_skip_vote_percent", 30) if room else 30
+    return max(1, math.ceil(max(online, 1) * (percent or 30) / 100))
 
 
 def _approve_proposal(db, room, item, actor_user_id=None):
@@ -296,11 +316,15 @@ def like_queue_item(db, room, user, item):
     if item.status != "queued":
         raise ValueError("只能给待播歌曲点赞")
     vote = db.query(models.MusicTrackVote).filter_by(queue_item_id=item.id, user_id=user.id).first()
-    if not vote:
+    liked = vote is None
+    if liked:
         db.add(models.MusicTrackVote(room_id=room.id, queue_item_id=item.id, user_id=user.id))
         db.flush()
+    else:
+        db.delete(vote)
+        db.flush()
     votes = db.query(models.MusicTrackVote).filter_by(queue_item_id=item.id).count()
-    if not vote:
+    if liked:
         record_room_event(
             db,
             room,
@@ -311,7 +335,7 @@ def like_queue_item(db, room, user, item):
         )
     room.last_activity_at = datetime.utcnow()
     db.commit()
-    return {"item": item, "likes": votes}
+    return {"item": item, "likes": votes, "liked": liked}
 
 
 def add_to_queue(db, room, user, track):

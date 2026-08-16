@@ -34,6 +34,24 @@
     return div.innerHTML;
   }
 
+  function roomOrigin() {
+    try { return window.parent.location.origin; } catch (_) { return window.location.origin; }
+  }
+
+  function roomAssetUrl(value) {
+    var raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^(data:|blob:|mineradio-local:)/i.test(raw)) return raw;
+    try { return new URL(raw, roomOrigin()).href; } catch (_) { return raw; }
+  }
+
+  function roomCoverMarkup(value, className) {
+    var src = roomAssetUrl(value);
+    if (!src) return '<div class="' + (className || 'br-cover') + ' br-cover-empty">♫</div>';
+    var proxied = /^https?:\/\//i.test(src) ? '/mineradio-api/cover?url=' + encodeURIComponent(src) : src;
+    return '<img class="' + (className || 'br-cover') + '" src="' + esc(proxied) + '" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'' + (className || 'br-cover') + ' br-cover-empty\',textContent:\'♫\'}))">';
+  }
+
   function currentSong() {
     if (Array.isArray(window.playQueue) && window.currentIdx >= 0) return window.playQueue[window.currentIdx] || null;
     return window.currentLocalSong || null;
@@ -59,7 +77,7 @@
       title: String(song.name || song.title || '未命名歌曲'),
       artist: String(song.artist || song.singer || '未知音乐人'),
       album: String(song.album || song.albumName || ''),
-      artwork_url: String(song.cover || song.picUrl || song.albumPic || ''),
+      artwork_url: roomAssetUrl(song.cover || song.picUrl || song.albumPic || ''),
       duration_seconds: Math.max(0, Math.round(Number(song.duration || (window.audio && window.audio.duration) || 0) / (Number(song.duration) > 10000 ? 1000 : 1))),
       media_mid: String(song.mediaMid || song.media_mid || '')
     };
@@ -119,7 +137,7 @@
       name: track.title,
       artist: track.artist,
       album: track.album || '',
-      cover: track.artwork_url || '',
+      cover: roomAssetUrl(track.artwork_url || ''),
       duration: Number(track.duration_seconds || 0) * 1000,
       provider: provider,
       source: provider
@@ -237,11 +255,12 @@
       '.br-uid{font:600 9px/1 var(--font-mono)!important;color:rgba(var(--fc-accent-rgb),.64)!important}',
       '.br-status{width:6px;height:6px;border-radius:50%;background:#59606b}.br-status.online{background:#7ee2a8;box-shadow:0 0 8px rgba(126,226,168,.6)}',
       '.br-btn{height:30px;border:1px solid rgba(var(--fc-accent-rgb),.22);border-radius:9px;background:rgba(var(--fc-accent-rgb),.08);color:rgba(var(--fc-accent-rgb),.88);padding:0 10px;font:700 10px/1 var(--font-sans);cursor:pointer}',
+      '.br-btn.active{border-color:rgba(var(--fc-accent-rgb),.48);background:rgba(var(--fc-accent-rgb),.18);color:#fff}.br-btn:disabled{opacity:.48;cursor:default}',
       '.br-btn.primary{height:38px;background:rgba(var(--fc-accent-rgb),.15);color:#fff;width:100%}',
       '.br-btn.ghost{border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:rgba(255,255,255,.48)}',
       '.br-form{display:grid;gap:11px}.br-form label{display:grid;gap:6px;font-size:10px;color:rgba(255,255,255,.42)}',
       '.br-file-picker{position:relative;cursor:pointer}.br-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.br-file-line{display:flex;align-items:center;gap:8px;min-width:0;height:38px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(0,0,0,.22);padding:0 10px}.br-file-button{flex:0 0 auto;color:rgba(var(--fc-accent-rgb),.9);font-weight:700}.br-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.46)}',
-      '.br-source-tabs{display:flex;gap:5px;margin-bottom:8px;overflow:auto}.br-source{flex:0 0 auto;height:27px;padding:0 9px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.48);font-size:9px;cursor:pointer}.br-source.active{border-color:rgba(var(--fc-accent-rgb),.32);background:rgba(var(--fc-accent-rgb),.10);color:rgba(var(--fc-accent-rgb),.92)}.br-search-form{display:flex;gap:6px}.br-search-form .br-input{flex:1;min-width:0}.br-result-cover{width:36px;height:36px;border-radius:0;object-fit:cover;background:rgba(255,255,255,.04)}.br-provider{display:inline-block;margin-left:5px;padding:2px 4px;border-radius:0;background:rgba(var(--fc-accent-rgb),.08);color:rgba(var(--fc-accent-rgb),.72);font:600 7px/1 var(--font-mono)}',
+      '.br-source-tabs{display:flex;gap:5px;margin-bottom:8px;overflow:auto}.br-source{flex:0 0 auto;height:27px;padding:0 9px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.48);font-size:9px;cursor:pointer}.br-source.active{border-color:rgba(var(--fc-accent-rgb),.32);background:rgba(var(--fc-accent-rgb),.10);color:rgba(var(--fc-accent-rgb),.92)}.br-source:disabled{opacity:.38;cursor:not-allowed}.br-search-form{display:flex;gap:6px}.br-search-form .br-input{flex:1;min-width:0}.br-result-cover{width:36px;height:36px;flex:0 0 36px;border-radius:9px;object-fit:cover;background:rgba(255,255,255,.04)}.br-cover-empty{display:grid;place-items:center}.br-queue-action{display:flex;justify-content:flex-end;margin:-2px 0 8px}.br-provider{display:inline-block;margin-left:5px;padding:2px 4px;border-radius:0;background:rgba(var(--fc-accent-rgb),.08);color:rgba(var(--fc-accent-rgb),.72);font:600 7px/1 var(--font-mono)}',
       '.br-catalog-note{display:block;margin:6px 2px 0;font-size:8px;line-height:1.45;color:rgba(255,255,255,.28)}',
       '.br-input{height:38px;min-width:0;max-width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(0,0,0,.22);color:#fff;padding:0 11px;outline:none;font-family:var(--font-sans)}',
       '.br-input:focus{border-color:rgba(var(--fc-accent-rgb),.36)}',
@@ -359,18 +378,20 @@
     var waiting = (roomState.queue || []).filter(function (item) { return item.status !== 'playing'; });
     var members = roomState.members || [];
     var messages = roomState.messages || [];
-    var cover = current && current.artwork_url ? '<img class="br-cover" src="' + esc(current.artwork_url) + '" alt="">' : '<div class="br-cover">♫</div>';
+    var cover = roomCoverMarkup(current && current.artwork_url, 'br-cover');
+    var isHost = Number(room.host_user_id) === Number(roomState.userId);
     var memberRows = members.length ? members.map(function (member) {
       return '<div class="br-row"><span class="br-avatar">' + esc(String(member.username || member.user_id).slice(0, 1).toUpperCase()) + '</span><span class="br-row-main"><strong>' + esc(member.nickname || member.username || '成员') + '</strong><small class="br-uid">用户编号 · ' + Number(member.user_id) + (member.user_id === room.host_user_id ? ' · 房主' : '') + '</small></span><i class="br-status ' + (member.is_online ? 'online' : '') + '" title="' + (member.is_online ? '在线' : '离线') + '"></i></div>';
     }).join('') : '<div class="br-empty">成员列表正在同步</div>';
     var queueRows = waiting.length ? waiting.map(function (item) {
       var status = item.status === 'proposed' ? '待播' : '等待播放';
       var count = Number(item.like_count || 0);
+      var liked = Array.isArray(item.liked_by_user_ids) && item.liked_by_user_ids.some(function (id) { return Number(id) === Number(roomState.userId); });
       var actionHtml = item.status === 'proposed'
         ? '<button class="br-btn ghost" data-action="vote" data-item-id="' + Number(item.id) + '">同意</button>'
-        : '<button class="br-btn ghost" data-action="like" data-item-id="' + Number(item.id) + '">点赞 ' + count + '</button>';
+        : '<button class="br-btn ghost ' + (liked ? 'active' : '') + '" data-action="like" data-item-id="' + Number(item.id) + '">' + (liked ? '取消点赞 ' : '点赞 ') + count + '</button>';
       var reason = item.unavailable_reason ? '<small style="color:#ffaaa2">不可播放：' + esc(item.unavailable_reason) + '</small>' : '';
-      return '<div class="br-row"><span class="br-row-main"><strong>' + esc(item.title) + '</strong><small>' + esc(item.artist) + ' · ' + status + '</small><small>点歌人：' + esc(item.added_by_name || '房间成员') + '</small>' + reason + '</span>' + actionHtml + '</div>';
+      return '<div class="br-row">' + roomCoverMarkup(item.artwork_url, 'br-result-cover') + '<span class="br-row-main"><strong>' + esc(item.title) + '</strong><small>' + esc(item.artist) + ' · ' + status + '</small><small>点歌人：' + esc(item.added_by_name || '房间成员') + '</small>' + reason + '</span>' + actionHtml + '</div>';
     }).join('') : '<div class="br-empty">在播放器中选择歌曲，会先进入候选投票</div>';
     var chatRows = messages.length ? messages.slice(-30).map(function (message) {
       var mine = Number(message.user_id) === Number(roomState.userId);
@@ -378,20 +399,34 @@
     }).join('') : '<div class="br-empty">还没有消息</div>';
     var catalog = roomState.catalog || [];
     var shownCatalog = catalogExpanded ? catalog : catalog.slice(0, 5);
-    var providerNames = { netease: '网易云', qq: 'QQ', audius: '公开' };
+    var providerNames = { netease: '网易云', qq: 'QQ' };
     var catalogRows = shownCatalog.length ? shownCatalog.map(function (track) {
-      var img = track.artwork_url ? '<img class="br-result-cover" src="' + esc(track.artwork_url) + '" alt="">' : '<span class="br-avatar">♫</span>';
+      var img = roomCoverMarkup(track.artwork_url, 'br-result-cover');
       var unavailable = track.availability === 'unavailable';
       var reason = unavailable ? '<small style="color:#ffaaa2">' + esc(track.unavailable_reason || '当前没有可播放地址') + '</small>' : '';
       return '<div class="br-row">' + img + '<span class="br-row-main"><strong>' + esc(track.title) + '<i class="br-provider">' + esc(providerNames[track.provider] || track.provider) + '</i></strong><small>' + esc(track.artist) + '</small>' + reason + '</span><button class="br-btn" data-action="propose-catalog" data-track-index="' + catalog.indexOf(track) + '" ' + (unavailable ? 'disabled' : '') + '>' + (unavailable ? '不可点歌' : '点歌') + '</button></div>';
-    }).join('') : '<div class="br-empty">正在载入公共热榜，也可以直接搜索<br>无需登录网易云或 QQ 音乐</div>';
+    }).join('') : '';
     var catalogMore = '';
     var currentReason = roomState.currentUnavailableReason ? '<small style="color:#ffaaa2">不可播放：' + esc(roomState.currentUnavailableReason) + '</small>' : '';
-    var isHost = Number(room.host_user_id) === Number(roomState.userId);
     var threshold = Number(room.music_skip_vote_percent || 30);
     var playbackStatus = roomState.currentUnavailableReason ? '播放失败' : current ? (room.is_playing ? '正在播放' : '已暂停') : '等待点歌';
-    var queueAction = current && !isHost ? '<button class="br-btn ghost" data-action="skip">投票切歌</button>' : '';
-    var core = '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '固定五首测试歌') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播 ' + queueAction + '</span></div><div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">点歌<span>固定五首</span></div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="筛选歌曲或音乐人"><button class="br-btn" type="submit">筛选</button></form><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
+    var skipVoted = current && Array.isArray(current.skip_voted_by_user_ids) && current.skip_voted_by_user_ids.some(function (id) { return Number(id) === Number(roomState.userId); });
+    var skipLabel = current ? (skipVoted ? '已投票 ' : '投票切歌 ') + Number(current.skip_votes || 0) + '/' + Number(current.skip_required || 1) : '';
+    var queueAction = current && !isHost ? '<div class="br-queue-action"><button class="br-btn ghost ' + (skipVoted ? 'active' : '') + '" data-action="skip" ' + (skipVoted ? 'disabled' : '') + '>' + skipLabel + '</button></div>' : '';
+    var providerCapabilities = roomState.providerCapabilities && roomState.providerCapabilities.length ? roomState.providerCapabilities : [
+      { provider: 'netease', label: '网易云', searchable: true },
+      { provider: 'qq', label: 'QQ 音乐', searchable: true },
+      { provider: 'kugou', label: '酷狗', searchable: false, reason: '房间音频接口暂不支持' },
+      { provider: 'qishui', label: '汽水', searchable: false, reason: '房间音频接口暂不支持' },
+      { provider: 'spotify', label: 'Spotify', searchable: false, reason: '房间音频接口暂不支持' },
+    ];
+    var sourceOptions = providerCapabilities.map(function (provider) {
+      var active = (roomState.catalogSource || 'netease') === provider.provider;
+      var disabled = !provider.searchable;
+      return '<button class="br-source ' + (active ? 'active' : '') + '" data-action="source" data-source="' + esc(provider.provider) + '" title="' + esc(provider.reason || '') + '" ' + (disabled ? 'disabled' : '') + '>' + esc(provider.label) + (disabled ? ' · 不可用' : '') + '</button>';
+    }).join('');
+    var catalogEmpty = '<div class="br-empty">输入歌曲名或音乐人，搜索 Mineradio 在线曲库</div>';
+    var core = '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '在线曲库') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">在线点歌<span>' + esc(roomState.catalogSource || 'netease') + '</span></div><div class="br-source-tabs">' + sourceOptions + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><div class="br-list" style="margin-top:8px">' + (catalogRows || catalogEmpty) + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
     if (!isHost) return core;
     return core + '<details class="br-host-fold"><summary>房主功能</summary><div class="br-host-fold-body">' + (current ? '<button class="br-btn primary" data-action="skip">立即切歌</button>' : '<div class="br-empty">当前没有正在播放的歌曲</div>') + '<label class="br-section-head" style="margin:0">切歌门槛<select class="br-input" data-setting="music_skip_vote_percent"><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></label></div></details>';
   }
@@ -420,7 +455,7 @@
     else if (name === 'skip') action('skip');
     else if (name === 'resync') action('resync');
     else if (name === 'catalog-more') { catalogExpanded = !catalogExpanded; renderRoomUi(); }
-    else if (name === 'source') { action('source', { source: target.getAttribute('data-source') || 'all' }); }
+    else if (name === 'source') { action('source', { source: target.getAttribute('data-source') || 'netease' }); }
     else if (name === 'propose-catalog') {
       var track = (roomState.catalog || [])[Number(target.getAttribute('data-track-index'))];
       if (track) action('propose-catalog', { track: track });
@@ -445,7 +480,7 @@
     }
     if (kind === 'catalog') {
       var query = String(data.get('query') || '').trim();
-      if (query) action('search', { query: query, source: roomState.catalogSource || 'all' });
+      if (query) action('search', { query: query, source: roomState.catalogSource || 'netease' });
     }
   }
 

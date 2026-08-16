@@ -36,7 +36,10 @@ function coverProxySrc(url, cacheBust) {
   if (!url) return '';
   if (isInlineCoverSrc(url)) return url;
   if (!isProxyableCoverUrl(url)) return '';
-  return '/api/cover?url=' + encodeURIComponent(url) + (cacheBust ? '&v=' + Date.now() : '');
+  var prefix = document.body && document.body.classList.contains('blue-album-room-mode')
+    ? '/mineradio-api/cover'
+    : '/api/cover';
+  return prefix + '?url=' + encodeURIComponent(url) + (cacheBust ? '&v=' + Date.now() : '');
 }
 function coverUrlWithSize(url, size) {
   if (!url || isInlineCoverSrc(url) || !/^https?:\/\//i.test(url)) return url || '';
