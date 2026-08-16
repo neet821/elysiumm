@@ -32,7 +32,7 @@ def main() -> None:
             room.playback_rate = 1.0
             room.playback_started_at_server_ms = 0
             room.playback_version = int(room.playback_version or 0) + 1
-            room.music_skip_vote_percent = int(room.music_skip_vote_percent or 30)
+            room.music_skip_vote_percent = 30
         db.commit()
         rows = music_test_catalog.ensure_catalog(db)
         print(f"fixed catalog rows: {len(rows)}")
