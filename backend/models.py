@@ -1129,6 +1129,12 @@ class SyncRoom(Base):
     room_name = Column(String(100), nullable=False)
     host_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     control_mode = Column(String(20), default="host_only", nullable=False)  # host_only 或 all_members
+    music_skip_vote_percent = Column(
+        Integer,
+        default=30,
+        server_default="30",
+        nullable=False,
+    )
     mode = Column(String(20), default="url", nullable=False)  # url=外链, upload=上传到服务器, local=本地同步
     video_source = Column(Text, nullable=True)  # 视频链接或文件路径
     video_filename = Column(String(255), nullable=True)  # 上传的原始文件名

@@ -176,7 +176,7 @@ describe('unified room catalog integration', () => {
     roomAction(frame, 'propose-catalog', { track: latestRoomState(postMessage).catalog[1] })
 
     await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/music\/rooms\/9\/proposals$/),
+      expect.stringMatching(/\/api\/music\/rooms\/9\/queue$/),
       expect.objectContaining({
         canonical_track_id: 102,
         media_mid: 'media-102',

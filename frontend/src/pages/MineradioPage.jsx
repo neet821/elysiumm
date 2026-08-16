@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Copy, LogOut, RefreshCw, Users } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
 
@@ -271,13 +270,14 @@ export default function MineradioPage() {
     }
     const intent = playerEventToRoomIntent(eventName, payload, {
       canControl,
+      currentItemId: resolvedCurrent?.id,
       isHost,
       roomId,
       suppress: remoteSyncRef.current !== 0 || Date.now() < remoteSyncUntilRef.current,
       version: versionRef.current,
     })
     if (intent) socketRef.current?.emit(intent.event, intent.payload)
-  }, [canControl, isHost, roomId])
+  }, [canControl, isHost, resolvedCurrent?.id, roomId])
 
   useEffect(() => {
     loadRooms().catch(() => setNotice('听歌房列表暂时无法载入'))
@@ -375,6 +375,10 @@ export default function MineradioPage() {
       loadHistory({ quiet: true })
     })
     socket.on('music_queue_updated', (data) => setQueue(data.queue || []))
+    socket.on('music_settings_updated', (data) => {
+      if (Number(data?.room_id) !== Number(roomId)) return
+      setRoom((previous) => ({ ...previous, music_skip_vote_percent: data.music_skip_vote_percent }))
+    })
     socket.on('music_track_changed', (data) => {
       const eventVersion = Number(data?.playback_version)
       if (Number.isInteger(eventVersion) && eventVersion < versionRef.current) return
@@ -567,7 +571,7 @@ export default function MineradioPage() {
     if (!track || track.availability === 'unavailable' || !track.provider_track_id || selectingRef.current) return
     selectingRef.current = true
     try {
-      const response = await apiClient.post(API_ENDPOINTS.MUSIC_PROPOSE(roomId), {
+      const response = await apiClient.post(API_ENDPOINTS.MUSIC_QUEUE(roomId), {
         album: track.album || null,
         artist: track.artist,
         artwork_url: track.artwork_url || null,
@@ -580,11 +584,23 @@ export default function MineradioPage() {
       })
       setQueue(response.data.queue || [])
       loadHistory({ quiet: true })
-      setNotice(response.data.approved ? `《${track.title}》已进入房间播放` : `已发起《${track.title}》点歌投票`)
+      setNotice(`《${track.title}》已加入听歌房`)
     } catch (error) {
       setNotice(error.response?.data?.detail || '点歌失败')
     } finally {
       selectingRef.current = false
+    }
+  }
+
+  const updateRoomSettings = async (percent) => {
+    try {
+      const response = await apiClient.patch(API_ENDPOINTS.MUSIC_ROOM_SETTINGS(roomId), {
+        music_skip_vote_percent: Number(percent),
+      })
+      setRoom((previous) => ({ ...previous, music_skip_vote_percent: response.data.music_skip_vote_percent }))
+      setNotice(`切歌门槛已设为 ${response.data.music_skip_vote_percent}%`)
+    } catch (error) {
+      setNotice(error.response?.data?.detail || '设置更新失败')
     }
   }
 
@@ -630,6 +646,7 @@ export default function MineradioPage() {
     else if (action === 'like') await likeTrack(payload.itemId)
     else if (action === 'skip') await (isHost ? playNext() : voteSkip())
     else if (action === 'resync') requestSnapshot()
+    else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'source') {
       setCatalogSource(payload.source || 'all')
       setCatalog([])
@@ -675,33 +692,8 @@ export default function MineradioPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3">
-          <button type="button" onClick={leaveRoom} className="rounded-lg p-2" aria-label="退出房间"><LogOut size={18} /></button>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold">{roomTitle(room, roomId)}</h1>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>房间号 {room.room_code || roomId}</span>
-              <button type="button" aria-label="复制房间号" onClick={() => navigator.clipboard?.writeText(room.room_code || String(roomId))}><Copy size={13} /></button>
-              <span>{room.control_mode === 'host_only' ? '房主控制' : '全员控制'}</span>
-            </div>
-          </div>
-          <span className="flex items-center gap-1 text-sm"><Users size={16} />{members.filter((member) => member.is_online !== false).length}</span>
-          <span role="status" className="rounded-full bg-slate-200 px-3 py-1 text-xs">
-            {ROOM_STATUS_LABELS[syncStatus] || ROOM_STATUS_LABELS.connecting}
-          </span>
-          <button type="button" onClick={requestSnapshot} className="rounded-lg p-2" aria-label="重新同步"><RefreshCw size={17} /></button>
-        </div>
-      </header>
-
-      {notice && (
-        <div className="mx-auto mt-3 max-w-[1600px] px-4">
-          <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">{notice}</p>
-        </div>
-      )}
-
-      <div className="mx-auto max-w-[1600px] p-4">
+    <div className="music-room-immersive" data-room-id={roomId}>
+        <h1 className="sr-only">听歌房</h1>
         <section className="music-room-shell__stage" aria-label="房间播放器">
           <MineradioRoomEmbed
             onAdapterReady={handleAdapterReady}
@@ -867,7 +859,6 @@ export default function MineradioPage() {
             </form>
           </section>
         </aside>
-      </div>
-    </main>
+    </div>
   )
 }

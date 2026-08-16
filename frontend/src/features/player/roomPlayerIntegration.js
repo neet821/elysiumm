@@ -63,6 +63,16 @@ export function playerEventToRoomIntent(eventName, snapshot, context = {}) {
   if (context.suppress || !context.canControl || !context.roomId) return null
   const time = Math.max(0, Number(snapshot?.currentTime) || 0)
 
+  if (eventName === 'ended') {
+    return {
+      event: 'music_ended',
+      payload: {
+        room_id: Number(context.roomId),
+        item_id: Number(context.currentItemId || snapshot?.track?.id),
+        expected_version: Number(context.version) || 0,
+      },
+    }
+  }
   if (!['play', 'pause', 'seek'].includes(eventName)) return null
   return {
     event: 'playback_control',

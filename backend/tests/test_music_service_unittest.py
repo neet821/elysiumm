@@ -108,28 +108,20 @@ class MusicServiceTest(unittest.TestCase):
         self.assertEqual(self.room.video_source, "mineradio://netease/5257138")
         self.assertTrue(self.room.is_playing)
 
-    def test_mineradio_proposal_waits_for_member_vote(self):
+    def test_mineradio_selection_is_direct_queue(self):
         track = self.track("vote-one", "投票歌曲")
         track.update({"provider": "netease", "source_url": None})
         first = music_service.propose_track(self.db, self.room, self.host, track)
-        self.assertFalse(first["approved"])
-        self.assertEqual(first["votes"], 1)
-        self.assertEqual(first["required"], 2)
-        self.assertEqual(first["item"].status, "proposed")
-        self.assertIsNone(self.room.video_source)
-
-        second = music_service.vote_proposal(self.db, self.room, self.listener, first["item"])
-        self.assertTrue(second["approved"])
-        self.assertEqual(second["item"].status, "playing")
+        self.assertTrue(first["approved"])
+        self.assertEqual(first["item"].status, "playing")
         self.db.refresh(self.room)
-        self.assertEqual(self.room.video_source, "mineradio://netease/vote-one")
+        self.assertEqual(self.room.video_source, "/api/music/stream/audius/vote-one")
 
     def test_approved_proposal_does_not_interrupt_current_track(self):
         current = music_service.add_to_queue(self.db, self.room, self.host, self.track("current", "正在播放"))
         track = self.track("vote-two", "下一首")
         track.update({"provider": "qq", "source_url": "media-mid"})
-        first = music_service.propose_track(self.db, self.room, self.host, track)
-        approved = music_service.vote_proposal(self.db, self.room, self.listener, first["item"])
+        approved = music_service.propose_track(self.db, self.room, self.listener, track)
         self.db.refresh(current)
         self.assertTrue(approved["approved"])
         self.assertEqual(approved["item"].status, "queued")
@@ -142,8 +134,7 @@ class MusicServiceTest(unittest.TestCase):
             "stream_url": "/uploads/music_rooms/1/shared.mp3",
             "source_url": "/uploads/music_rooms/1/shared.mp3",
         })
-        first = music_service.propose_track(self.db, self.room, self.host, track)
-        approved = music_service.vote_proposal(self.db, self.room, self.listener, first["item"])
+        approved = music_service.propose_track(self.db, self.room, self.host, track)
         self.db.refresh(self.room)
         self.assertTrue(approved["approved"])
         self.assertEqual(approved["item"].stream_url, "/uploads/music_rooms/1/shared.mp3")

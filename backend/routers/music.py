@@ -2,6 +2,7 @@ import re
 import uuid
 from pathlib import Path
 from urllib.parse import quote
+from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -65,6 +66,10 @@ class MineradioTrack(BaseModel):
     duration_seconds: int = Field(default=0, ge=0, le=86400)
     media_mid: str | None = Field(default=None, max_length=120)
     canonical_track_id: int | None = Field(default=None, ge=1)
+
+
+class MusicRoomSettings(BaseModel):
+    music_skip_vote_percent: Literal[30, 50, 70] = 30
 
 
 MUSIC_UPLOAD_ROOT = config.UPLOAD_DIR / "music_rooms"
@@ -272,16 +277,57 @@ def get_queue(room_id: int, db: Session = Depends(get_db), user=Depends(get_curr
     }
 
 
+@router.patch("/rooms/{room_id}/settings")
+async def update_room_settings(
+    room_id: int,
+    payload: MusicRoomSettings,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    room = _room_member(db, room_id, user)
+    if user.id != room.host_user_id:
+        raise HTTPException(403, "只有房主可以修改听歌房设置")
+    room.music_skip_vote_percent = payload.music_skip_vote_percent
+    db.commit()
+    await sio.emit(
+        "music_settings_updated",
+        {"room_id": room.id, "music_skip_vote_percent": room.music_skip_vote_percent},
+        room=f"room_{room.id}",
+    )
+    return {"music_skip_vote_percent": room.music_skip_vote_percent}
+
+
 @router.post("/rooms/{room_id}/queue")
-async def add_track(room_id: int, payload: TrackReference, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    _room_member(db, room_id, user)
-    raise HTTPException(410, "听歌房已改为投票点歌，请从 Mineradio 播放器选择歌曲")
+async def add_track(room_id: int, payload: MineradioTrack, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    room = _room_member(db, room_id, user)
+    previous_version = room.playback_version
+    try:
+        item = music_service.add_to_queue(db, room, user, _catalog_track(payload))
+    except ValueError as exc:
+        if "已经在" in str(exc):
+            raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
+    return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 
 @router.post("/rooms/{room_id}/queue/direct")
 async def add_direct_track(room_id: int, payload: DirectTrack, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    _room_member(db, room_id, user)
-    raise HTTPException(410, "听歌房不再接受绕过投票的直接音源")
+    room = _room_member(db, room_id, user)
+    previous_version = room.playback_version
+    try:
+        item = music_service.add_to_queue(db, room, user, {
+            "provider": "upload",
+            "provider_track_id": uuid.uuid4().hex,
+            "title": payload.title,
+            "artist": payload.artist,
+            "artwork_url": payload.artwork_url,
+            "duration_seconds": payload.duration_seconds,
+            "stream_url": payload.stream_url,
+            "source_url": payload.stream_url,
+        })
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 
 @router.post("/rooms/{room_id}/select")
@@ -294,9 +340,13 @@ async def select_mineradio_track(
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     track = _catalog_track(payload)
-    result = music_service.propose_track(db, room, user, track)
-    queue = await _broadcast_queue(db, room, previous_version=previous_version)
-    return {**{key: value for key, value in result.items() if key != "item"}, "item_id": result["item"].id, "queue": queue}
+    try:
+        item = music_service.add_to_queue(db, room, user, track)
+    except ValueError as exc:
+        if "已经在" in str(exc):
+            raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
+    return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 
 @router.post("/rooms/{room_id}/proposals")
@@ -309,9 +359,13 @@ async def propose_mineradio_track(
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     track = _catalog_track(payload)
-    result = music_service.propose_track(db, room, user, track)
-    queue = await _broadcast_queue(db, room, previous_version=previous_version)
-    return {**{key: value for key, value in result.items() if key != "item"}, "item_id": result["item"].id, "queue": queue}
+    try:
+        item = music_service.add_to_queue(db, room, user, track)
+    except ValueError as exc:
+        if "已经在" in str(exc):
+            raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
+    return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 
 @router.post("/rooms/{room_id}/uploads")
@@ -351,7 +405,7 @@ async def upload_room_audio(
     clean_artist = (artist.strip() or "自定义上传")[:255]
     stream_url = f"/uploads/music_rooms/{room.id}/{stored_name}"
     try:
-        result = music_service.propose_track(db, room, user, {
+        result_item = music_service.add_to_queue(db, room, user, {
             "provider": "upload",
             "provider_track_id": uuid.uuid4().hex,
             "title": clean_title,
@@ -367,7 +421,7 @@ async def upload_room_audio(
         destination.unlink(missing_ok=True)
         raise
     queue = await _broadcast_queue(db, room, previous_version=previous_version)
-    return {**{key: value for key, value in result.items() if key != "item"}, "item_id": result["item"].id, "queue": queue}
+    return {"item_id": result_item.id, "queue": queue}
 
 
 @router.post("/rooms/{room_id}/queue/{item_id}/like")
@@ -393,9 +447,7 @@ async def vote_mineradio_track(
     item = db.query(models.MusicQueueItem).filter_by(id=item_id, room_id=room.id).first()
     if not item:
         raise HTTPException(404, "候选歌曲不存在")
-    result = _translate(lambda: music_service.vote_proposal(db, room, user, item))
-    queue = await _broadcast_queue(db, room, previous_version=previous_version)
-    return {**{key: value for key, value in result.items() if key != "item"}, "item_id": item.id, "queue": queue}
+    raise HTTPException(410, "候选歌曲投票已停用，请直接点歌")
 
 
 @router.delete("/rooms/{room_id}/queue/{item_id}")

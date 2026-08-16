@@ -29,6 +29,7 @@ from rate_limit import SlidingWindowRateLimiter
 from websocket_server import socket_app, sio  # 导入 WebSocket 应用和 sio 实例
 from room_cleanup_task import run_cleanup_task
 from live_reconcile_task import start_live_reconcile_task
+from music_reconcile_task import run_music_reconcile_task
 from config import config
 
 LOGIN_RATE_LIMIT_MAX = int(os.getenv("LOGIN_RATE_LIMIT_MAX", "5"))
@@ -117,6 +118,7 @@ def recover_stale_restore_jobs() -> int:
 async def startup_event():
     recover_stale_restore_jobs()
     asyncio.create_task(run_cleanup_task())
+    asyncio.create_task(run_music_reconcile_task())
     start_live_reconcile_task()
     print("✅ Background cleanup task started")
 

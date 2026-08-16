@@ -26,7 +26,7 @@ class BackupRehearsalTest(unittest.TestCase):
             report = module.run_rehearsal(Path(parent))
 
         self.assertEqual(report["status"], "PASS")
-        self.assertEqual(report["revision"], "0015_live_recording_enabled")
+        self.assertEqual(report["revision"], "0016_music_room_switching")
         self.assertGreaterEqual(report["table_count"], 20)
         self.assertEqual(report["restored_rows"], [[1, "before-backup"]])
         self.assertEqual(report["integrity_check"], "ok")

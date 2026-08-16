@@ -131,7 +131,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                     connection.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one(),
-                    "0015_live_recording_enabled",
+                    "0016_music_room_switching",
                 )
             engine.dispose()
 
@@ -372,7 +372,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                 version = connection.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one()
-            self.assertEqual(version, "0015_live_recording_enabled")
+            self.assertEqual(version, "0016_music_room_switching")
             engine.dispose()
 
     def test_head_repairs_legacy_integer_playback_time_without_losing_rows(self):
@@ -425,7 +425,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                     connection.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one(),
-                    "0015_live_recording_enabled",
+                    "0016_music_room_switching",
                 )
             engine.dispose()
 

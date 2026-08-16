@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 
 import httpx
+from sqlalchemy import func
 
 import models
 import sync_room_crud
@@ -211,6 +212,7 @@ def queue_payload(db, room_id):
         {"playing": 0, "queued": 1, "proposed": 2}.get(item.status, 3),
         -proposal_votes.get(item.id, 0) if item.status == "queued" else item.position,
         item.position,
+        item.id,
     ))
     required = proposal_vote_required(db, room_id)
     return [
@@ -232,6 +234,7 @@ def queue_payload(db, room_id):
             "status": item.status,
             "position": item.position,
             "skip_votes": skip_votes.get(item.id, 0),
+            "like_count": proposal_votes.get(item.id, 0),
             "proposal_votes": proposal_votes.get(item.id, 0),
             "proposal_required": required,
             "created_at": item.created_at.isoformat() if item.created_at else None,
@@ -282,79 +285,11 @@ def _canonical_track_id(track):
 
 
 def propose_track(db, room, user, track):
-    item = db.query(models.MusicQueueItem).filter(
-        models.MusicQueueItem.room_id == room.id,
-        models.MusicQueueItem.provider == track["provider"],
-        models.MusicQueueItem.provider_track_id == track["provider_track_id"],
-        models.MusicQueueItem.status == "proposed",
-    ).first()
-    if not item:
-        item = models.MusicQueueItem(
-            room_id=room.id,
-            added_by=user.id,
-            canonical_track_id=_canonical_track_id(track),
-            provider=track["provider"],
-            provider_track_id=track["provider_track_id"],
-            title=track["title"],
-            artist=track["artist"],
-            album=track.get("album"),
-            artwork_url=track.get("artwork_url"),
-            stream_url=_track_stream_url(track),
-            duration_seconds=track.get("duration_seconds", 0),
-            source_url=track.get("source_url"),
-            status="proposed",
-            position=db.query(models.MusicQueueItem).filter_by(room_id=room.id).count(),
-        )
-        db.add(item)
-        db.flush()
-        record_room_event(
-            db,
-            room,
-            "proposal_created",
-            actor_user_id=user.id,
-            summary={
-                "media_id": item.id,
-                "required": proposal_vote_required(db, room.id),
-                "title": item.title,
-            },
-            commit=False,
-        )
-    return vote_proposal(db, room, user, item)
+    return {"item": add_to_queue(db, room, user, track), "approved": True, "votes": 0, "required": 0}
 
 
 def vote_proposal(db, room, user, item):
-    if item.status != "proposed":
-        raise ValueError("这首歌已经通过或不再候选")
-    vote = db.query(models.MusicTrackVote).filter_by(queue_item_id=item.id, user_id=user.id).first()
-    vote_added = vote is None
-    if vote_added:
-        db.add(models.MusicTrackVote(room_id=room.id, queue_item_id=item.id, user_id=user.id))
-        db.flush()
-    votes = db.query(models.MusicTrackVote).filter_by(queue_item_id=item.id).count()
-    required = proposal_vote_required(db, room.id)
-    approved = votes >= required
-    if approved:
-        _approve_proposal(db, room, item, actor_user_id=user.id)
-    if vote_added:
-        record_room_event(
-            db,
-            room,
-            "proposal_approved" if approved else "proposal_voted",
-            actor_user_id=user.id,
-            playback_version=room.playback_version if approved else None,
-            summary={
-                "approved": approved,
-                "media_id": item.id,
-                "required": required,
-                "title": item.title,
-                "votes": votes,
-            },
-            commit=False,
-        )
-    room.last_activity_at = datetime.utcnow()
-    db.commit()
-    db.refresh(item)
-    return {"item": item, "votes": votes, "required": required, "approved": approved}
+    raise ValueError("候选歌曲投票已停用，请直接点歌")
 
 
 def like_queue_item(db, room, user, item):
@@ -380,6 +315,31 @@ def like_queue_item(db, room, user, item):
 
 
 def add_to_queue(db, room, user, track):
+    active = db.query(models.MusicQueueItem).filter(
+        models.MusicQueueItem.room_id == room.id,
+        models.MusicQueueItem.status.in_(["playing", "queued", "proposed"]),
+    ).all()
+    canonical_id = _canonical_track_id(track)
+    if track.get("provider") != "upload":
+        duplicate = next(
+            (
+                item for item in active
+                if (canonical_id and item.canonical_track_id == canonical_id)
+                or (
+                    not canonical_id
+                    and item.provider == track["provider"]
+                    and item.provider_track_id == track["provider_track_id"]
+                )
+                or (
+                    canonical_id
+                    and item.provider == track["provider"]
+                    and item.provider_track_id == track["provider_track_id"]
+                )
+            ),
+            None,
+        )
+        if duplicate:
+            raise ValueError("这首歌已经在当前或待播队列中")
     base_snapshot = sync_room_crud.get_authoritative_snapshot(db, room)
     last_position = db.query(models.MusicQueueItem).filter(
         models.MusicQueueItem.room_id == room.id
@@ -408,7 +368,7 @@ def add_to_queue(db, room, user, track):
             db,
             room,
             item,
-            next_state="paused",
+            next_state="playing",
             reason="queue_started",
             actor_user_id=user.id,
             base_snapshot=base_snapshot,
@@ -479,11 +439,24 @@ def select_track(db, room, user, track):
     return selected
 
 
-def advance_queue(db, room, *, actor_user_id=None, reason="queue_advanced"):
+def advance_queue(db, room, *, actor_user_id=None, reason="queue_advanced", expected_version=None, expected_item_id=None):
+    if expected_version is not None and room.playback_version != expected_version:
+        return None
     current = db.query(models.MusicQueueItem).filter_by(room_id=room.id, status="playing").first()
+    if expected_item_id is not None and (not current or current.id != expected_item_id):
+        return None
     next_item = db.query(models.MusicQueueItem).filter_by(
         room_id=room.id, status="queued"
-    ).order_by(models.MusicQueueItem.position, models.MusicQueueItem.created_at).first()
+    ).all()
+    like_counts = {
+        item_id: count for item_id, count in db.query(
+            models.MusicTrackVote.queue_item_id,
+            func.count(models.MusicTrackVote.id),
+        ).filter(
+            models.MusicTrackVote.queue_item_id.in_([item.id for item in next_item])
+        ).group_by(models.MusicTrackVote.queue_item_id).all()
+    } if next_item else {}
+    next_item = sorted(next_item, key=lambda item: (-like_counts.get(item.id, 0), item.position, item.id))[0] if next_item else None
     _stage_track_transition(
         db,
         room,
@@ -533,7 +506,8 @@ def vote_skip(db, room, user):
         db.flush()
     votes = db.query(models.MusicSkipVote).filter_by(queue_item_id=current.id).count()
     online = db.query(models.SyncRoomMember).filter_by(room_id=room.id, is_online=True).count()
-    required = max(1, math.ceil(max(online, 1) * 0.3))
+    percent = getattr(room, "music_skip_vote_percent", 30) or 30
+    required = max(1, math.ceil(max(online, 1) * percent / 100))
     skipped = votes >= required
     if vote_added:
         record_room_event(

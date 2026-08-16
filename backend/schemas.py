@@ -898,6 +898,7 @@ class SyncRoom(BaseModel):
     room_name: str
     host_user_id: int
     control_mode: str
+    music_skip_vote_percent: int = 30
     mode: str
     video_source: Optional[str]
     video_filename: Optional[str] = None
@@ -923,6 +924,7 @@ class SyncRoomInfo(BaseModel):
     host_user_id: int
     host: Optional[UserSimple] = None
     control_mode: str
+    music_skip_vote_percent: int = 30
     mode: str
     video_source: Optional[str]
     video_filename: Optional[str] = None

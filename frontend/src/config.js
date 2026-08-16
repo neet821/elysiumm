@@ -154,6 +154,7 @@ export const API_ENDPOINTS = {
   MUSIC_FAVORITES: `${API_BASE_URL}/api/music/favorites`,
   MUSIC_PROVIDER_STATUS: `${API_BASE_URL}/api/music/providers/status`,
   MUSIC_QUEUE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue`,
+  MUSIC_ROOM_SETTINGS: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/settings`,
   MUSIC_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/snapshot`,
   MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
   MUSIC_QUEUE_ITEM: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}`,

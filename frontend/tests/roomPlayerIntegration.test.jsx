@@ -121,6 +121,18 @@ describe('room player integration boundary', () => {
     })
   })
 
+  it('reports a real ended event to the music-room authority with item and version', () => {
+    expect(playerEventToRoomIntent('ended', { track: { id: 42 } }, {
+      canControl: true,
+      currentItemId: 42,
+      roomId: 9,
+      version: 7,
+    })).toEqual({
+      event: 'music_ended',
+      payload: { expected_version: 7, item_id: 42, room_id: 9 },
+    })
+  })
+
   it('leaves progress to the low-frequency heartbeat and suppresses remote echo', () => {
     expect(playerEventToRoomIntent('timeupdate', { currentTime: 18 }, {
       canControl: true,

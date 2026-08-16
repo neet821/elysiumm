@@ -89,6 +89,9 @@
   function bindAudio() {
     if (!window.audio || window.audio === boundAudio) return;
     boundAudio = window.audio;
+    // Mineradio's native ended handler advances its personal queue. In room
+    // mode only the Elysium server may advance the shared queue.
+    boundAudio.onended = null;
     boundAudio.addEventListener('play', function () { emitTrackIfChanged(); emitPlayback('play'); });
     boundAudio.addEventListener('pause', function () { emitPlayback('pause'); });
     boundAudio.addEventListener('seeked', function () { emitPlayback('seek'); });
@@ -123,7 +126,13 @@
       song.programId = track.provider_track_id;
     }
     if ((track.stream_url && String(track.stream_url).indexOf('mineradio://') !== 0) || provider === 'upload' || provider === 'audius') {
-      song.roomStreamUrl = track.stream_url || track.source_url || '';
+      var rawStreamUrl = track.stream_url || track.source_url || '';
+      // Room uploads are served by Elysium, while the embedded player is
+      // served from the separate Mineradio origin.
+      if (rawStreamUrl && rawStreamUrl.charAt(0) === '/') {
+        try { rawStreamUrl = window.parent.location.origin + rawStreamUrl; } catch (_) {}
+      }
+      song.roomStreamUrl = rawStreamUrl;
       song.type = 'room-stream';
     }
     return song;
@@ -182,7 +191,7 @@
     var style = document.createElement('style');
     style.id = 'blue-room-native-style';
     style.textContent = [
-      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #search-area,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas{display:none!important}',
+      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #search-area,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas{display:none!important}',
       '#blue-room-btn{position:relative}',
       '#blue-diy-btn{font:800 9px/1 var(--font-mono);letter-spacing:.04em}',
       '#blue-diy-btn.on{color:var(--fc-accent);border-color:rgba(var(--fc-accent-rgb),.38);background:rgba(var(--fc-accent-rgb),.08)}',
@@ -354,7 +363,7 @@
     button.classList.toggle('in-room', !!roomState.inRoom);
     document.getElementById('br-title').textContent = roomState.inRoom ? ((roomState.room && roomState.room.room_name) || '听歌房') : '一起听';
     document.getElementById('br-sub').textContent = roomState.inRoom
-      ? (roomState.canControl ? '你可以控制房间播放；点歌通过投票进入公共歌单' : '播放由房主控制；点歌通过投票进入公共歌单')
+      ? (roomState.canControl ? '你可以控制房间播放；点歌立即进入公共歌单' : '播放由房主控制；点歌立即进入公共歌单')
       : '创建或加入房间后才会同步播放';
     body.innerHTML = roomState.inRoom ? renderActiveRoom() : renderLobby();
   }
@@ -379,11 +388,9 @@
       return '<div class="br-row"><span class="br-avatar">' + esc(String(member.username || member.user_id).slice(0, 1).toUpperCase()) + '</span><span class="br-row-main"><strong>' + esc(member.nickname || member.username || '成员') + '</strong><small class="br-uid">用户编号 · ' + Number(member.user_id) + (member.user_id === room.host_user_id ? ' · 房主' : '') + '</small></span><i class="br-status ' + (member.is_online ? 'online' : '') + '" title="' + (member.is_online ? '在线' : '离线') + '"></i></div>';
     }).join('') : '<div class="br-empty">成员列表正在同步</div>';
     var queueRows = waiting.length ? waiting.map(function (item) {
-      var status = item.status === 'proposed' ? '候选投票' : '等待播放';
-      var count = Number(item.proposal_votes || 0);
-      var actionHtml = item.status === 'proposed'
-        ? '<button class="br-btn" data-action="vote" data-item-id="' + Number(item.id) + '">同意 ' + count + '/' + Number(item.proposal_required || 1) + '</button>'
-        : '<button class="br-btn ghost" data-action="like" data-item-id="' + Number(item.id) + '">点赞 ' + count + '</button>';
+      var status = item.status === 'proposed' ? '待播' : '等待播放';
+      var count = Number(item.like_count || 0);
+      var actionHtml = '<button class="br-btn ghost" data-action="like" data-item-id="' + Number(item.id) + '">点赞 ' + count + '</button>';
       var reason = item.unavailable_reason ? '<small style="color:#ffaaa2">不可播放：' + esc(item.unavailable_reason) + '</small>' : '';
       return '<div class="br-row"><span class="br-row-main"><strong>' + esc(item.title) + '</strong><small>' + esc(item.artist) + ' · ' + status + '</small><small>点歌人：' + esc(item.added_by_name || '房间成员') + '</small>' + reason + '</span>' + actionHtml + '</div>';
     }).join('') : '<div class="br-empty">在播放器中选择歌曲，会先进入候选投票</div>';
@@ -408,17 +415,23 @@
     var syncNames = { connecting: '正在连接', reconnecting: '正在重连', syncing: '正在同步', synced: '同步正常', error: '同步失败' };
     var syncName = syncNames[roomState.syncStatus] || (room.is_playing ? '同步播放中' : '等待播放');
     var currentReason = roomState.currentUnavailableReason ? '<small style="color:#ffaaa2">不可播放：' + esc(roomState.currentUnavailableReason) + '</small>' : '';
-    var currentActions = current ? '<div class="br-now-actions"><button class="br-btn" data-action="skip">投票切歌 · ' + Number(current.skip_votes || 0) + ' 票</button></div>' : '';
-    var core = '<div class="br-room-meta" data-sync-status="' + esc(roomState.syncStatus || 'connecting') + '"><i class="br-dot"></i>' + syncName + '<button class="br-code" data-action="copy" data-code="' + esc(room.room_code || '') + '">' + esc(room.room_code || '') + '</button></div><div class="br-section"><div class="br-section-head">正在播放<span>当前曲目</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '搜索并发起点歌') + '</small>' + (current ? '<small>点歌人：' + esc(current.added_by_name || '房间成员') + '</small>' : '') + currentReason + '</div><button class="br-btn ghost br-now-action" data-action="resync">重新同步播放</button></div>' + currentActions + '</div><div class="br-section"><div class="br-section-head">搜索点歌<span>网易云 · QQ · 公开曲库</span></div><div class="br-source-tabs">' + sourceTabs + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><small class="br-catalog-note">无需登录音乐平台；受版权限制的歌曲可能无法完整播放</small><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">房间公共歌单<span>投票与待播</span></div><div class="br-list">' + queueRows + '</div></div>';
+    var isHost = Number(room.host_user_id) === Number(roomState.userId);
+    var threshold = Number(room.music_skip_vote_percent || 30);
+    var currentActions = current ? '<div class="br-now-actions"><button class="br-btn" data-action="skip">' + (isHost ? '房主立即切歌' : '投票切歌') + ' · ' + Number(current.skip_votes || 0) + '</button></div>' : '';
+    var core = '<div class="br-room-meta" data-sync-status="' + esc(roomState.syncStatus || 'connecting') + '"><i class="br-dot"></i>' + syncName + '<button class="br-code" data-action="copy" data-code="' + esc(room.room_code || '') + '">' + esc(room.room_code || '') + '</button></div><div class="br-section"><div class="br-section-head">正在播放<span>当前曲目</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '搜索并直接点歌') + '</small>' + (current ? '<small>点歌人：' + esc(current.added_by_name || '房间成员') + '</small>' : '') + currentReason + '</div><button class="br-btn ghost br-now-action" data-action="resync">重新同步播放</button></div>' + currentActions + '</div><div class="br-section"><div class="br-section-head">搜索点歌<span>网易云 · QQ · 公开曲库</span></div><div class="br-source-tabs">' + sourceTabs + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><small class="br-catalog-note">点歌无需投票；相同歌曲会被拦截</small><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">房间公共歌单<span>点赞排序 · 门槛 ' + threshold + '%</span></div><div class="br-list">' + queueRows + '</div></div>';
     var more = '<button class="br-btn ghost br-more-toggle" data-action="more">' + (roomMoreOpen ? '收起更多功能' : '更多功能 · 成员 / 上传 / 聊天') + '</button>';
     if (!roomMoreOpen) return core + more;
     var otherRooms = (roomState.rooms || []).filter(function (entry) { return Number(entry.id) !== Number(room.id); });
     var roomRows = otherRooms.length ? otherRooms.map(function (entry) { return '<button class="br-row" data-action="enter" data-room-id="' + Number(entry.id) + '"><span class="br-avatar">' + esc(String(entry.room_name || '房').slice(0, 1)) + '</span><span class="br-row-main"><strong>' + esc(entry.room_name || '听歌房') + '</strong><small>' + esc(entry.room_code || '') + '</small></span></button>'; }).join('') : '<div class="br-empty">暂无其他听歌房</div>';
-    return core + more + '<div class="br-section"><div class="br-section-head">切换听歌房<span>' + otherRooms.length + ' 个可选</span></div><div class="br-list">' + roomRows + '</div></div><div class="br-section"><div class="br-section-head">上传共享音频<span>所有成员同步听</span></div><form class="br-form br-card" data-form="upload"><label class="br-file-picker">选择你有权分享的音频<input type="file" name="file" accept="audio/*,.flac,.opus" required><span class="br-file-line"><span class="br-file-button">选择音频文件</span><span class="br-file-name">尚未选择文件</span></span></label><label>歌曲名<input class="br-input" name="title" maxlength="255"></label><label>音乐人<input class="br-input" name="artist" maxlength="255"></label><button class="br-btn primary" type="submit" ' + (roomState.uploading ? 'disabled' : '') + '>' + (roomState.uploading ? '正在上传…' : '上传并发起点歌') + '</button></form></div><div class="br-section"><div class="br-section-head">房间成员<span>' + members.filter(function (m) { return m.is_online; }).length + '/' + members.length + ' 人在线</span></div><div class="br-list br-members">' + memberRows + '</div></div><div class="br-section"><div class="br-section-head">房间消息<span>实时聊天</span></div><div class="br-card"><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div><button class="br-btn ghost" data-action="leave" style="width:100%;margin-bottom:8px">离开房间</button>';
+    return core + more + '<div class="br-section"><div class="br-section-head">切换听歌房<span>' + otherRooms.length + ' 个可选</span></div><div class="br-list">' + roomRows + '</div></div><div class="br-section"><div class="br-section-head">切歌门槛<span>仅房主可修改</span></div><select class="br-input" data-setting="music_skip_vote_percent" ' + (isHost ? '' : 'disabled') + '><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></div><div class="br-section"><div class="br-section-head">上传共享音频<span>所有成员同步听</span></div><form class="br-form br-card" data-form="upload"><label class="br-file-picker">选择你有权分享的音频<input type="file" name="file" accept="audio/*,.flac,.opus" required><span class="br-file-line"><span class="br-file-button">选择音频文件</span><span class="br-file-name">尚未选择文件</span></span></label><label>歌曲名<input class="br-input" name="title" maxlength="255"></label><label>音乐人<input class="br-input" name="artist" maxlength="255"></label><button class="br-btn primary" type="submit" ' + (roomState.uploading ? 'disabled' : '') + '>' + (roomState.uploading ? '正在上传…' : '上传并加入队列') + '</button></form></div><div class="br-section"><div class="br-section-head">房间成员<span>' + members.filter(function (m) { return m.is_online; }).length + '/' + members.length + ' 人在线</span></div><div class="br-list br-members">' + memberRows + '</div></div><div class="br-section"><div class="br-section-head">房间消息<span>实时聊天</span></div><div class="br-card"><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div><button class="br-btn ghost" data-action="leave" style="width:100%;margin-bottom:8px">离开房间</button>';
   }
 
   function handlePanelChange(event) {
     var input = event.target;
+    if (input && input.dataset && input.dataset.setting === 'music_skip_vote_percent') {
+      action('settings', { music_skip_vote_percent: Number(input.value) });
+      return;
+    }
     if (!input || input.type !== 'file' || input.name !== 'file') return;
     var name = input.parentElement && input.parentElement.querySelector('.br-file-name');
     if (name) name.textContent = input.files && input.files[0] ? input.files[0].name : '尚未选择文件';
@@ -499,5 +512,5 @@
   if (typeof window.dismissSplash === 'function') window.setTimeout(window.dismissSplash, 0);
   window.setTimeout(toggleRoomPanel, 50);
   window.setInterval(function () { bindAudio(); emitTrackIfChanged(); }, 350);
-  send('ready', { version: '1.1.1-blue-album-native-room' });
+  send('ready', { version: '2.1.0-blue-album-native-room' });
 })();

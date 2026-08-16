@@ -127,15 +127,9 @@ class MusicRoomHistoryTest(unittest.TestCase):
         first_vote = music_service.propose_track(
             self.db, self.room, self.host, self.track("one", "First")
         )
-        self.assertFalse(first_vote["approved"])
-        self.assertEqual(first_vote["required"], 2)
-        self.assertEqual(self.room.playback_version, 0)
-
-        approved_first = music_service.vote_proposal(
-            self.db, self.room, self.member, first_vote["item"]
-        )
+        self.assertTrue(first_vote["approved"])
+        self.assertEqual(first_vote["item"].status, "playing")
         self.db.refresh(self.room)
-        self.assertTrue(approved_first["approved"])
         self.assertEqual(self.room.playback_version, 1)
         self.assertEqual(self.room.current_queue_item_id, first_vote["item"].id)
 
@@ -145,19 +139,16 @@ class MusicRoomHistoryTest(unittest.TestCase):
             self.host,
             self.track("two", "Second", canonical=False),
         )
-        approved_second = music_service.vote_proposal(
-            self.db, self.room, self.member, second_vote["item"]
-        )
         self.db.refresh(self.room)
-        self.assertTrue(approved_second["approved"])
-        self.assertEqual(approved_second["item"].status, "queued")
+        self.assertTrue(second_vote["approved"])
+        self.assertEqual(second_vote["item"].status, "queued")
         self.assertEqual(self.room.playback_version, 1)
 
         likes = music_service.like_queue_item(
-            self.db, self.room, self.third, approved_second["item"]
+            self.db, self.room, self.third, second_vote["item"]
         )
         self.db.refresh(self.room)
-        self.assertEqual(likes["likes"], 3)
+        self.assertEqual(likes["likes"], 1)
         self.assertEqual(self.room.playback_version, 1)
 
         skipped = music_service.vote_skip(self.db, self.room, self.host)
@@ -166,7 +157,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
         self.assertTrue(skipped["skipped"])
         self.assertEqual(skipped["required"], 1)
         self.assertEqual(self.room.playback_version, 2)
-        self.assertEqual(snapshot.media_id, approved_second["item"].id)
+        self.assertEqual(snapshot.media_id, second_vote["item"].id)
         self.assertIsNone(snapshot.track_id)
         self.assertEqual(snapshot.state, "playing")
         self.assertGreater(snapshot.started_at_server_ms, 0)
@@ -301,7 +292,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
 
             emitted.clear()
             queued = music_service.add_to_queue(
-                self.db, self.room, self.member, self.track("two", "Second")
+                self.db, self.room, self.member, self.track("two", "Second", canonical=False)
             )
             music_service.like_queue_item(self.db, self.room, self.third, queued)
             asyncio.run(music_router._broadcast_queue(
