@@ -15,7 +15,6 @@ Environment=HOME=/var/lib/blue-album/mineradio/browser-runtime/home
 Environment=XDG_CONFIG_HOME=/var/lib/blue-album/mineradio/browser-runtime/config
 Environment=XDG_CACHE_HOME=/var/lib/blue-album/mineradio/browser-runtime/cache
 Environment=XDG_DATA_HOME=/var/lib/blue-album/mineradio/browser-runtime/data
-Environment=TMPDIR=/var/lib/blue-album/mineradio/browser-runtime/tmp
 # mineradio.env must define MUSIC_PROVIDER_ADMIN_TOKEN and BLUE_ALBUM_SECRET_KEY.
 ExecStart=/usr/bin/node /home/elysiumm/app/mineradio/server.js
 Restart=on-failure
