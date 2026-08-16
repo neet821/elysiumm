@@ -32,6 +32,7 @@ export default function ToolsPage({ isDark, styles }) {
   const { isAuthenticated, isAdmin } = useAuth()
   const [loginOpen, setLoginOpen] = useState(false)
   const serviceGroups = getServiceGroups(isAuthenticated, isAdmin)
+    .filter((group) => group.label !== '协作房间')
 
   return (
     <section className="route-shell toolbox-page">

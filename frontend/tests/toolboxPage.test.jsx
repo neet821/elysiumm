@@ -51,7 +51,7 @@ describe('tools dashboard access', () => {
     for (const entry of TOOL_ENTRIES) expect(core.getByText(entry.title)).toBeInTheDocument()
     for (const entry of TOOL_ENTRIES) expect(core.getByRole('button', { name: `登录后打开${entry.title}` })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '公开服务' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '协作房间' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '协作房间' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '个人内容' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '登录后打开收藏' })).toBeInTheDocument()
     expect(requestGet).not.toHaveBeenCalled()
@@ -88,7 +88,7 @@ describe('tools dashboard access', () => {
       expect(screen.getByRole('link', { name: new RegExp(`打开${title}`) })).toHaveAttribute('href', to)
     }
     expect(screen.getByRole('heading', { name: '公开服务' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '协作房间' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '协作房间' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '个人内容' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /打开收藏|收藏/ })).toHaveAttribute('href', '/collection')
     expect(screen.getByLabelText('三个核心空间').querySelectorAll('.toolbox-portal')).toHaveLength(3)
