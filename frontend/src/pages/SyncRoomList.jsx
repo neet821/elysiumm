@@ -22,9 +22,29 @@ import {
   getOnlineMemberCount,
 } from "./syncRoomListUtils.js";
 
-const SyncRoomList = ({ styles, isDark, embedded = false }) => {
+const buildRoomPayload = (roomName, isMusicRoom) => {
+  const payload = { room_name: roomName };
+  if (isMusicRoom) {
+    Object.assign(payload, {
+      control_mode: "host_only",
+      mode: "music",
+      type: "video",
+    });
+  }
+  return payload;
+};
+
+const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMusicRoom = roomMode === "music";
+  const pageTitle = isMusicRoom ? "同步听歌室管理" : "同步观影室管理";
+  const pageDescription = isMusicRoom
+    ? "创建或加入房间，与朋友一起听歌 · 空房间将在10分钟后自动关闭"
+    : "创建或加入房间，与朋友一起观看视频 · 空房间将在10分钟后自动关闭";
+  const createButtonLabel = isMusicRoom ? "创建听歌房" : "创建新房间";
+  const modalTitle = isMusicRoom ? "创建听歌房间" : "创建观影房间";
+  const matchesRoomMode = (room) => (isMusicRoom ? room.mode === "music" : room.mode !== "music");
   const [rooms, setRooms] = useState([]);
   const [myRooms, setMyRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,13 +66,12 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.SYNC_ROOMS);
       const allRooms = response.data || [];
-      // The shared endpoint also returns music rooms; this page is only the video-room lobby.
-      const videoRooms = allRooms.filter((room) => room.mode !== "music");
-      setRooms(videoRooms);
+      const visibleRooms = allRooms.filter(matchesRoomMode);
+      setRooms(visibleRooms);
 
       // 筛选出我创建的房间
       if (user) {
-        const userRooms = videoRooms.filter(room => room.host?.id === user.id);
+        const userRooms = visibleRooms.filter(room => room.host?.id === user.id);
         setMyRooms(userRooms);
       }
     } catch (error) {
@@ -73,13 +92,13 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
     }
 
     try {
-      const payload = { room_name: roomName };
+      const payload = buildRoomPayload(roomName, isMusicRoom);
 
       const response = await apiClient.post(API_ENDPOINTS.SYNC_ROOMS, payload);
 
       setShowCreateModal(false);
       resetForm();
-      navigate(`/tools/sync-room/${response.data.id}`);
+      navigate(`${isMusicRoom ? "/music/rooms" : "/tools/sync-room"}/${response.data.id}`);
     } catch (error) {
       console.error("创建房间失败:", error);
       alert(error.response?.data?.detail || "创建失败，请重试");
@@ -89,7 +108,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
   const handleJoinRoom = async (roomId) => {
     try {
       await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(roomId));
-      navigate(`/tools/sync-room/${roomId}`);
+      navigate(`${isMusicRoom ? "/music/rooms" : "/tools/sync-room"}/${roomId}`);
     } catch (error) {
       console.error("加入房间失败:", error);
       alert(error.response?.data?.detail || "加入失败，请重试");
@@ -196,9 +215,11 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
         <div className={`text-xs ${styles.textMuted} flex items-center justify-between`}>
           <span className="flex items-center gap-1">
             {room.type === 'game' ? <Gamepad2 size={12} /> : <Film size={12} />}
-            {room.type === 'game'
-              ? '桌游房间'
-              : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
+            {isMusicRoom
+              ? "同步听歌"
+              : room.type === 'game'
+                ? '桌游房间'
+                : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
             }
           </span>
           <span>房间号: {room.room_code}</span>
@@ -241,11 +262,11 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
       <div className={embedded ? "max-w-6xl mx-auto px-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
         {!embedded && (
           <button
-            onClick={() => navigate("/tools")}
+            onClick={() => navigate(isMusicRoom ? "/music" : "/tools")}
             className={`flex items-center gap-2 ${styles.textMuted} hover:${styles.text} mb-6 md:mb-8 transition-colors text-sm`}
           >
             <ArrowLeft size={16} />
-            返回工具页
+            {isMusicRoom ? "返回音乐大厅" : "返回工具页"}
           </button>
         )}
 
@@ -258,10 +279,10 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
                 className={`text-lg sm:text-xl font-bold ${styles.text} flex items-center gap-2 mb-1`}
               >
                 <Film size={20} className={styles.accentClass} />
-                同步观影室管理
+                {pageTitle}
               </h3>
               <p className={`text-xs sm:text-sm ${styles.textMuted}`}>
-                创建或加入房间，与朋友一起观看视频 · 空房间将在10分钟后自动关闭
+                {pageDescription}
               </p>
             </div>
             <button
@@ -273,7 +294,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
               }`}
             >
               <Plus size={16} />
-              创建新房间
+              {createButtonLabel}
             </button>
           </div>
         </div>
@@ -331,15 +352,16 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`${styles.bg} rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto`}>
             <h3 className={`text-xl font-bold ${styles.text} mb-6`}>
-              创建观影房间
+              {modalTitle}
             </h3>
 
             <form onSubmit={handleCreateRoom} className="space-y-4">
               <div>
-                <label className={`block text-sm ${styles.text} mb-2`}>
+                <label htmlFor="sync-room-name" className={`block text-sm ${styles.text} mb-2`}>
                   房间名称
                 </label>
                 <input
+                  id="sync-room-name"
                   type="text"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
@@ -351,7 +373,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false }) => {
                 />
               </div>
 
-              <p className={`text-sm ${styles.textMuted}`}>视频来源和控制权限将在进入房间后设置。</p>
+              <p className={`text-sm ${styles.textMuted}`}>{isMusicRoom ? "播放曲目和控制权限将在进入房间后设置。" : "视频来源和控制权限将在进入房间后设置。"}</p>
 
               <div className="flex gap-3 mt-6">
                 <button

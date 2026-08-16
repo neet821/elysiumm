@@ -11,6 +11,9 @@ const { requestGet, requestPost } = vi.hoisted(() => ({
 vi.mock('../src/utils/request.js', () => ({
   default: { get: requestGet, post: requestPost },
 }))
+vi.mock('../src/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'host' } }),
+}))
 
 import MusicLobbyPage from '../src/pages/MusicLobbyPage.jsx'
 
@@ -43,13 +46,21 @@ describe('music room lobby', () => {
     })
   })
 
-  it('lists only music rooms and links to the Mineradio room player', async () => {
+  it('lists only music rooms in the shared room-list shell', async () => {
     renderLobby()
 
     expect(await screen.findByText('蓝色听歌房')).toBeInTheDocument()
     expect(screen.queryByText('视频房')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '进入蓝色听歌房' })).toHaveAttribute('href', '/music/rooms/9')
-    expect(screen.getByRole('link', { name: /Mineradio.*GPL-3.0/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '进入房间' })).toBeInTheDocument()
+  })
+
+  it('uses the same lobby shell as the video-room page', async () => {
+    renderLobby()
+
+    expect(await screen.findByText('同步听歌室管理')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '创建听歌房' })).toBeInTheDocument()
+    expect(screen.getByText('所有活跃房间 (1)')).toBeInTheDocument()
+    expect(screen.queryByText('音乐大厅')).not.toBeInTheDocument()
   })
 
   it('creates a music room with the existing API and opens it', async () => {
@@ -59,7 +70,7 @@ describe('music room lobby', () => {
 
     await user.click(await screen.findByRole('button', { name: '创建听歌房' }))
     await user.type(screen.getByLabelText('房间名称'), '夜间电台')
-    await user.click(screen.getByRole('button', { name: '确认创建' }))
+    await user.click(screen.getByRole('button', { name: '创建房间' }))
 
     expect(requestPost).toHaveBeenCalledWith(expect.stringMatching(/\/api\/sync-rooms$/), {
       control_mode: 'host_only',
