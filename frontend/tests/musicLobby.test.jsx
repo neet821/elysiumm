@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -68,5 +68,52 @@ describe('music room lobby', () => {
       type: 'video',
     })
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/music/rooms/27'))
+  })
+
+  it('shows authoritative occupancy and a live empty-room countdown', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse('2026-08-15T00:00:00Z'))
+    requestGet.mockResolvedValue({
+      data: [
+        {
+          id: 11,
+          mode: 'music',
+          room_name: '有人听歌房',
+          member_count: 2,
+          members: [{ user_id: 1 }, { user_id: 2 }, { user_id: 3 }],
+          max_members: 10,
+          last_activity_at: '2026-08-15T00:00:00Z',
+        },
+        {
+          id: 12,
+          mode: 'music',
+          room_name: '空听歌房',
+          member_count: 0,
+          members: [{ user_id: 1 }],
+          max_members: 10,
+          last_activity_at: '2026-08-15T00:00:00Z',
+        },
+      ],
+    })
+
+    try {
+      renderLobby()
+
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      expect(screen.getByText('在线成员 2 / 10')).toBeInTheDocument()
+      expect(screen.queryByText(/3 人在线/)).not.toBeInTheDocument()
+      expect(screen.getByText('空房间')).toBeInTheDocument()
+      expect(screen.getByText('10:00 后关闭')).toBeInTheDocument()
+
+      act(() => vi.advanceTimersByTime(1000))
+
+      expect(screen.getByText('09:59 后关闭')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

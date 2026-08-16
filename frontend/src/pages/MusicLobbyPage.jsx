@@ -4,6 +4,10 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { API_ENDPOINTS } from '../config.js'
 import apiClient from '../utils/request.js'
+import {
+  formatEmptyRoomCountdown,
+  getOnlineMemberCount,
+} from './syncRoomListUtils.js'
 
 export default function MusicLobbyPage() {
   const navigate = useNavigate()
@@ -13,6 +17,7 @@ export default function MusicLobbyPage() {
   const [creating, setCreating] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
 
   const musicRooms = useMemo(() => rooms.filter((room) => room.mode === 'music'), [rooms])
 
@@ -30,6 +35,12 @@ export default function MusicLobbyPage() {
 
   useEffect(() => {
     loadRooms()
+    const refreshInterval = window.setInterval(loadRooms, 10000)
+    const clockInterval = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => {
+      window.clearInterval(refreshInterval)
+      window.clearInterval(clockInterval)
+    }
   }, [loadRooms])
 
   const createRoom = async (event) => {
@@ -112,13 +123,26 @@ export default function MusicLobbyPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {musicRooms.map((room) => (
-              <article className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 shadow-sm" key={room.id}>
-                <h3 className="text-xl font-semibold text-[var(--text-primary)]">{room.room_name}</h3>
-                <p className="mt-3 flex items-center gap-2 text-sm text-[var(--text-muted)]"><Users size={15} aria-hidden="true" /> {Number(room.member_count || room.members?.length || 0)} 人在线</p>
-                <Link aria-label={`进入${room.room_name}`} className="mt-6 inline-flex font-semibold text-[var(--accent-blue)] hover:underline" to={`/music/rooms/${room.id}`}>进入房间 →</Link>
-              </article>
-            ))}
+            {musicRooms.map((room) => {
+              const onlineMemberCount = getOnlineMemberCount(room)
+              const isEmpty = onlineMemberCount === 0
+
+              return (
+                <article className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 shadow-sm" key={room.id}>
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)]">{room.room_name}</h3>
+                  <p className="mt-3 flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                    <Users size={15} aria-hidden="true" />
+                    {isEmpty ? '空房间' : `在线成员 ${onlineMemberCount} / ${room.max_members || 10}`}
+                  </p>
+                  {isEmpty && (
+                    <p className="mt-2 text-sm text-[var(--text-muted)]" role="status">
+                      {formatEmptyRoomCountdown(room.last_activity_at, now)}
+                    </p>
+                  )}
+                  <Link aria-label={`进入${room.room_name}`} className="mt-6 inline-flex font-semibold text-[var(--accent-blue)] hover:underline" to={`/music/rooms/${room.id}`}>进入房间 →</Link>
+                </article>
+              )
+            })}
           </div>
         )}
       </section>
