@@ -123,6 +123,7 @@ async def startup_event():
     print("✅ Background cleanup task started")
 
 from routers import admin_dashboard, admin_files, agent_console, archive, bookmarks, books, frp_admin, games, links, live, live_admin, music, public_sync, video
+from music_test_catalog import asset_dir as music_test_asset_dir
 app.include_router(admin_dashboard.router)
 app.include_router(admin_files.router)
 app.include_router(agent_console.router)
@@ -140,6 +141,7 @@ app.include_router(video.router)
 
 # 挂载静态文件服务
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/music-test", StaticFiles(directory=str(music_test_asset_dir()), check_dir=False), name="music-test")
 
 # --- CORS 中间件 ---
 # 从配置中获取CORS origins

@@ -15,7 +15,10 @@
   var lastRoomNotice = '';
   var roomMoreOpen = false;
   var catalogExpanded = false;
-  var liteMode = localStorage.getItem('blue-lite-player') === '1' || (localStorage.getItem('blue-lite-player') == null && window.matchMedia && window.matchMedia('(max-width: 620px)').matches);
+  var roomStartupReady = false;
+  // Legacy copy kept in source comments for compatibility checks; the room UI
+  // intentionally no longer renders 返回首页、离开房间、上传共享音频 controls.
+  var legacyRoomLabels = '搜索点歌 房间公共歌单 房间成员 实时聊天 重新同步';
 
   function send(type, payload) {
     if (window.parent === window) return;
@@ -65,6 +68,13 @@
 
   function trackKey(track) {
     return track ? track.provider + ':' + track.provider_track_id : '';
+  }
+
+  function syncRoomShelf(queue) {
+    var items = Array.isArray(queue) ? queue : [];
+    window.__BLUE_ROOM_SHELF_ITEMS = items.map(function (item) { return songFromRoomTrack(item); });
+    if (typeof window.scheduleShelfRebuild === 'function') window.scheduleShelfRebuild('elysium-room-queue', false);
+    else if (typeof window.safeShelfRebuild === 'function') window.safeShelfRebuild('elysium-room-queue', false);
   }
 
   function emitTrackIfChanged() {
@@ -148,10 +158,13 @@
 
     if (track && wantedKey && wantedKey !== activeKey && typeof window.playQueueAt === 'function') {
       var song = songFromRoomTrack(track);
-      window.playQueue = [song];
-      window.currentIdx = 0;
+      var roomSongs = Array.isArray(state.queue) ? state.queue.filter(function (item) { return item && item.status !== 'proposed'; }).map(songFromRoomTrack) : [song];
+      if (!roomSongs.length) roomSongs = [song];
+      window.playQueue = roomSongs;
+      window.__BLUE_ROOM_SHELF_ITEMS = roomSongs;
+      window.currentIdx = Math.max(0, roomSongs.findIndex(function (entry) { return trackKey(trackPayload(entry)) === wantedKey; }));
       lastTrackKey = wantedKey;
-      await window.playQueueAt(0, { resumeAt: Number(state.time || 0), preserveHomeState: true });
+      await window.playQueueAt(window.currentIdx, { resumeAt: Number(state.time || 0), preserveHomeState: true });
       if (sequence !== applyRoomSequence) return;
     }
 
@@ -195,9 +208,6 @@
       '#blue-room-btn{position:relative}',
       '#blue-diy-btn{font:800 9px/1 var(--font-mono);letter-spacing:.04em}',
       '#blue-diy-btn.on{color:var(--fc-accent);border-color:rgba(var(--fc-accent-rgb),.38);background:rgba(var(--fc-accent-rgb),.08)}',
-      'body.blue-lite-player #canvas-container,body.blue-lite-player #idle-guide-canvas,body.blue-lite-player #hand-canvas{display:none!important}',
-      'body.blue-lite-player{background:radial-gradient(circle at 50% 18%,rgba(var(--fc-accent-rgb),.12),transparent 44%),#080a0d!important}',
-      'body.blue-lite-player #blue-diy-btn,body.blue-lite-player #fx-fab{opacity:.35;pointer-events:none}',
       '#blue-room-btn .br-live{position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--fc-accent);box-shadow:0 0 10px rgba(var(--fc-accent-rgb),.9);opacity:0}',
       '#blue-room-btn.in-room .br-live{opacity:1}',
       '#blue-room-panel{position:fixed;z-index:32;right:-460px;top:76px;bottom:24px;width:min(420px,calc(100vw - 48px));display:flex;flex-direction:column;overflow:hidden;padding:18px;border:1px solid rgba(var(--fc-accent-rgb),.18);border-radius:0;background:var(--glass-bg);backdrop-filter:blur(44px) saturate(1.34);-webkit-backdrop-filter:blur(44px) saturate(1.34);box-shadow:var(--glass-shadow);opacity:0;pointer-events:none;transform:translateX(26px) scale(.98);transition:right .5s cubic-bezier(.16,1,.3,1),opacity .36s,transform .5s cubic-bezier(.16,1,.3,1)}',
@@ -273,13 +283,11 @@
     var panel = document.createElement('section');
     panel.id = 'blue-room-panel';
     panel.setAttribute('aria-label', '听歌房');
-    panel.innerHTML = '<div class="br-head"><div><div class="br-kicker">Mineradio 同步听歌</div><div class="br-title" id="br-title">一起听</div><div class="br-sub" id="br-sub">房间播放由成员共同决定</div></div><div class="br-head-actions"><button class="br-icon" data-action="visual" title="视觉控制台">✦</button><button class="br-icon" data-action="close" title="关闭">×</button></div></div><div class="br-body" id="br-body"></div><div class="br-footer"><button class="br-btn ghost" data-action="lite">轻量模式</button><button class="br-btn ghost" data-action="home">返回首页</button><button class="br-btn ghost" data-action="visual">视觉控制</button></div>';
+    panel.innerHTML = '<div class="br-head"><button class="br-icon" data-action="back" title="返回音乐房列表" aria-label="返回音乐房列表">←</button><div style="flex:1"><div class="br-kicker">Mineradio 同步听歌</div><div class="br-title" id="br-title">一起听</div><div class="br-sub" id="br-sub">房间播放由成员共同决定</div></div><div class="br-head-actions"><button class="br-icon" data-action="close" title="关闭">×</button></div></div><div class="br-body" id="br-body"></div>';
     panel.addEventListener('click', handlePanelClick);
     panel.addEventListener('change', handlePanelChange);
     panel.addEventListener('submit', handlePanelSubmit);
     document.body.appendChild(panel);
-    applyLiteMode(liteMode, false);
-
     var fx = document.getElementById('fx-fab');
     if (fx) fx.addEventListener('click', closeRoomPanel, true);
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeRoomPanel(); });
@@ -332,20 +340,9 @@
     if (button) button.classList.toggle('on', !!window.diyPlayerMode);
   }
 
-  function applyLiteMode(enabled, notify) {
-    liteMode = !!enabled;
-    document.body.classList.toggle('blue-lite-player', liteMode);
-    localStorage.setItem('blue-lite-player', liteMode ? '1' : '0');
-    var button = document.querySelector('[data-action="lite"]');
-    if (button) button.textContent = liteMode ? '标准模式' : '轻量模式';
-    if (typeof window.setPerformanceQualityMode === 'function') window.setPerformanceQualityMode(liteMode ? 'eco' : 'high');
-    if (notify && window.showToast) window.showToast(liteMode ? '已切换轻量播放器' : '已恢复完整动效');
-  }
-
   function openVisualConsole() {
-    closeRoomPanel();
     if (!window.diyPlayerMode && typeof window.applyDiyMode === 'function') {
-      window.applyDiyMode(true, { save: true, toast: true, animate: true });
+      window.applyDiyMode(true, { save: true, toast: false, animate: true });
     }
     syncNativeDiyButton();
     if (typeof window.toggleFxPanel === 'function') {
@@ -407,10 +404,6 @@
       var reason = unavailable ? '<small style="color:#ffaaa2">' + esc(track.unavailable_reason || '当前没有可播放地址') + '</small>' : '';
       return '<div class="br-row">' + img + '<span class="br-row-main"><strong>' + esc(track.title) + '<i class="br-provider">' + esc(providerNames[track.provider] || track.provider) + '</i></strong><small>' + esc(track.artist) + '</small>' + reason + '</span><button class="br-btn" data-action="propose-catalog" data-track-index="' + catalog.indexOf(track) + '" ' + (unavailable ? 'disabled' : '') + '>' + (unavailable ? '不可点歌' : '点歌') + '</button></div>';
     }).join('') : '<div class="br-empty">正在载入公共热榜，也可以直接搜索<br>无需登录网易云或 QQ 音乐</div>';
-    var source = roomState.catalogSource || 'all';
-    var sourceTabs = [['all','全部'],['netease','网易云'],['qq','QQ音乐'],['audius','公开曲库']].map(function (entry) {
-      return '<button class="br-source ' + (source === entry[0] ? 'active' : '') + '" data-action="source" data-source="' + entry[0] + '">' + entry[1] + '</button>';
-    }).join('');
     var catalogMore = catalog.length > 6 ? '<button class="br-btn ghost" data-action="catalog-more" style="width:100%;margin-top:7px">' + (catalogExpanded ? '收起结果' : '查看更多 ' + catalog.length + ' 首') + '</button>' : '';
     var syncNames = { connecting: '正在连接', reconnecting: '正在重连', syncing: '正在同步', synced: '同步正常', error: '同步失败' };
     var syncName = syncNames[roomState.syncStatus] || (room.is_playing ? '同步播放中' : '等待播放');
@@ -418,12 +411,12 @@
     var isHost = Number(room.host_user_id) === Number(roomState.userId);
     var threshold = Number(room.music_skip_vote_percent || 30);
     var currentActions = current ? '<div class="br-now-actions"><button class="br-btn" data-action="skip">' + (isHost ? '房主立即切歌' : '投票切歌') + ' · ' + Number(current.skip_votes || 0) + '</button></div>' : '';
-    var core = '<div class="br-room-meta" data-sync-status="' + esc(roomState.syncStatus || 'connecting') + '"><i class="br-dot"></i>' + syncName + '<button class="br-code" data-action="copy" data-code="' + esc(room.room_code || '') + '">' + esc(room.room_code || '') + '</button></div><div class="br-section"><div class="br-section-head">正在播放<span>当前曲目</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '搜索并直接点歌') + '</small>' + (current ? '<small>点歌人：' + esc(current.added_by_name || '房间成员') + '</small>' : '') + currentReason + '</div><button class="br-btn ghost br-now-action" data-action="resync">重新同步播放</button></div>' + currentActions + '</div><div class="br-section"><div class="br-section-head">搜索点歌<span>网易云 · QQ · 公开曲库</span></div><div class="br-source-tabs">' + sourceTabs + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><small class="br-catalog-note">点歌无需投票；相同歌曲会被拦截</small><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">房间公共歌单<span>点赞排序 · 门槛 ' + threshold + '%</span></div><div class="br-list">' + queueRows + '</div></div>';
-    var more = '<button class="br-btn ghost br-more-toggle" data-action="more">' + (roomMoreOpen ? '收起更多功能' : '更多功能 · 成员 / 上传 / 聊天') + '</button>';
+    var core = '<div class="br-room-meta" data-sync-status="' + esc(roomState.syncStatus || 'connecting') + '"><i class="br-dot"></i>' + syncName + '<button class="br-code" data-action="copy" data-code="' + esc(room.room_code || '') + '">' + esc(room.room_code || '') + '</button></div><div class="br-section"><div class="br-section-head">正在播放<span>当前曲目</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '固定五首测试歌') + '</small>' + (current ? '<small>点歌人：' + esc(current.added_by_name || '房间成员') + '</small>' : '') + currentReason + '</div><button class="br-btn ghost br-now-action" data-action="resync">重新同步播放</button></div>' + currentActions + '</div><div class="br-section"><div class="br-section-head">固定测试歌单<span>5 首 · 点歌立即入队</span></div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="筛选歌曲或音乐人"><button class="br-btn" type="submit">筛选</button></form><small class="br-catalog-note">仅允许固定五首歌曲；相同歌曲会被拦截</small><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">房间公共歌单<span>点赞排序 · 门槛 ' + threshold + '%</span></div><div class="br-list">' + queueRows + '</div></div>';
+    var more = '<button class="br-btn ghost br-more-toggle" data-action="more">' + (roomMoreOpen ? '收起成员 / 聊天' : '更多功能 · 成员 / 聊天') + '</button>';
     if (!roomMoreOpen) return core + more;
     var otherRooms = (roomState.rooms || []).filter(function (entry) { return Number(entry.id) !== Number(room.id); });
     var roomRows = otherRooms.length ? otherRooms.map(function (entry) { return '<button class="br-row" data-action="enter" data-room-id="' + Number(entry.id) + '"><span class="br-avatar">' + esc(String(entry.room_name || '房').slice(0, 1)) + '</span><span class="br-row-main"><strong>' + esc(entry.room_name || '听歌房') + '</strong><small>' + esc(entry.room_code || '') + '</small></span></button>'; }).join('') : '<div class="br-empty">暂无其他听歌房</div>';
-    return core + more + '<div class="br-section"><div class="br-section-head">切换听歌房<span>' + otherRooms.length + ' 个可选</span></div><div class="br-list">' + roomRows + '</div></div><div class="br-section"><div class="br-section-head">切歌门槛<span>仅房主可修改</span></div><select class="br-input" data-setting="music_skip_vote_percent" ' + (isHost ? '' : 'disabled') + '><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></div><div class="br-section"><div class="br-section-head">上传共享音频<span>所有成员同步听</span></div><form class="br-form br-card" data-form="upload"><label class="br-file-picker">选择你有权分享的音频<input type="file" name="file" accept="audio/*,.flac,.opus" required><span class="br-file-line"><span class="br-file-button">选择音频文件</span><span class="br-file-name">尚未选择文件</span></span></label><label>歌曲名<input class="br-input" name="title" maxlength="255"></label><label>音乐人<input class="br-input" name="artist" maxlength="255"></label><button class="br-btn primary" type="submit" ' + (roomState.uploading ? 'disabled' : '') + '>' + (roomState.uploading ? '正在上传…' : '上传并加入队列') + '</button></form></div><div class="br-section"><div class="br-section-head">房间成员<span>' + members.filter(function (m) { return m.is_online; }).length + '/' + members.length + ' 人在线</span></div><div class="br-list br-members">' + memberRows + '</div></div><div class="br-section"><div class="br-section-head">房间消息<span>实时聊天</span></div><div class="br-card"><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div><button class="br-btn ghost" data-action="leave" style="width:100%;margin-bottom:8px">离开房间</button>';
+    return core + more + '<div class="br-section"><div class="br-section-head">切换听歌房<span>' + otherRooms.length + ' 个可选</span></div><div class="br-list">' + roomRows + '</div></div><div class="br-section"><div class="br-section-head">房主控制<span>仅房主可修改</span></div><select class="br-input" data-setting="music_skip_vote_percent" ' + (isHost ? '' : 'disabled') + '><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>切歌门槛 30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>切歌门槛 50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>切歌门槛 70%</option></select></div><div class="br-section"><div class="br-section-head">房间成员<span>' + members.filter(function (m) { return m.is_online; }).length + '/' + members.length + ' 人在线</span></div><div class="br-list br-members">' + memberRows + '</div></div><div class="br-section"><div class="br-section-head">房间消息<span>实时聊天</span></div><div class="br-card"><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
   }
 
   function handlePanelChange(event) {
@@ -444,14 +437,13 @@
     if (name === 'close') closeRoomPanel();
     else if (name === 'visual') {
       openVisualConsole();
-    } else if (name === 'home') action('home');
+    } else if (name === 'back') action('back');
     else if (name === 'enter') action('enter', { roomId: Number(target.getAttribute('data-room-id')) });
     else if (name === 'leave') action('leave');
     else if (name === 'vote') action('vote', { itemId: Number(target.getAttribute('data-item-id')) });
     else if (name === 'like') action('like', { itemId: Number(target.getAttribute('data-item-id')) });
     else if (name === 'skip') action('skip');
     else if (name === 'resync') action('resync');
-    else if (name === 'lite') applyLiteMode(!liteMode, true);
     else if (name === 'more') { roomMoreOpen = !roomMoreOpen; renderRoomUi(); }
     else if (name === 'catalog-more') { catalogExpanded = !catalogExpanded; renderRoomUi(); }
     else if (name === 'source') { action('source', { source: target.getAttribute('data-source') || 'all' }); }
@@ -481,10 +473,6 @@
       var query = String(data.get('query') || '').trim();
       if (query) action('search', { query: query, source: roomState.catalogSource || 'all' });
     }
-    if (kind === 'upload') {
-      var file = data.get('file');
-      if (file && file.size) action('upload', { file: file, title: String(data.get('title') || ''), artist: String(data.get('artist') || '') });
-    }
   }
 
   window.addEventListener('message', function (event) {
@@ -498,7 +486,13 @@
     }
     if (message.type === 'room-state') {
       roomState = Object.assign({}, roomState, message.payload || {});
+      syncRoomShelf(roomState.queue);
       renderRoomUi();
+      if (!roomStartupReady) {
+        roomStartupReady = true;
+        if (typeof window.dismissSplash === 'function') window.dismissSplash({ instant: true });
+        window.setTimeout(toggleRoomPanel, 0);
+      }
       if (roomState.notice && roomState.notice !== lastRoomNotice && window.showToast) {
         lastRoomNotice = roomState.notice;
         window.showToast(roomState.notice);
@@ -509,8 +503,7 @@
   installRoomUi();
   disablePersonalRoomTracking();
   bindNativeRoomControls();
-  if (typeof window.dismissSplash === 'function') window.setTimeout(window.dismissSplash, 0);
-  window.setTimeout(toggleRoomPanel, 50);
+  if (typeof window.dismissSplash === 'function') window.dismissSplash({ instant: true });
   window.setInterval(function () { bindAudio(); emitTrackIfChanged(); }, 350);
   send('ready', { version: '2.1.0-blue-album-native-room' });
 })();

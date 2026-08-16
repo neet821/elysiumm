@@ -148,6 +148,7 @@ export const API_ENDPOINTS = {
 
   // 在线曲库与同步听歌
   MUSIC_SEARCH: `${API_BASE_URL}/api/music/search`,
+  MUSIC_CATALOG: `${API_BASE_URL}/api/music/catalog`,
   MUSIC_AUDIO: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/audio`,
   MUSIC_LYRICS: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/lyrics`,
   MUSIC_TRENDING: `${API_BASE_URL}/api/music/trending`,
@@ -158,10 +159,8 @@ export const API_ENDPOINTS = {
   MUSIC_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/snapshot`,
   MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
   MUSIC_QUEUE_ITEM: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}`,
-  MUSIC_DIRECT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/direct`,
   MUSIC_PROPOSE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals`,
   MUSIC_PROPOSAL_VOTE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals/${itemId}/vote`,
-  MUSIC_UPLOAD: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/uploads`,
   MUSIC_QUEUE_LIKE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}/like`,
   MUSIC_NEXT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/next`,
   MUSIC_VOTE_SKIP: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/vote-skip`,

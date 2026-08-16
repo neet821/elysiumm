@@ -1,20 +1,17 @@
-import re
-import uuid
-from pathlib import Path
 from urllib.parse import quote
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 import models
 import schemas
-import audio_resolver
 import catalog_service
 import music_service
+import music_test_catalog
 import sync_room_crud
 from music_providers import build_provider_registry, provider_configuration_status
 from rate_limit import SlidingWindowRateLimiter
@@ -48,16 +45,8 @@ class TrackReference(BaseModel):
     provider_track_id: str = Field(min_length=1, max_length=120)
 
 
-class DirectTrack(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
-    artist: str = Field(default="自定义音源", max_length=255)
-    stream_url: str = Field(min_length=8, max_length=2000)
-    artwork_url: str | None = Field(default=None, max_length=2000)
-    duration_seconds: int = Field(default=0, ge=0, le=86400)
-
-
 class MineradioTrack(BaseModel):
-    provider: str = Field(pattern="^(netease|qq|podcast|audius)$")
+    provider: str = Field(pattern="^netease$")
     provider_track_id: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=255)
     artist: str = Field(default="未知音乐人", max_length=255)
@@ -70,12 +59,6 @@ class MineradioTrack(BaseModel):
 
 class MusicRoomSettings(BaseModel):
     music_skip_vote_percent: Literal[30, 50, 70] = 30
-
-
-MUSIC_UPLOAD_ROOT = config.UPLOAD_DIR / "music_rooms"
-MUSIC_UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac", ".webm"}
-MAX_ROOM_AUDIO_SIZE = 200 * 1024 * 1024
 
 
 def _translate(action):
@@ -126,17 +109,8 @@ async def search_music(
     user=Depends(get_current_user),
 ):
     query = q.strip()
-    requested = list(
-        dict.fromkeys(
-            provider.strip().lower()
-            for provider in providers.split(",")
-            if provider.strip()
-        )
-    )
-    if not query or not requested or any(
-        provider not in CATALOG_PROVIDERS for provider in requested
-    ):
-        raise HTTPException(422, "搜索内容或曲库范围无效")
+    if not query:
+        raise HTTPException(422, "搜索内容不能为空")
     retry_after = catalog_search_rate_limiter.check(
         f"music-catalog:{user.id}",
         limit=CATALOG_SEARCH_RATE_LIMIT_MAX,
@@ -148,24 +122,19 @@ async def search_music(
             "搜索过于频繁，请稍后重试",
             headers={"Retry-After": str(retry_after)},
         )
-    try:
-        return await catalog_service.search_catalog(
-            db,
-            query,
-            requested,
-            limit,
-            music_provider_registry,
-        )
-    except catalog_service.AllProvidersUnavailable as exc:
-        raise HTTPException(502, "曲库暂时无法连接，请稍后重试") from exc
+    needle = query.casefold()
+    items = [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)]
+    return {"query": query, "items": [item for item in items if needle in f"{item['title']} {item['artist']} {item['album']}".casefold()][:limit], "providers": [{"provider": "local", "status": "ok", "count": len(items)}]}
 
 
 @router.get("/trending")
-async def trending_music(limit: int = Query(default=18, ge=1, le=30)):
-    try:
-        return {"provider": "audius", "items": await music_service.trending_tracks(limit)}
-    except httpx.HTTPError as exc:
-        raise HTTPException(502, "曲库暂时无法连接，请稍后重试") from exc
+def trending_music(limit: int = Query(default=18, ge=1, le=30), db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return {"provider": "local", "items": [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)][:limit]}
+
+
+@router.get("/catalog")
+def fixed_catalog(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return {"provider": "local", "items": [music_test_catalog.payload(canonical, item) for canonical, item in zip(music_test_catalog.ensure_catalog(db), music_test_catalog.TEST_TRACKS)]}
 
 
 @router.get("/tracks/{canonical_id}/audio")
@@ -176,17 +145,17 @@ async def get_catalog_audio(
     user=Depends(get_current_user),
 ):
     try:
-        payload = await audio_resolver.resolve_audio(
-            db,
-            canonical_id,
-            music_provider_registry,
-            force_refresh=refresh,
-        )
-    except audio_resolver.CanonicalTrackNotFound as exc:
+        canonical, item = music_test_catalog.item_for(db, canonical_id=canonical_id)
+    except ValueError as exc:
         raise HTTPException(404, "曲目不存在") from exc
-    if payload["availability"] == "unavailable":
-        return JSONResponse(status_code=409, content=payload)
-    return payload
+    result = {
+        "availability": "playable",
+        "playback_url": f"/music-test/{item['slug']}.mp3",
+        "expires_at": None,
+        "source_type": "local",
+        "provider": "local",
+    }
+    return result
 
 
 @router.get("/tracks/{canonical_id}/lyrics")
@@ -202,14 +171,11 @@ async def get_catalog_lyrics(
     user=Depends(get_current_user),
 ):
     try:
-        return await catalog_service.get_catalog_lyrics(
-            db,
-            canonical_id,
-            music_provider_registry,
-            language=language,
-        )
-    except catalog_service.CatalogTrackNotFound as exc:
+        canonical, item = music_test_catalog.item_for(db, canonical_id=canonical_id)
+    except ValueError as exc:
         raise HTTPException(404, "曲目不存在") from exc
+    lyrics = db.query(models.TrackLyrics).filter_by(canonical_track_id=canonical.id, provider="local", language=language).first()
+    return catalog_service._lyrics_payload(canonical.id, "local", language, lyrics.timed_text if lyrics else "", lyrics.translation_text if lyrics else None, cached=True)
 
 
 @router.get("/stream/audius/{track_id}")
@@ -219,7 +185,16 @@ async def stream_audius(track_id: str):
     return RedirectResponse(f"{music_service.AUDIUS_API}/tracks/{track_id}/stream", status_code=307)
 
 
-def _catalog_track(payload: MineradioTrack):
+def _catalog_track(payload: MineradioTrack, db: Session | None = None):
+    if payload.provider != "netease":
+        raise ValueError("只允许固定测试曲库歌曲")
+    if db is not None:
+        canonical, fixed = music_test_catalog.item_for(db, provider_track_id=payload.provider_track_id)
+        payload = MineradioTrack(
+            provider="netease", provider_track_id=fixed["provider_track_id"], title=fixed["title"],
+            artist=fixed["artist"], album=fixed["album"], artwork_url=f"/music-test/{fixed['slug']}.jpg",
+            duration_seconds=fixed["duration"], canonical_track_id=canonical.id,
+        )
     stream_url = None
     if payload.provider == "audius":
         stream_url = f"/api/music/stream/audius/{payload.provider_track_id}"
@@ -230,7 +205,7 @@ def _catalog_track(payload: MineradioTrack):
         )
         if payload.provider == "qq" and payload.media_mid:
             stream_url += f"&mediaMid={quote(payload.media_mid, safe='')}"
-    return {
+    result = {
         "canonical_track_id": payload.canonical_track_id,
         "provider": payload.provider,
         "provider_track_id": payload.provider_track_id,
@@ -242,6 +217,10 @@ def _catalog_track(payload: MineradioTrack):
         "source_url": payload.media_mid,
         "stream_url": stream_url,
     }
+    if db is not None:
+        result["stream_url"] = f"/music-test/{music_test_catalog.item_for(db, provider_track_id=payload.provider_track_id)[1]['slug']}.mp3"
+        result["source_url"] = result["stream_url"]
+    return result
 
 
 @router.get("/rooms/{room_id}/snapshot", response_model=schemas.RoomSnapshotPayload)
@@ -302,31 +281,11 @@ async def add_track(room_id: int, payload: MineradioTrack, db: Session = Depends
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     try:
-        item = music_service.add_to_queue(db, room, user, _catalog_track(payload))
+        item = music_service.add_to_queue(db, room, user, _catalog_track(payload, db))
     except ValueError as exc:
         if "已经在" in str(exc):
             raise HTTPException(409, str(exc)) from exc
         raise HTTPException(400, str(exc)) from exc
-    return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
-
-
-@router.post("/rooms/{room_id}/queue/direct")
-async def add_direct_track(room_id: int, payload: DirectTrack, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    room = _room_member(db, room_id, user)
-    previous_version = room.playback_version
-    try:
-        item = music_service.add_to_queue(db, room, user, {
-            "provider": "upload",
-            "provider_track_id": uuid.uuid4().hex,
-            "title": payload.title,
-            "artist": payload.artist,
-            "artwork_url": payload.artwork_url,
-            "duration_seconds": payload.duration_seconds,
-            "stream_url": payload.stream_url,
-            "source_url": payload.stream_url,
-        })
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
     return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 
@@ -339,7 +298,7 @@ async def select_mineradio_track(
 ):
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
-    track = _catalog_track(payload)
+    track = _catalog_track(payload, db)
     try:
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
@@ -358,7 +317,7 @@ async def propose_mineradio_track(
 ):
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
-    track = _catalog_track(payload)
+    track = _catalog_track(payload, db)
     try:
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
@@ -366,62 +325,6 @@ async def propose_mineradio_track(
             raise HTTPException(409, str(exc)) from exc
         raise HTTPException(400, str(exc)) from exc
     return {"item_id": item.id, "queue": await _broadcast_queue(db, room, previous_version=previous_version)}
-
-
-@router.post("/rooms/{room_id}/uploads")
-async def upload_room_audio(
-    room_id: int,
-    file: UploadFile = File(...),
-    title: str = Form(default=""),
-    artist: str = Form(default="自定义上传"),
-    duration_seconds: int = Form(default=0),
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    room = _room_member(db, room_id, user)
-    previous_version = room.playback_version
-    original_name = Path(file.filename or "audio").name
-    extension = Path(original_name).suffix.lower()
-    if extension not in ALLOWED_AUDIO_EXTENSIONS:
-        raise HTTPException(400, "请选择 MP3、M4A、AAC、OGG、OPUS、WAV、FLAC 或 WEBM 音频")
-    room_dir = MUSIC_UPLOAD_ROOT / str(room.id)
-    room_dir.mkdir(parents=True, exist_ok=True)
-    stored_name = f"{uuid.uuid4().hex}{extension}"
-    destination = room_dir / stored_name
-    size = 0
-    try:
-        with destination.open("wb") as output:
-            while chunk := await file.read(1024 * 1024):
-                size += len(chunk)
-                if size > MAX_ROOM_AUDIO_SIZE:
-                    raise HTTPException(413, "单个音频不能超过 200MB")
-                output.write(chunk)
-    except Exception:
-        destination.unlink(missing_ok=True)
-        raise
-    finally:
-        await file.close()
-    clean_title = (title.strip() or Path(original_name).stem)[:255]
-    clean_artist = (artist.strip() or "自定义上传")[:255]
-    stream_url = f"/uploads/music_rooms/{room.id}/{stored_name}"
-    try:
-        result_item = music_service.add_to_queue(db, room, user, {
-            "provider": "upload",
-            "provider_track_id": uuid.uuid4().hex,
-            "title": clean_title,
-            "artist": clean_artist,
-            "album": "房间共享音源",
-            "artwork_url": None,
-            "duration_seconds": max(0, min(int(duration_seconds or 0), 86400)),
-            "source_url": stream_url,
-            "stream_url": stream_url,
-        })
-    except Exception:
-        db.rollback()
-        destination.unlink(missing_ok=True)
-        raise
-    queue = await _broadcast_queue(db, room, previous_version=previous_version)
-    return {"item_id": result_item.id, "queue": queue}
 
 
 @router.post("/rooms/{room_id}/queue/{item_id}/like")
@@ -459,10 +362,7 @@ async def remove_track(room_id: int, item_id: int, db: Session = Depends(get_db)
         raise HTTPException(404, "歌曲不在待播列表中")
     if user.id != room.host_user_id and user.role != "admin" and item.added_by != user.id:
         raise HTTPException(403, "只能移除自己点的歌")
-    upload_path = item.stream_url if item.provider == "upload" else None
     music_service.remove_queue_item(db, room, item, actor_user_id=user.id)
-    if upload_path and re.fullmatch(r"/uploads/music_rooms/\d+/[a-f0-9]+\.[a-z0-9]+", upload_path):
-        (config.BACKEND_DIR / upload_path.lstrip("/")).unlink(missing_ok=True)
     return {"queue": await _broadcast_queue(db, room, previous_version=previous_version)}
 
 

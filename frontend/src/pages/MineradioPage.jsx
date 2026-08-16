@@ -107,7 +107,6 @@ export default function MineradioPage() {
   const [catalogSource, setCatalogSource] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
   const [resolvedCurrent, setResolvedCurrent] = useState(null)
   const [currentUnavailableReason, setCurrentUnavailableReason] = useState('')
@@ -316,7 +315,9 @@ export default function MineradioPage() {
         setQueue(queueResponse.data.queue || [])
         setMessages((messageHistory.data || []).reverse())
         setHistory(activityHistory?.data?.items || [])
-        setCatalog([])
+        apiClient.get(API_ENDPOINTS.MUSIC_CATALOG).then((response) => {
+          if (active) setCatalog((response.data?.items || []).map(normalizeCatalogTrack))
+        }).catch(() => {})
         if (snapshotResponse) {
           acceptSnapshot(snapshotResponse.data)
         } else {
@@ -604,28 +605,6 @@ export default function MineradioPage() {
     }
   }
 
-  const uploadRoomAudioData = async (formData, formElement = null) => {
-    const file = formData.get('file')
-    if (!file?.size || uploading) return
-    setUploading(true)
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.MUSIC_UPLOAD(roomId), formData)
-      setQueue(response.data.queue || [])
-      loadHistory({ quiet: true })
-      setNotice(response.data.approved ? '上传完成，已进入房间播放' : '上传完成，等待成员投票')
-      formElement?.reset()
-    } catch (error) {
-      setNotice(error.response?.data?.detail || '音频上传失败')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const uploadRoomAudio = async (event) => {
-    event.preventDefault()
-    await uploadRoomAudioData(new FormData(event.currentTarget), event.currentTarget)
-  }
-
   const sendChatMessage = (messageValue) => {
     const message = String(messageValue || '').trim()
     if (!message || !socketRef.current) return
@@ -640,6 +619,7 @@ export default function MineradioPage() {
 
   const handleRoomAction = async ({ action, ...payload }) => {
     if (action === 'home') navigate('/')
+    else if (action === 'back') await leaveRoom()
     else if (action === 'enter') await enterRoom(payload.roomId)
     else if (action === 'leave') await leaveRoom()
     else if (action === 'vote') await voteForTrack(payload.itemId)
@@ -655,12 +635,6 @@ export default function MineradioPage() {
       setSearchQuery(payload.query || '')
       setCatalogSource(payload.source || 'all')
       await runCatalogSearch(payload.query, payload.source || 'all')
-    } else if (action === 'upload' && payload.file) {
-      const formData = new FormData()
-      formData.append('file', payload.file)
-      formData.append('title', payload.title || '')
-      formData.append('artist', payload.artist || '')
-      await uploadRoomAudioData(formData)
     } else if (action === 'chat') sendChatMessage(payload.message)
   }
 
@@ -679,7 +653,6 @@ export default function MineradioPage() {
     rooms,
     searching,
     syncStatus,
-    uploading,
     userId,
   }
 
@@ -726,12 +699,7 @@ export default function MineradioPage() {
           <section className="room-player-card">
             <h2>搜索点歌</h2>
             <form className="room-player-search" onSubmit={searchCatalog}>
-              <select aria-label="曲库" value={catalogSource} onChange={(event) => setCatalogSource(event.target.value)}>
-                <option value="all">全部曲库</option>
-                <option value="netease">网易云</option>
-                <option value="qq">QQ 音乐</option>
-                <option value="audius">公开曲库</option>
-              </select>
+              <span className="room-player-fixed-catalog">固定测试曲库 · 5 首</span>
               <input
                 aria-label="歌曲或音乐人"
                 value={searchQuery}
@@ -799,16 +767,6 @@ export default function MineradioPage() {
               ))}
               {!queue.length && <li>公共歌单还是空的</li>}
             </ul>
-          </section>
-
-          <section className="room-player-card">
-            <h2>上传音频</h2>
-            <form className="room-player-upload" onSubmit={uploadRoomAudio}>
-              <input name="title" aria-label="上传歌曲标题" placeholder="歌曲标题（可选）" />
-              <input name="artist" aria-label="上传音乐人" placeholder="音乐人（可选）" />
-              <input name="file" aria-label="选择音频文件" type="file" accept="audio/*,.flac,.m4a,.opus" required />
-              <button type="submit" disabled={uploading}>{uploading ? '上传中…' : '上传并发起投票'}</button>
-            </form>
           </section>
 
           <section className="room-player-card">

@@ -65,6 +65,16 @@ function makeShelfManager() {
   }
 
   function currentItems() {
+    // Elysium room mode owns the queue. Never replace it with a personal
+    // platform playlist, even when Mineradio has a cached login session.
+    if (document.body.classList.contains('blue-album-room-mode')) {
+      return (Array.isArray(window.__BLUE_ROOM_SHELF_ITEMS) ? window.__BLUE_ROOM_SHELF_ITEMS : playQueue).map(function (song, idx) {
+        return {
+          type: 'queue', title: song.name || song.title || '未命名歌曲', sub: song.artist || '未知歌手',
+          cover: songCoverSrc(song, 360), tag: idx === currentIdx ? '正在播放' : ('#' + (idx + 1)), queueIndex: idx
+        };
+      });
+    }
     if (hasAnyPlatformLogin() && (userPlaylists.length || myPodcastCollections.length)) {
       var source = activePlaylists();
       var items = source.map(function (pl) {
