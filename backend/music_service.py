@@ -457,6 +457,8 @@ def advance_queue(db, room, *, actor_user_id=None, reason="queue_advanced", expe
         ).group_by(models.MusicTrackVote.queue_item_id).all()
     } if next_item else {}
     next_item = sorted(next_item, key=lambda item: (-like_counts.get(item.id, 0), item.position, item.id))[0] if next_item else None
+    if current is None and next_item is None:
+        return None
     _stage_track_transition(
         db,
         room,

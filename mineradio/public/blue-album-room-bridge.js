@@ -13,7 +13,6 @@
   var applyRoomSequence = 0;
   var roomState = { inRoom: false, rooms: [], queue: [], members: [], messages: [] };
   var lastRoomNotice = '';
-  var roomMoreOpen = false;
   var catalogExpanded = false;
   var roomStartupReady = false;
   // Legacy copy kept in source comments for compatibility checks; the room UI
@@ -206,12 +205,12 @@
     style.textContent = [
       'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #search-area,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas{display:none!important}',
       '#blue-room-btn{position:relative}',
-      '#blue-diy-btn{font:800 9px/1 var(--font-mono);letter-spacing:.04em}',
-      '#blue-diy-btn.on{color:var(--fc-accent);border-color:rgba(var(--fc-accent-rgb),.38);background:rgba(var(--fc-accent-rgb),.08)}',
+      '#blue-room-leave{position:fixed;z-index:19;left:24px;top:24px;width:54px;height:54px;border-radius:50%;border:1px solid rgba(0,245,212,.30);background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.055) 48%,rgba(0,245,212,.055));color:rgba(232,236,239,.88);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(26px) saturate(1.34);-webkit-backdrop-filter:blur(26px) saturate(1.34);box-shadow:0 14px 40px rgba(0,0,0,.34),0 0 24px rgba(0,245,212,.07),inset 0 1px 0 rgba(255,255,255,.18)}',
+      '#blue-room-leave:hover{color:#fff;border-color:rgba(0,245,212,.50);background:rgba(0,245,212,.075);transform:translateY(-2px) scale(1.04)}',
       '#blue-room-btn .br-live{position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--fc-accent);box-shadow:0 0 10px rgba(var(--fc-accent-rgb),.9);opacity:0}',
       '#blue-room-btn.in-room .br-live{opacity:1}',
-      '#blue-room-panel{position:fixed;z-index:32;right:-460px;top:76px;bottom:24px;width:min(420px,calc(100vw - 48px));display:flex;flex-direction:column;overflow:hidden;padding:18px;border:1px solid rgba(var(--fc-accent-rgb),.18);border-radius:0;background:var(--glass-bg);backdrop-filter:blur(44px) saturate(1.34);-webkit-backdrop-filter:blur(44px) saturate(1.34);box-shadow:var(--glass-shadow);opacity:0;pointer-events:none;transform:translateX(26px) scale(.98);transition:right .5s cubic-bezier(.16,1,.3,1),opacity .36s,transform .5s cubic-bezier(.16,1,.3,1)}',
-      '#blue-room-panel.show{right:24px;opacity:1;pointer-events:auto;transform:translateX(0) scale(1)}',
+      '#blue-room-panel{position:fixed;z-index:32;right:-460px;bottom:92px;width:min(444px,calc(100vw - 48px));max-height:min(650px,calc(100dvh - 132px));display:flex;flex-direction:column;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;padding:18px 18px 32px;border:1px solid rgba(0,245,212,.16);border-radius:20px;background:var(--glass-bg);backdrop-filter:blur(44px) saturate(1.34);-webkit-backdrop-filter:blur(44px) saturate(1.34);box-shadow:var(--glass-shadow);opacity:0;pointer-events:none;transform:translateY(18px) scale(.97);transition:right .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1)}',
+      '#blue-room-panel.show{right:24px;opacity:1;pointer-events:auto;transform:translateY(0) scale(1);animation:fx-panel-in .56s cubic-bezier(.16,1,.3,1)}',
       '.br-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)}',
       '.br-kicker{font:700 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(var(--fc-accent-rgb),.8);text-transform:uppercase}',
       '.br-title{margin-top:6px;font-size:18px;font-weight:760;color:rgba(255,255,255,.94)}',
@@ -222,7 +221,7 @@
       '.br-section{margin:0 0 15px}',
       '.br-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:10px;font-weight:760;letter-spacing:.08em;color:rgba(255,255,255,.48);text-transform:uppercase}',
       '.br-section-head span{font:500 9px/1 var(--font-mono);color:rgba(255,255,255,.28)}',
-      '.br-card{border:1px solid rgba(255,255,255,.075);border-radius:0;background:rgba(255,255,255,.032);padding:11px}',
+      '.br-card{border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.032);padding:11px}',
       '.br-now{display:grid;grid-template-columns:52px minmax(0,1fr);gap:11px;align-items:center}',
       '.br-now-action{grid-column:1/-1;width:100%}',
       '.br-cover{width:52px;height:52px;border-radius:11px;object-fit:cover;background:radial-gradient(circle,rgba(var(--fc-accent-rgb),.22),rgba(255,255,255,.035));display:grid;place-items:center;color:rgba(255,255,255,.55);font-size:20px}',
@@ -251,8 +250,8 @@
       '.br-msg p{margin-top:3px;padding:7px 9px;border-radius:4px 10px 10px;background:rgba(255,255,255,.045);font-size:10px;line-height:1.4;color:rgba(255,255,255,.72);text-align:left}.br-msg.mine p{border-radius:10px 4px 10px 10px;background:rgba(var(--fc-accent-rgb),.08)}',
       '.br-chat-form{display:flex;gap:6px;margin-top:9px}.br-chat-form .br-input{flex:1;min-width:0;height:34px}.br-empty{padding:18px 8px;text-align:center;font-size:10px;line-height:1.6;color:rgba(255,255,255,.28)}',
       '.br-footer{display:flex;gap:7px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)}',
-      '.br-footer .br-btn{flex:1}.br-more-toggle{width:100%;height:36px;margin-bottom:14px}',
-      '@media(max-width:620px){#blue-room-panel{left:0;right:0!important;top:auto;bottom:0;width:auto;height:min(78vh,720px);padding:14px;border-radius:0}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
+      '.br-footer .br-btn{flex:1}.br-host-fold{margin-top:10px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.024);overflow:hidden}.br-host-fold summary{padding:13px 12px;color:rgba(255,255,255,.72);cursor:pointer;font-size:11px;font-weight:700}.br-host-fold[open] summary{color:#fff;background:rgba(255,255,255,.024)}.br-host-fold-body{display:grid;gap:9px;padding:0 11px 11px}.br-member-chat{display:grid;gap:12px}.br-member-chat .br-list{max-height:170px;overflow:auto}',
+      '@media(max-width:720px){#blue-room-panel{left:12px;right:12px!important;top:76px;bottom:auto;width:auto;max-height:calc(100dvh - 132px)}#blue-room-leave{left:12px;top:12px;width:48px;height:48px}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -270,20 +269,18 @@
     button.addEventListener('click', toggleRoomPanel);
     top.insertBefore(button, document.getElementById('user-btn'));
 
-    var diyButton = document.createElement('button');
-    diyButton.id = 'blue-diy-btn';
-    diyButton.className = 'icon-btn';
-    diyButton.textContent = '特效';
-    diyButton.title = '开启视觉与动效自定义';
-    diyButton.setAttribute('aria-label', '视觉与动效自定义');
-    diyButton.addEventListener('click', openVisualConsole);
-    top.insertBefore(diyButton, button);
-    syncNativeDiyButton();
+    var leaveButton = document.createElement('button');
+    leaveButton.id = 'blue-room-leave';
+    leaveButton.title = '退出房间';
+    leaveButton.setAttribute('aria-label', '退出房间');
+    leaveButton.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/><path d="M9 12h12"/></svg>';
+    leaveButton.addEventListener('click', function () { action('leave'); });
+    document.body.appendChild(leaveButton);
 
     var panel = document.createElement('section');
     panel.id = 'blue-room-panel';
     panel.setAttribute('aria-label', '听歌房');
-    panel.innerHTML = '<div class="br-head"><button class="br-icon" data-action="back" title="返回音乐房列表" aria-label="返回音乐房列表">←</button><div style="flex:1"><div class="br-kicker">Mineradio 同步听歌</div><div class="br-title" id="br-title">一起听</div><div class="br-sub" id="br-sub">房间播放由成员共同决定</div></div><div class="br-head-actions"><button class="br-icon" data-action="close" title="关闭">×</button></div></div><div class="br-body" id="br-body"></div>';
+    panel.innerHTML = '<div class="br-head"><div style="flex:1"><div class="br-kicker">Mineradio 同步听歌</div><div class="br-title" id="br-title">一起听</div><div class="br-sub" id="br-sub">房间播放由成员共同决定</div></div><div class="br-head-actions"><button class="br-icon" data-action="close" title="关闭">×</button></div></div><div class="br-body" id="br-body"></div>';
     panel.addEventListener('click', handlePanelClick);
     panel.addEventListener('change', handlePanelChange);
     panel.addEventListener('submit', handlePanelSubmit);
@@ -335,24 +332,6 @@
     if (button) button.classList.remove('active');
   }
 
-  function syncNativeDiyButton() {
-    var button = document.getElementById('blue-diy-btn');
-    if (button) button.classList.toggle('on', !!window.diyPlayerMode);
-  }
-
-  function openVisualConsole() {
-    if (!window.diyPlayerMode && typeof window.applyDiyMode === 'function') {
-      window.applyDiyMode(true, { save: true, toast: false, animate: true });
-    }
-    syncNativeDiyButton();
-    if (typeof window.toggleFxPanel === 'function') {
-      window.toggleFxPanel();
-    } else {
-      var panel = document.getElementById('fx-panel');
-      if (panel) panel.classList.add('show');
-    }
-  }
-
   function renderRoomUi() {
     var body = document.getElementById('br-body');
     if (!body) return;
@@ -387,7 +366,9 @@
     var queueRows = waiting.length ? waiting.map(function (item) {
       var status = item.status === 'proposed' ? '待播' : '等待播放';
       var count = Number(item.like_count || 0);
-      var actionHtml = '<button class="br-btn ghost" data-action="like" data-item-id="' + Number(item.id) + '">点赞 ' + count + '</button>';
+      var actionHtml = item.status === 'proposed'
+        ? '<button class="br-btn ghost" data-action="vote" data-item-id="' + Number(item.id) + '">同意</button>'
+        : '<button class="br-btn ghost" data-action="like" data-item-id="' + Number(item.id) + '">点赞 ' + count + '</button>';
       var reason = item.unavailable_reason ? '<small style="color:#ffaaa2">不可播放：' + esc(item.unavailable_reason) + '</small>' : '';
       return '<div class="br-row"><span class="br-row-main"><strong>' + esc(item.title) + '</strong><small>' + esc(item.artist) + ' · ' + status + '</small><small>点歌人：' + esc(item.added_by_name || '房间成员') + '</small>' + reason + '</span>' + actionHtml + '</div>';
     }).join('') : '<div class="br-empty">在播放器中选择歌曲，会先进入候选投票</div>';
@@ -396,7 +377,7 @@
       return '<div class="br-msg ' + (mine ? 'mine' : '') + '"><small>' + esc(message.username || '成员') + ' · ID ' + Number(message.user_id) + '</small><p>' + esc(message.message) + '</p></div>';
     }).join('') : '<div class="br-empty">还没有消息</div>';
     var catalog = roomState.catalog || [];
-    var shownCatalog = catalogExpanded ? catalog : catalog.slice(0, 6);
+    var shownCatalog = catalogExpanded ? catalog : catalog.slice(0, 5);
     var providerNames = { netease: '网易云', qq: 'QQ', audius: '公开' };
     var catalogRows = shownCatalog.length ? shownCatalog.map(function (track) {
       var img = track.artwork_url ? '<img class="br-result-cover" src="' + esc(track.artwork_url) + '" alt="">' : '<span class="br-avatar">♫</span>';
@@ -404,19 +385,15 @@
       var reason = unavailable ? '<small style="color:#ffaaa2">' + esc(track.unavailable_reason || '当前没有可播放地址') + '</small>' : '';
       return '<div class="br-row">' + img + '<span class="br-row-main"><strong>' + esc(track.title) + '<i class="br-provider">' + esc(providerNames[track.provider] || track.provider) + '</i></strong><small>' + esc(track.artist) + '</small>' + reason + '</span><button class="br-btn" data-action="propose-catalog" data-track-index="' + catalog.indexOf(track) + '" ' + (unavailable ? 'disabled' : '') + '>' + (unavailable ? '不可点歌' : '点歌') + '</button></div>';
     }).join('') : '<div class="br-empty">正在载入公共热榜，也可以直接搜索<br>无需登录网易云或 QQ 音乐</div>';
-    var catalogMore = catalog.length > 6 ? '<button class="br-btn ghost" data-action="catalog-more" style="width:100%;margin-top:7px">' + (catalogExpanded ? '收起结果' : '查看更多 ' + catalog.length + ' 首') + '</button>' : '';
-    var syncNames = { connecting: '正在连接', reconnecting: '正在重连', syncing: '正在同步', synced: '同步正常', error: '同步失败' };
-    var syncName = syncNames[roomState.syncStatus] || (room.is_playing ? '同步播放中' : '等待播放');
+    var catalogMore = '';
     var currentReason = roomState.currentUnavailableReason ? '<small style="color:#ffaaa2">不可播放：' + esc(roomState.currentUnavailableReason) + '</small>' : '';
     var isHost = Number(room.host_user_id) === Number(roomState.userId);
     var threshold = Number(room.music_skip_vote_percent || 30);
-    var currentActions = current ? '<div class="br-now-actions"><button class="br-btn" data-action="skip">' + (isHost ? '房主立即切歌' : '投票切歌') + ' · ' + Number(current.skip_votes || 0) + '</button></div>' : '';
-    var core = '<div class="br-room-meta" data-sync-status="' + esc(roomState.syncStatus || 'connecting') + '"><i class="br-dot"></i>' + syncName + '<button class="br-code" data-action="copy" data-code="' + esc(room.room_code || '') + '">' + esc(room.room_code || '') + '</button></div><div class="br-section"><div class="br-section-head">正在播放<span>当前曲目</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '固定五首测试歌') + '</small>' + (current ? '<small>点歌人：' + esc(current.added_by_name || '房间成员') + '</small>' : '') + currentReason + '</div><button class="br-btn ghost br-now-action" data-action="resync">重新同步播放</button></div>' + currentActions + '</div><div class="br-section"><div class="br-section-head">固定测试歌单<span>5 首 · 点歌立即入队</span></div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="筛选歌曲或音乐人"><button class="br-btn" type="submit">筛选</button></form><small class="br-catalog-note">仅允许固定五首歌曲；相同歌曲会被拦截</small><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">房间公共歌单<span>点赞排序 · 门槛 ' + threshold + '%</span></div><div class="br-list">' + queueRows + '</div></div>';
-    var more = '<button class="br-btn ghost br-more-toggle" data-action="more">' + (roomMoreOpen ? '收起成员 / 聊天' : '更多功能 · 成员 / 聊天') + '</button>';
-    if (!roomMoreOpen) return core + more;
-    var otherRooms = (roomState.rooms || []).filter(function (entry) { return Number(entry.id) !== Number(room.id); });
-    var roomRows = otherRooms.length ? otherRooms.map(function (entry) { return '<button class="br-row" data-action="enter" data-room-id="' + Number(entry.id) + '"><span class="br-avatar">' + esc(String(entry.room_name || '房').slice(0, 1)) + '</span><span class="br-row-main"><strong>' + esc(entry.room_name || '听歌房') + '</strong><small>' + esc(entry.room_code || '') + '</small></span></button>'; }).join('') : '<div class="br-empty">暂无其他听歌房</div>';
-    return core + more + '<div class="br-section"><div class="br-section-head">切换听歌房<span>' + otherRooms.length + ' 个可选</span></div><div class="br-list">' + roomRows + '</div></div><div class="br-section"><div class="br-section-head">房主控制<span>仅房主可修改</span></div><select class="br-input" data-setting="music_skip_vote_percent" ' + (isHost ? '' : 'disabled') + '><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>切歌门槛 30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>切歌门槛 50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>切歌门槛 70%</option></select></div><div class="br-section"><div class="br-section-head">房间成员<span>' + members.filter(function (m) { return m.is_online; }).length + '/' + members.length + ' 人在线</span></div><div class="br-list br-members">' + memberRows + '</div></div><div class="br-section"><div class="br-section-head">房间消息<span>实时聊天</span></div><div class="br-card"><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
+    var playbackStatus = roomState.currentUnavailableReason ? '播放失败' : current ? (room.is_playing ? '正在播放' : '已暂停') : '等待点歌';
+    var queueAction = current && !isHost ? '<button class="br-btn ghost" data-action="skip">投票切歌</button>' : '';
+    var core = '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '固定五首测试歌') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播 ' + queueAction + '</span></div><div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">点歌<span>固定五首</span></div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="筛选歌曲或音乐人"><button class="br-btn" type="submit">筛选</button></form><div class="br-list" style="margin-top:8px">' + catalogRows + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
+    if (!isHost) return core;
+    return core + '<details class="br-host-fold"><summary>房主功能</summary><div class="br-host-fold-body">' + (current ? '<button class="br-btn primary" data-action="skip">立即切歌</button>' : '<div class="br-empty">当前没有正在播放的歌曲</div>') + '<label class="br-section-head" style="margin:0">切歌门槛<select class="br-input" data-setting="music_skip_vote_percent"><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></label></div></details>';
   }
 
   function handlePanelChange(event) {
@@ -435,16 +412,13 @@
     if (!target) return;
     var name = target.getAttribute('data-action');
     if (name === 'close') closeRoomPanel();
-    else if (name === 'visual') {
-      openVisualConsole();
-    } else if (name === 'back') action('back');
+    else if (name === 'back') action('back');
     else if (name === 'enter') action('enter', { roomId: Number(target.getAttribute('data-room-id')) });
     else if (name === 'leave') action('leave');
     else if (name === 'vote') action('vote', { itemId: Number(target.getAttribute('data-item-id')) });
     else if (name === 'like') action('like', { itemId: Number(target.getAttribute('data-item-id')) });
     else if (name === 'skip') action('skip');
     else if (name === 'resync') action('resync');
-    else if (name === 'more') { roomMoreOpen = !roomMoreOpen; renderRoomUi(); }
     else if (name === 'catalog-more') { catalogExpanded = !catalogExpanded; renderRoomUi(); }
     else if (name === 'source') { action('source', { source: target.getAttribute('data-source') || 'all' }); }
     else if (name === 'propose-catalog') {

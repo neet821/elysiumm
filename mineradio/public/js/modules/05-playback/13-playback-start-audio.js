@@ -996,7 +996,7 @@ async function playQueueAt(idx, opts) {
     var earlyLyricFetchStarted = false;
     function startTrackLyricFetch() {
       if (earlyLyricFetchStarted) return false;
-      if (!song || song.type === 'podcast' || song.type === 'local' || song.source === 'local' || song.localUrl) return false;
+      if (!song || song.roomStreamUrl || song.type === 'podcast' || song.type === 'local' || song.source === 'local' || song.localUrl) return false;
       if (typeof fetchLyric !== 'function') return false;
       earlyLyricFetchStarted = true;
       setTimeout(function () {
@@ -1101,7 +1101,8 @@ async function playQueueAt(idx, opts) {
 
     try {
       markPlayPhase('source-url');
-      var playbackProvider = normalizePlaybackProvider(songProviderKey(song));
+      var isRoomStream = !!song.roomStreamUrl;
+      var playbackProvider = isRoomStream ? 'room' : normalizePlaybackProvider(songProviderKey(song));
       var isQQPlayback = playbackProvider === 'qq';
       var isKugouPlayback = playbackProvider === 'kugou';
       var isQishuiPlayback = playbackProvider === 'qishui';
@@ -1114,7 +1115,9 @@ async function playQueueAt(idx, opts) {
       }
       var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
       var data;
-      if (albumGaplessHandoff) {
+      if (isRoomStream) {
+        data = { url: song.roomStreamUrl, provider: 'room', sourceMatch: true };
+      } else if (albumGaplessHandoff) {
         data = opts.preloadedData;
       } else if (opts.preResolvedPlaybackData && opts.preResolvedPlaybackData.url) {
         data = opts.preResolvedPlaybackData;
@@ -1206,7 +1209,7 @@ async function playQueueAt(idx, opts) {
         document.getElementById('trial-banner').classList.add('show');
       }
       markPlayPhase('audio-element');
-      var proxyAudioUrl = opts.preloadedProxyAudioUrl || '/api/audio?url=' + encodeURIComponent(data.url);
+      var proxyAudioUrl = isRoomStream ? song.roomStreamUrl : (opts.preloadedProxyAudioUrl || '/api/audio?url=' + encodeURIComponent(data.url));
       if (albumGaplessHandoff) {
         audioFadeSerial++;
         clearAudioFadeTimers();

@@ -92,6 +92,13 @@ class MusicRoomRebuildTest(unittest.TestCase):
         self.db.refresh(self.room)
         self.assertFalse(self.room.is_playing)
 
+    def test_advance_empty_room_is_a_noop(self):
+        version = self.room.playback_version
+        self.assertIsNone(music_service.advance_queue(self.db, self.room))
+        self.db.refresh(self.room)
+        self.assertEqual(self.room.playback_version, version)
+        self.assertFalse(self.room.is_playing)
+
 
 if __name__ == "__main__":
     unittest.main()

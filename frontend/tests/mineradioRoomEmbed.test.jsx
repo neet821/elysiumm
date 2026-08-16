@@ -89,5 +89,21 @@ describe('Mineradio room embed', () => {
     expect(bridge).toContain('music_skip_vote_percent')
     expect(bridge).toContain('like_count')
     expect(bridge).toContain('boundAudio.onended = null')
+    expect(bridge).toContain('退出房间')
+    expect(bridge).not.toContain("diyButton.textContent = '特效'")
+    expect(bridge).toContain('roomStreamUrl')
+    expect(bridge).toContain('当前正在播放')
+    expect(bridge).toContain('在线成员与聊天')
+    expect(bridge).toContain('房主功能')
+  })
+
+  it('routes trusted room audio directly to the native audio element', () => {
+    const root = path.resolve(process.cwd(), '..')
+    const playback = fs.readFileSync(path.join(root, 'mineradio/public/js/modules/05-playback/13-playback-start-audio.js'), 'utf8')
+
+    expect(playback).toContain('var isRoomStream = !!song.roomStreamUrl')
+    expect(playback).toMatch(/if \(isRoomStream\) \{\s*data = \{ url: song\.roomStreamUrl, provider: 'room', sourceMatch: true \}/)
+    expect(playback).toContain('var proxyAudioUrl = isRoomStream ? song.roomStreamUrl')
+    expect(playback).toContain('song.roomStreamUrl || song.type === \'podcast\'')
   })
 })
