@@ -644,6 +644,8 @@ export default function MineradioPage() {
     else if (action === 'leave') await leaveRoom()
     else if (action === 'vote') await voteForTrack(payload.itemId)
     else if (action === 'like') await likeTrack(payload.itemId)
+    else if (action === 'vote-skip') await voteSkip()
+    else if (action === 'force-skip' && isHost) await playNext()
     else if (action === 'skip') await (isHost ? playNext() : voteSkip())
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
@@ -764,9 +766,12 @@ export default function MineradioPage() {
             <div className="room-player-card__heading">
               <h2>房间公共歌单</h2>
               {current && (
-                <button type="button" onClick={isHost ? playNext : voteSkip}>
-                  {isHost ? '播放下一首' : '投票切歌'}
-                </button>
+                <>
+                  <button type="button" onClick={voteSkip}>
+                    投票切歌
+                  </button>
+                  {isHost && <button type="button" onClick={playNext}>播放下一首</button>}
+                </>
               )}
             </div>
             <ul className="room-player-list">

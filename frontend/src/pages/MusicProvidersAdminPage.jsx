@@ -20,6 +20,7 @@ export default function MusicProvidersAdminPage() {
   const [busy, setBusy] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const timerRef = useRef(null)
+  const imageUrlRef = useRef('')
 
   const loadStatus = useCallback(async () => {
     setLoading(true)
@@ -38,9 +39,9 @@ export default function MusicProvidersAdminPage() {
     loadStatus()
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
-      if (imageUrl) URL.revokeObjectURL(imageUrl)
+      if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current)
     }
-  }, [loadStatus, imageUrl])
+  }, [loadStatus])
 
   const stopLogin = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current)
@@ -48,6 +49,7 @@ export default function MusicProvidersAdminPage() {
     setLogin(null)
     setImageUrl((current) => {
       if (current) URL.revokeObjectURL(current)
+      imageUrlRef.current = ''
       return ''
     })
   }, [])
@@ -82,7 +84,9 @@ export default function MusicProvidersAdminPage() {
       setLogin(next)
       if (provider === 'netease' || provider === 'qq') {
         const imageResponse = await apiClient.get(API_ENDPOINTS.MUSIC_PROVIDER_LOGIN_IMAGE(provider, next.session_id), { responseType: 'blob' })
-        setImageUrl(URL.createObjectURL(imageResponse.data))
+        const nextImageUrl = URL.createObjectURL(imageResponse.data)
+        imageUrlRef.current = nextImageUrl
+        setImageUrl(nextImageUrl)
       }
       pollLogin(provider, next.session_id)
     } catch (requestError) {

@@ -12,6 +12,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.exc import IntegrityError  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
@@ -145,6 +146,47 @@ class CatalogLyricsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["lines"], [])
         self.assertEqual(payload["translation"], [])
         self.assertFalse(payload["cached"])
+
+    async def test_lyrics_duplicate_insert_race_returns_winning_cached_row(self):
+        canonical = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-race",
+                title="Race",
+                artist="Artist",
+                availability=TrackAvailability.PLAYABLE,
+            )
+        )
+        winner = models.TrackLyrics(
+            canonical_track_id=canonical.id,
+            provider_mapping_id=1,
+            provider="netease",
+            language="original",
+            timed_text="[00:01]Winner",
+            translation_text=None,
+            fetched_at=datetime(2026, 7, 16, 3, 0, 0),
+            expires_at=datetime(2026, 7, 17, 3, 0, 0),
+        )
+        race = IntegrityError("insert", {}, Exception("duplicate"))
+        with patch(
+            "catalog_service.catalog_repository.cached_lyrics",
+            side_effect=[None, winner],
+        ), patch(
+            "catalog_service.catalog_repository.upsert_lyrics",
+            side_effect=race,
+        ):
+            payload = await catalog_service.get_catalog_lyrics(
+                self.db,
+                canonical.id,
+                {"netease": FakeLyricsAdapter(result=ProviderLyrics(
+                    provider="netease",
+                    language="original",
+                    timed_text="[00:01]Winner",
+                ))},
+            )
+
+        self.assertTrue(payload["cached"])
+        self.assertEqual(payload["lines"], [{"time": 1.0, "text": "Winner"}])
 
     async def test_expired_lyrics_are_refreshed(self):
         now = datetime(2026, 7, 16, 3, 0, 0)

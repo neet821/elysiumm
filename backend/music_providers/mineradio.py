@@ -41,7 +41,11 @@ def _duration_seconds(value: object) -> int:
     return max(0, min(round(duration), 86_400))
 
 
-def _availability(item: dict[str, object]) -> TrackAvailability:
+def _availability(
+    item: dict[str, object],
+    *,
+    vip_entitled: bool = False,
+) -> TrackAvailability:
     if item.get("trial") or item.get("preview") or item.get("preview_url"):
         return TrackAvailability.PREVIEW
     if item.get("playable") is True:
@@ -52,7 +56,7 @@ def _availability(item: dict[str, object]) -> TrackAvailability:
         fee = -1
     return (
         TrackAvailability.PLAYABLE
-        if fee == 0
+        if fee == 0 or (fee == 1 and vip_entitled)
         else TrackAvailability.UNAVAILABLE
     )
 
@@ -84,7 +88,12 @@ class MineradioProviderAdapter(MusicProviderAdapter):
             )
         return _text(item.get("id"), 120)
 
-    def _normalize(self, item: object) -> ProviderTrack | None:
+    def _normalize(
+        self,
+        item: object,
+        *,
+        vip_entitled: bool = False,
+    ) -> ProviderTrack | None:
         if not isinstance(item, dict):
             return None
         track_id = self._track_id(item)
@@ -103,7 +112,7 @@ class MineradioProviderAdapter(MusicProviderAdapter):
             ),
             isrc=_text(item.get("isrc"), 32),
             artwork_url=_text(item.get("cover") or item.get("artwork_url"), 1000),
-            availability=_availability(item),
+            availability=_availability(item, vip_entitled=vip_entitled),
             media_mid=(
                 _text(item.get("mediaMid") or item.get("media_mid"), 255)
                 if self.provider == "qq"
@@ -119,6 +128,19 @@ class MineradioProviderAdapter(MusicProviderAdapter):
         )
 
     async def search(self, query: str, limit: int) -> list[ProviderTrack]:
+        vip_entitled = False
+        if self.provider == "netease" and self.internal_token:
+            try:
+                status = await self._request_json("/api/login/status")
+                vip_entitled = bool(
+                    status.get("loggedIn") is True
+                    and (
+                        status.get("isVip") is True
+                        or str(status.get("vipLevel") or "").lower() in {"vip", "svip"}
+                    )
+                )
+            except ProviderError:
+                pass
         payload = await self._request_json(
             self.search_path,
             params={"keywords": str(query).strip(), "limit": max(1, min(int(limit), 30))},
@@ -126,7 +148,11 @@ class MineradioProviderAdapter(MusicProviderAdapter):
         songs = payload.get("songs")
         if not isinstance(songs, list):
             return []
-        return [track for item in songs if (track := self._normalize(item)) is not None]
+        return [
+            track
+            for item in songs
+            if (track := self._normalize(item, vip_entitled=vip_entitled)) is not None
+        ]
 
     async def resolve(self, mapping: object) -> ProviderResolution:
         track_id = _text(_value(mapping, "provider_track_id"), 120)

@@ -123,6 +123,39 @@ class MusicProviderAdaptersTest(unittest.IsolatedAsyncioTestCase):
         forbidden = {"cookie", "vip", "membership", "quality", "token"}
         self.assertTrue(forbidden.isdisjoint(request.url.params.keys()))
 
+    async def test_netease_search_uses_shared_vip_entitlement_for_fee_one_tracks(self):
+        requests = []
+
+        async def handler(request):
+            requests.append(request)
+            if request.url.path == "/api/login/status":
+                return json_response({"loggedIn": True, "isVip": True, "vipLevel": "svip"})
+            return json_response({
+                "songs": [
+                    {
+                        "id": 22497479,
+                        "name": "No Surprises",
+                        "artist": "Radiohead",
+                        "fee": 1,
+                    }
+                ]
+            })
+
+        adapter = NeteaseProviderAdapter(
+            "http://mineradio.test",
+            timeout_seconds=5,
+            internal_token="shared-provider-token",
+            transport=httpx.MockTransport(handler),
+        )
+        tracks = await adapter.search("Radiohead", 10)
+
+        self.assertEqual(tracks[0].availability, TrackAvailability.PLAYABLE)
+        self.assertEqual(
+            [request.url.path for request in requests],
+            ["/api/login/status", "/api/search"],
+        )
+        self.assertTrue(all(request.headers.get("x-music-provider-token") for request in requests))
+
     async def test_qq_search_uses_mid_and_shared_provider_track_shape(self):
         async def handler(_request):
             return json_response(

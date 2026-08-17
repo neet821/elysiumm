@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import re
 from typing import Iterable, Mapping
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import catalog_repository
@@ -26,6 +27,40 @@ class CatalogTrackNotFound(LookupError):
 _LRC_TAG = re.compile(r"\[(\d{1,3}):(\d{2}(?:\.\d{1,3})?)\]")
 _PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
 _LYRICS_TTL = timedelta(days=1)
+
+
+def _persist_lyrics_or_recover_race(
+    db: Session,
+    *,
+    canonical_id: int,
+    provider_mapping_id: int,
+    provider: str,
+    language: str,
+    timed_text: str,
+    translation_text: str | None,
+    fetched_at: datetime,
+    expires_at: datetime,
+) -> tuple[models.TrackLyrics, bool]:
+    try:
+        row = catalog_repository.upsert_lyrics(
+            db,
+            canonical_id=canonical_id,
+            provider_mapping_id=provider_mapping_id,
+            provider=provider,
+            language=language,
+            timed_text=timed_text,
+            translation_text=translation_text,
+            fetched_at=fetched_at,
+            expires_at=expires_at,
+        )
+        db.commit()
+        return row, False
+    except IntegrityError:
+        db.rollback()
+        winner = catalog_repository.cached_lyrics(db, canonical_id, language, fetched_at)
+        if winner is None:
+            raise
+        return winner, True
 
 
 def normalize_timed_lyrics(value: object) -> list[dict[str, object]]:
@@ -116,7 +151,7 @@ async def get_catalog_lyrics(
         if not result.timed_text.strip():
             empty_result = empty_result or (mapping, result)
             continue
-        row = catalog_repository.upsert_lyrics(
+        row, cached = _persist_lyrics_or_recover_race(
             db,
             canonical_id=canonical_id,
             provider_mapping_id=mapping.id,
@@ -127,19 +162,18 @@ async def get_catalog_lyrics(
             fetched_at=current_time,
             expires_at=current_time + _LYRICS_TTL,
         )
-        db.commit()
         return _lyrics_payload(
             canonical_id,
             row.provider,
             language,
             row.timed_text or "",
             row.translation_text,
-            cached=False,
+            cached=cached,
         )
 
     if empty_result is not None:
         mapping, result = empty_result
-        catalog_repository.upsert_lyrics(
+        row, cached = _persist_lyrics_or_recover_race(
             db,
             canonical_id=canonical_id,
             provider_mapping_id=mapping.id,
@@ -150,14 +184,13 @@ async def get_catalog_lyrics(
             fetched_at=current_time,
             expires_at=current_time + _LYRICS_TTL,
         )
-        db.commit()
         return _lyrics_payload(
             canonical_id,
-            mapping.provider,
+            row.provider,
             language,
-            "",
-            None,
-            cached=False,
+            row.timed_text or "",
+            row.translation_text,
+            cached=cached,
         )
     return _lyrics_payload(
         canonical_id,

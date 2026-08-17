@@ -60,12 +60,15 @@ const searchItems = [
   },
 ]
 
+let activeQueue = []
+
 beforeAll(() => {
   Object.defineProperty(window.HTMLMediaElement.prototype, 'load', { configurable: true, value: vi.fn() })
   Object.defineProperty(window.HTMLMediaElement.prototype, 'pause', { configurable: true, value: vi.fn() })
 })
 
 beforeEach(() => {
+  activeQueue = []
   window.localStorage.removeItem('elysium.music.catalogSource')
   mocks.api.post.mockReset().mockResolvedValue({ data: { approved: false, queue: [] } })
   mocks.api.get.mockReset().mockImplementation((url) => {
@@ -79,7 +82,9 @@ beforeEach(() => {
         },
       })
     }
-    if (url.endsWith('/api/music/rooms/9/queue')) return Promise.resolve({ data: { queue: [] } })
+    if (url.endsWith('/api/music/rooms/9/queue')) return Promise.resolve({ data: { queue: activeQueue } })
+    if (url.endsWith('/api/music/tracks/101/audio')) return Promise.resolve({ data: { availability: 'playable', playback_url: '/audio/101', provider: 'netease' } })
+    if (url.endsWith('/api/music/tracks/101/lyrics')) return Promise.resolve({ data: { lines: [] } })
     if (url.endsWith('/api/music/rooms/9/snapshot')) {
       return Promise.resolve({
         data: {
@@ -150,6 +155,54 @@ function latestRoomState(postMessage) {
 }
 
 describe('unified room catalog integration', () => {
+  it('lets the host vote to skip without using the force-skip action', async () => {
+    activeQueue = [{
+      artist: 'Alice',
+      canonical_track_id: 101,
+      id: 44,
+      provider: 'netease',
+      provider_track_id: 'ne-101',
+      status: 'playing',
+      title: 'Playable Song',
+    }]
+    renderRoom()
+    const { frame, postMessage } = await readyMineradio()
+    await waitFor(() => expect(latestRoomState(postMessage)?.queue).toHaveLength(1))
+
+    roomAction(frame, 'vote-skip')
+
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/vote-skip$/),
+    ))
+    expect(mocks.api.post).not.toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/next$/),
+    )
+  })
+
+  it('keeps force-skip as a separate host-only action', async () => {
+    activeQueue = [{
+      artist: 'Alice',
+      canonical_track_id: 101,
+      id: 44,
+      provider: 'netease',
+      provider_track_id: 'ne-101',
+      status: 'playing',
+      title: 'Playable Song',
+    }]
+    renderRoom()
+    const { frame, postMessage } = await readyMineradio()
+    await waitFor(() => expect(latestRoomState(postMessage)?.queue).toHaveLength(1))
+
+    roomAction(frame, 'force-skip')
+
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/next$/),
+    ))
+    expect(mocks.api.post).not.toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/vote-skip$/),
+    )
+  })
+
   it('searches only the Blue Album endpoint and shows source availability', async () => {
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
