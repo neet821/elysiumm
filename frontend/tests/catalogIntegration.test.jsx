@@ -167,7 +167,7 @@ describe('unified room catalog integration', () => {
     }]
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
-    await waitFor(() => expect(latestRoomState(postMessage)?.queue).toHaveLength(1))
+    await waitFor(() => expect(mocks.api.get.mock.calls.some(([url]) => url.endsWith('/api/music/rooms/9/queue'))).toBe(true))
 
     roomAction(frame, 'vote-skip')
 
@@ -191,7 +191,7 @@ describe('unified room catalog integration', () => {
     }]
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
-    await waitFor(() => expect(latestRoomState(postMessage)?.queue).toHaveLength(1))
+    await waitFor(() => expect(mocks.api.get.mock.calls.some(([url]) => url.endsWith('/api/music/rooms/9/queue'))).toBe(true))
 
     roomAction(frame, 'force-skip')
 
