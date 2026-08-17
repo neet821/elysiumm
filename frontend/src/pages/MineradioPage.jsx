@@ -117,6 +117,27 @@ export default function MineradioPage() {
     setPlayerReady(Boolean(adapter))
   }, [])
 
+  useEffect(() => {
+    // A room route can change without remounting this page. Clear every
+    // room-scoped playback value before the next room is fetched so the new
+    // iframe cannot briefly receive the previous room's track.
+    setLoading(true)
+    setRoom(null)
+    setQueue([])
+    setMembers([])
+    setMessages([])
+    setHistory([])
+    setResolvedCurrent(null)
+    setCurrentUnavailableReason('')
+    setSnapshotRecord(null)
+    setSyncStatus('connecting')
+    versionRef.current = -1
+    latestSnapshotRef.current = null
+    syncStateRef.current = createRoomSyncState()
+    remoteSyncRef.current = 0
+    remoteSyncUntilRef.current = 0
+  }, [roomId])
+
   const loadRooms = useCallback(async () => {
     const response = await apiClient.get(API_ENDPOINTS.SYNC_ROOMS)
     setRooms((response.data || []).filter((item) => item.mode === 'music'))

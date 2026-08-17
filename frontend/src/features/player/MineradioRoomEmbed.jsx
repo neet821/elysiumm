@@ -249,6 +249,16 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
   }, [])
 
   useEffect(() => {
+    setReady(false)
+    const adapter = adapterRef.current
+    if (!adapter) return
+    adapter.clear()
+    adapter.destroy()
+    adapterRef.current = null
+    callbacksRef.current.onAdapterReady?.(null)
+  }, [roomId])
+
+  useEffect(() => {
     if (ready) send('room-state', roomState || {})
   }, [ready, roomState])
 

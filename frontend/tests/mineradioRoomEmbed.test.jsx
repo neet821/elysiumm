@@ -103,6 +103,27 @@ describe('Mineradio room embed', () => {
     await expect(second).resolves.toMatchObject({ time: 9, is_playing: true })
   })
 
+  it('clears the old adapter before switching the iframe to a new room', async () => {
+    const onAdapterReady = vi.fn()
+    const view = render(<MineradioRoomEmbed roomId="9" onAdapterReady={onAdapterReady} />)
+    const oldFrame = screen.getByTitle('Mineradio 原版房间播放器')
+    vi.spyOn(oldFrame.contentWindow, 'postMessage')
+
+    await act(async () => window.dispatchEvent(new MessageEvent('message', {
+      data: { source: 'blue-album-mineradio', type: 'ready' },
+      origin: window.location.origin,
+      source: oldFrame.contentWindow,
+    })))
+    const adapter = onAdapterReady.mock.calls.at(-1)[0]
+    const clearSpy = vi.spyOn(adapter, 'clear')
+    adapter.load(track)
+    view.rerender(<MineradioRoomEmbed roomId="10" onAdapterReady={onAdapterReady} />)
+
+    expect(onAdapterReady).toHaveBeenLastCalledWith(null)
+    expect(screen.getByTitle('Mineradio 原版房间播放器')).toHaveAttribute('src', '/mineradio/?blue-room=10')
+    expect(clearSpy).toHaveBeenCalledOnce()
+  })
+
   it('rejects an unconfirmed remote command after the bounded timeout', async () => {
     vi.useFakeTimers()
     try {

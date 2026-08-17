@@ -1,5 +1,5 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     io: vi.fn(() => socket),
     snapshotError: false,
     socket,
+    room10QueueGate: null,
     user: { id: 1, role: 'user', username: 'host' },
   }
 })
@@ -79,12 +80,14 @@ beforeEach(() => {
   mocks.io.mockClear()
   mocks.applySnapshot.mockClear().mockResolvedValue({ applied: true, correction: 'none' })
   mocks.snapshotError = false
+  mocks.room10QueueGate = null
   mocks.api.post.mockReset().mockResolvedValue({ data: {} })
   mocks.api.get.mockReset().mockImplementation((url) => {
     if (url.endsWith('/api/sync-rooms')) {
       return Promise.resolve({ data: [{ id: 9, mode: 'music', room_name: 'Blue room' }] })
     }
     if (url.endsWith('/api/sync-rooms/9/messages')) return Promise.resolve({ data: [] })
+    if (url.endsWith('/api/sync-rooms/10/messages')) return Promise.resolve({ data: [] })
     if (url.endsWith('/api/sync-rooms/9')) {
       return Promise.resolve({
         data: {
@@ -102,12 +105,32 @@ beforeEach(() => {
         },
       })
     }
+    if (url.endsWith('/api/sync-rooms/10')) {
+      return Promise.resolve({
+        data: {
+          control_mode: 'host_only', current_time: 0, host_user_id: 1, id: 10, is_playing: false,
+          members: [{ is_online: true, user_id: 1, username: 'host' }], mode: 'music', room_name: 'New room',
+        },
+      })
+    }
     if (url.endsWith('/api/music/rooms/9/queue')) {
       return Promise.resolve({ data: { playback_version: 5, queue: [playingTrack] } })
+    }
+    if (url.endsWith('/api/music/rooms/10/queue')) {
+      return mocks.room10QueueGate || Promise.resolve({ data: { current_time: 0, is_playing: false, playback_version: 0, queue: [] } })
     }
     if (url.endsWith('/api/music/rooms/9/snapshot')) {
       if (mocks.snapshotError) return Promise.reject(new Error('offline'))
       return Promise.resolve({ data: authoritativeSnapshot() })
+    }
+    if (url.endsWith('/api/music/rooms/10/snapshot')) {
+      return Promise.resolve({
+        data: {
+          media_id: null, playback_rate: 1, position: 0, room_id: 10,
+          server_now_ms: 10_000, started_at_server_ms: 10_000,
+          state: 'paused', track_id: null, version: 0,
+        },
+      })
     }
     if (url.endsWith('/api/music/tracks/101/audio')) {
       return Promise.resolve({ data: { availability: 'playable', playback_url: playingTrack.stream_url, provider: 'upload' } })
@@ -134,6 +157,18 @@ function renderRoom() {
         <Route path="/music/rooms/:roomId" element={<MineradioPage />} />
       </Routes>
     </MemoryRouter>,
+  )
+}
+
+function RoomSwitchHarness() {
+  const navigate = useNavigate()
+  return (
+    <>
+      <button type="button" onClick={() => navigate('/music/rooms/10')}>切换到新房间</button>
+      <Routes>
+        <Route path="/music/rooms/:roomId" element={<MineradioPage />} />
+      </Routes>
+    </>
   )
 }
 
@@ -175,6 +210,24 @@ function emitMineradioPlayback(frame, payload) {
 }
 
 describe('music room reconnect and authority UI', () => {
+  it('unmounts the old player before a different room finishes loading', async () => {
+    let releaseRoom10Queue
+    mocks.room10QueueGate = new Promise((resolve) => { releaseRoom10Queue = resolve })
+    render(
+      <MemoryRouter initialEntries={['/music/rooms/9']} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <RoomSwitchHarness />
+      </MemoryRouter>,
+    )
+    await readyMineradio()
+    await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByRole('button', { name: '切换到新房间' }))
+    await waitFor(() => expect(screen.queryByTitle('Mineradio 原版房间播放器')).not.toBeInTheDocument())
+
+    releaseRoom10Queue({ data: { current_time: 0, is_playing: false, playback_version: 0, queue: [] } })
+    await waitFor(() => expect(screen.getByTitle('Mineradio 原版房间播放器')).toHaveAttribute('src', '/mineradio/?blue-room=10'))
+  })
+
   it('loads the REST snapshot and exposes an accessible synchronized status', async () => {
     renderRoom()
 
