@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 import json
@@ -59,29 +60,42 @@ class MusicProviderAdapter(ABC):
         *,
         params: dict[str, object] | None = None,
     ) -> dict[str, object]:
-        try:
-            async with httpx.AsyncClient(
-                base_url=self.base_url,
-                timeout=self.timeout_seconds,
-                follow_redirects=False,
-                transport=self.transport,
-                trust_env=False,
-            ) as client:
-                headers = (
-                    {"X-Music-Provider-Token": self.internal_token}
-                    if self.internal_token
-                    else {}
-                )
-                response = await client.get(path, params=params, headers=headers)
-                response.raise_for_status()
-                declared_size = int(response.headers.get("content-length", "0") or 0)
-                if declared_size > MAX_PROVIDER_RESPONSE_BYTES:
-                    raise ProviderError("曲库返回内容过大")
-                content = await response.aread()
-        except ProviderError:
-            raise
-        except (httpx.HTTPError, ValueError) as exc:
-            raise ProviderError("曲库暂时不可用") from exc
+        headers = (
+            {"X-Music-Provider-Token": self.internal_token}
+            if self.internal_token
+            else {}
+        )
+        content = b""
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(
+                    base_url=self.base_url,
+                    timeout=self.timeout_seconds,
+                    follow_redirects=False,
+                    transport=self.transport,
+                    trust_env=False,
+                ) as client:
+                    response = await client.get(path, params=params, headers=headers)
+                    if response.status_code >= 500:
+                        if attempt == 0:
+                            await asyncio.sleep(0.2)
+                            continue
+                        response.raise_for_status()
+                    response.raise_for_status()
+                    declared_size = int(response.headers.get("content-length", "0") or 0)
+                    if declared_size > MAX_PROVIDER_RESPONSE_BYTES:
+                        raise ProviderError("曲库返回内容过大")
+                    content = await response.aread()
+                    break
+            except ProviderError:
+                raise
+            except httpx.TimeoutException as exc:
+                if attempt == 0:
+                    await asyncio.sleep(0.2)
+                    continue
+                raise ProviderError("曲库暂时不可用") from exc
+            except (httpx.HTTPError, ValueError) as exc:
+                raise ProviderError("曲库暂时不可用") from exc
 
         if len(content) > MAX_PROVIDER_RESPONSE_BYTES:
             raise ProviderError("曲库返回内容过大")

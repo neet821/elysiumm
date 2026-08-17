@@ -132,11 +132,10 @@ async def music_provider_capabilities(user=Depends(get_current_user)):
     )
     configured_providers = configured.get("providers") or {}
     netease_ready = bool((configured_providers.get("netease") or {}).get("configured"))
-    qq_ready = bool((configured_providers.get("qq") or {}).get("configured"))
     return {
         "providers": [
             {"provider": "netease", "label": "网易云", "searchable": True, "playable": netease_ready, "reason": None if netease_ready else "歌曲播放地址会按曲目实时验证"},
-            {"provider": "qq", "label": "QQ 音乐", "searchable": True, "playable": qq_ready, "reason": None if qq_ready else "需要服务器配置 QQ 播放凭据"},
+            {"provider": "qq", "label": "QQ 音乐", "searchable": False, "playable": False, "reason": "暂未开放"},
         ],
     }
 

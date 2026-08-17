@@ -241,7 +241,7 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         self.assertTrue(self.events("error"))
         self.assertEqual(self.events("error")[-1]["room"], "sid-attacker")
 
-    def test_control_broadcasts_new_snapshot_to_sender_and_persists_anchor(self):
+    def test_music_room_rejects_play_control_without_persisting_anchor(self):
         self.sessions["sid-member"] = self.trusted_session(self.member)
 
         asyncio.run(
@@ -257,25 +257,12 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
             )
         )
 
+        self.assertTrue(self.events("error"))
+        self.assertFalse(self.events("room_snapshot"))
         self.db.expire_all()
         room = self.db.get(models.SyncRoom, self.room.id)
-        event = self.events("room_snapshot")[-1]
-        self.assertEqual(event["room"], f"room_{self.room.id}")
-        self.assertIsNone(event["skip_sid"])
-        self.assertEqual(event["data"]["state"], "playing")
-        self.assertEqual(event["data"]["position"], 14.25)
-        self.assertEqual(event["data"]["version"], 1)
-        self.assertGreater(event["data"]["started_at_server_ms"], 0)
-        self.assertTrue(room.is_playing)
-        self.assertEqual(room.current_time, 14.25)
-        self.assertEqual(room.playback_version, 1)
-        self.assertEqual(room.playback_started_at_server_ms, event["data"]["started_at_server_ms"])
-        history = self.db.query(models.MusicRoomEvent).filter_by(
-            room_id=self.room.id,
-            event_type="playback_control",
-        ).one()
-        self.assertEqual(history.playback_version, 1)
-        self.assertEqual(history.summary_json, '{"action":"play"}')
+        self.assertFalse(room.is_playing)
+        self.assertEqual(room.playback_version, 0)
 
     def test_stale_control_emits_typed_conflict_with_latest_snapshot(self):
         self.sessions["sid-host"] = self.trusted_session(self.host)
@@ -305,14 +292,13 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         )
 
         conflicts = self.events("playback_conflict")
-        self.assertEqual(len(conflicts), 1)
-        self.assertEqual(conflicts[0]["room"], "sid-host")
-        self.assertEqual(conflicts[0]["data"]["snapshot"]["version"], 1)
+        self.assertFalse(conflicts)
+        self.assertTrue(self.events("error"))
         self.assertFalse(self.events("room_snapshot"))
         self.db.expire_all()
         room = self.db.get(models.SyncRoom, self.room.id)
-        self.assertTrue(room.is_playing)
-        self.assertEqual(room.playback_version, 1)
+        self.assertFalse(room.is_playing)
+        self.assertEqual(room.playback_version, 0)
 
     def test_music_room_rejects_seek_control(self):
         self.sessions["sid-host"] = self.trusted_session(self.host)
@@ -335,7 +321,7 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         room = self.db.get(models.SyncRoom, self.room.id)
         self.assertEqual(room.playback_version, 0)
 
-    def test_rate_control_is_bounded_and_versioned(self):
+    def test_rate_control_is_rejected_without_changing_version(self):
         self.sessions["sid-host"] = self.trusted_session(self.host)
 
         asyncio.run(
@@ -349,8 +335,8 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
                 },
             )
         )
-        self.assertEqual(self.events("room_snapshot")[-1]["data"]["playback_rate"], 1.25)
-        self.assertEqual(self.events("room_snapshot")[-1]["data"]["version"], 1)
+        self.assertTrue(self.events("error"))
+        self.assertFalse(self.events("room_snapshot"))
 
         self.emitted.clear()
         asyncio.run(
@@ -367,8 +353,8 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         self.assertTrue(self.events("error"))
         self.db.expire_all()
         room = self.db.get(models.SyncRoom, self.room.id)
-        self.assertEqual(room.playback_rate, 1.25)
-        self.assertEqual(room.playback_version, 1)
+        self.assertEqual(room.playback_rate, 1.0)
+        self.assertEqual(room.playback_version, 0)
 
     def test_only_host_heartbeat_broadcasts_small_unversioned_payload(self):
         self.sessions["sid-host"] = self.trusted_session(self.host)

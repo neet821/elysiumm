@@ -180,11 +180,13 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
       return { applied: false, reason: 'track-unavailable', trackChanged: false }
     }
     const drift = classifyDrift(playerState.currentTime, targetPosition, driftThresholds)
-    let correction = drift.kind
+    const isMusic = mediaKind === 'music'
+    let correction = isMusic && steadyState ? 'none' : drift.kind
     let forceSeek = trackChanged || (!steadyState && drift.kind === 'seek')
     if (normalized.state === 'paused' && drift.kind !== 'none') forceSeek = true
+    if (isMusic && steadyState) forceSeek = trackChanged
 
-    if (steadyState && drift.kind === 'seek' && !trackChanged) {
+    if (!isMusic && steadyState && drift.kind === 'seek' && !trackChanged) {
       syncState.largeDriftSamples += 1
       if (syncState.largeDriftSamples < hardSeekConfirmations) {
         syncState.clockOffsetMs = clockOffsetMs
@@ -205,7 +207,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
       syncState.largeDriftSamples = 0
     }
 
-    const temporaryRate = drift.kind === 'rate' && normalized.state === 'playing' && !forceSeek
+    const temporaryRate = !isMusic && drift.kind === 'rate' && normalized.state === 'playing' && !forceSeek
       ? clamp(
         authoritativeRate + Math.sign(drift.driftSeconds) * RATE_CORRECTION_STEP,
         MIN_PLAYBACK_RATE,
@@ -216,7 +218,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
     if (typeof adapter.applyState === 'function') {
       const needsApply = trackChanged
         || forceSeek
-        || drift.kind === 'rate'
+        || (!isMusic && drift.kind === 'rate')
         || (normalized.state === 'playing' && !playerState.isPlaying)
         || (normalized.state === 'paused' && playerState.isPlaying)
         || finiteNumber(playerState.playbackRate, 1) !== temporaryRate
@@ -230,7 +232,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
         })
         playerState = adapter.snapshot()
       }
-      if (temporaryRate !== authoritativeRate) {
+      if (!isMusic && temporaryRate !== authoritativeRate) {
         const token = Symbol('room-rate-correction')
         syncState.rateToken = token
         scheduledTimer = setTimer(() => {
@@ -261,7 +263,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
         adapter.seek(targetPosition)
         correction = 'seek'
         playerState = adapter.snapshot()
-      } else if (drift.kind === 'rate') {
+      } else if (!isMusic && drift.kind === 'rate') {
         adapter.setPlaybackRate(temporaryRate)
         const token = Symbol('room-rate-correction')
         syncState.rateToken = token

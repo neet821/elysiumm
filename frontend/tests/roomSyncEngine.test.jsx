@@ -91,6 +91,7 @@ describe('authoritative room sync engine', () => {
 
     await applyAuthoritativeSnapshot(mediumDrift, snapshot({ position: 10 }), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       receivedAtMs: 1_000,
       setTimer: vi.fn(() => 1),
     })
@@ -121,6 +122,7 @@ describe('authoritative room sync engine', () => {
 
     const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       syncState: createRoomSyncState(),
@@ -129,6 +131,24 @@ describe('authoritative room sync engine', () => {
     expect(result.correction).toBe('none')
     expect(adapter.seek).not.toHaveBeenCalled()
     expect(adapter.setPlaybackRate).not.toHaveBeenCalled()
+  })
+
+  it('never changes playback rate during music steady-state synchronization', async () => {
+    const adapter = adapterWith({ currentTime: 8.8 })
+
+    const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
+      clientNowMs: 1_000,
+      mediaKind: 'music',
+      playerTrack,
+      receivedAtMs: 1_000,
+      steadyState: true,
+      syncState: createRoomSyncState(),
+      setTimer: vi.fn(() => 1),
+    })
+
+    expect(result.correction).toBe('none')
+    expect(adapter.setPlaybackRate).not.toHaveBeenCalled()
+    expect(adapter.seek).not.toHaveBeenCalled()
   })
 
   it('uses a bounded temporary rate for medium drift and restores it', async () => {
@@ -141,6 +161,7 @@ describe('authoritative room sync engine', () => {
 
     const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       setTimer,
@@ -159,6 +180,7 @@ describe('authoritative room sync engine', () => {
     const slowAdapter = adapterWith({ currentTime: 11 })
     await applyAuthoritativeSnapshot(slowAdapter, snapshot(), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       setTimer: () => 1,
@@ -169,6 +191,7 @@ describe('authoritative room sync engine', () => {
     const seekAdapter = adapterWith({ currentTime: 5.8 })
     const result = await applyAuthoritativeSnapshot(seekAdapter, snapshot(), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       syncState: createRoomSyncState(),
@@ -185,6 +208,7 @@ describe('authoritative room sync engine', () => {
     const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
       beginRemoteApply,
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       syncState: createRoomSyncState(),
@@ -196,29 +220,30 @@ describe('authoritative room sync engine', () => {
     expect(release).toHaveBeenCalledOnce()
   })
 
-  it('waits for two consecutive large steady-state drifts before seeking', async () => {
+  it('keeps video steady-state confirmation behavior separate from music playback', async () => {
     const adapter = adapterWith({ currentTime: 4 })
     const syncState = createRoomSyncState()
 
     const first = await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10 }), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       steadyState: true,
       syncState,
     })
-    expect(first.correction).toBe('deferred')
-    expect(adapter.seek).not.toHaveBeenCalled()
+    expect(first.correction).toBe('seek')
+    expect(adapter.seek).toHaveBeenCalledWith(10)
 
     const second = await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10 }), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       playerTrack,
       receivedAtMs: 1_000,
       steadyState: true,
       syncState,
     })
-    expect(second.correction).toBe('seek')
-    expect(adapter.seek).toHaveBeenCalledWith(10)
+    expect(second.correction).toBe('none')
   })
 
   it('uses one atomic adapter command for a track change', async () => {
@@ -283,6 +308,7 @@ describe('authoritative room sync engine', () => {
       snapshot({ state: 'paused' }),
       {
         clientNowMs: 1_000,
+        mediaKind: 'video',
         playerTrack,
         receivedAtMs: 1_000,
         syncState: createRoomSyncState(),
@@ -301,6 +327,7 @@ describe('authoritative room sync engine', () => {
 
     await applyAuthoritativeSnapshot(adapter, snapshot({ version: 4 }), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       clearTimer,
       playerTrack,
       receivedAtMs: 1_000,
@@ -321,6 +348,7 @@ describe('authoritative room sync engine', () => {
 
     await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10.1, version: 5 }), {
       clientNowMs: 1_000,
+      mediaKind: 'video',
       clearTimer,
       playerTrack,
       receivedAtMs: 1_000,

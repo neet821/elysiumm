@@ -112,6 +112,10 @@ beforeEach(() => {
       })
     }
     if (url.endsWith('/api/music/search')) return Promise.resolve({ data: { items: searchItems, providers: [] } })
+    if (url.endsWith('/api/music/providers/capabilities')) return Promise.resolve({ data: { providers: [
+      { provider: 'netease', label: '网易云', searchable: true, playable: true, reason: null },
+      { provider: 'qq', label: 'QQ 音乐', searchable: false, playable: false, reason: '暂未开放' },
+    ] } })
     return Promise.reject(new Error(`Unexpected request: ${url}`))
   })
 })
@@ -226,27 +230,21 @@ describe('unified room catalog integration', () => {
     )
   })
 
-  it('proposes the selected safe provider mapping for previews', async () => {
+  it('keeps QQ visible but disabled and clears a stale QQ selection', async () => {
+    window.localStorage.setItem('elysium.music.catalogSource', 'qq')
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
-    roomAction(frame, 'search', { query: 'preview', source: 'qq' })
-    const catalogState = await waitFor(() => {
-      const state = latestRoomState(postMessage)
-      if (state?.catalog?.length !== 3) throw new Error('catalog is not ready')
-      return state
-    })
-    roomAction(frame, 'propose-catalog', { track: catalogState.catalog[1] })
-
-    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/music\/rooms\/9\/queue$/),
-      expect.objectContaining({
-        canonical_track_id: 102,
-        media_mid: 'media-102',
-        provider: 'qq',
-        provider_track_id: 'qq-102',
-        title: 'Preview Song',
-      }),
+    await waitFor(() => expect(mocks.api.get).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/providers\/capabilities$/),
     ))
+    expect(window.localStorage.getItem('elysium.music.catalogSource')).toBe('netease')
+    const state = await waitFor(() => latestRoomState(postMessage))
+    expect(state.providerCapabilities.find((item) => item.provider === 'qq')).toMatchObject({
+      searchable: false,
+      playable: false,
+      reason: '暂未开放',
+    })
+    expect(state.catalogSource).toBe('netease')
   })
 
   it('loads durable room history without exposing it as a second visible control surface', async () => {

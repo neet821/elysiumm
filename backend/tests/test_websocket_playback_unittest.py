@@ -156,6 +156,29 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         self.assertIn("播放状态已更新", conflict_events[-1]["data"]["message"])
         self.assertEqual(conflict_events[-1]["data"]["snapshot"]["version"], 1)
 
+    def test_music_room_rejects_manual_play_pause_seek_and_rate(self):
+        room = self.create_room(mode="music")
+
+        for action in ("play", "pause", "seek", "rate"):
+            asyncio.run(
+                websocket_server.playback_control(
+                    "sid-host",
+                    {
+                        "room_id": room.id,
+                        "user_id": self.host.id,
+                        "action": action,
+                        "time": 12,
+                        "playback_version": 0,
+                    },
+                )
+            )
+
+        self.db.refresh(room)
+        self.assertEqual(room.playback_version, 0)
+        errors = [event for event in self.emitted if event["event"] == "error"]
+        self.assertEqual(len(errors), 4)
+        self.assertTrue(all("自动连续播放" in event["data"]["message"] for event in errors))
+
     def test_legacy_periodic_time_never_overrides_server_authority(self):
         room = self.create_room()
         room.control_mode = "all_members"

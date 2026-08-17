@@ -156,6 +156,26 @@ class MusicProviderAdaptersTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(all(request.headers.get("x-music-provider-token") for request in requests))
 
+    async def test_transient_provider_failure_retries_once_after_short_backoff(self):
+        attempts = 0
+
+        async def handler(_request):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return json_response({"error": "temporary"}, status_code=503)
+            return json_response({"songs": [{"id": 1, "name": "Recovered", "artist": "A"}]})
+
+        adapter = NeteaseProviderAdapter(
+            "http://mineradio.test",
+            timeout_seconds=5,
+            transport=httpx.MockTransport(handler),
+        )
+        tracks = await adapter.search("recovered", 5)
+
+        self.assertEqual(attempts, 2)
+        self.assertEqual([track.title for track in tracks], ["Recovered"])
+
     async def test_qq_search_uses_mid_and_shared_provider_track_shape(self):
         async def handler(_request):
             return json_response(

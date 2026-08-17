@@ -284,35 +284,12 @@ describe('music room reconnect and authority UI', () => {
     )
   })
 
-  it('uses a local event clock instead of sending host progress heartbeats', async () => {
-    let clockTick
-    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
-    const nativeSetInterval = window.setInterval.bind(window)
-    vi.spyOn(window, 'setInterval').mockImplementation((callback, delay, ...args) => {
-      if (delay !== 2_000) return nativeSetInterval(callback, delay, ...args)
-      clockTick = callback
-      return 77
-    })
+  it('does not recalibrate music playback on a periodic timer', async () => {
+    const intervalSpy = vi.spyOn(window, 'setInterval')
     const view = renderRoom()
     await readyMineradio()
-    await waitFor(() => expect(typeof clockTick).toBe('function'))
-
-    mocks.socket.emit.mockClear()
-    const callsBefore = mocks.applySnapshot.mock.calls.length
-    act(() => clockTick())
-    await waitFor(() => expect(mocks.applySnapshot.mock.calls.length).toBeGreaterThan(callsBefore))
-    expect(mocks.applySnapshot).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ version: 5 }),
-      expect.objectContaining({ steadyState: true }),
-    )
+    expect(intervalSpy.mock.calls.some(([, delay]) => delay === 2_000)).toBe(false)
     expect(mocks.socket.emit).not.toHaveBeenCalledWith('time_heartbeat', expect.anything())
-
-    act(() => {
-      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
-      document.dispatchEvent(new Event('visibilitychange'))
-    })
-    await waitFor(() => expect(clearIntervalSpy).toHaveBeenCalledWith(77))
     view.unmount()
   })
 
@@ -322,7 +299,7 @@ describe('music room reconnect and authority UI', () => {
     renderRoom()
     const frame = await readyMineradio()
 
-    expect(intervalSpy.mock.calls.some(([, delay]) => delay === 2_000)).toBe(true)
+    expect(intervalSpy.mock.calls.some(([, delay]) => delay === 2_000)).toBe(false)
     expect(intervalSpy.mock.calls.some(([, delay]) => delay === 5_000)).toBe(false)
     expect(frame).toHaveAttribute('src', '/mineradio/?blue-room=9')
     await latestRoomState(frame, { canControl: false, userId: 2 })

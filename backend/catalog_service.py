@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import catalog_repository
-from catalog_domain import ProviderTrack, canonicalize_tracks
+from catalog_domain import ProviderTrack, canonicalize_tracks, normalize_identity
 import models
 from music_providers import MusicProviderAdapter, ProviderError
 
@@ -234,11 +234,25 @@ async def search_catalog(
 
     groups = canonicalize_tracks(tracks)
     persisted = catalog_repository.upsert_canonical_groups(db, groups) if groups else []
-    items = [
+    payloads = [
         payload
         for canonical in persisted
         if (payload := catalog_repository.canonical_payload(db, canonical.id)) is not None
     ]
+    first_seen: dict[tuple[str, str], int] = {}
+    for index, track in enumerate(tracks):
+        first_seen.setdefault((track.provider, track.provider_track_id), index)
+    exact_title = normalize_identity(query)
+    items = sorted(
+        payloads,
+        key=lambda item: (
+            0 if normalize_identity(item.get("title")) == exact_title else 1,
+            min(
+                (first_seen.get((provider.get("provider"), provider.get("provider_track_id")), len(tracks))
+                 for provider in item.get("providers", [])),
+            ),
+        ),
+    )
     return {
         "query": str(query).strip(),
         "items": items,

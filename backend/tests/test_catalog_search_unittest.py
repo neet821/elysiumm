@@ -185,6 +185,26 @@ class CatalogSearchServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(started), {"netease", "qq"})
         self.assertEqual(len(result["items"]), 1)
 
+    async def test_search_keeps_provider_relevance_and_exact_title_first(self):
+        result = await catalog_service.search_catalog(
+            self.db,
+            "泪海",
+            ["netease"],
+            10,
+            {
+                "netease": FakeAdapter([
+                    track("netease", "ne-related", title="欲泪海", artist="Other", isrc="USRELATED"),
+                    track("netease", "ne-exact", title="泪海", artist="陈明", isrc=None),
+                    track("netease", "ne-tail", title="泪海现场版", artist="Live", isrc="USTAIL"),
+                ]),
+            },
+        )
+
+        self.assertEqual(
+            [item["title"] for item in result["items"]],
+            ["泪海", "欲泪海", "泪海现场版"],
+        )
+
 
 class CatalogSearchRouteTest(unittest.TestCase):
     def setUp(self):

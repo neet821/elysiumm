@@ -78,19 +78,19 @@ describe('room player integration boundary', () => {
     expect(result).toEqual(expect.objectContaining({ applied: true, trackChanged: true }))
   })
 
-  it('uses temporary rate correction without reload or seek for medium drift', async () => {
+  it('does not correct music playback with temporary rate changes during steady state', async () => {
     const playerTrack = roomQueueTrackToPlayerTrack(queueTrack)
     const adapter = adapterWith({ currentTime: 25.2, isPlaying: true, track: playerTrack })
 
     await applyRoomSnapshot(
       adapter,
       { isPlaying: true, time: 24, track: queueTrack },
-      { clientNowMs: 1_000, receivedAtMs: 1_000, setTimer: vi.fn(() => 1) },
+      { clientNowMs: 1_000, receivedAtMs: 1_000, steadyState: true },
     )
 
     expect(adapter.load).not.toHaveBeenCalled()
     expect(adapter.seek).not.toHaveBeenCalled()
-    expect(adapter.setPlaybackRate).toHaveBeenCalledWith(0.92)
+    expect(adapter.setPlaybackRate).not.toHaveBeenCalled()
     expect(adapter.play).not.toHaveBeenCalled()
     expect(adapter.pause).not.toHaveBeenCalled()
   })
@@ -119,6 +119,15 @@ describe('room player integration boundary', () => {
       event: 'playback_control',
       payload: { action, playback_version: 4, room_id: 9, time: 15 },
     })
+  })
+
+  it.each(['play', 'pause', 'seek'])('suppresses %s events for music rooms', (eventName) => {
+    expect(playerEventToRoomIntent(eventName, { currentTime: 15 }, {
+      canControl: true,
+      mediaKind: 'music',
+      roomId: 9,
+      version: 4,
+    })).toBeNull()
   })
 
   it('does not turn a music-room progress gesture into a room command', () => {

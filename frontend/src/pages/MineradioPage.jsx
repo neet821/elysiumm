@@ -110,7 +110,8 @@ export default function MineradioPage() {
   const [catalogSource, setCatalogSource] = useState(() => {
     try {
       const saved = window.localStorage.getItem('elysium.music.catalogSource')
-      return saved === 'qq' ? 'qq' : 'netease'
+      if (saved === 'qq') window.localStorage.setItem('elysium.music.catalogSource', 'netease')
+      return 'netease'
     } catch (_) {
       return 'netease'
     }
@@ -123,7 +124,6 @@ export default function MineradioPage() {
   const [currentUnavailableReason, setCurrentUnavailableReason] = useState('')
   const [snapshotRecord, setSnapshotRecord] = useState(null)
   const [syncStatus, setSyncStatus] = useState('connecting')
-  const [pageVisible, setPageVisible] = useState(() => document.visibilityState !== 'hidden')
 
   const current = useMemo(() => currentQueueTrack(queue), [queue])
   const playerTrack = useMemo(() => roomQueueTrackToPlayerTrack(resolvedCurrent), [resolvedCurrent])
@@ -275,15 +275,6 @@ export default function MineradioPage() {
   }, [playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
 
   useEffect(() => {
-    if (!pageVisible || !playerReady || !resolvedCurrent || !snapshotRecord) return undefined
-    const timer = window.setInterval(() => {
-      const latest = latestSnapshotRef.current
-      if (latest) syncPlayer(latest, { steadyState: true })
-    }, 2_000)
-    return () => window.clearInterval(timer)
-  }, [pageVisible, playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
-
-  useEffect(() => {
     if (playerReady && !resolvedCurrent && !current) {
       playerAdapterRef.current?.clear?.()
       cancelRoomSync(playerAdapterRef.current, syncStateRef.current)
@@ -353,8 +344,17 @@ export default function MineradioPage() {
         setMessages((messageHistory.data || []).reverse())
         setHistory(activityHistory?.data?.items || [])
         apiClient.get(API_ENDPOINTS.MUSIC_PROVIDER_CAPABILITIES).then((response) => {
-          if (active) setProviderCapabilities(response.data?.providers || [])
-        }).catch(() => {})
+          if (!active) return
+          const providers = Array.isArray(response.data?.providers) ? response.data.providers : []
+          setProviderCapabilities(providers.map((provider) => provider.provider === 'qq'
+            ? { ...provider, searchable: false, playable: false, reason: '暂未开放' }
+            : provider))
+        }).catch(() => {
+          if (active) setProviderCapabilities([
+            { provider: 'netease', label: '网易云', searchable: true, playable: true },
+            { provider: 'qq', label: 'QQ 音乐', searchable: false, playable: false, reason: '暂未开放' },
+          ])
+        })
         if (snapshotResponse) {
           acceptSnapshot(snapshotResponse.data)
         } else {
@@ -447,15 +447,10 @@ export default function MineradioPage() {
       if (data?.snapshot) acceptSnapshot(data.snapshot, { conflict: true })
       else setNotice('房间状态发生冲突，正在重新同步')
     })
-    socket.on('time_heartbeat', (data) => {
-      const latest = latestSnapshotRef.current?.snapshot
-      if (!latest || Number(data?.version) !== Number(latest.version)) return
-      acceptSnapshot({
-        ...latest,
-        position: Number(data.position) || 0,
-        server_now_ms: Number(data.server_now_ms) || Date.now(),
-        started_at_server_ms: Number(data.server_now_ms) || Date.now(),
-      })
+    socket.on('time_heartbeat', () => {
+      // Presence/clock heartbeats do not recalibrate a music room. Playback
+      // is corrected only by an authoritative snapshot (join, track change,
+      // reconnect, page restore, or an explicit resync).
     })
     socket.on('error', (data) => {
       if (data?.message) setNotice(data.message)
@@ -474,7 +469,6 @@ export default function MineradioPage() {
   useEffect(() => {
     const restore = () => {
       const visible = document.visibilityState !== 'hidden'
-      setPageVisible(visible)
       if (visible) requestSnapshot()
     }
     document.addEventListener('visibilitychange', restore)
@@ -561,6 +555,10 @@ export default function MineradioPage() {
   const runCatalogSearch = async (keywordValue, sourceValue = catalogSource) => {
     const keyword = String(keywordValue || '').trim()
     if (!keyword || searching) return
+    if (sourceValue !== 'netease') {
+      setNotice('QQ 音乐暂未开放，请使用网易云')
+      return
+    }
     setSearching(true)
     try {
       const response = await apiClient.get(API_ENDPOINTS.MUSIC_SEARCH, {
@@ -643,14 +641,14 @@ export default function MineradioPage() {
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'source') {
-      const source = payload.source === 'qq' ? 'qq' : 'netease'
+      const source = 'netease'
       setCatalogSource(source)
       try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
       setCatalog([])
     } else if (action === 'propose-catalog') await proposeCatalogTrack(payload.track)
     else if (action === 'search') {
       setSearchQuery(payload.query || '')
-      const source = payload.source === 'qq' ? 'qq' : 'netease'
+      const source = 'netease'
       setCatalogSource(source)
       try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
       await runCatalogSearch(payload.query, source)

@@ -733,9 +733,9 @@ async def playback_control(sid, data):
             await sio.emit('error', {'message': '房间不存在'}, room=sid)
             return
 
-        if room.mode == 'music' and action == 'seek':
+        if room.mode == 'music' and action in {'play', 'pause', 'seek', 'rate'}:
             await sio.emit('error', {
-                'message': '听歌房不支持拖动进度',
+                'message': '听歌房采用自动连续播放，不支持手动播放、暂停、拖动或调速',
                 'room_id': room_id,
             }, room=sid)
             return
