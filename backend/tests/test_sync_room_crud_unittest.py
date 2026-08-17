@@ -60,6 +60,18 @@ class SyncRoomCrudTest(unittest.TestCase):
         self.assertEqual(members[0]["user_id"], self.user.id)
         self.assertTrue(members[0]["is_online"])
 
+    def test_create_music_room_starts_with_empty_paused_playback(self):
+        payload = schemas.SyncRoomCreate(room_name="空房", mode="music")
+
+        room = sync_room_crud.create_room(self.db, payload, self.user.id)
+
+        self.assertEqual(room.playback_version, 0)
+        self.assertEqual(room.current_time, 0)
+        self.assertFalse(room.is_playing)
+        self.assertIsNone(room.current_queue_item_id)
+        self.assertEqual(room.playback_started_at_server_ms, 0)
+        self.assertEqual(room.playback_rate, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

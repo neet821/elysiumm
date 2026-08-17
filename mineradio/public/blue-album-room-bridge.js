@@ -10,7 +10,8 @@
   var boundAudio = null;
   var lastTrackKey = '';
   var lastTimeSentAt = 0;
-  var remoteControlUntil = 0;
+  var remoteApplyId = null;
+  var ignoreNextSeek = false;
   var applyRoomSequence = 0;
   var roomState = { inRoom: false, rooms: [], queue: [], members: [], messages: [] };
   var lastRoomNotice = '';
@@ -103,8 +104,8 @@
     send('track', track);
   }
 
-  function emitPlayback(actionName, force) {
-    if (!window.audio || (!force && Date.now() < remoteControlUntil)) return;
+  function emitPlayback(actionName) {
+    if (!window.audio || remoteApplyId !== null) return;
     send('playback', {
       action: actionName,
       time: Number(window.audio.currentTime || 0),
@@ -122,7 +123,10 @@
     boundAudio.onended = null;
     boundAudio.addEventListener('play', function () { emitTrackIfChanged(); emitPlayback('play'); });
     boundAudio.addEventListener('pause', function () { emitPlayback('pause'); });
-    boundAudio.addEventListener('seeked', function () { emitPlayback('seek'); });
+    boundAudio.addEventListener('seeked', function () {
+      if (ignoreNextSeek) { ignoreNextSeek = false; return; }
+      emitPlayback('seek');
+    });
     boundAudio.addEventListener('ended', function () { emitPlayback('ended'); });
     boundAudio.addEventListener('timeupdate', function () {
       if (Date.now() - lastTimeSentAt < 2000) return;
@@ -169,10 +173,32 @@
   async function applyRoomState(state) {
     var sequence = ++applyRoomSequence;
     state = state || {};
+    var applyId = state.apply_id || ('room-state-' + sequence);
+    remoteApplyId = applyId;
     var track = state.track || null;
     var wantedKey = trackKey(track);
     var activeKey = trackKey(trackPayload(currentSong()));
-    remoteControlUntil = Date.now() + 3500;
+
+    if (state.reset || !track) {
+      if (window.audio) {
+        try { window.audio.pause(); } catch (_) {}
+        try { window.audio.removeAttribute('src'); window.audio.load(); } catch (_) {}
+        try { window.audio.currentTime = 0; } catch (_) {}
+      }
+      window.playQueue = [];
+      window.currentIdx = -1;
+      window.currentLocalSong = null;
+      window.playing = false;
+      lastTrackKey = '';
+      ignoreNextSeek = true;
+      if (typeof window.setOriginalLyricsState === 'function') window.setOriginalLyricsState([], false, 'blue-album-room');
+      if (typeof window.applyOriginalLyricsState === 'function') window.applyOriginalLyricsState();
+      if (typeof window.setPlayIcon === 'function') window.setPlayIcon(false);
+      syncRoomShelf([]);
+      remoteApplyId = null;
+      send('sync-applied', { apply_id: applyId, reset: true });
+      return;
+    }
 
     if (track && wantedKey && wantedKey !== activeKey && typeof window.playQueueAt === 'function') {
       var song = songFromRoomTrack(track);
@@ -207,6 +233,7 @@
     if (Number.isFinite(Number(state.volume))) window.audio.volume = Math.min(1, Math.max(0, Number(state.volume)));
     var targetTime = Number(state.time);
     if (Number.isFinite(targetTime) && Math.abs(window.audio.currentTime - targetTime) > 0.75) {
+      ignoreNextSeek = true;
       try { window.audio.currentTime = Math.max(0, targetTime); } catch (error) {}
     }
     if (state.is_playing === true || state.action === 'play') {
@@ -216,6 +243,8 @@
       window.playing = false;
       if (window.setPlayIcon) window.setPlayIcon(false);
     }
+    remoteApplyId = null;
+    send('sync-applied', { apply_id: applyId, track: track });
   }
 
   function installRoomStyles() {
@@ -224,6 +253,7 @@
     style.textContent = [
       'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #search-area,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas{display:none!important}',
       '#blue-room-btn{position:relative}',
+      'body.blue-album-room-mode #progress-bar{pointer-events:none!important;cursor:default!important}',
       '#blue-room-leave{position:fixed;z-index:19;left:24px;top:24px;width:54px;height:54px;border-radius:50%;border:1px solid rgba(0,245,212,.30);background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.055) 48%,rgba(0,245,212,.055));color:rgba(232,236,239,.88);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(26px) saturate(1.34);-webkit-backdrop-filter:blur(26px) saturate(1.34);box-shadow:0 14px 40px rgba(0,0,0,.34),0 0 24px rgba(0,245,212,.07),inset 0 1px 0 rgba(255,255,255,.18)}',
       '#blue-room-leave:hover{color:#fff;border-color:rgba(0,245,212,.50);background:rgba(0,245,212,.075);transform:translateY(-2px) scale(1.04)}',
       '#blue-room-btn .br-live{position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--fc-accent);box-shadow:0 0 10px rgba(var(--fc-accent-rgb),.9);opacity:0}',
@@ -314,14 +344,27 @@
   function bindNativeRoomControls() {
     var playButton = document.getElementById('play-btn');
     var progressBar = document.getElementById('progress-bar');
-    if (playButton) playButton.addEventListener('click', function () {
-      remoteControlUntil = Date.now() + 500;
-      window.setTimeout(function () { emitPlayback(window.audio && window.audio.paused ? 'pause' : 'play', true); }, 80);
+    if (playButton) playButton.addEventListener('click', function (event) {
+      if (roomState.inRoom && !roomState.canControl) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
     }, true);
-    if (progressBar) progressBar.addEventListener('pointerup', function () {
-      remoteControlUntil = Date.now() + 500;
-      window.setTimeout(function () { emitPlayback('seek', true); }, 80);
-    }, true);
+    if (progressBar) {
+      progressBar.setAttribute('aria-disabled', 'true');
+      progressBar.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, true);
+      progressBar.addEventListener('pointermove', function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, true);
+      progressBar.addEventListener('pointerup', function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, true);
+    }
   }
 
   function disablePersonalRoomTracking() {
@@ -498,6 +541,7 @@
     if (message.source !== 'blue-album-room') return;
     if (message.type === 'sync') {
       applyRoomState(message.payload).catch(function (error) {
+        remoteApplyId = null;
         send('error', { message: error && error.message ? error.message : '同步失败' });
       });
     }

@@ -53,6 +53,11 @@ def create_room(db: Session, room: schemas.SyncRoomCreate, user_id: int) -> mode
         game_type=room.game_type,
         lifecycle_status="active",
         playback_version=0,
+        current_time=0,
+        is_playing=False,
+        current_queue_item_id=None,
+        playback_started_at_server_ms=0,
+        playback_rate=1.0,
         is_deleted=False,
         expires_at=datetime.utcnow() + timedelta(hours=24), # 默认24小时后过期
         last_activity_at=datetime.utcnow()  # 初始化活动时间

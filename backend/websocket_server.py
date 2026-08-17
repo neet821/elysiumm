@@ -733,6 +733,13 @@ async def playback_control(sid, data):
             await sio.emit('error', {'message': '房间不存在'}, room=sid)
             return
 
+        if room.mode == 'music' and action == 'seek':
+            await sio.emit('error', {
+                'message': '听歌房不支持拖动进度',
+                'room_id': room_id,
+            }, room=sid)
+            return
+
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not sync_room_crud.can_perform_room_action(db, room, user, "playback_control"):
             await sio.emit('error', {'message': '您没有权限控制播放'}, room=sid)

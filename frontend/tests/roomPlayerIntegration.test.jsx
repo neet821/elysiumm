@@ -121,6 +121,15 @@ describe('room player integration boundary', () => {
     })
   })
 
+  it('does not turn a music-room progress gesture into a room command', () => {
+    expect(playerEventToRoomIntent('seek', { currentTime: 18 }, {
+      canControl: true,
+      mediaKind: 'music',
+      roomId: 9,
+      version: 4,
+    })).toBeNull()
+  })
+
   it('reports a real ended event to the music-room authority with item and version', () => {
     expect(playerEventToRoomIntent('ended', { track: { id: 42 } }, {
       canControl: true,

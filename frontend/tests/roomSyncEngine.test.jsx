@@ -76,6 +76,26 @@ function adapterWith(state = {}) {
 }
 
 describe('authoritative room sync engine', () => {
+  it('ignores half-second drift and soft-corrects a moderate gap', async () => {
+    const smallDrift = adapterWith({ currentTime: 10.4 })
+    const mediumDrift = adapterWith({ currentTime: 8.5 })
+
+    await applyAuthoritativeSnapshot(smallDrift, snapshot({ position: 10 }), {
+      clientNowMs: 1_000,
+      receivedAtMs: 1_000,
+      setTimer: vi.fn(() => 1),
+    })
+    expect(smallDrift.seek).not.toHaveBeenCalled()
+    expect(smallDrift.setPlaybackRate).not.toHaveBeenCalled()
+
+    await applyAuthoritativeSnapshot(mediumDrift, snapshot({ position: 10 }), {
+      clientNowMs: 1_000,
+      receivedAtMs: 1_000,
+      setTimer: vi.fn(() => 1),
+    })
+    expect(mediumDrift.seek).not.toHaveBeenCalled()
+    expect(mediumDrift.setPlaybackRate).toHaveBeenCalled()
+  })
   it('estimates server offset and projects paused or playing snapshots', () => {
     const playing = snapshot({ playback_rate: 1.25 })
     const paused = snapshot({ position: 22, state: 'paused' })
@@ -85,17 +105,17 @@ describe('authoritative room sync engine', () => {
     expect(projectSnapshotPosition(paused, 9_000, -500)).toBe(22)
   })
 
-  it('classifies the exact 150 and 600 millisecond drift bands', () => {
-    expect(DRIFT_IGNORE_SECONDS).toBe(0.15)
-    expect(DRIFT_SEEK_SECONDS).toBe(0.6)
-    expect(classifyDrift(10, 10.149).kind).toBe('none')
-    expect(classifyDrift(10, 10.15).kind).toBe('rate')
-    expect(classifyDrift(10, 10.6).kind).toBe('rate')
-    expect(classifyDrift(10, 10.601).kind).toBe('seek')
+  it('classifies the exact half-second and two-second drift bands', () => {
+    expect(DRIFT_IGNORE_SECONDS).toBe(0.5)
+    expect(DRIFT_SEEK_SECONDS).toBe(2)
+    expect(classifyDrift(10, 10.499).kind).toBe('none')
+    expect(classifyDrift(10, 10.5).kind).toBe('rate')
+    expect(classifyDrift(10, 12).kind).toBe('rate')
+    expect(classifyDrift(10, 12.001).kind).toBe('seek')
   })
 
   it('ignores small drift without touching playback position or rate', async () => {
-    const adapter = adapterWith({ currentTime: 9.9 })
+    const adapter = adapterWith({ currentTime: 9.6 })
 
     const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
       clientNowMs: 1_000,
@@ -110,7 +130,7 @@ describe('authoritative room sync engine', () => {
   })
 
   it('uses a bounded temporary rate for medium drift and restores it', async () => {
-    const adapter = adapterWith({ currentTime: 9.7 })
+    const adapter = adapterWith({ currentTime: 8.8 })
     let restore
     const setTimer = vi.fn((callback, _delay) => {
       restore = callback
@@ -134,7 +154,7 @@ describe('authoritative room sync engine', () => {
   })
 
   it('slows down for a medium negative drift and seeks for large drift', async () => {
-    const slowAdapter = adapterWith({ currentTime: 10.3 })
+    const slowAdapter = adapterWith({ currentTime: 11 })
     await applyAuthoritativeSnapshot(slowAdapter, snapshot(), {
       clientNowMs: 1_000,
       playerTrack,
@@ -144,7 +164,7 @@ describe('authoritative room sync engine', () => {
     })
     expect(slowAdapter.setPlaybackRate).toHaveBeenLastCalledWith(0.92)
 
-    const seekAdapter = adapterWith({ currentTime: 9.2 })
+    const seekAdapter = adapterWith({ currentTime: 7.8 })
     const result = await applyAuthoritativeSnapshot(seekAdapter, snapshot(), {
       clientNowMs: 1_000,
       playerTrack,
@@ -175,7 +195,7 @@ describe('authoritative room sync engine', () => {
   })
 
   it('seeks medium drift while paused because rate correction cannot progress', async () => {
-    const adapter = adapterWith({ currentTime: 9.7, isPlaying: false })
+    const adapter = adapterWith({ currentTime: 8.5, isPlaying: false })
     const result = await applyAuthoritativeSnapshot(
       adapter,
       snapshot({ state: 'paused' }),
@@ -193,7 +213,7 @@ describe('authoritative room sync engine', () => {
   })
 
   it('ignores older versions and cancels an older temporary restoration', async () => {
-    const adapter = adapterWith({ currentTime: 9.7 })
+    const adapter = adapterWith({ currentTime: 8.8 })
     const clearTimer = vi.fn()
     const syncState = createRoomSyncState()
 

@@ -21,6 +21,7 @@ describe('Mineradio room embed', () => {
     const onAdapterReady = vi.fn()
     render(<MineradioRoomEmbed roomId="9" track={track} onAdapterReady={onAdapterReady} />)
     const frame = screen.getByTitle('Mineradio 原版房间播放器')
+    vi.spyOn(frame.contentWindow, 'postMessage')
 
     expect(frame).toHaveAttribute('src', '/mineradio/?blue-room=9')
     expect(onAdapterReady).not.toHaveBeenCalled()
@@ -38,10 +39,22 @@ describe('Mineradio room embed', () => {
       snapshot: expect.any(Function),
     })))
     const adapter = onAdapterReady.mock.calls.at(-1)[0]
+    expect(adapter.clear).toEqual(expect.any(Function))
     adapter.load(track)
     expect(adapter.snapshot()).toMatchObject({ isPlaying: false, track })
     adapter.play()
     expect(adapter.snapshot().isPlaying).toBe(true)
+    adapter.clear()
+    expect(adapter.snapshot()).toMatchObject({ isPlaying: false, track: null, currentTime: 0 })
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ reset: true, track: null }),
+    }), window.location.origin)
+    const syncCommands = frame.contentWindow.postMessage.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === 'sync')
+      .map((message) => message.payload.apply_id)
+    expect(syncCommands.length).toBeGreaterThanOrEqual(2)
+    expect(new Set(syncCommands).size).toBe(syncCommands.length)
   })
 
   it('forwards room controls only from the embedded Mineradio frame', async () => {
@@ -98,6 +111,8 @@ describe('Mineradio room embed', () => {
     expect(bridge).toContain('Spotify')
     expect(bridge).not.toContain('固定五首')
     expect(bridge).toContain('boundAudio.onended = null')
+    expect(bridge).toContain('sync-applied')
+    expect(bridge).toMatch(/#progress-bar[^']*pointer-events:none/)
     expect(bridge).toContain('退出房间')
     expect(bridge).not.toContain("diyButton.textContent = '特效'")
     expect(bridge).toContain('roomStreamUrl')

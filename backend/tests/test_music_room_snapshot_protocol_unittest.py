@@ -314,6 +314,27 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         self.assertTrue(room.is_playing)
         self.assertEqual(room.playback_version, 1)
 
+    def test_music_room_rejects_seek_control(self):
+        self.sessions["sid-host"] = self.trusted_session(self.host)
+
+        asyncio.run(
+            websocket_server.playback_control(
+                "sid-host",
+                {
+                    "room_id": self.room.id,
+                    "action": "seek",
+                    "time": 42,
+                    "playback_version": 0,
+                },
+            )
+        )
+
+        self.assertTrue(self.events("error"))
+        self.assertFalse(self.events("room_snapshot"))
+        self.db.expire_all()
+        room = self.db.get(models.SyncRoom, self.room.id)
+        self.assertEqual(room.playback_version, 0)
+
     def test_rate_control_is_bounded_and_versioned(self):
         self.sessions["sid-host"] = self.trusted_session(self.host)
 

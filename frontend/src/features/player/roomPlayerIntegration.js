@@ -61,6 +61,7 @@ export async function applyRoomSnapshot(adapter, snapshot, options = {}) {
 
 export function playerEventToRoomIntent(eventName, snapshot, context = {}) {
   if (context.suppress || !context.canControl || !context.roomId) return null
+  if (eventName === 'seek' && context.mediaKind === 'music') return null
   const time = Math.max(0, Number(snapshot?.currentTime) || 0)
 
   if (eventName === 'ended') {

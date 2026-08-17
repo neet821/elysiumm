@@ -161,7 +161,7 @@ describe('VideoPlayerAdapter', () => {
     expect(ignored.correction).toBe('none')
 
     const timers = []
-    const corrected = await applyVideoSnapshot(adapter, snapshot({ position: 10.4, state: 'playing', version: 2 }), track, {
+    const corrected = await applyVideoSnapshot(adapter, snapshot({ position: 10.8, state: 'playing', version: 2 }), track, {
       clientNowMs: 10_000,
       receivedAtMs: 10_000,
       setTimer: (callback) => { timers.push(callback); return 1 },
@@ -172,13 +172,13 @@ describe('VideoPlayerAdapter', () => {
     timers[0]()
     expect(video.playbackRate).toBe(1)
 
-    const jumped = await applyVideoSnapshot(adapter, snapshot({ position: 12, state: 'playing', version: 3 }), track, {
+    const jumped = await applyVideoSnapshot(adapter, snapshot({ position: 12.1, state: 'playing', version: 3 }), track, {
       clientNowMs: 10_000,
       receivedAtMs: 10_000,
       syncState,
     })
     expect(jumped.correction).toBe('seek')
-    expect(video.currentTime).toBe(12)
+    expect(video.currentTime).toBe(12.1)
   })
 
   it('refreshes subtitle tracks when the selection changes on the same video', async () => {
@@ -211,7 +211,7 @@ describe('VideoPlayerAdapter', () => {
     adapter.load(track)
     const clearTimer = vi.fn()
     const syncState = createRoomSyncState()
-    await applyVideoSnapshot(adapter, snapshot({ position: 0.3, state: 'playing' }), track, {
+    await applyVideoSnapshot(adapter, snapshot({ position: 1, state: 'playing' }), track, {
       clientNowMs: 10_000,
       receivedAtMs: 10_000,
       setTimer: () => 91,

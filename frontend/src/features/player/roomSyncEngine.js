@@ -1,5 +1,5 @@
-export const DRIFT_IGNORE_SECONDS = 0.15
-export const DRIFT_SEEK_SECONDS = 0.6
+export const DRIFT_IGNORE_SECONDS = 0.5
+export const DRIFT_SEEK_SECONDS = 2
 export const TEMPORARY_RATE_MS = 1_500
 
 const MIN_PLAYBACK_RATE = 0.5

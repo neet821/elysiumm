@@ -273,6 +273,13 @@ export default function MineradioPage() {
     if (playerReady && resolvedCurrent && snapshotRecord) syncPlayer(snapshotRecord)
   }, [playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
 
+  useEffect(() => {
+    if (playerReady && !resolvedCurrent && !current) {
+      playerAdapterRef.current?.clear?.()
+      cancelRoomSync(playerAdapterRef.current, syncStateRef.current)
+    }
+  }, [current, playerReady, resolvedCurrent])
+
   const requestSnapshot = useCallback(() => {
     const socket = socketRef.current
     if (!socket) return false
@@ -290,6 +297,7 @@ export default function MineradioPage() {
       canControl,
       currentItemId: resolvedCurrent?.id,
       isHost,
+      mediaKind: 'music',
       roomId,
       suppress: remoteSyncRef.current !== 0 || Date.now() < remoteSyncUntilRef.current,
       version: versionRef.current,

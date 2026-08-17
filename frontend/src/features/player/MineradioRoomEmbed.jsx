@@ -21,9 +21,16 @@ function roomTrack(track) {
 class MineradioFrameAdapter {
   constructor(send) {
     this.send = send
+    this.commandId = 0
     this.listeners = new Map()
     this.state = { currentTime: 0, duration: 0, paused: true, playbackRate: 1, volume: 1 }
     this.track = null
+  }
+
+  command(payload) {
+    const commandId = `${Date.now()}-${++this.commandId}`
+    this.send('sync', { ...payload, apply_id: commandId })
+    return commandId
   }
 
   emit(name, payload) {
@@ -41,7 +48,7 @@ class MineradioFrameAdapter {
     this.track = track
     this.state.currentTime = Number(options.currentTime || 0)
     this.state.paused = options.autoplay !== true
-    this.send('sync', {
+    this.command({
       action: this.state.paused ? 'pause' : 'play',
       is_playing: !this.state.paused,
       time: this.state.currentTime,
@@ -51,27 +58,33 @@ class MineradioFrameAdapter {
 
   play() {
     this.state.paused = false
-    this.send('sync', { action: 'play', is_playing: true, time: this.state.currentTime, track: roomTrack(this.track) })
+    this.command({ action: 'play', is_playing: true, time: this.state.currentTime, track: roomTrack(this.track) })
   }
 
   pause() {
     this.state.paused = true
-    this.send('sync', { action: 'pause', is_playing: false, time: this.state.currentTime, track: roomTrack(this.track) })
+    this.command({ action: 'pause', is_playing: false, time: this.state.currentTime, track: roomTrack(this.track) })
   }
 
   seek(time) {
     this.state.currentTime = Math.max(0, Number(time || 0))
-    this.send('sync', { action: 'seek', is_playing: !this.state.paused, time: this.state.currentTime, track: roomTrack(this.track) })
+    this.command({ action: 'seek', is_playing: !this.state.paused, time: this.state.currentTime, track: roomTrack(this.track) })
   }
 
   setVolume(volume) {
     this.state.volume = Math.min(1, Math.max(0, Number(volume || 0)))
-    this.send('sync', { action: 'volume', volume: this.state.volume, track: roomTrack(this.track) })
+    this.command({ action: 'volume', volume: this.state.volume, track: roomTrack(this.track) })
   }
 
   setPlaybackRate(rate) {
     this.state.playbackRate = Math.max(0.25, Number(rate || 1))
-    this.send('sync', { action: 'rate', playback_rate: this.state.playbackRate, track: roomTrack(this.track) })
+    this.command({ action: 'rate', playback_rate: this.state.playbackRate, track: roomTrack(this.track) })
+  }
+
+  clear() {
+    this.track = null
+    this.state = { ...this.state, currentTime: 0, duration: 0, paused: true, playbackRate: 1 }
+    this.command({ reset: true, action: 'pause', is_playing: false, time: 0, track: null, queue: [] })
   }
 
   snapshot() {
