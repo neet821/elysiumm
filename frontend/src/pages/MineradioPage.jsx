@@ -27,63 +27,6 @@ const ROOM_STATUS_LABELS = {
   syncing: '正在同步…',
 }
 
-const availabilityLabels = {
-  playable: '可播放',
-  preview: '试听',
-  unavailable: '不可用',
-}
-
-const normalizeCatalogTrack = (song, preferredProvider = null) => {
-  const providers = Array.isArray(song?.providers) ? song.providers : []
-  const selected = preferredProvider
-    ? providers.filter((item) => item.provider === preferredProvider)
-    : providers
-  const mapping = selected.find((item) => item.availability === 'playable')
-    || selected.find((item) => item.availability === 'preview')
-    || selected[0]
-  return {
-    album: song?.album || null,
-    artist: String(song?.artist || '未知音乐人'),
-    artwork_url: song?.artwork_url || null,
-    availability: availabilityLabels[song?.availability] ? song.availability : 'unavailable',
-    canonical_id: song?.id,
-    duration_seconds: Math.max(0, Math.round(Number(song?.duration_seconds || 0))),
-    media_mid: mapping?.media_mid || null,
-    provider: mapping?.provider || null,
-    provider_track_id: String(mapping?.provider_track_id || ''),
-    providers,
-    unavailable_reason: song?.unavailable_reason || (
-      providers.some((item) => Number(item.fee) > 0)
-        ? '需要会员权限，或服务器配置的音乐账号无权播放'
-        : '当前已配置曲库没有可播放地址'
-    ),
-    title: String(song?.title || '未知歌曲'),
-  }
-}
-
-function roomTitle(room, roomId) {
-  return room?.room_name || room?.name || `听歌房 ${roomId}`
-}
-
-function roomHistoryText(event) {
-  const summary = event?.summary || {}
-  const title = summary.title ? `《${summary.title}》` : '歌曲'
-  const actor = event?.actor?.username || '房间成员'
-  const messages = {
-    chat_message: `${actor} 发送了一条${summary.is_private ? '私密' : ''}消息`,
-    member_joined: `${actor} 加入房间`,
-    member_left: `${actor} 离开房间`,
-    playback_control: `${actor} 更新了播放状态`,
-    proposal_approved: `${title} 已通过点歌投票`,
-    proposal_created: `${actor} 发起点歌 ${title}`,
-    proposal_voted: `${actor} 参与了点歌投票`,
-    queue_liked: `${actor} 点赞了待播歌曲`,
-    skip_voted: `${actor} 参与了切歌投票`,
-    track_changed: `正在播放 ${title}${summary.artist ? ` · ${summary.artist}` : ''}`,
-  }
-  return messages[event?.event_type] || '房间状态已更新'
-}
-
 export default function MineradioPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -106,20 +49,6 @@ export default function MineradioPage() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
-  const [catalog, setCatalog] = useState([])
-  const [catalogSource, setCatalogSource] = useState(() => {
-    try {
-      const saved = window.localStorage.getItem('elysium.music.catalogSource')
-      if (saved === 'qq') window.localStorage.setItem('elysium.music.catalogSource', 'netease')
-      return 'netease'
-    } catch (_) {
-      return 'netease'
-    }
-  })
-  const [providerCapabilities, setProviderCapabilities] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [chatDraft, setChatDraft] = useState('')
   const [resolvedCurrent, setResolvedCurrent] = useState(null)
   const [currentUnavailableReason, setCurrentUnavailableReason] = useState('')
   const [snapshotRecord, setSnapshotRecord] = useState(null)
@@ -343,18 +272,6 @@ export default function MineradioPage() {
         setQueue(queueResponse.data.queue || [])
         setMessages((messageHistory.data || []).reverse())
         setHistory(activityHistory?.data?.items || [])
-        apiClient.get(API_ENDPOINTS.MUSIC_PROVIDER_CAPABILITIES).then((response) => {
-          if (!active) return
-          const providers = Array.isArray(response.data?.providers) ? response.data.providers : []
-          setProviderCapabilities(providers.map((provider) => provider.provider === 'qq'
-            ? { ...provider, searchable: false, playable: false, reason: '暂未开放' }
-            : provider))
-        }).catch(() => {
-          if (active) setProviderCapabilities([
-            { provider: 'netease', label: '网易云', searchable: true, playable: true },
-            { provider: 'qq', label: 'QQ 音乐', searchable: false, playable: false, reason: '暂未开放' },
-          ])
-        })
         if (snapshotResponse) {
           acceptSnapshot(snapshotResponse.data)
         } else {
@@ -552,47 +469,19 @@ export default function MineradioPage() {
     }
   }
 
-  const runCatalogSearch = async (keywordValue, sourceValue = catalogSource) => {
-    const keyword = String(keywordValue || '').trim()
-    if (!keyword || searching) return
-    if (sourceValue !== 'netease') {
-      setNotice('QQ 音乐暂未开放，请使用网易云')
-      return
-    }
-    setSearching(true)
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.MUSIC_SEARCH, {
-        params: { limit: 30, provider: sourceValue, q: keyword },
-      })
-      const tracks = (response.data.items || []).map((item) => normalizeCatalogTrack(item, sourceValue))
-      setCatalog(tracks)
-      setNotice(`找到 ${tracks.length} 首歌曲`)
-    } catch (error) {
-      setNotice(error.response?.data?.detail || error.message || '曲库搜索失败')
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  const searchCatalog = async (event) => {
-    event.preventDefault()
-    await runCatalogSearch(searchQuery)
-  }
-
-  const proposeCatalogTrack = async (track) => {
-    if (!track || track.availability === 'unavailable' || !track.provider_track_id || selectingRef.current) return
+  const proposeNativeSearchTrack = async (track) => {
+    if (!track || track.provider !== 'netease' || !track.provider_track_id || selectingRef.current) return
     selectingRef.current = true
     try {
       const response = await apiClient.post(API_ENDPOINTS.MUSIC_QUEUE(roomId), {
         album: track.album || null,
-        artist: track.artist,
+        artist: track.artist || '未知音乐人',
         artwork_url: track.artwork_url || null,
-        canonical_track_id: track.canonical_id,
-        duration_seconds: track.duration_seconds || 0,
+        duration_seconds: Math.max(0, Math.round(Number(track.duration_seconds || 0))),
         media_mid: track.media_mid || null,
-        provider: track.provider,
+        provider: 'netease',
         provider_track_id: String(track.provider_track_id),
-        title: track.title,
+        title: track.title || '未命名歌曲',
       })
       setQueue(response.data.queue || [])
       loadHistory({ quiet: true })
@@ -620,12 +509,6 @@ export default function MineradioPage() {
     const message = String(messageValue || '').trim()
     if (!message || !socketRef.current) return
     socketRef.current.emit('send_message', { message, room_id: Number(roomId) })
-    setChatDraft('')
-  }
-
-  const sendChat = (event) => {
-    event.preventDefault()
-    sendChatMessage(chatDraft)
   }
 
   const handleRoomAction = async ({ action, ...payload }) => {
@@ -640,25 +523,11 @@ export default function MineradioPage() {
     else if (action === 'skip') await (isHost ? playNext() : voteSkip())
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
-    else if (action === 'source') {
-      const source = 'netease'
-      setCatalogSource(source)
-      try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
-      setCatalog([])
-    } else if (action === 'propose-catalog') await proposeCatalogTrack(payload.track)
-    else if (action === 'search') {
-      setSearchQuery(payload.query || '')
-      const source = 'netease'
-      setCatalogSource(source)
-      try { window.localStorage.setItem('elysium.music.catalogSource', source) } catch (_) { setNotice('来源偏好无法保存') }
-      await runCatalogSearch(payload.query, source)
-    } else if (action === 'chat') sendChatMessage(payload.message)
+    else if (action === 'propose-native-search') await proposeNativeSearchTrack(payload.track)
+    else if (action === 'chat') sendChatMessage(payload.message)
   }
 
   const mineradioRoomState = {
-    catalog,
-    catalogSource,
-    providerCapabilities,
     canControl,
     inRoom: Boolean(room),
     loading,
@@ -669,7 +538,6 @@ export default function MineradioPage() {
     queue,
     room,
     rooms,
-    searching,
     syncStatus,
     userId,
   }
@@ -695,149 +563,6 @@ export default function MineradioPage() {
           />
         </section>
 
-        <aside hidden className="room-player-sidebar" aria-label="听歌房控制台">
-          <section className="room-player-card">
-            <h2>房间</h2>
-            <div className="room-player-room-list">
-              {rooms.length ? rooms.map((item) => (
-                <button
-                  type="button"
-                  className={String(item.id) === String(roomId) ? 'is-active' : ''}
-                  disabled={String(item.id) === String(roomId)}
-                  key={item.id}
-                  onClick={() => enterRoom(item.id)}
-                >
-                  <span>{roomTitle(item, item.id)}</span>
-                  <small>{item.member_count ?? item.members?.length ?? 0} 人</small>
-                </button>
-              )) : <p>暂无其他听歌房</p>}
-            </div>
-          </section>
-
-          <section className="room-player-card">
-            <h2>搜索点歌</h2>
-            <form className="room-player-search" onSubmit={searchCatalog}>
-              <span className="room-player-fixed-catalog">Mineradio 在线曲库</span>
-              <input
-                aria-label="歌曲或音乐人"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="歌曲或音乐人"
-              />
-              <button type="submit" disabled={searching}>{searching ? '搜索中…' : '搜索'}</button>
-            </form>
-            <ul className="room-player-list room-player-catalog">
-              {catalog.slice(0, 12).map((track) => (
-                <li key={track.canonical_id || `${track.provider}:${track.provider_track_id}`}>
-                  <span>
-                    <strong>{track.title}</strong>
-                    <small>{track.artist}</small>
-                    <small className="room-player-providers" aria-label={`来源 ${track.providers.map((item) => item.provider).join('、')}`}>
-                      {track.providers.map((item) => <span key={`${item.provider}:${item.provider_track_id}`}>{item.provider}</span>)}
-                    </small>
-                    <small className={`room-player-availability is-${track.availability}`}>
-                      {availabilityLabels[track.availability]}
-                    </small>
-                    {track.availability === 'unavailable' && (
-                      <small className="room-player-unavailable-reason">{track.unavailable_reason}</small>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`点歌 ${track.title}`}
-                    disabled={track.availability === 'unavailable'}
-                    onClick={() => proposeCatalogTrack(track)}
-                  >{track.availability === 'unavailable' ? '不可点歌' : '点歌'}</button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="room-player-card">
-            <div className="room-player-card__heading">
-              <h2>房间公共歌单</h2>
-              {current && (
-                <>
-                  <button type="button" onClick={voteSkip}>
-                    投票切歌
-                  </button>
-                  {isHost && <button type="button" onClick={playNext}>播放下一首</button>}
-                </>
-              )}
-            </div>
-            <ul className="room-player-list">
-              {queue.map((item, index) => (
-                <li key={item.id} className={item.status === 'playing' ? 'is-current' : ''}>
-                  <span>
-                    <strong>{item.status === 'playing' ? '正在播放' : `下一首 ${index}`} · {item.title}</strong>
-                    <small>{item.artist} · {item.status === 'proposed' ? '候选' : item.status === 'playing' ? '当前曲目' : '待播'}</small>
-                    <small>点歌人：{item.added_by_name || '房间成员'} · {item.proposal_votes || item.skip_votes || 0} 票</small>
-                    {(item.unavailable_reason || (item.id === current?.id ? currentUnavailableReason : '')) && (
-                      <small className="room-player-unavailable-reason">{item.unavailable_reason || currentUnavailableReason}</small>
-                    )}
-                  </span>
-                  <span className="room-player-list__actions">
-                    {item.status === 'proposed' && (
-                      <button type="button" onClick={() => voteForTrack(item.id)}>
-                        同意 {item.proposal_votes || 0}/{item.proposal_required || 1}
-                      </button>
-                    )}
-                    {item.status === 'queued' && <button type="button" onClick={() => likeTrack(item.id)}>点赞</button>}
-                  </span>
-                </li>
-              ))}
-              {!queue.length && <li>公共歌单还是空的</li>}
-            </ul>
-          </section>
-
-          <section className="room-player-card">
-            <h2>成员 · {members.filter((member) => member.is_online !== false).length}</h2>
-            <ul className="room-player-members">
-              {members.map((member) => (
-                <li key={member.user_id}>
-                  <span>{member.username || `用户 ${member.user_id}`}</span>
-                  <small>用户编号 {member.user_id}{member.user_id === room?.host_user_id ? ' · 房主' : ''}</small>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="room-player-card">
-            <div className="room-player-card__heading">
-              <h2>房间动态</h2>
-              <button type="button" onClick={() => loadHistory()}>刷新</button>
-            </div>
-            <ol className="room-player-history">
-              {history.map((event) => (
-                <li key={event.id}>
-                  <span>{roomHistoryText(event)}</span>
-                  <small>{event.actor?.username || '系统'}{event.playback_version != null ? ` · V${event.playback_version}` : ''}</small>
-                </li>
-              ))}
-              {!history.length && <li>还没有房间动态</li>}
-            </ol>
-          </section>
-
-          <section className="room-player-card">
-            <h2>聊天</h2>
-            <div className="room-player-chat" aria-label="聊天记录">
-              {messages.slice(-30).map((message) => (
-                <p key={message.id}><strong>{message.username || `用户 ${message.user_id}`}</strong>{message.message}</p>
-              ))}
-              {!messages.length && <p>还没有消息</p>}
-            </div>
-            <form className="room-player-chat-form" onSubmit={sendChat}>
-              <input
-                aria-label="聊天消息"
-                maxLength="500"
-                value={chatDraft}
-                onChange={(event) => setChatDraft(event.target.value)}
-                placeholder="说点什么…"
-              />
-              <button type="submit">发送</button>
-            </form>
-          </section>
-        </aside>
     </div>
   )
 }

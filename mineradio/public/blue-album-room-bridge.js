@@ -15,7 +15,6 @@
   var applyRoomSequence = 0;
   var roomState = { inRoom: false, rooms: [], queue: [], members: [], messages: [] };
   var lastRoomNotice = '';
-  var catalogExpanded = false;
   var roomStartupReady = false;
   var audioUnlockShown = false;
   // Legacy copy kept in source comments for compatibility checks; the room UI
@@ -85,6 +84,28 @@
       media_mid: String(song.mediaMid || song.media_mid || '')
     };
   }
+
+  // In room mode native Mineradio search results are proposals for the shared
+  // Elysium queue, never local playback. Keep this hook global so the native
+  // queue actions can stop before they mutate playQueue/currentIdx.
+  window.__BLUE_ROOM_NATIVE_SEARCH_SELECT = function (song) {
+    if (!roomModeId) return false;
+    if (!roomState.inRoom) {
+      if (window.showToast) window.showToast('房间正在同步，请稍后再点歌');
+      return true;
+    }
+    var track = trackPayload(song);
+    if (!track || track.provider !== 'netease') {
+      if (window.showToast) window.showToast('房间暂时只开放网易云搜索');
+      return true;
+    }
+    action('propose-native-search', { track: track });
+    var results = document.getElementById('search-results');
+    var input = document.getElementById('search-input');
+    if (results) results.classList.remove('show');
+    if (input) { input.value = ''; input.blur(); }
+    return true;
+  };
 
   function trackKey(track) {
     return track ? track.provider + ':' + track.provider_track_id : '';
@@ -290,7 +311,10 @@
     var style = document.createElement('style');
     style.id = 'blue-room-native-style';
     style.textContent = [
-      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #search-area,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #cuefield-automix-btn,body.blue-album-room-mode #play-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas{display:none!important}',
+      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #cuefield-automix-btn,body.blue-album-room-mode #play-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas,body.blue-album-room-mode #search-mode-song,body.blue-album-room-mode #search-mode-qq,body.blue-album-room-mode #search-mode-kugou,body.blue-album-room-mode #search-mode-qishui,body.blue-album-room-mode #search-mode-spotify,body.blue-album-room-mode #search-mode-podcast{display:none!important}',
+      'body.blue-album-room-mode #search-area{display:flex!important;top:24px!important;opacity:1!important;pointer-events:auto!important;z-index:40!important}',
+      'body.blue-album-room-mode #search-mode-netease{display:inline-flex!important}',
+      'body.blue-album-room-mode #search-area .search-mode-tabs{margin-top:6px}',
       '#blue-room-btn{position:relative}',
       'body.blue-album-room-mode #progress-bar{pointer-events:none!important;cursor:default!important}',
       '#blue-room-leave{position:fixed;z-index:19;left:24px;top:24px;width:54px;height:54px;border-radius:50%;border:1px solid rgba(0,245,212,.30);background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.055) 48%,rgba(0,245,212,.055));color:rgba(232,236,239,.88);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(26px) saturate(1.34);-webkit-backdrop-filter:blur(26px) saturate(1.34);box-shadow:0 14px 40px rgba(0,0,0,.34),0 0 24px rgba(0,245,212,.07),inset 0 1px 0 rgba(255,255,255,.18)}',
@@ -331,7 +355,7 @@
       '.br-form{display:grid;gap:11px}.br-form label{display:grid;gap:6px;font-size:10px;color:rgba(255,255,255,.42)}',
       '.br-file-picker{position:relative;cursor:pointer}.br-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.br-file-line{display:flex;align-items:center;gap:8px;min-width:0;height:38px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(0,0,0,.22);padding:0 10px}.br-file-button{flex:0 0 auto;color:rgba(var(--fc-accent-rgb),.9);font-weight:700}.br-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.46)}',
       '.br-source-tabs{display:flex;gap:5px;margin-bottom:8px;overflow:auto}.br-source{flex:0 0 auto;height:27px;padding:0 9px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(255,255,255,.025);color:rgba(255,255,255,.48);font-size:9px;cursor:pointer}.br-source.active{border-color:rgba(var(--fc-accent-rgb),.32);background:rgba(var(--fc-accent-rgb),.10);color:rgba(var(--fc-accent-rgb),.92)}.br-source:disabled{opacity:.38;cursor:not-allowed}.br-search-form{display:flex;gap:6px}.br-search-form .br-input{flex:1;min-width:0}.br-result-cover{width:36px;height:36px;flex:0 0 36px;border-radius:9px;object-fit:cover;background:rgba(255,255,255,.04)}.br-cover-empty{display:grid;place-items:center}.br-queue-action{display:flex;justify-content:flex-end;margin:-2px 0 8px}.br-provider{display:inline-block;margin-left:5px;padding:2px 4px;border-radius:0;background:rgba(var(--fc-accent-rgb),.08);color:rgba(var(--fc-accent-rgb),.72);font:600 7px/1 var(--font-mono)}',
-      '.br-catalog-note{display:block;margin:6px 2px 0;font-size:8px;line-height:1.45;color:rgba(255,255,255,.28)}',
+       '.br-room-note{display:block;margin:6px 2px 0;font-size:8px;line-height:1.45;color:rgba(255,255,255,.28)}',
       '.br-input{height:38px;min-width:0;max-width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(0,0,0,.22);color:#fff;padding:0 11px;outline:none;font-family:var(--font-sans)}',
       '.br-input:focus{border-color:rgba(var(--fc-accent-rgb),.36)}',
       '.br-chat{display:flex;flex-direction:column;gap:7px;max-height:160px;overflow:auto}',
@@ -377,6 +401,7 @@
     var fx = document.getElementById('fx-fab');
     if (fx) fx.addEventListener('click', closeRoomPanel, true);
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeRoomPanel(); });
+    if (typeof window.setSearchMode === 'function') window.setSearchMode('netease');
     renderRoomUi();
   }
 
@@ -465,7 +490,7 @@
       var online = (room.members || []).filter(function (member) { return member.is_online; }).length;
       return '<button class="br-row" data-action="enter" data-room-id="' + Number(room.id) + '"><span class="br-avatar">' + esc(String(room.room_name || '房').slice(0, 1)) + '</span><span class="br-row-main"><strong>' + esc(room.room_name) + '</strong><small>' + esc(room.room_code || '') + '</small></span><span class="br-uid">' + online + ' 人在线</span></button>';
     }).join('') : '<div class="br-empty">还没有开放的听歌房<br>创建一个房间，再邀请朋友加入</div>';
-    return '<div class="br-section"><div class="br-section-head">创建房间<span>自动连续播放</span></div><form class="br-form" data-form="create"><label>房间名称<input class="br-input" name="roomName" maxlength="80" placeholder="深夜电台"></label><p class="br-catalog-note">歌曲结束后自动播放下一首；点歌、投票切歌和房主切歌由房间规则决定。</p><button class="br-btn primary" type="submit">创建听歌房</button></form></div><div class="br-section"><div class="br-section-head">开放中的房间<span>' + rooms.length + ' 个房间</span></div><div class="br-list">' + list + '</div></div>';
+     return '<div class="br-section"><div class="br-section-head">创建房间<span>自动连续播放</span></div><form class="br-form" data-form="create"><label>房间名称<input class="br-input" name="roomName" maxlength="80" placeholder="深夜电台"></label><p class="br-room-note">歌曲结束后自动播放下一首；点歌、投票切歌和房主切歌由房间规则决定。</p><button class="br-btn primary" type="submit">创建听歌房</button></form></div><div class="br-section"><div class="br-section-head">开放中的房间<span>' + rooms.length + ' 个房间</span></div><div class="br-list">' + list + '</div></div>';
   }
 
   function renderActiveRoom() {
@@ -493,41 +518,16 @@
       var mine = Number(message.user_id) === Number(roomState.userId);
       return '<div class="br-msg ' + (mine ? 'mine' : '') + '"><small>' + esc(message.username || '成员') + ' · ID ' + Number(message.user_id) + '</small><p>' + esc(message.message) + '</p></div>';
     }).join('') : '<div class="br-empty">还没有消息</div>';
-    var catalog = roomState.catalog || [];
-    var shownCatalog = catalogExpanded ? catalog.slice(0, 30) : catalog.slice(0, 10);
-    var providerNames = { netease: '网易云', qq: 'QQ' };
-    var catalogRows = shownCatalog.length ? shownCatalog.map(function (track) {
-      var img = roomCoverMarkup(track.artwork_url, 'br-result-cover');
-      var unavailable = track.availability === 'unavailable';
-      var reason = unavailable ? '<small style="color:#ffaaa2">' + esc(track.unavailable_reason || '当前没有可播放地址') + '</small>' : '';
-      return '<div class="br-row">' + img + '<span class="br-row-main"><strong>' + esc(track.title) + '<i class="br-provider">' + esc(providerNames[track.provider] || track.provider) + '</i></strong><small>' + esc(track.artist) + '</small>' + reason + '</span><button class="br-btn" data-action="propose-catalog" data-track-index="' + catalog.indexOf(track) + '" ' + (unavailable ? 'disabled' : '') + '>' + (unavailable ? '不可点歌' : '点歌') + '</button></div>';
-    }).join('') : '';
-    var catalogMore = catalog.length > 10
-      ? '<button class="br-btn ghost" data-action="catalog-more" style="width:100%;margin-top:8px">' + (catalogExpanded ? '收起结果' : '显示更多（最多 30 条）') + '</button>'
-      : '';
     var currentReason = roomState.currentUnavailableReason ? '<small style="color:#ffaaa2">不可播放：' + esc(roomState.currentUnavailableReason) + '</small>' : '';
     var threshold = Number(room.music_skip_vote_percent || 30);
     var playbackStatus = roomState.currentUnavailableReason ? '播放失败' : current ? '自动连续播放' : '等待点歌';
     var skipVoted = current && Array.isArray(current.skip_voted_by_user_ids) && current.skip_voted_by_user_ids.some(function (id) { return Number(id) === Number(roomState.userId); });
     var skipLabel = current ? (skipVoted ? '已投票 ' : '投票切歌 ') + Number(current.skip_votes || 0) + '/' + Number(current.skip_required || 1) : '';
     var queueAction = current ? '<div class="br-queue-action"><button class="br-btn ghost ' + (skipVoted ? 'active' : '') + '" data-action="vote-skip" ' + (skipVoted ? 'disabled' : '') + '>' + skipLabel + '</button></div>' : '';
-    var providerCapabilities = roomState.providerCapabilities && roomState.providerCapabilities.length ? roomState.providerCapabilities : [
-      { provider: 'netease', label: '网易云', searchable: true },
-      { provider: 'qq', label: 'QQ 音乐', searchable: false, playable: false, reason: '暂未开放' },
-    ].filter(function (provider) { return provider.provider === 'netease' || provider.provider === 'qq'; });
-    var sourceOptions = providerCapabilities.map(function (provider) {
-      var active = (roomState.catalogSource || 'netease') === provider.provider;
-      var disabled = provider.provider === 'qq' || !provider.searchable;
-      return '<button class="br-source ' + (active ? 'active' : '') + '" data-action="source" data-source="' + esc(provider.provider) + '" title="' + esc(provider.reason || '') + '" ' + (disabled ? 'disabled' : '') + '>' + esc(provider.label) + (disabled ? ' · 不可用' : '') + '</button>';
-    }).join('');
-    var catalogError = roomState.notice && /曲库|搜索|连接|播放/.test(String(roomState.notice));
-    var catalogEmpty = catalogError
-      ? '<div class="br-empty">' + esc(roomState.notice) + '<br><small>请手动选择其他版本或来源后重试；系统不会自动换源。</small></div>'
-      : '<div class="br-empty">输入歌曲名或音乐人，搜索当前平台曲库</div>';
     var syncStatus = String(roomState.syncStatus || 'connecting');
     var syncLabels = { connecting: '正在连接…', syncing: '正在同步…', synced: '已同步', reconnecting: '连接中断', error: '同步失败' };
     var roomMeta = '<div class="br-room-meta" data-sync-status="' + esc(syncStatus) + '"><i class="br-dot"></i><span>' + esc(syncLabels[syncStatus] || syncStatus) + '</span><span class="br-code">' + esc(room.room_code || '') + '</span></div>';
-    var core = roomMeta + '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '在线曲库') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">在线点歌<span>' + esc(roomState.catalogSource || 'netease') + '</span></div><div class="br-source-tabs">' + sourceOptions + '</div><form class="br-search-form" data-form="catalog"><input class="br-input" name="query" maxlength="100" placeholder="搜索歌曲或音乐人"><button class="br-btn" type="submit">搜索</button></form><div class="br-list" style="margin-top:8px">' + (catalogRows || catalogEmpty) + '</div>' + catalogMore + '</div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
+    var core = roomMeta + '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '使用上方 Mineradio 搜索') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">点歌提示<span>网易云公共搜索</span></div><div class="br-card"><div class="br-empty" style="padding:8px 0">使用上方 Mineradio 原生搜索。点击歌曲会加入房间公共歌单，不会改变你的本地播放器。</div></div></div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
     if (!isHost) return core;
     return core + '<details class="br-host-fold"><summary>房主功能</summary><div class="br-host-fold-body">' + (current ? '<button class="br-btn primary" data-action="force-skip">立即切歌</button>' : '<div class="br-empty">当前没有正在播放的歌曲</div>') + '<label class="br-section-head" style="margin:0">切歌门槛<select class="br-input" data-setting="music_skip_vote_percent"><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></label></div></details>';
   }
@@ -557,12 +557,6 @@
     else if (name === 'force-skip') action('force-skip');
     else if (name === 'skip') action('skip');
     else if (name === 'resync') action('resync');
-    else if (name === 'catalog-more') { catalogExpanded = !catalogExpanded; renderRoomUi(); }
-    else if (name === 'source') { action('source', { source: target.getAttribute('data-source') || 'netease' }); }
-    else if (name === 'propose-catalog') {
-      var track = (roomState.catalog || [])[Number(target.getAttribute('data-track-index'))];
-      if (track) action('propose-catalog', { track: track });
-    }
     else if (name === 'copy') {
       var code = target.getAttribute('data-code') || '';
       if (navigator.clipboard) navigator.clipboard.writeText(code);
@@ -581,10 +575,6 @@
       if (message) action('chat', { message: message });
       form.reset();
     }
-    if (kind === 'catalog') {
-      var query = String(data.get('query') || '').trim();
-      if (query) action('search', { query: query, source: roomState.catalogSource || 'netease' });
-    }
   }
 
   window.addEventListener('message', function (event) {
@@ -599,7 +589,6 @@
     }
     if (message.type === 'room-state') {
       var nextPayload = message.payload || {};
-      if (Object.prototype.hasOwnProperty.call(nextPayload, 'catalog')) catalogExpanded = false;
       roomState = Object.assign({}, roomState, nextPayload);
       syncRoomShelf(roomState.queue);
       renderRoomUi();
