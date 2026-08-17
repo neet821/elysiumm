@@ -88,6 +88,11 @@ export function normalizePlayerTrack(value) {
     throw new TypeError('Player track must be an object')
   }
   const artwork = optionalText(value.artworkUrl, '')
+  const metadata = {}
+  if (value.provider) metadata.provider = String(value.provider)
+  if (value.providerTrackId || value.provider_track_id) {
+    metadata.providerTrackId = String(value.providerTrackId || value.provider_track_id)
+  }
   return Object.freeze({
     album: optionalText(value.album),
     artist: optionalText(value.artist, '未知音乐人') || '未知音乐人',
@@ -97,5 +102,6 @@ export function normalizePlayerTrack(value) {
     id: requiredText(value.id, 'id'),
     lyrics: normalizeLyrics(value.lyrics),
     title: requiredText(value.title, 'title'),
+    ...metadata,
   })
 }

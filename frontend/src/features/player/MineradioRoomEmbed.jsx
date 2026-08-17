@@ -7,8 +7,8 @@ export const REMOTE_COMMAND_TIMEOUT_MS = 8_000
 function roomTrack(track) {
   if (!track) return null
   return {
-    provider: 'upload',
-    provider_track_id: String(track.id || track.url || 'room-track'),
+    provider: track.provider || 'upload',
+    provider_track_id: String(track.providerTrackId || track.provider_track_id || track.id || track.url || 'room-track'),
     title: track.title || '未命名歌曲',
     artist: track.artist || '未知音乐人',
     album: track.album || '',

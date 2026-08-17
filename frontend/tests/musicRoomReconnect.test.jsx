@@ -252,7 +252,7 @@ describe('music room reconnect and authority UI', () => {
     await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ state: 'playing', version: 5 }),
-      expect.objectContaining({ playerTrack: expect.objectContaining({ id: 'room:44' }) }),
+      expect.objectContaining({ playerTrack: expect.objectContaining({ id: 'shared-file' }) }),
     ))
     await latestRoomState(frame, { room: expect.objectContaining({ room_name: 'Blue room' }), syncStatus: 'synced' })
   })

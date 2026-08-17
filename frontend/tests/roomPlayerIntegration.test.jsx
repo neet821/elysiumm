@@ -56,9 +56,11 @@ describe('room player integration boundary', () => {
       artworkUrl: '/uploads/covers/room.jpg',
       audioUrl: '/uploads/music_rooms/9/shared.mp3',
       duration: 180,
-      id: 'room:42',
+      id: 'shared-file',
       lyrics: [],
       title: 'Shared song',
+      provider: 'upload',
+      providerTrackId: 'shared-file',
     })
     expect(roomQueueTrackToPlayerTrack({ ...queueTrack, stream_url: 'mineradio://qq/unsafe' })).toBeNull()
   })
@@ -72,7 +74,7 @@ describe('room player integration boundary', () => {
       track: queueTrack,
     })
 
-    expect(adapter.load).toHaveBeenCalledWith(expect.objectContaining({ id: 'room:42' }))
+    expect(adapter.load).toHaveBeenCalledWith(expect.objectContaining({ id: 'shared-file' }))
     expect(adapter.seek).toHaveBeenCalledWith(24)
     expect(adapter.play).toHaveBeenCalledOnce()
     expect(result).toEqual(expect.objectContaining({ applied: true, trackChanged: true }))

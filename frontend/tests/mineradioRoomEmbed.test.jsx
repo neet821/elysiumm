@@ -13,6 +13,8 @@ const track = {
   duration: 180,
   id: 'room:42',
   lyrics: [{ time: 0, text: '蓝色时刻' }],
+  provider: 'netease',
+  providerTrackId: '33894312',
   title: 'Shared song',
 }
 
@@ -41,6 +43,10 @@ describe('Mineradio room embed', () => {
     const adapter = onAdapterReady.mock.calls.at(-1)[0]
     expect(adapter.clear).toEqual(expect.any(Function))
     adapter.load(track)
+    expect(frame.contentWindow.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'sync',
+      payload: expect.objectContaining({ track: expect.objectContaining({ provider: 'netease', provider_track_id: '33894312' }) }),
+    }), window.location.origin)
     expect(adapter.snapshot()).toMatchObject({ isPlaying: false, track })
     adapter.play()
     expect(adapter.snapshot().isPlaying).toBe(true)

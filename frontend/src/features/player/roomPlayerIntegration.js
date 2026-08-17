@@ -15,7 +15,11 @@ export function roomQueueTrackToPlayerTrack(value) {
       artworkUrl: value.artwork_url,
       audioUrl: value.stream_url,
       duration: value.duration_seconds,
-      id: `room:${value.id ?? `${value.provider}:${value.provider_track_id}`}`,
+      // Mineradio uses the track id to look up native lyrics. Keep the
+      // provider's real id here instead of the room queue item's database id.
+      id: String(value.provider_track_id || value.id || `${value.provider}:track`),
+      provider: value.provider,
+      providerTrackId: value.provider_track_id,
       lyrics: value.lyrics || [],
       title: value.title,
     })
