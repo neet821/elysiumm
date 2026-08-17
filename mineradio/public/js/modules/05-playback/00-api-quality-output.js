@@ -1,4 +1,9 @@
 // ============================================================
+function resolveMineradioApiUrl(url) {
+  var roomMode = document.body && document.body.classList.contains('blue-album-room-mode');
+  if (!roomMode || typeof url !== 'string' || url.indexOf('/api/') !== 0) return url;
+  return '/mineradio-api/' + url.slice('/api/'.length);
+}
 async function apiJson(url, opts) {
   opts = opts || {};
   var timeoutMs = Number(opts.timeoutMs) || 0;
@@ -11,7 +16,7 @@ async function apiJson(url, opts) {
     timer = setTimeout(function () { controller.abort(); }, timeoutMs);
   }
   try {
-    var res = await fetch(url, fetchOpts);
+    var res = await fetch(resolveMineradioApiUrl(url), fetchOpts);
     return res.json();
   } finally {
     if (timer) clearTimeout(timer);
