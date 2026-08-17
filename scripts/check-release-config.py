@@ -7,10 +7,14 @@ import argparse
 import subprocess
 import sys
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - exercised by minimal CI wrappers
+    yaml = None
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -152,8 +156,32 @@ def validate_live_streaming() -> list[str]:
     config_path = ROOT / "ops/live/mediamtx.yml"
     if not config_path.is_file():
         return ["ops/live/mediamtx.yml does not exist"]
+    source = config_path.read_text(encoding="utf-8")
+    if yaml is None:
+        # The release checker is also called from isolated subprocess tests.
+        # Keep the check fail-closed when PyYAML is unavailable by validating
+        # the small, fixed set of deployment keys this repository supports.
+        expected_lines = {
+            "rtmpAddress": ":1935",
+            "apiAddress": "127.0.0.1:9997",
+            "hlsAddress": "127.0.0.1:8888",
+            "playbackAddress": "127.0.0.1:9996",
+            "rtsp": "false",
+            "webrtc": "false",
+            "srt": "false",
+            "record": "true",
+            "recordDeleteAfter": "0s",
+        }
+        for key, value in expected_lines.items():
+            pattern = rf"(?m)^\s*{re.escape(key)}:\s*[\"']?{re.escape(value)}[\"']?\s*$"
+            if not re.search(pattern, source):
+                errors.append(f"ops/live/mediamtx.yml must set {key} to {value}")
+        for required in ("paths:", "  live/stream:", "recordPath: /srv/blue-album/live/recordings/", "runOnRecordSegmentComplete:"):
+            if required not in source:
+                errors.append(f"ops/live/mediamtx.yml is missing {required.strip()}")
+        return errors
     try:
-        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        config = yaml.safe_load(source)
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
         return [f"ops/live/mediamtx.yml is invalid: {exc}"]
     expected = {
