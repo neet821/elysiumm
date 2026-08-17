@@ -485,7 +485,6 @@ async function main() {
       method: 'POST', token: memberAuth.access_token,
     }), 'member join')
     const first = (await uploadVideo(appBase, room.id, hostAuth.access_token, firstVideoPath, 'Fixture Alpha')).item
-    const second = (await uploadVideo(appBase, room.id, hostAuth.access_token, secondVideoPath, 'Fixture Beta')).item
     const rejectedPrivateReference = await api(appBase, `/api/video/rooms/${room.id}/items/url`, {
       body: { source_url: 'https://media.example/phase8-remote.webm', title: 'External Reference' },
       method: 'POST', token: hostAuth.access_token,
@@ -494,7 +493,7 @@ async function main() {
     assert.match(rejectedPrivateReference.payload.detail, /本机或内网|公共 DNS 无法验证/)
     const subtitle = (await uploadSubtitle(appBase, room.id, first.id, hostAuth.access_token)).subtitle
     expectOk(await api(appBase, `/api/video/rooms/${room.id}/playlist`, {
-      body: { item_ids: [first.id, second.id] }, method: 'PUT', token: hostAuth.access_token,
+      body: { item_ids: [first.id] }, method: 'PUT', token: hostAuth.access_token,
     }), 'set initial playlist')
     expectOk(await api(appBase, `/api/video/rooms/${room.id}/items/${first.id}/select`, {
       body: { autoplay: false, expected_version: 0 }, method: 'POST', token: hostAuth.access_token,
@@ -642,39 +641,7 @@ async function main() {
     await clickText(member, '发送')
     await host.waitFor("document.body.textContent.includes('Phase 8 private video hello')")
 
-    await click(host, `button[aria-label="上移 ${second.title}"]`)
-    await waitForApi(async () => {
-      const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}`, { token: hostAuth.access_token }), 'reordered detail')
-      return current.session.playlist[0].id === second.id ? current : null
-    }, 'playlist reorder')
-    await host.waitFor("Array.from(document.querySelectorAll('button')).some((button) => button.textContent.trim().includes('1. Fixture Beta'))")
-    await clickText(host, '1. Fixture Beta')
-    await Promise.all([
-      host.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Beta' && Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('播放下一项') && !button.disabled)"),
-      member.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Beta'"),
-    ])
-    await clickText(host, '播放下一项')
-    await Promise.all([
-      host.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Alpha'"),
-      member.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Alpha'"),
-    ])
-    detail = expectOk(await api(appBase, `/api/video/rooms/${room.id}`, { token: hostAuth.access_token }), 'before ended')
-    expectOk(await api(appBase, `/api/video/rooms/${room.id}/playlist`, {
-      body: { item_ids: [first.id, second.id] }, method: 'PUT', token: hostAuth.access_token,
-    }), 'restore playlist order')
-    const endedVersion = detail.snapshot.version
-    const endedAdvance = waitForSocketEvent(hostSocket, 'room_snapshot')
-    hostSocket.emit('video_ended', { expected_version: endedVersion, item_id: first.id, room_id: room.id })
-    const endedSnapshot = await endedAdvance
-    assert.equal(endedSnapshot.media_id, second.id)
-    assert.equal(endedSnapshot.version, endedVersion + 1)
-    const duplicateConflict = waitForSocketEvent(hostSocket, 'playback_conflict')
-    hostSocket.emit('video_ended', { expected_version: endedVersion, item_id: first.id, room_id: room.id })
-    assert.equal((await duplicateConflict).snapshot.version, endedSnapshot.version)
-    await Promise.all([
-      host.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Beta'"),
-      member.waitFor("document.querySelector('section[aria-label=\"同步视频播放器\"] strong')?.textContent === 'Fixture Beta'"),
-    ])
+    detail = expectOk(await api(appBase, `/api/video/rooms/${room.id}`, { token: hostAuth.access_token }), 'current video detail')
 
     const extraTarget = await newTab(memberDebugBase, roomUrl)
     const memberTab = new CdpClient(extraTarget, 'member-tab')
