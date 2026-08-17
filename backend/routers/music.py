@@ -13,8 +13,10 @@ import models
 import schemas
 import audio_resolver
 import catalog_service
+import catalog_repository
 import music_service
 import sync_room_crud
+from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks
 from music_providers import build_provider_registry, provider_configuration_status
 from rate_limit import SlidingWindowRateLimiter
 from database import get_db
@@ -332,10 +334,41 @@ def _catalog_track(payload: MineradioTrack):
     return result
 
 
+def _ensure_canonical_track(payload: MineradioTrack, db: Session) -> int:
+    """Resolve a native Mineradio result to our existing catalog identity.
+
+    Native search results intentionally do not know Elysium's canonical id. The
+    provider id is the stable key; metadata is only used to create the mapping
+    the first time a song enters a room.
+    """
+    if payload.canonical_track_id is not None:
+        return payload.canonical_track_id
+    existing = catalog_repository.provider_mapping(
+        db, payload.provider, payload.provider_track_id
+    )
+    if existing is not None:
+        return existing.canonical_track_id
+    provider_track = ProviderTrack(
+        provider=payload.provider,
+        provider_track_id=payload.provider_track_id,
+        title=payload.title,
+        artist=payload.artist or "未知音乐人",
+        album=payload.album,
+        duration_seconds=payload.duration_seconds,
+        artwork_url=payload.artwork_url,
+        media_mid=payload.media_mid,
+        availability=TrackAvailability.PLAYABLE,
+    )
+    groups = canonicalize_tracks([provider_track])
+    persisted = catalog_repository.upsert_canonical_groups(db, groups)
+    if not persisted:
+        raise ValueError("歌曲映射创建失败")
+    return persisted[0].id
+
+
 async def _validated_room_track(payload: MineradioTrack, db: Session):
     track = _catalog_track(payload)
-    if track["canonical_track_id"] is None:
-        raise ValueError("请从网易云或 QQ 音乐搜索结果中点歌")
+    track["canonical_track_id"] = _ensure_canonical_track(payload, db)
     resolved = await audio_resolver.resolve_audio(
         db,
         track["canonical_track_id"],

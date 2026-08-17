@@ -27,39 +27,6 @@ vi.mock('socket.io-client', () => ({ io: mocks.io }))
 
 import MineradioPage from '../src/pages/MineradioPage.jsx'
 
-const searchItems = [
-  {
-    album: 'Open',
-    artist: 'Alice',
-    artwork_url: 'https://img.example/playable.jpg',
-    availability: 'playable',
-    duration_seconds: 180,
-    id: 101,
-    providers: [{ availability: 'playable', media_mid: null, provider: 'netease', provider_track_id: 'ne-101' }],
-    title: 'Playable Song',
-  },
-  {
-    album: null,
-    artist: 'Bob',
-    artwork_url: null,
-    availability: 'preview',
-    duration_seconds: 90,
-    id: 102,
-    providers: [{ availability: 'preview', media_mid: 'media-102', provider: 'qq', provider_track_id: 'qq-102' }],
-    title: 'Preview Song',
-  },
-  {
-    album: null,
-    artist: 'Carol',
-    artwork_url: null,
-    availability: 'unavailable',
-    duration_seconds: 200,
-    id: 103,
-    providers: [{ availability: 'unavailable', media_mid: null, provider: 'audius', provider_track_id: 'au-103' }],
-    title: 'Unavailable Song',
-  },
-]
-
 let activeQueue = []
 
 beforeAll(() => {
@@ -69,7 +36,6 @@ beforeAll(() => {
 
 beforeEach(() => {
   activeQueue = []
-  window.localStorage.removeItem('elysium.music.catalogSource')
   mocks.api.post.mockReset().mockResolvedValue({ data: { approved: false, queue: [] } })
   mocks.api.get.mockReset().mockImplementation((url) => {
     if (url.endsWith('/api/sync-rooms')) return Promise.resolve({ data: [{ id: 9, mode: 'music', room_name: 'Blue room' }] })
@@ -111,11 +77,6 @@ beforeEach(() => {
         },
       })
     }
-    if (url.endsWith('/api/music/search')) return Promise.resolve({ data: { items: searchItems, providers: [] } })
-    if (url.endsWith('/api/music/providers/capabilities')) return Promise.resolve({ data: { providers: [
-      { provider: 'netease', label: '网易云', searchable: true, playable: true, reason: null },
-      { provider: 'qq', label: 'QQ 音乐', searchable: false, playable: false, reason: '暂未开放' },
-    ] } })
     return Promise.reject(new Error(`Unexpected request: ${url}`))
   })
 })
@@ -207,44 +168,51 @@ describe('unified room catalog integration', () => {
     )
   })
 
-  it('searches only the Blue Album endpoint and shows source availability', async () => {
+  it('sends a native Mineradio result to the shared room queue without a local play action', async () => {
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
 
-    roomAction(frame, 'search', { query: 'blue', source: 'netease' })
-
-    const catalogState = await waitFor(() => {
-      const state = latestRoomState(postMessage)
-      if (state?.catalog?.length !== 3) throw new Error('catalog is not ready')
-      return state
+    roomAction(frame, 'propose-native-search', {
+      track: {
+        album: 'Open',
+        artist: 'Alice',
+        artwork_url: 'https://img.example/playable.jpg',
+        duration_seconds: 180,
+        provider: 'netease',
+        provider_track_id: '22494904',
+        title: 'Playable Song',
+      },
     })
-    expect(catalogState.catalog.map((item) => item.title)).toEqual([
-      'Playable Song', 'Preview Song', 'Unavailable Song',
-    ])
-    expect(catalogState.catalog.map((item) => item.availability)).toEqual([
-      'playable', 'preview', 'unavailable',
-    ])
-    expect(mocks.api.get).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/music\/search$/),
-      { params: { limit: 30, provider: 'netease', q: 'blue' } },
-    )
+    roomAction(frame, 'propose-native-search', {
+      track: {
+        artist: 'Alice',
+        provider: 'netease',
+        provider_track_id: '22494904',
+        title: 'Playable Song',
+      },
+    })
+
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/queue$/),
+      {
+        album: 'Open',
+        artist: 'Alice',
+        artwork_url: 'https://img.example/playable.jpg',
+        duration_seconds: 180,
+        media_mid: null,
+        provider: 'netease',
+        provider_track_id: '22494904',
+        title: 'Playable Song',
+      },
+    ))
+    expect(mocks.api.get.mock.calls.some(([url]) => url.endsWith('/api/music/search'))).toBe(false)
+    expect(mocks.api.post.mock.calls.filter(([url]) => /\/api\/music\/rooms\/9\/queue$/.test(url))).toHaveLength(1)
   })
 
-  it('keeps QQ visible but disabled and clears a stale QQ selection', async () => {
-    window.localStorage.setItem('elysium.music.catalogSource', 'qq')
+  it('does not request provider capabilities or expose unfinished account surfaces', async () => {
     renderRoom()
-    const { frame, postMessage } = await readyMineradio()
-    await waitFor(() => expect(mocks.api.get).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/music\/providers\/capabilities$/),
-    ))
-    expect(window.localStorage.getItem('elysium.music.catalogSource')).toBe('netease')
-    const state = await waitFor(() => latestRoomState(postMessage))
-    expect(state.providerCapabilities.find((item) => item.provider === 'qq')).toMatchObject({
-      searchable: false,
-      playable: false,
-      reason: '暂未开放',
-    })
-    expect(state.catalogSource).toBe('netease')
+    await screen.findByTitle('Mineradio 原版房间播放器')
+    expect(mocks.api.get.mock.calls.some(([url]) => url.endsWith('/api/music/providers/capabilities'))).toBe(false)
   })
 
   it('loads durable room history without exposing it as a second visible control surface', async () => {
@@ -263,6 +231,7 @@ describe('unified room catalog integration', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
     expect(source).not.toContain('/mineradio-api')
     expect(source).not.toMatch(/fetch\s*\(/)
-    expect(source).toContain('API_ENDPOINTS.MUSIC_SEARCH')
+    expect(source).not.toContain('API_ENDPOINTS.MUSIC_SEARCH')
+    expect(source).toContain("action === 'propose-native-search'")
   })
 })

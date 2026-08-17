@@ -32,11 +32,13 @@ function queueSongNext(song) {
 }
 function queueSearchResult(i) {
   var song = playlist[i]; if (!song) return;
+  if (typeof window.__BLUE_ROOM_NATIVE_SEARCH_SELECT === 'function' && window.__BLUE_ROOM_NATIVE_SEARCH_SELECT(song)) return;
   queueSongNext(song);
   showToast('已设为下一首: ' + song.name);
 }
 function queueDetailSongNext(song) {
   if (!song || song.type === 'podcast-radio') return;
+  if (typeof window.__BLUE_ROOM_NATIVE_SEARCH_SELECT === 'function' && window.__BLUE_ROOM_NATIVE_SEARCH_SELECT(song)) return;
   queueSongNext(song);
   showToast('已设为下一首: ' + (song.name || ''));
 }
@@ -86,6 +88,7 @@ function moveQueueIndex(fromIdx, toIdx, opts) {
 }
 function playSearchResult(i) {
   var song = playlist[i]; if (!song) return;
+  if (typeof window.__BLUE_ROOM_NATIVE_SEARCH_SELECT === 'function' && window.__BLUE_ROOM_NATIVE_SEARCH_SELECT(song)) return;
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
