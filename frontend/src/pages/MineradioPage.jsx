@@ -237,7 +237,7 @@ export default function MineradioPage() {
     return true
   }, [])
 
-  const syncPlayer = useCallback(async (record = snapshotRecord) => {
+  const syncPlayer = useCallback(async (record = snapshotRecord, options = {}) => {
     if (!playerAdapterRef.current || !resolvedCurrent || !playerTrack || !record?.snapshot) return
     try {
       const result = await applyRoomSnapshot(playerAdapterRef.current, record.snapshot, {
@@ -256,6 +256,7 @@ export default function MineradioPage() {
         },
         playerTrack,
         receivedAtMs: record.receivedAtMs,
+        steadyState: options.steadyState === true,
         syncState: syncStateRef.current,
       })
       if (!result.applied && result.reason === 'track-unavailable') {
@@ -272,6 +273,15 @@ export default function MineradioPage() {
   useEffect(() => {
     if (playerReady && resolvedCurrent && snapshotRecord) syncPlayer(snapshotRecord)
   }, [playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
+
+  useEffect(() => {
+    if (!pageVisible || !playerReady || !resolvedCurrent || !snapshotRecord) return undefined
+    const timer = window.setInterval(() => {
+      const latest = latestSnapshotRef.current
+      if (latest) syncPlayer(latest, { steadyState: true })
+    }, 2_000)
+    return () => window.clearInterval(timer)
+  }, [pageVisible, playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
 
   useEffect(() => {
     if (playerReady && !resolvedCurrent && !current) {
@@ -474,31 +484,6 @@ export default function MineradioPage() {
       window.removeEventListener('pageshow', restore)
     }
   }, [requestSnapshot])
-
-  useEffect(() => {
-    if (
-      !isHost
-      || !pageVisible
-      || !playerReady
-      || snapshotRecord?.snapshot?.state !== 'playing'
-    ) return undefined
-
-    const heartbeat = () => {
-      const socket = socketRef.current
-      const adapter = playerAdapterRef.current
-      const latest = latestSnapshotRef.current?.snapshot
-      if (!socket || !adapter || latest?.state !== 'playing') return
-      const playerState = adapter.snapshot()
-      socket.emit('time_heartbeat', {
-        client_sent_at_ms: Date.now(),
-        playback_version: latest.version,
-        position: Math.max(0, Number(playerState.currentTime) || 0),
-        room_id: Number(roomId),
-      })
-    }
-    const timer = window.setInterval(heartbeat, 5_000)
-    return () => window.clearInterval(timer)
-  }, [isHost, pageVisible, playerReady, roomId, snapshotRecord])
 
   const leaveRoom = async () => {
     try {

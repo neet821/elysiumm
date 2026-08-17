@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   DRIFT_IGNORE_SECONDS,
+  DRIFT_HARD_SEEK_CONFIRMATIONS,
   DRIFT_SEEK_SECONDS,
   TEMPORARY_RATE_MS,
   applyAuthoritativeSnapshot,
@@ -105,13 +106,14 @@ describe('authoritative room sync engine', () => {
     expect(projectSnapshotPosition(paused, 9_000, -500)).toBe(22)
   })
 
-  it('classifies the exact half-second and two-second drift bands', () => {
-    expect(DRIFT_IGNORE_SECONDS).toBe(0.5)
-    expect(DRIFT_SEEK_SECONDS).toBe(2)
-    expect(classifyDrift(10, 10.499).kind).toBe('none')
-    expect(classifyDrift(10, 10.5).kind).toBe('rate')
-    expect(classifyDrift(10, 12).kind).toBe('rate')
-    expect(classifyDrift(10, 12.001).kind).toBe('seek')
+  it('classifies the exact steady-state drift bands', () => {
+    expect(DRIFT_IGNORE_SECONDS).toBe(0.75)
+    expect(DRIFT_SEEK_SECONDS).toBe(4)
+    expect(DRIFT_HARD_SEEK_CONFIRMATIONS).toBe(2)
+    expect(classifyDrift(10, 10.749).kind).toBe('none')
+    expect(classifyDrift(10, 10.75).kind).toBe('rate')
+    expect(classifyDrift(10, 14).kind).toBe('rate')
+    expect(classifyDrift(10, 14.001).kind).toBe('seek')
   })
 
   it('ignores small drift without touching playback position or rate', async () => {
@@ -164,7 +166,7 @@ describe('authoritative room sync engine', () => {
     })
     expect(slowAdapter.setPlaybackRate).toHaveBeenLastCalledWith(0.92)
 
-    const seekAdapter = adapterWith({ currentTime: 7.8 })
+    const seekAdapter = adapterWith({ currentTime: 5.8 })
     const result = await applyAuthoritativeSnapshot(seekAdapter, snapshot(), {
       clientNowMs: 1_000,
       playerTrack,
@@ -192,6 +194,86 @@ describe('authoritative room sync engine', () => {
     expect(adapter.calls.map(([name]) => name)).toEqual(['load', 'rate', 'seek', 'play'])
     expect(beginRemoteApply).toHaveBeenCalledOnce()
     expect(release).toHaveBeenCalledOnce()
+  })
+
+  it('waits for two consecutive large steady-state drifts before seeking', async () => {
+    const adapter = adapterWith({ currentTime: 4 })
+    const syncState = createRoomSyncState()
+
+    const first = await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10 }), {
+      clientNowMs: 1_000,
+      playerTrack,
+      receivedAtMs: 1_000,
+      steadyState: true,
+      syncState,
+    })
+    expect(first.correction).toBe('deferred')
+    expect(adapter.seek).not.toHaveBeenCalled()
+
+    const second = await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10 }), {
+      clientNowMs: 1_000,
+      playerTrack,
+      receivedAtMs: 1_000,
+      steadyState: true,
+      syncState,
+    })
+    expect(second.correction).toBe('seek')
+    expect(adapter.seek).toHaveBeenCalledWith(10)
+  })
+
+  it('uses one atomic adapter command for a track change', async () => {
+    const adapter = adapterWith({ currentTime: 80, isPlaying: false, track: null })
+    adapter.applyState = vi.fn(async (state) => {
+      adapter.state = {
+        ...adapter.state,
+        currentTime: state.time,
+        isPlaying: state.isPlaying,
+        playbackRate: state.playbackRate,
+        track: state.track,
+      }
+      return { time: state.time, is_playing: state.isPlaying }
+    })
+
+    const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
+      clientNowMs: 1_000,
+      playerTrack,
+      receivedAtMs: 1_000,
+      syncState: createRoomSyncState(),
+    })
+
+    expect(result.trackChanged).toBe(true)
+    expect(adapter.applyState).toHaveBeenCalledWith(expect.objectContaining({
+      forceSeek: true,
+      isPlaying: true,
+      playbackRate: 1,
+      time: 10,
+      track: playerTrack,
+    }))
+    expect(adapter.load).not.toHaveBeenCalled()
+    expect(adapter.seek).not.toHaveBeenCalled()
+  })
+
+  it('keeps a 30-second event-clock playback run monotonic without periodic seeks', async () => {
+    const adapter = adapterWith({ currentTime: 10, isPlaying: true })
+    const syncState = createRoomSyncState()
+    const positions = []
+
+    for (let tick = 0; tick <= 15; tick += 1) {
+      const target = 10 + tick * 2
+      adapter.state.currentTime = Math.max(0, target - 0.2)
+      positions.push(adapter.state.currentTime)
+      const result = await applyAuthoritativeSnapshot(adapter, snapshot({ position: 10 }), {
+        clientNowMs: 1_000 + tick * 2_000,
+        playerTrack,
+        receivedAtMs: 1_000,
+        steadyState: true,
+        syncState,
+      })
+      expect(result.correction).toBe('none')
+    }
+
+    expect(positions).toEqual([...positions].sort((a, b) => a - b))
+    expect(adapter.seek).not.toHaveBeenCalled()
   })
 
   it('seeks medium drift while paused because rate correction cannot progress', async () => {

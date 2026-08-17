@@ -1,10 +1,13 @@
-export const DRIFT_IGNORE_SECONDS = 0.5
-export const DRIFT_SEEK_SECONDS = 2
+export const DRIFT_IGNORE_SECONDS = 0.75
+export const DRIFT_SEEK_SECONDS = 4
+export const DRIFT_HARD_SEEK_CONFIRMATIONS = 2
 export const TEMPORARY_RATE_MS = 1_500
 
 const MIN_PLAYBACK_RATE = 0.5
 const MAX_PLAYBACK_RATE = 2
 const RATE_CORRECTION_STEP = 0.08
+const VIDEO_DRIFT_IGNORE_SECONDS = 0.5
+const VIDEO_DRIFT_SEEK_SECONDS = 2
 
 function finiteNumber(value, fallback = null) {
   if (value === null || value === undefined || value === '') return fallback
@@ -61,6 +64,7 @@ export function createRoomSyncState() {
   return {
     clockOffsetMs: 0,
     lastVersion: -1,
+    largeDriftSamples: 0,
     rateTimer: null,
     rateToken: null,
   }
@@ -84,17 +88,23 @@ export function projectSnapshotPosition(snapshot, clientNowMs, serverOffsetMs = 
   return Math.max(0, normalized.position + elapsedMs / 1_000 * normalized.playback_rate)
 }
 
-export function classifyDrift(currentPosition, targetPosition) {
+export function classifyDrift(currentPosition, targetPosition, thresholds = {}) {
   const current = Math.max(0, finiteNumber(currentPosition, 0))
   const target = Math.max(0, finiteNumber(targetPosition, 0))
   const driftSeconds = target - current
   const absoluteDriftSeconds = Math.abs(driftSeconds)
+  const ignoreSeconds = Number.isFinite(Number(thresholds.ignoreSeconds))
+    ? Number(thresholds.ignoreSeconds)
+    : DRIFT_IGNORE_SECONDS
+  const seekSeconds = Number.isFinite(Number(thresholds.seekSeconds))
+    ? Number(thresholds.seekSeconds)
+    : DRIFT_SEEK_SECONDS
   return {
     absoluteDriftSeconds,
     driftSeconds,
-    kind: absoluteDriftSeconds < DRIFT_IGNORE_SECONDS
+    kind: absoluteDriftSeconds < ignoreSeconds
       ? 'none'
-      : absoluteDriftSeconds <= DRIFT_SEEK_SECONDS
+      : absoluteDriftSeconds <= seekSeconds
         ? 'rate'
         : 'seek',
   }
@@ -144,6 +154,12 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
   const setTimer = options.setTimer || setTimeout
   const beginRemoteApply = options.beginRemoteApply || (() => () => {})
   const playerTrack = options.playerTrack || null
+  const steadyState = options.steadyState === true
+  const mediaKind = options.mediaKind || normalized.media_kind || 'music'
+  const driftThresholds = mediaKind === 'music'
+    ? undefined
+    : { ignoreSeconds: VIDEO_DRIFT_IGNORE_SECONDS, seekSeconds: VIDEO_DRIFT_SEEK_SECONDS }
+  const hardSeekConfirmations = mediaKind === 'music' ? DRIFT_HARD_SEEK_CONFIRMATIONS : 1
   const authoritativeRate = normalized.playback_rate
   const clockOffsetMs = estimateServerOffset(normalized, receivedAtMs)
   const targetPosition = projectSnapshotPosition(
@@ -163,57 +179,110 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
     if (!playerTrack && !playerState.track) {
       return { applied: false, reason: 'track-unavailable', trackChanged: false }
     }
-    if (trackChanged) {
-      adapter.load(playerTrack)
-      playerState = adapter.snapshot()
+    const drift = classifyDrift(playerState.currentTime, targetPosition, driftThresholds)
+    let correction = drift.kind
+    let forceSeek = trackChanged || (!steadyState && drift.kind === 'seek')
+    if (normalized.state === 'paused' && drift.kind !== 'none') forceSeek = true
+
+    if (steadyState && drift.kind === 'seek' && !trackChanged) {
+      syncState.largeDriftSamples += 1
+      if (syncState.largeDriftSamples < hardSeekConfirmations) {
+        syncState.clockOffsetMs = clockOffsetMs
+        syncState.lastVersion = normalized.version
+        return {
+          applied: true,
+          clockOffsetMs,
+          correction: 'deferred',
+          driftSeconds: drift.driftSeconds,
+          targetPosition,
+          trackChanged,
+          version: normalized.version,
+        }
+      }
+      syncState.largeDriftSamples = 0
+      forceSeek = true
+    } else if (drift.kind !== 'seek') {
+      syncState.largeDriftSamples = 0
     }
 
-    const drift = classifyDrift(playerState.currentTime, targetPosition)
-    let correction = drift.kind
-    if (trackChanged) {
-      adapter.setPlaybackRate(authoritativeRate)
-      adapter.seek(targetPosition)
-      correction = 'seek'
-      playerState = adapter.snapshot()
-    } else if (normalized.state === 'paused') {
-      adapter.setPlaybackRate(authoritativeRate)
-      if (drift.kind !== 'none') {
-        adapter.seek(targetPosition)
-        correction = 'seek'
-        playerState = adapter.snapshot()
-      }
-    } else if (drift.kind === 'seek') {
-      if (finiteNumber(playerState.playbackRate, 1) !== authoritativeRate) {
-        adapter.setPlaybackRate(authoritativeRate)
-      }
-      adapter.seek(targetPosition)
-      playerState = adapter.snapshot()
-    } else if (drift.kind === 'rate') {
-      const temporaryRate = clamp(
+    const temporaryRate = drift.kind === 'rate' && normalized.state === 'playing' && !forceSeek
+      ? clamp(
         authoritativeRate + Math.sign(drift.driftSeconds) * RATE_CORRECTION_STEP,
         MIN_PLAYBACK_RATE,
         MAX_PLAYBACK_RATE,
       )
-      adapter.setPlaybackRate(temporaryRate)
-      const token = Symbol('room-rate-correction')
-      syncState.rateToken = token
-      scheduledTimer = setTimer(() => {
-        if (syncState.rateToken !== token) return
-        syncState.rateTimer = null
-        syncState.rateToken = null
-        adapter.setPlaybackRate(authoritativeRate)
-      }, TEMPORARY_RATE_MS)
-      syncState.rateTimer = scheduledTimer
-      playerState = adapter.snapshot()
-    } else if (finiteNumber(playerState.playbackRate, 1) !== authoritativeRate) {
-      adapter.setPlaybackRate(authoritativeRate)
-      playerState = adapter.snapshot()
-    }
+      : authoritativeRate
 
-    if (normalized.state === 'playing' && !playerState.isPlaying) {
-      await adapter.play()
-    } else if (normalized.state === 'paused' && playerState.isPlaying) {
-      adapter.pause()
+    if (typeof adapter.applyState === 'function') {
+      const needsApply = trackChanged
+        || forceSeek
+        || drift.kind === 'rate'
+        || (normalized.state === 'playing' && !playerState.isPlaying)
+        || (normalized.state === 'paused' && playerState.isPlaying)
+        || finiteNumber(playerState.playbackRate, 1) !== temporaryRate
+      if (needsApply) {
+        await adapter.applyState({
+          forceSeek,
+          isPlaying: normalized.state === 'playing',
+          playbackRate: temporaryRate,
+          time: targetPosition,
+          track: playerTrack || playerState.track,
+        })
+        playerState = adapter.snapshot()
+      }
+      if (temporaryRate !== authoritativeRate) {
+        const token = Symbol('room-rate-correction')
+        syncState.rateToken = token
+        scheduledTimer = setTimer(() => {
+          if (syncState.rateToken !== token) return
+          syncState.rateTimer = null
+          syncState.rateToken = null
+          const latest = adapter.snapshot()
+          const restore = typeof adapter.applyState === 'function'
+            ? adapter.applyState({
+              forceSeek: false,
+              isPlaying: latest.isPlaying,
+              playbackRate: authoritativeRate,
+              time: latest.currentTime,
+              track: latest.track,
+            })
+            : adapter.setPlaybackRate(authoritativeRate)
+          Promise.resolve(restore).catch(() => {})
+        }, TEMPORARY_RATE_MS)
+        syncState.rateTimer = scheduledTimer
+      }
+    } else {
+      if (trackChanged) {
+        adapter.load(playerTrack)
+        playerState = adapter.snapshot()
+      }
+      if (forceSeek) {
+        adapter.setPlaybackRate(authoritativeRate)
+        adapter.seek(targetPosition)
+        correction = 'seek'
+        playerState = adapter.snapshot()
+      } else if (drift.kind === 'rate') {
+        adapter.setPlaybackRate(temporaryRate)
+        const token = Symbol('room-rate-correction')
+        syncState.rateToken = token
+        scheduledTimer = setTimer(() => {
+          if (syncState.rateToken !== token) return
+          syncState.rateTimer = null
+          syncState.rateToken = null
+          adapter.setPlaybackRate(authoritativeRate)
+        }, TEMPORARY_RATE_MS)
+        syncState.rateTimer = scheduledTimer
+        playerState = adapter.snapshot()
+      } else if (finiteNumber(playerState.playbackRate, 1) !== authoritativeRate) {
+        adapter.setPlaybackRate(authoritativeRate)
+        playerState = adapter.snapshot()
+      }
+
+      if (normalized.state === 'playing' && !playerState.isPlaying) {
+        await adapter.play()
+      } else if (normalized.state === 'paused' && playerState.isPlaying) {
+        adapter.pause()
+      }
     }
 
     syncState.clockOffsetMs = clockOffsetMs

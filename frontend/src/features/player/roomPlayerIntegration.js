@@ -55,6 +55,7 @@ export async function applyRoomSnapshot(adapter, snapshot, options = {}) {
     clientNowMs,
     playerTrack,
     receivedAtMs: Number(options.receivedAtMs ?? clientNowMs),
+    mediaKind: 'music',
     syncState,
   })
 }

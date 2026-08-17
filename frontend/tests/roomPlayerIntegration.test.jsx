@@ -80,7 +80,7 @@ describe('room player integration boundary', () => {
 
   it('uses temporary rate correction without reload or seek for medium drift', async () => {
     const playerTrack = roomQueueTrackToPlayerTrack(queueTrack)
-    const adapter = adapterWith({ currentTime: 24.5, isPlaying: true, track: playerTrack })
+    const adapter = adapterWith({ currentTime: 25.2, isPlaying: true, track: playerTrack })
 
     await applyRoomSnapshot(
       adapter,

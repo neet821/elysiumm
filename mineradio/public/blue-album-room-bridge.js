@@ -179,6 +179,18 @@
     var wantedKey = trackKey(track);
     var activeKey = trackKey(trackPayload(currentSong()));
 
+    function sendApplied(extra) {
+      var payload = Object.assign({
+        apply_id: applyId,
+        duration: window.audio && Number.isFinite(Number(window.audio.duration)) ? Number(window.audio.duration) : 0,
+        is_playing: !!(window.audio && !window.audio.paused && !window.audio.ended),
+        playback_rate: window.audio ? Number(window.audio.playbackRate || 1) : 1,
+        time: window.audio ? Number(window.audio.currentTime || 0) : 0,
+        track: track
+      }, extra || {});
+      send('sync-applied', payload);
+    }
+
     if (state.reset || !track) {
       if (window.audio) {
         try { window.audio.pause(); } catch (_) {}
@@ -196,7 +208,7 @@
       if (typeof window.setPlayIcon === 'function') window.setPlayIcon(false);
       syncRoomShelf([]);
       remoteApplyId = null;
-      send('sync-applied', { apply_id: applyId, reset: true });
+      sendApplied({ reset: true, is_playing: false, playback_rate: 1, time: 0, track: null });
       return;
     }
 
@@ -232,7 +244,8 @@
     if (Number.isFinite(Number(state.playback_rate))) window.audio.playbackRate = Math.max(0.25, Number(state.playback_rate));
     if (Number.isFinite(Number(state.volume))) window.audio.volume = Math.min(1, Math.max(0, Number(state.volume)));
     var targetTime = Number(state.time);
-    if (Number.isFinite(targetTime) && Math.abs(window.audio.currentTime - targetTime) > 0.75) {
+    var shouldSeek = state.force_seek === true || state.action === 'seek';
+    if (shouldSeek && Number.isFinite(targetTime)) {
       ignoreNextSeek = true;
       try { window.audio.currentTime = Math.max(0, targetTime); } catch (error) {}
     }
@@ -244,7 +257,7 @@
       if (window.setPlayIcon) window.setPlayIcon(false);
     }
     remoteApplyId = null;
-    send('sync-applied', { apply_id: applyId, track: track });
+    sendApplied();
   }
 
   function installRoomStyles() {

@@ -160,6 +160,7 @@ export function applyVideoSnapshot(adapter, snapshot, adapterTrack, options = {}
     track_id: snapshot?.track_id ?? null,
   }, {
     ...options,
+    mediaKind: 'video',
     playerTrack: adapterTrack,
     syncState,
   })
