@@ -206,6 +206,7 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
   const adapterRef = useRef(null)
   const callbacksRef = useRef({ onAdapterReady, onEvent, onRoomAction })
   const [ready, setReady] = useState(false)
+  const [roomSyncReady, setRoomSyncReady] = useState(false)
   const src = useMemo(() => `/mineradio/?blue-room=${encodeURIComponent(roomId)}`, [roomId])
   callbacksRef.current = { onAdapterReady, onEvent, onRoomAction }
 
@@ -223,7 +224,9 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
         adapterRef.current?.destroy()
         adapterRef.current = adapter
         setReady(true)
+        setRoomSyncReady(false)
         callbacksRef.current.onAdapterReady?.(adapter)
+        if (roomState?.inRoom) adapter.clear()
       } else if (message.type === 'playback') {
         adapterRef.current?.receive(message.payload)
         callbacksRef.current.onEvent?.(message.payload?.action || 'timeupdate', {
@@ -232,7 +235,8 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
           paused: message.payload?.is_playing !== true,
         })
       } else if (message.type === 'sync-applied') {
-        adapterRef.current?.acknowledge(message.payload || {})
+        const acknowledged = adapterRef.current?.acknowledge(message.payload || {})
+        if (acknowledged || message.payload?.reset) setRoomSyncReady(true)
       } else if (message.type === 'error') {
         callbacksRef.current.onEvent?.('error', message.payload || {})
       } else if (message.type === 'room-action') {
@@ -250,6 +254,7 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
 
   useEffect(() => {
     setReady(false)
+    setRoomSyncReady(false)
     const adapter = adapterRef.current
     if (!adapter) return
     adapter.clear()
@@ -260,11 +265,18 @@ export default function MineradioRoomEmbed({ onAdapterReady, onEvent, onRoomActi
 
   useEffect(() => {
     if (ready) send('room-state', roomState || {})
+  }, [ready, roomState, roomState?.inRoom])
+
+  useEffect(() => {
+    if (!ready || !roomState?.inRoom || roomState.queue?.some((item) => item.status === 'playing')) return
+    if (adapterRef.current && !adapterRef.current.track) return
+    setRoomSyncReady(false)
+    adapterRef.current?.clear?.()
   }, [ready, roomState])
 
   return (
     <div className="mineradio-room-embed">
-      <iframe allow="autoplay; fullscreen" ref={frameRef} src={src} title="Mineradio 原版房间播放器" />
+      <iframe data-room-sync-ready={roomSyncReady ? 'true' : 'false'} allow="autoplay; fullscreen" ref={frameRef} src={src} title="Mineradio 原版房间播放器" />
     </div>
   )
 }

@@ -73,18 +73,13 @@ export default function MineradioPage() {
       return () => { active = false }
     }
     setResolvedCurrent(null)
-    Promise.all([
-      apiClient.get(API_ENDPOINTS.MUSIC_AUDIO(current.canonical_track_id), {
+    apiClient.get(API_ENDPOINTS.MUSIC_AUDIO(current.canonical_track_id), {
         params: {
           provider: current.provider,
           provider_track_id: current.provider_track_id,
           refresh: true,
         },
-      }),
-      apiClient.get(API_ENDPOINTS.MUSIC_LYRICS(current.canonical_track_id), {
-        params: { provider: current.provider, provider_track_id: current.provider_track_id },
-      }).catch(() => ({ data: { lines: [] } })),
-    ]).then(([audioResponse, lyricsResponse]) => {
+      }).then((audioResponse) => {
       if (!active) return
       const audio = audioResponse.data || {}
       if (!audio.playback_url || audio.availability === 'unavailable') {
@@ -94,7 +89,6 @@ export default function MineradioPage() {
       setResolvedCurrent({
         ...current,
         active_provider: audio.provider || current.provider,
-        lyrics: lyricsResponse.data?.lines || [],
         stream_url: audio.playback_url,
       })
     }).catch((error) => {
@@ -223,13 +217,6 @@ export default function MineradioPage() {
   useEffect(() => {
     if (playerReady && resolvedCurrent && snapshotRecord) syncPlayer(snapshotRecord)
   }, [playerReady, resolvedCurrent, snapshotRecord, syncPlayer])
-
-  useEffect(() => {
-    if (playerReady && !resolvedCurrent && !current) {
-      playerAdapterRef.current?.clear?.()
-      cancelRoomSync(playerAdapterRef.current, syncStateRef.current)
-    }
-  }, [current, playerReady, resolvedCurrent])
 
   const requestSnapshot = useCallback(() => {
     const socket = socketRef.current

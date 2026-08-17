@@ -1148,7 +1148,7 @@ function searchSongResultHtml(s, i) {
       '</div>' +
       (roomMode ? '' : '<button class="song-action-btn' + (isSongLiked(s) ? ' liked' : '') + '" data-like-index="' + i + '" title="' + (isSongLiked(s) ? '取消红心' : '红心喜欢') + '" onclick="event.stopPropagation();toggleLikeSearchResult(' + i + ')">' + heartIconSvg() + '</button>') +
       (roomMode ? '' : '<button class="song-action-btn" title="收藏到歌单" onclick="event.stopPropagation();collectSearchResult(' + i + ')">' + playlistPlusIconSvg() + '</button>') +
-      '<button class="add-btn" title="' + (roomMode ? '加入房间公共歌单' : '下一首播放') + '" aria-label="' + (roomMode ? '加入房间公共歌单' : '下一首播放') + '" onclick="event.stopPropagation();queueSearchResult(' + i + ')">+</button>' +
+      (roomMode ? '' : '<button class="add-btn" title="下一首播放" aria-label="下一首播放" onclick="event.stopPropagation();queueSearchResult(' + i + ')">+</button>') +
       '</div>';
 }
 function searchLoadMoreSentinelHtml() {

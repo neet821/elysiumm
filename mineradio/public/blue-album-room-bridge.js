@@ -17,6 +17,8 @@
   var lastRoomNotice = '';
   var roomStartupReady = false;
   var audioUnlockShown = false;
+  // The parent React shell exposes data-room-sync-ready while this frame is masked.
+  var roomSyncReadyAttribute = 'data-room-sync-ready';
   // Legacy copy kept in source comments for compatibility checks; the room UI
   // intentionally no longer renders 返回首页、离开房间、上传共享音频 controls.
   var legacyRoomLabels = '搜索点歌 房间公共歌单 房间成员 实时聊天 重新同步';
@@ -271,22 +273,6 @@
       if (sequence !== applyRoomSequence) return;
     }
 
-    if (track && Array.isArray(track.lyrics) && typeof window.setOriginalLyricsState === 'function') {
-      var lyricLines = track.lyrics.map(function (line, index) {
-        var start = Number(line.t != null ? line.t : (line.time != null ? line.time : line.start));
-        var next = track.lyrics[index + 1];
-        var nextStart = next ? Number(next.t != null ? next.t : (next.time != null ? next.time : next.start)) : start + 6;
-        return {
-          t: Number.isFinite(start) ? start : index * 5,
-          duration: Math.max(0.4, Number(line.duration || nextStart - start || 5)),
-          text: String(line.text || line.lyric || ''),
-          source: 'blue-album-room'
-        };
-      }).filter(function (line) { return line.text; });
-      window.setOriginalLyricsState(lyricLines, false, 'blue-album-room');
-      if (typeof window.applyOriginalLyricsState === 'function') window.applyOriginalLyricsState();
-    }
-
     if (!window.audio) return;
     if (Number.isFinite(Number(state.playback_rate))) window.audio.playbackRate = Math.max(0.25, Number(state.playback_rate));
     if (Number.isFinite(Number(state.volume))) window.audio.volume = Math.min(1, Math.max(0, Number(state.volume)));
@@ -311,18 +297,20 @@
     var style = document.createElement('style');
     style.id = 'blue-room-native-style';
     style.textContent = [
-      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #cuefield-automix-btn,body.blue-album-room-mode #play-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas,body.blue-album-room-mode #search-mode-song,body.blue-album-room-mode #search-mode-qq,body.blue-album-room-mode #search-mode-kugou,body.blue-album-room-mode #search-mode-qishui,body.blue-album-room-mode #search-mode-spotify,body.blue-album-room-mode #search-mode-podcast{display:none!important}',
+      'body.blue-album-room-mode #user-btn,body.blue-album-room-mode #user-capsule-hide-btn,body.blue-album-room-mode #home-btn,body.blue-album-room-mode #empty-home,body.blue-album-room-mode #upload-actions,body.blue-album-room-mode #playlist-panel,body.blue-album-room-mode #mini-queue-btn,body.blue-album-room-mode #mini-queue-popover,body.blue-album-room-mode #heart-btn,body.blue-album-room-mode #collect-btn,body.blue-album-room-mode #play-mode-btn,body.blue-album-room-mode #cuefield-automix-btn,body.blue-album-room-mode #play-btn,body.blue-album-room-mode #prev-btn,body.blue-album-room-mode #next-btn,body.blue-album-room-mode #update-entry,body.blue-album-room-mode #login-modal,body.blue-album-room-mode #login-guide-canvas,body.blue-album-room-mode #search-mode-song,body.blue-album-room-mode #search-mode-kugou,body.blue-album-room-mode #search-mode-qishui,body.blue-album-room-mode #search-mode-spotify,body.blue-album-room-mode #search-mode-podcast{display:none!important}',
       'body.blue-album-room-mode #search-area{display:flex!important;top:24px!important;opacity:1!important;pointer-events:auto!important;z-index:40!important}',
-      'body.blue-album-room-mode #search-mode-netease{display:inline-flex!important}',
-      'body.blue-album-room-mode #search-area .search-mode-tabs{margin-top:6px}',
+      'body.blue-album-room-mode #search-mode-netease,body.blue-album-room-mode #search-mode-qq,body.blue-album-room-mode #blue-room-search-mode-other{display:inline-flex!important}',
+      'body.blue-album-room-mode #search-mode-qq,body.blue-album-room-mode #blue-room-search-mode-other{opacity:.38!important;pointer-events:none!important;cursor:not-allowed!important}',
+      'body.blue-album-room-mode #search-mode-tabs{max-height:0;opacity:0;overflow:hidden;transform:translateY(-4px);transition:max-height .18s ease-out,opacity .15s ease-out,transform .18s ease-out}',
+      'body.blue-album-room-mode #search-area:focus-within #search-mode-tabs,body.blue-album-room-mode #search-area.has-results #search-mode-tabs{max-height:48px;opacity:1;transform:translateY(0)}',
       '#blue-room-btn{position:relative}',
       'body.blue-album-room-mode #progress-bar{pointer-events:none!important;cursor:default!important}',
-      '#blue-room-leave{position:fixed;z-index:19;left:24px;top:24px;width:54px;height:54px;border-radius:50%;border:1px solid rgba(0,245,212,.30);background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.055) 48%,rgba(0,245,212,.055));color:rgba(232,236,239,.88);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(26px) saturate(1.34);-webkit-backdrop-filter:blur(26px) saturate(1.34);box-shadow:0 14px 40px rgba(0,0,0,.34),0 0 24px rgba(0,245,212,.07),inset 0 1px 0 rgba(255,255,255,.18)}',
-      '#blue-room-leave:hover{color:#fff;border-color:rgba(0,245,212,.50);background:rgba(0,245,212,.075);transform:translateY(-2px) scale(1.04)}',
+      '#blue-room-leave{position:fixed;z-index:19;left:24px;top:24px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);color:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:none;transition:background .16s ease-out,border-color .16s ease-out,color .16s ease-out,transform .16s ease-out}',
+      '#blue-room-leave:hover{color:rgba(255,255,255,.9);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08);transform:translateY(-1px)}#blue-room-leave:active{transform:scale(.97)}#blue-room-leave:focus-visible{outline:2px solid rgba(var(--fc-accent-rgb),.7);outline-offset:3px}',
       '#blue-room-btn .br-live{position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--fc-accent);box-shadow:0 0 10px rgba(var(--fc-accent-rgb),.9);opacity:0}',
       '#blue-room-btn.in-room .br-live{opacity:1}',
-      '#blue-room-panel{position:fixed;z-index:32;right:-460px;bottom:92px;width:min(444px,calc(100vw - 48px));max-height:min(650px,calc(100dvh - 132px));display:flex;flex-direction:column;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;padding:18px 18px 32px;border:1px solid rgba(0,245,212,.16);border-radius:20px;background:var(--glass-bg);backdrop-filter:blur(44px) saturate(1.34);-webkit-backdrop-filter:blur(44px) saturate(1.34);box-shadow:var(--glass-shadow);opacity:0;pointer-events:none;transform:translateY(18px) scale(.97);transition:right .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1)}',
-      '#blue-room-panel.show{right:24px;opacity:1;pointer-events:auto;transform:translateY(0) scale(1);animation:fx-panel-in .56s cubic-bezier(.16,1,.3,1)}',
+      '#blue-room-panel{position:fixed;z-index:32;right:-460px;top:78px;bottom:auto;width:min(444px,calc(100vw - 48px));max-height:min(650px,calc(100dvh - 132px));display:flex;flex-direction:column;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;padding:18px 18px 32px;border:1px solid rgba(255,255,255,.10);border-radius:20px;background:var(--glass-bg);backdrop-filter:blur(44px) saturate(1.34);-webkit-backdrop-filter:blur(44px) saturate(1.34);box-shadow:var(--glass-shadow);opacity:0;pointer-events:none;transform-origin:top right;transform:translateY(-6px) scale(.98);transition:right .18s ease-out,opacity .16s ease-out,transform .18s ease-out}',
+      '#blue-room-panel.show{right:24px;opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}',
       '.br-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)}',
       '.br-kicker{font:700 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(var(--fc-accent-rgb),.8);text-transform:uppercase}',
       '.br-title{margin-top:6px;font-size:18px;font-weight:760;color:rgba(255,255,255,.94)}',
@@ -364,7 +352,7 @@
       '.br-chat-form{display:flex;gap:6px;margin-top:9px}.br-chat-form .br-input{flex:1;min-width:0;height:34px}.br-empty{padding:18px 8px;text-align:center;font-size:10px;line-height:1.6;color:rgba(255,255,255,.28)}',
       '.br-footer{display:flex;gap:7px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)}',
       '.br-footer .br-btn{flex:1}.br-host-fold{margin-top:10px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.024);overflow:hidden}.br-host-fold summary{padding:13px 12px;color:rgba(255,255,255,.72);cursor:pointer;font-size:11px;font-weight:700}.br-host-fold[open] summary{color:#fff;background:rgba(255,255,255,.024)}.br-host-fold-body{display:grid;gap:9px;padding:0 11px 11px}.br-member-chat{display:grid;gap:12px}.br-member-chat .br-list{max-height:170px;overflow:auto}',
-      '@media(max-width:720px){#blue-room-panel{left:12px;right:12px!important;top:76px;bottom:auto;width:auto;max-height:calc(100dvh - 132px)}#blue-room-leave{left:12px;top:12px;width:48px;height:48px}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
+      '@media(max-width:720px){#blue-room-panel{left:12px;right:12px!important;top:68px;bottom:auto;width:auto;max-height:calc(100dvh - 112px)}#blue-room-leave{left:12px;top:12px;width:44px;height:44px}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -400,6 +388,30 @@
     document.body.appendChild(panel);
     var fx = document.getElementById('fx-fab');
     if (fx) fx.addEventListener('click', closeRoomPanel, true);
+    var qq = document.getElementById('search-mode-qq');
+    if (qq) {
+      qq.disabled = true;
+      qq.setAttribute('aria-disabled', 'true');
+      qq.title = 'QQ 音源即将开放';
+    }
+    var tabs = document.getElementById('search-mode-tabs');
+    if (tabs && !document.getElementById('blue-room-search-mode-other')) {
+      var other = document.createElement('button');
+      other.id = 'blue-room-search-mode-other';
+      other.className = 'search-mode-btn';
+      other.type = 'button';
+      other.disabled = true;
+      other.setAttribute('aria-disabled', 'true');
+      other.title = '其他音源即将开放';
+      other.textContent = '其他';
+      tabs.appendChild(other);
+    }
+    var fxPanel = document.getElementById('fx-panel');
+    if (fxPanel && window.MutationObserver) {
+      new MutationObserver(function () {
+        if (fxPanel.classList.contains('show') || fxPanel.classList.contains('peek')) closeRoomPanel();
+      }).observe(fxPanel, { attributes: true, attributeFilter: ['class'] });
+    }
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeRoomPanel(); });
     if (typeof window.setSearchMode === 'function') window.setSearchMode('netease');
     renderRoomUi();
@@ -449,6 +461,23 @@
     window.updateListenStatsTick = function () {};
     window.finalizeListenSession = function () {};
     window.listenSession = null;
+  }
+
+  function resetNativeRoomPlayback() {
+    if (window.audio) {
+      try { window.audio.pause(); } catch (_) {}
+      try { window.audio.removeAttribute('src'); window.audio.load(); } catch (_) {}
+      try { window.audio.currentTime = 0; } catch (_) {}
+    }
+    window.playQueue = [];
+    window.currentIdx = -1;
+    window.currentLocalSong = null;
+    window.playing = false;
+    lastTrackKey = '';
+    if (typeof window.setOriginalLyricsState === 'function') window.setOriginalLyricsState([], false, 'blue-album-room-start');
+    if (typeof window.applyOriginalLyricsState === 'function') window.applyOriginalLyricsState();
+    if (typeof window.setPlayIcon === 'function') window.setPlayIcon(false);
+    syncRoomShelf([]);
   }
 
   function toggleRoomPanel() {
@@ -527,7 +556,7 @@
     var syncStatus = String(roomState.syncStatus || 'connecting');
     var syncLabels = { connecting: '正在连接…', syncing: '正在同步…', synced: '已同步', reconnecting: '连接中断', error: '同步失败' };
     var roomMeta = '<div class="br-room-meta" data-sync-status="' + esc(syncStatus) + '"><i class="br-dot"></i><span>' + esc(syncLabels[syncStatus] || syncStatus) + '</span><span class="br-code">' + esc(room.room_code || '') + '</span></div>';
-    var core = roomMeta + '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '使用上方 Mineradio 搜索') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">点歌提示<span>网易云公共搜索</span></div><div class="br-card"><div class="br-empty" style="padding:8px 0">使用上方 Mineradio 原生搜索。点击歌曲会加入房间公共歌单，不会改变你的本地播放器。</div></div></div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
+    var core = roomMeta + '<div class="br-section"><div class="br-section-head">当前正在播放<span>' + playbackStatus + '</span></div><div class="br-card br-now">' + cover + '<div><strong>' + esc(current ? current.title : '等待第一首歌') + '</strong><small>' + esc(current ? current.artist : '使用上方 Mineradio 搜索') + '</small>' + currentReason + '</div></div></div><div class="br-section"><div class="br-section-head"><b>歌单</b><span>' + waiting.length + ' 首待播</span></div>' + queueAction + '<div class="br-list">' + queueRows + '</div></div><div class="br-section"><div class="br-section-head">在线成员与聊天<span>' + members.filter(function (m) { return m.is_online; }).length + ' 人在线</span></div><div class="br-card br-member-chat"><div class="br-list">' + memberRows + '</div><div class="br-chat">' + chatRows + '</div><form class="br-chat-form" data-form="chat"><input class="br-input" name="message" maxlength="500" placeholder="说点什么…"><button class="br-btn" type="submit">发送</button></form></div></div>';
     if (!isHost) return core;
     return core + '<details class="br-host-fold"><summary>房主功能</summary><div class="br-host-fold-body">' + (current ? '<button class="br-btn primary" data-action="force-skip">立即切歌</button>' : '<div class="br-empty">当前没有正在播放的歌曲</div>') + '<label class="br-section-head" style="margin:0">切歌门槛<select class="br-input" data-setting="music_skip_vote_percent"><option value="30" ' + (threshold === 30 ? 'selected' : '') + '>30%</option><option value="50" ' + (threshold === 50 ? 'selected' : '') + '>50%</option><option value="70" ' + (threshold === 70 ? 'selected' : '') + '>70%</option></select></label></div></details>';
   }
@@ -606,6 +635,7 @@
 
   installRoomUi();
   disablePersonalRoomTracking();
+  resetNativeRoomPlayback();
   bindNativeRoomControls();
   if (typeof window.dismissSplash === 'function') window.dismissSplash({ instant: true });
   window.setInterval(function () { bindAudio(); emitTrackIfChanged(); }, 350);

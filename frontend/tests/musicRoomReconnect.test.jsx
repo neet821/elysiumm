@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     io: vi.fn(() => socket),
     snapshotError: false,
     socket,
+    lyricsGate: null,
     room10QueueGate: null,
     user: { id: 1, role: 'user', username: 'host' },
   }
@@ -81,6 +82,7 @@ beforeEach(() => {
   mocks.applySnapshot.mockClear().mockResolvedValue({ applied: true, correction: 'none' })
   mocks.snapshotError = false
   mocks.room10QueueGate = null
+  mocks.lyricsGate = null
   mocks.api.post.mockReset().mockResolvedValue({ data: {} })
   mocks.api.get.mockReset().mockImplementation((url) => {
     if (url.endsWith('/api/sync-rooms')) {
@@ -136,7 +138,7 @@ beforeEach(() => {
       return Promise.resolve({ data: { availability: 'playable', playback_url: playingTrack.stream_url, provider: 'upload' } })
     }
     if (url.endsWith('/api/music/tracks/101/lyrics')) {
-      return Promise.resolve({ data: { lines: [], translation: [] } })
+      return mocks.lyricsGate || Promise.resolve({ data: { lines: [], translation: [] } })
     }
     return Promise.reject(new Error(`Unexpected request: ${url}`))
   })
@@ -210,6 +212,18 @@ function emitMineradioPlayback(frame, payload) {
 }
 
 describe('music room reconnect and authority UI', () => {
+  it('does not wait for the room lyrics request before starting playback sync', async () => {
+    let releaseLyrics
+    mocks.lyricsGate = new Promise((resolve) => { releaseLyrics = resolve })
+    renderRoom()
+    const frame = await readyMineradio()
+
+    await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalled(), { timeout: 500 })
+    expect(mocks.api.get.mock.calls.some(([url]) => url.endsWith('/api/music/tracks/101/lyrics'))).toBe(false)
+    expect(frame).toHaveAttribute('src', '/mineradio/?blue-room=9')
+    releaseLyrics({ data: { lines: [], translation: [] } })
+  })
+
   it('unmounts the old player before a different room finishes loading', async () => {
     let releaseRoom10Queue
     mocks.room10QueueGate = new Promise((resolve) => { releaseRoom10Queue = resolve })

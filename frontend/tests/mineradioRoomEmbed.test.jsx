@@ -124,6 +124,45 @@ describe('Mineradio room embed', () => {
     expect(clearSpy).toHaveBeenCalledOnce()
   })
 
+  it('clears an empty room before exposing the embedded player', async () => {
+    const onAdapterReady = vi.fn()
+    render(
+      <MineradioRoomEmbed
+        roomId="9"
+        onAdapterReady={onAdapterReady}
+        roomState={{ inRoom: true, queue: [] }}
+      />,
+    )
+    const frame = screen.getByTitle('Mineradio 原版房间播放器')
+    vi.spyOn(frame.contentWindow, 'postMessage')
+
+    await act(async () => window.dispatchEvent(new MessageEvent('message', {
+      data: { source: 'blue-album-mineradio', type: 'ready' },
+      origin: window.location.origin,
+      source: frame.contentWindow,
+    })))
+
+    await waitFor(() => expect(frame.contentWindow.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'sync', payload: expect.objectContaining({ reset: true, track: null }) }),
+      window.location.origin,
+    ))
+    expect(frame).toHaveAttribute('data-room-sync-ready', 'false')
+
+    const resetMessage = frame.contentWindow.postMessage.mock.calls
+      .map(([message]) => message)
+      .find((message) => message?.type === 'sync' && message.payload.reset)
+    await act(async () => window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        source: 'blue-album-mineradio',
+        type: 'sync-applied',
+        payload: { apply_id: resetMessage.payload.apply_id, reset: true, time: 0, is_playing: false },
+      },
+      origin: window.location.origin,
+      source: frame.contentWindow,
+    })))
+    expect(frame).toHaveAttribute('data-room-sync-ready', 'true')
+  })
+
   it('rejects an unconfirmed remote command after the bounded timeout', async () => {
     vi.useFakeTimers()
     try {
@@ -181,6 +220,7 @@ describe('Mineradio room embed', () => {
     const index = fs.readFileSync(path.join(root, 'mineradio/public/index.html'), 'utf8')
     const loader = fs.readFileSync(path.join(root, 'mineradio/public/js/index-loader.js'), 'utf8')
     const bridge = fs.readFileSync(path.join(root, 'mineradio/public/blue-album-room-bridge.js'), 'utf8')
+    const search = fs.readFileSync(path.join(root, 'mineradio/public/js/modules/05-playback/07-search.js'), 'utf8')
 
     expect(index).toContain('blue-album-room-bridge.js')
     expect(index).toContain('id="fx-panel"')
@@ -214,6 +254,7 @@ describe('Mineradio room embed', () => {
     expect(bridge).toContain('boundAudio.onended = null')
     expect(bridge).toContain('sync-applied')
     expect(bridge).toContain('force_seek')
+    expect(bridge).not.toContain('track.lyrics.map')
     expect(bridge).toMatch(/playback_rate:\s*window\.audio/)
     expect(bridge).toMatch(/#progress-bar[^']*pointer-events:none/)
     expect(bridge).toContain('退出房间')
@@ -222,6 +263,10 @@ describe('Mineradio room embed', () => {
     expect(bridge).toContain('当前正在播放')
     expect(bridge).toContain('在线成员与聊天')
     expect(bridge).toContain('房主功能')
+    expect(bridge).not.toContain('点歌提示')
+    expect(bridge).toContain('blue-room-search-mode-other')
+    expect(bridge).toContain('data-room-sync-ready')
+    expect(search).toContain("(roomMode ? '' : '<button class=\"add-btn\"")
   })
 
   it('routes trusted room audio directly to the native audio element', () => {
