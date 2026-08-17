@@ -209,11 +209,15 @@ describe('unified room catalog integration', () => {
 
     roomAction(frame, 'search', { query: 'blue', source: 'netease' })
 
-    await waitFor(() => expect(latestRoomState(postMessage)?.catalog).toHaveLength(3))
-    expect(latestRoomState(postMessage).catalog.map((item) => item.title)).toEqual([
+    const catalogState = await waitFor(() => {
+      const state = latestRoomState(postMessage)
+      if (state?.catalog?.length !== 3) throw new Error('catalog is not ready')
+      return state
+    })
+    expect(catalogState.catalog.map((item) => item.title)).toEqual([
       'Playable Song', 'Preview Song', 'Unavailable Song',
     ])
-    expect(latestRoomState(postMessage).catalog.map((item) => item.availability)).toEqual([
+    expect(catalogState.catalog.map((item) => item.availability)).toEqual([
       'playable', 'preview', 'unavailable',
     ])
     expect(mocks.api.get).toHaveBeenCalledWith(
@@ -226,8 +230,12 @@ describe('unified room catalog integration', () => {
     renderRoom()
     const { frame, postMessage } = await readyMineradio()
     roomAction(frame, 'search', { query: 'preview', source: 'qq' })
-    await waitFor(() => expect(latestRoomState(postMessage)?.catalog).toHaveLength(3))
-    roomAction(frame, 'propose-catalog', { track: latestRoomState(postMessage).catalog[1] })
+    const catalogState = await waitFor(() => {
+      const state = latestRoomState(postMessage)
+      if (state?.catalog?.length !== 3) throw new Error('catalog is not ready')
+      return state
+    })
+    roomAction(frame, 'propose-catalog', { track: catalogState.catalog[1] })
 
     await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/music\/rooms\/9\/queue$/),
