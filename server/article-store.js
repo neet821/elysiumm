@@ -42,7 +42,8 @@ function parseNote(source, fallbackTitle = '') {
   const body = standard.content || standard.body || source;
   const title = cleanText(data.title) || firstHeading(source) || fallbackTitle || 'Untitled';
   const cover = FRONTMATTER_KEYS.map((key) => cleanText(data[key])).find(Boolean) || '';
-  const excerpt = EXCERPT_KEYS.map((key) => cleanText(data[key])).find(Boolean) || body
+  const excerptKey = EXCERPT_KEYS.find((key) => Object.prototype.hasOwnProperty.call(data, key));
+  const excerpt = excerptKey ? cleanText(data[excerptKey]) : body
     .replace(/^---[\s\S]*?---\s*/m, '')
     .replace(/^\s*#.*$/gm, '')
     .replace(/!\[\[.*?\]\]/g, '')

@@ -27,7 +27,7 @@ function renderHome(articles) {
       <div class="article-info">
         <div class="article-meta">${escapeHtml(formatDate(article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}</div>
         <h2><a href="/article/${encodeURIComponent(article.slug)}">${escapeHtml(article.title)}</a></h2>
-        <p>${escapeHtml(article.excerpt)}</p>
+        ${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}
       </div>
     </article>`).join('');
   return shell(`<div class="intro"><h1>文章</h1><p>${articles.length} 篇</p></div><section class="article-list" aria-label="文章列表">${items || '<p class="empty">还没有文章。</p>'}</section>`);

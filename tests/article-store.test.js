@@ -54,6 +54,14 @@ describe('article store', () => {
     await expect(store.resolveMedia('third', '../secret.txt')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it('keeps the preview empty when frontmatter explicitly leaves it blank', async () => {
+    const root = await makeRoot();
+    await writeFile(join(root, 'no-preview.md'), `---\npreview:\n---\n\nBody text should not become a preview.`);
+    const store = createArticleStore({ rootDir: root });
+
+    expect((await store.listArticles())[0].excerpt).toBe('');
+  });
+
   it('sorts dated articles newest first', async () => {
     const root = await makeRoot();
     await writeFile(join(root, 'old.md'), `---\ntitle: Old\ndate: 2026-01-01\n---\nOld.`);
