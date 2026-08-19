@@ -18,6 +18,13 @@ function formatDate(value) {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
 
+function metadataSummary(article) {
+  const metadata = article.metadata;
+  if (!metadata) return '';
+  const parts = [metadata.year, ...(metadata.genres || []).slice(0, 3)].filter(Boolean);
+  return parts.length ? ` · ${escapeHtml(parts.join(' · '))}` : '';
+}
+
 function shell(content, current = '') {
   return `<header class="site-header"><a class="site-name" href="/">elysiumm.top</a><span class="site-section">${current}</span></header><main>${content}</main>`;
 }
@@ -41,7 +48,7 @@ async function renderHome(articles) {
     <article class="article-row ${article.type === 'image' ? 'image-row' : ''}">
       ${article.cover ? (article.link === false ? `<div class="article-cover"><img src="${coverUrl(article)}" alt="" loading="lazy"></div>` : `<a class="article-cover" href="/article/${encodeURIComponent(article.slug)}"><img src="${coverUrl(article)}" alt="" loading="lazy"></a>`) : ''}
       <div class="article-info">
-        <div class="article-meta">${escapeHtml(formatDate(article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}</div>
+        <div class="article-meta">${escapeHtml(formatDate(article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}${metadataSummary(article)}</div>
         <h2>${article.link === false ? escapeHtml(article.title) : `<a href="/article/${encodeURIComponent(article.slug)}">${escapeHtml(article.title)}</a>`}</h2>
         ${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}
       </div>

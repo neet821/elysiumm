@@ -1,4 +1,6 @@
 const headers = { 'user-agent': 'elysiumm-articles/1.0 (https://elysiumm.top)' };
+const gameAliases = { '极乐迪斯科': 'Disco Elysium' };
+const albumAliases = { 'ok computer': 'artist:Radiohead AND releasegroup:"OK Computer"' };
 
 function text(value) {
   return value == null ? '' : String(value).trim();
@@ -38,8 +40,11 @@ export async function searchMetadata(type, query, env = process.env, fetchImpl =
     }));
   }
   if (type === 'album') {
-    const data = await getJson(`https://musicbrainz.org/ws/2/release-group/?query=${q}&fmt=json&limit=8`, {}, fetchImpl);
-    return data['release-groups'].map((item) => normalized('musicbrainz', {
+    const albumQuery = albumAliases[query.trim().toLowerCase()] || `releasegroup:${query.trim()}`;
+    const data = await getJson(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(albumQuery)}&fmt=json&limit=8`, {}, fetchImpl);
+    const groups = data['release-groups'].sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+    const exact = groups.find((item) => item.title.trim().toLowerCase() === query.trim().toLowerCase());
+    return (exact ? [exact, ...groups.filter((item) => item.id !== exact.id)] : groups).slice(0, 8).map((item) => normalized('musicbrainz', {
       providerId: item.id,
       title: item.title,
       year: item['first-release-date'],
@@ -59,7 +64,8 @@ export async function searchMetadata(type, query, env = process.env, fetchImpl =
     }));
   }
   if (type === 'game') {
-    const data = await getJson(`https://store.steampowered.com/api/storesearch/?term=${q}&l=schinese&cc=cn`, {}, fetchImpl);
+    const searchTerm = gameAliases[query.trim()] || query.trim();
+    const data = await getJson(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(searchTerm)}&l=schinese&cc=cn`, {}, fetchImpl);
     return (data.items || []).slice(0, 8).map((item) => normalized('steam', {
       providerId: item.id,
       title: item.name,
