@@ -6,7 +6,7 @@ played_at: {{DATE:YYYY-MM-DD}}
 tags:
   - 游戏
 link: true
-source:
+source: steam
 source_id:
 cover:
 preview:

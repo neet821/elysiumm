@@ -7,7 +7,9 @@ function escapeHtml(value = '') {
 }
 
 function coverUrl(article) {
-  return article.cover ? `/media/${encodeURIComponent(article.slug)}/${encodeURIComponent(article.cover)}` : '';
+  if (!article.cover) return '';
+  if (/^(?:https?:|data:|\/)/i.test(article.cover)) return article.cover;
+  return `/media/${encodeURIComponent(article.slug)}/${encodeURIComponent(article.cover)}`;
 }
 
 function formatDate(value) {
@@ -20,7 +22,21 @@ function shell(content, current = '') {
   return `<header class="site-header"><a class="site-name" href="/">elysiumm.top</a><span class="site-section">${current}</span></header><main>${content}</main>`;
 }
 
-function renderHome(articles) {
+async function enrichArticle(article) {
+  if (!['movie', 'album', 'book', 'game'].includes(article.type) || article.cover || article.excerpt) return article;
+  try {
+    const response = await fetch(`/api/metadata/search?type=${encodeURIComponent(article.type)}&q=${encodeURIComponent(article.title)}`);
+    if (!response.ok) return article;
+    const result = (await response.json()).results?.[0];
+    if (!result) return article;
+    return { ...article, cover: result.cover || article.cover, excerpt: result.description || article.excerpt, metadata: result };
+  } catch {
+    return article;
+  }
+}
+
+async function renderHome(articles) {
+  articles = await Promise.all(articles.map(enrichArticle));
   const items = articles.map((article) => `
     <article class="article-row ${article.type === 'image' ? 'image-row' : ''}">
       ${article.cover ? (article.link === false ? `<div class="article-cover"><img src="${coverUrl(article)}" alt="" loading="lazy"></div>` : `<a class="article-cover" href="/article/${encodeURIComponent(article.slug)}"><img src="${coverUrl(article)}" alt="" loading="lazy"></a>`) : ''}
@@ -56,7 +72,7 @@ async function render() {
       app.innerHTML = renderArticle(article);
     } else {
       const { articles } = await load('/api/articles');
-      app.innerHTML = renderHome(articles);
+      app.innerHTML = await renderHome(articles);
     }
   } catch (error) {
     app.innerHTML = renderError(error.message);

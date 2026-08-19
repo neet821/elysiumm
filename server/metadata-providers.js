@@ -1,7 +1,7 @@
 const headers = { 'user-agent': 'elysiumm-articles/1.0 (https://elysiumm.top)' };
 
 function text(value) {
-  return typeof value === 'string' ? value.trim() : '';
+  return value == null ? '' : String(value).trim();
 }
 
 function normalized(provider, item) {
@@ -18,16 +18,16 @@ function normalized(provider, item) {
   };
 }
 
-async function getJson(url, options = {}) {
-  const response = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
+async function getJson(url, options = {}, fetchImpl = fetch) {
+  const response = await fetchImpl(url, { ...options, headers: { ...headers, ...options.headers } });
   if (!response.ok) throw new Error(`metadata provider returned ${response.status}`);
   return response.json();
 }
 
-export async function searchMetadata(type, query, env = process.env) {
+export async function searchMetadata(type, query, env = process.env, fetchImpl = fetch) {
   const q = encodeURIComponent(query.trim());
   if (type === 'book') {
-    const data = await getJson(`https://openlibrary.org/search.json?q=${q}&limit=8`);
+    const data = await getJson(`https://openlibrary.org/search.json?q=${q}&limit=8`, {}, fetchImpl);
     return data.docs.map((item) => normalized('openlibrary', {
       providerId: item.key,
       title: item.title,
@@ -38,7 +38,7 @@ export async function searchMetadata(type, query, env = process.env) {
     }));
   }
   if (type === 'album') {
-    const data = await getJson(`https://musicbrainz.org/ws/2/release-group/?query=${q}&fmt=json&limit=8`);
+    const data = await getJson(`https://musicbrainz.org/ws/2/release-group/?query=${q}&fmt=json&limit=8`, {}, fetchImpl);
     return data['release-groups'].map((item) => normalized('musicbrainz', {
       providerId: item.id,
       title: item.title,
@@ -48,7 +48,7 @@ export async function searchMetadata(type, query, env = process.env) {
     }));
   }
   if (type === 'movie' && env.TMDB_API_KEY) {
-    const data = await getJson(`https://api.themoviedb.org/3/search/movie?query=${q}&language=zh-CN`, { headers: { authorization: `Bearer ${env.TMDB_API_KEY}` } });
+    const data = await getJson(`https://api.themoviedb.org/3/search/movie?query=${q}&language=zh-CN`, { headers: { authorization: `Bearer ${env.TMDB_API_KEY}` } }, fetchImpl);
     return data.results.map((item) => normalized('tmdb', {
       providerId: item.id,
       title: item.title,
@@ -58,19 +58,12 @@ export async function searchMetadata(type, query, env = process.env) {
       raw: item,
     }));
   }
-  if (type === 'game' && env.IGDB_CLIENT_ID && env.IGDB_ACCESS_TOKEN) {
-    const data = await getJson('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: { 'content-type': 'text/plain', 'Client-ID': env.IGDB_CLIENT_ID, authorization: `Bearer ${env.IGDB_ACCESS_TOKEN}` },
-      body: `search "${query.replaceAll('"', '')}"; fields name,summary,first_release_date,cover.url,genres.name; limit 8;`,
-    });
-    return data.map((item) => normalized('igdb', {
+  if (type === 'game') {
+    const data = await getJson(`https://store.steampowered.com/api/storesearch/?term=${q}&l=schinese&cc=cn`, {}, fetchImpl);
+    return (data.items || []).slice(0, 8).map((item) => normalized('steam', {
       providerId: item.id,
       title: item.name,
-      description: item.summary,
-      cover: item.cover?.url ? `https:${item.cover.url.replace('t_thumb', 't_cover_big')}` : '',
-      year: item.first_release_date ? new Date(item.first_release_date * 1000).getUTCFullYear() : '',
-      genres: item.genres?.map((genre) => genre.name),
+      cover: item.tiny_image,
       raw: item,
     }));
   }
