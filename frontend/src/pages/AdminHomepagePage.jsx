@@ -54,6 +54,7 @@ export default function AdminHomepagePage() {
   const [postIds, setPostIds] = useState('')
   const [photoIds, setPhotoIds] = useState('')
   const [collectionIds, setCollectionIds] = useState('')
+  const [trackIds, setTrackIds] = useState('')
   const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -68,6 +69,7 @@ export default function AdminHomepagePage() {
     setPostIds(identifiersToText(normalized.featured_post_ids))
     setPhotoIds(identifiersToText(normalized.featured_photo_ids))
     setCollectionIds(identifiersToText(normalized.featured_collection_ids))
+    setTrackIds(identifiersToText(normalized.featured_track_ids))
   }, [])
 
   const loadSettings = useCallback(async () => {
@@ -114,6 +116,7 @@ export default function AdminHomepagePage() {
       featured_post_ids: parseIdentifiers(postIds),
       featured_photo_ids: parseIdentifiers(photoIds),
       featured_collection_ids: parseIdentifiers(collectionIds),
+      featured_track_ids: parseIdentifiers(trackIds).slice(0, 5),
       show_messages: draft.show_messages,
       show_history: draft.show_history,
       background_mode: draft.background_mode,
@@ -201,6 +204,7 @@ export default function AdminHomepagePage() {
             <Input label="精选文章编号" value={postIds} hint="用逗号分隔正整数；留空时使用最近公开文章。" onChange={(event) => setPostIds(event.target.value)} />
             <Input label="精选照片编号" value={photoIds} hint="仅显示已经标记为精选的照片。" onChange={(event) => setPhotoIds(event.target.value)} />
             <Input label="精选收藏编号" value={collectionIds} hint="填写要在首页展示的公开收藏编号。" onChange={(event) => setCollectionIds(event.target.value)} />
+            <Input label="首页播放器歌曲编号" value={trackIds} hint="用逗号分隔曲库编号，最多 5 首；播放器不会自动播放。" onChange={(event) => setTrackIds(event.target.value)} />
             <div className="admin-homepage__switches">
               <label><input type="checkbox" checked={draft.show_messages} onChange={(event) => updateDraft('show_messages', event.target.checked)} /> 显示留言板</label>
               <label><input type="checkbox" checked={draft.show_history} onChange={(event) => updateDraft('show_history', event.target.checked)} /> 显示历史记录</label>

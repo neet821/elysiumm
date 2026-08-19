@@ -4,9 +4,10 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { BrandLogo } from './brand/BrandLogo.jsx'
 import { Drawer, IconButton, CommandPalette } from './ui/index.js'
-import { SERVICE_DIRECTORY } from '../navigation.js'
-
-export const PUBLIC_NAV_ITEMS = SERVICE_DIRECTORY
+export const PUBLIC_NAV_ITEMS = [
+  { id: 'archive', label: '归档', to: '/archive' },
+  { id: 'rooms', label: '房间', to: '/music' },
+]
 
 function CompactLink({ children, to, end = false, onClick }) {
   return (
@@ -32,15 +33,7 @@ export function Header() {
   const accountLabel = isAuthenticated ? (user?.username || '账户') : '登录'
   const commandItems = useMemo(() => [
     { id: '/', label: '首页', description: '返回 Elysium 房间', keywords: ['首页', 'home', '/'], to: '/' },
-    ...SERVICE_DIRECTORY
-      .filter((item) => !item.auth || isAuthenticated)
-      .map((item) => ({
-        id: item.to,
-        label: item.label,
-        description: item.description,
-        keywords: [item.label, item.to],
-        to: item.to,
-      })),
+    ...PUBLIC_NAV_ITEMS.map((item) => ({ ...item, description: item.label, keywords: [item.label, item.to] })),
     ...(isAuthenticated && user?.is_admin
       ? [{ id: '/account/admin', label: '管理中心', description: '管理内容、用户与服务', keywords: ['管理', 'admin'], to: '/account/admin' }]
       : []),
@@ -65,7 +58,8 @@ export function Header() {
   const compactLinks = (
     <>
       <CompactLink end to="/" onClick={() => setMobileMenuOpen(false)}>首页</CompactLink>
-      <CompactLink to="/tools" onClick={() => setMobileMenuOpen(false)}>工具箱</CompactLink>
+      <CompactLink to="/archive" onClick={() => setMobileMenuOpen(false)}>归档</CompactLink>
+      <CompactLink to="/music" onClick={() => setMobileMenuOpen(false)}>房间</CompactLink>
       <CompactLink to={accountTarget} onClick={() => setMobileMenuOpen(false)}>{accountLabel}</CompactLink>
     </>
   )

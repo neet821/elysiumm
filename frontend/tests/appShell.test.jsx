@@ -31,8 +31,8 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('banner')).toBeInTheDocument()
     const primaryNav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '工具箱' })).toBeInTheDocument()
-    expect(within(primaryNav).queryByText('归档')).not.toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '归档' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
   })
 
   it('shows login instead of account to signed-out visitors', () => {
@@ -52,7 +52,8 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('banner')).toBeInTheDocument()
     const primaryNav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '工具箱' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '归档' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
     expect(within(primaryNav).queryByText('直播')).not.toBeInTheDocument()
     expect(within(primaryNav).queryByText('音乐')).not.toBeInTheDocument()
     expect(within(primaryNav).queryByText('书籍')).not.toBeInTheDocument()

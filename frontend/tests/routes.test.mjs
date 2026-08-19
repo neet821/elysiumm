@@ -76,7 +76,4 @@ assert.match(
   /<Route path="\*" element=\{withUserProps\(NotFoundPage\)\} \/>/,
   "unknown routes should render a not-found page instead of silently returning home",
 );
-assert.match(routesSource, /path="temporary-review" element=\{<TemporaryReviewPage \/>\}/, "admin temporary review hub should exist");
-for (const page of ["posts", "photos", "messages", "links", "player"]) {
-  assert.match(routesSource, new RegExp(`path="${page}"`), `temporary review page ${page} should exist`);
-}
+assert.doesNotMatch(routesSource, /temporary-review/, "temporary review pages should be removed from production routes");

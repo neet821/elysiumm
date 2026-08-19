@@ -9,10 +9,10 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
 const LIGHT_STYLES = THEME.light;
-const LEGACY_STYLES = THEME.dark;
 
 const AdminShell = lazy(() => import("./components/admin/AdminShell"));
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
+const ArchiveDetailPage = lazy(() => import("./pages/ArchiveDetailPage"));
 const BooksPage = lazy(() => import("./pages/BooksPage"));
 const CollectionPage = lazy(() => import("./pages/CollectionPage"));
 const PrivateCollectionPage = lazy(() => import("./pages/PrivateCollectionPage"));
@@ -42,12 +42,6 @@ const MusicLobbyPage = lazy(() => import("./pages/MusicLobbyPage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
 const LivePage = lazy(() => import("./pages/LivePage"));
 const AdminLivePage = lazy(() => import("./pages/AdminLivePage"));
-const TemporaryReviewPage = lazy(() => import("./pages/TemporaryReviewPage"));
-const LegacyPostsPage = lazy(() => import("./pages/PostsPage"));
-const LegacyPhotosPage = lazy(() => import("./pages/PhotosPage"));
-const LegacyMessagesPage = lazy(() => import("./pages/MessageBoardPage"));
-const LegacyLinksPage = lazy(() => import("./pages/LinkDashboard"));
-const LegacyPlayerPage = lazy(() => import("./pages/StandalonePlayerPage"));
 
 export const RouteLoadingFallback = () => (
   <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true">
@@ -62,10 +56,6 @@ const withUserProps = (Component, styles = LIGHT_STYLES) => (
   <Component styles={styles} />
 );
 
-const withLegacyProps = (Component) => (
-  <Component styles={LEGACY_STYLES} isDark />
-);
-
 const withAuth = (children, requireAdmin = false) => (
   <ProtectedRoute requireAdmin={requireAdmin}>{children}</ProtectedRoute>
 );
@@ -78,6 +68,7 @@ const AppRoutes = () => (
       <Route path="/register" element={withUserProps(RegisterPage)} />
       <Route path="/live" element={<LivePage />} />
       <Route path="/archive" element={withUserProps(ArchivePage)} />
+      <Route path="/archive/:type/:id" element={withUserProps(ArchiveDetailPage)} />
       <Route path="/collection" element={withAuth(withUserProps(CollectionPage))} />
       <Route path="/books" element={withAuth(<BooksPage />, true)} />
       <Route path="/posts/new" element={withAuth(withUserProps(PostEditorPage), true)} />
@@ -117,13 +108,6 @@ const AppRoutes = () => (
         <Route path="backups" element={withUserProps(BackupPage)} />
         <Route path="security" element={<AdminSecurityPage />} />
         <Route path="music-providers" element={<MusicProvidersAdminPage />} />
-        <Route path="temporary-review" element={<TemporaryReviewPage />}>
-          <Route path="posts" element={withLegacyProps(LegacyPostsPage)} />
-          <Route path="photos" element={withLegacyProps(LegacyPhotosPage)} />
-          <Route path="messages" element={withLegacyProps(LegacyMessagesPage)} />
-          <Route path="links" element={withLegacyProps(LegacyLinksPage)} />
-          <Route path="player" element={<LegacyPlayerPage />} />
-        </Route>
       </Route>
       <Route path="/account/admin/homepage" element={withAuth(<LegacyRedirect to="/account/admin/content/homepage" preserveSearch hash={true} />, true)} />
       <Route path="/admin/users" element={withAuth(<LegacyRedirect to="/account/admin/users" preserveSearch hash={true} />, true)} />

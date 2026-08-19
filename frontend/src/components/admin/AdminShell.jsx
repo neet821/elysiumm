@@ -7,7 +7,6 @@ import {
   Files,
   FileText,
   Gauge,
-  History,
   Home,
   Images,
   Menu,
@@ -51,12 +50,6 @@ const navigationGroups = [
       { label: 'FRP', to: '/account/admin/services/frp', icon: RadioTower },
       { label: '备份', to: '/account/admin/backups', icon: DatabaseBackup },
       { label: '安全', to: '/account/admin/security', icon: ShieldCheck },
-    ],
-  },
-  {
-    label: '临时检查',
-    items: [
-      { label: '临时页面检查', to: '/account/admin/temporary-review', icon: History, end: true },
     ],
   },
 ]

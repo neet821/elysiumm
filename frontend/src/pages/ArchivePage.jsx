@@ -10,7 +10,12 @@ const PAGE_SIZE = 20
 const ARCHIVE_TYPES = [
   { value: 'all', label: '全部' },
   { value: 'writing', label: '文章' },
+  { value: 'essay', label: '随笔' },
   { value: 'photo', label: '照片' },
+  { value: 'book', label: '书籍' },
+  { value: 'album', label: '专辑' },
+  { value: 'movie', label: '电影' },
+  { value: 'game', label: '游戏' },
 ]
 
 function positivePage(value) {
@@ -35,11 +40,13 @@ function formatDate(value) {
 export default function ArchivePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedType = searchParams.get('type')
-  const activeType = ['all', 'writing', 'photo'].includes(requestedType)
+  const activeType = ['all', 'writing', 'essay', 'photo', 'book', 'album', 'movie', 'game'].includes(requestedType)
     ? requestedType
     : 'all'
   const query = (searchParams.get('q') || '').trim()
   const activeTag = (searchParams.get('tag') || '').trim()
+  const year = searchParams.get('year') || ''
+  const month = searchParams.get('month') || ''
   const page = positivePage(searchParams.get('page'))
 
   const [draftQuery, setDraftQuery] = useState(query)
@@ -57,14 +64,17 @@ export default function ArchivePage() {
     let active = true
     setLoading(true)
     setError('')
+    const params = {
+      type: activeType,
+      q: query || undefined,
+      tag: activeTag || undefined,
+      skip: (page - 1) * PAGE_SIZE,
+      limit: PAGE_SIZE,
+    }
+    if (year) params.year = year
+    if (month) params.month = month
     apiClient.get(API_ENDPOINTS.ARCHIVE, {
-      params: {
-        type: activeType,
-        q: query || undefined,
-        tag: activeTag || undefined,
-        skip: (page - 1) * PAGE_SIZE,
-        limit: PAGE_SIZE,
-      },
+      params,
     }).then((response) => {
       if (!active) return
       setItems(Array.isArray(response.data?.items) ? response.data.items : [])
@@ -80,7 +90,7 @@ export default function ArchivePage() {
     return () => {
       active = false
     }
-  }, [activeTag, activeType, page, query, retryVersion])
+  }, [activeTag, activeType, month, page, query, retryVersion, year])
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const resultSummary = useMemo(() => {
@@ -109,7 +119,7 @@ export default function ArchivePage() {
       <header className="route-shell__intro">
         <p className="route-shell__eyebrow">午夜归档</p>
         <h1>归档</h1>
-        <p>文章与照片，收录在同一条时间线中。</p>
+        <p>所有公开内容，按时间收录在同一条时间线中。</p>
       </header>
 
       <div className="archive-page__workspace">
@@ -191,7 +201,7 @@ export default function ArchivePage() {
                 data-testid="archive-item"
               >
                 <article>
-                  {item.type === 'photo' && item.image_url && (
+                  {item.image_url && (
                     <div className="archive-entry__image-wrap">
                       <img
                         className="archive-entry__image"
@@ -204,10 +214,12 @@ export default function ArchivePage() {
                   <div className="archive-entry__body">
                     <div className="archive-entry__meta">
                       <span className="archive-entry__kind">
-                        {item.type === 'writing'
+                        {['writing', 'article', 'essay'].includes(item.type)
                           ? <PenLine size={15} aria-hidden="true" />
                           : <Camera size={15} aria-hidden="true" />}
-                        {item.type === 'writing' ? '文章' : '照片'}
+                        {item.content_type === 'essay' || item.type === 'essay'
+                          ? '随笔'
+                          : ({ writing: '文章', article: '文章', photo: '照片', book: '书籍', album: '专辑', movie: '电影', game: '游戏' }[item.type] || '内容')}
                       </span>
                       <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
                     </div>

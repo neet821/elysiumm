@@ -19,7 +19,7 @@ test('formal header does not expose the legacy theme switch', () => {
   const header = read('components/Header.jsx')
   assert.doesNotMatch(header, /app-header__theme/)
   assert.doesNotMatch(header, /toggleTheme/)
-  assert.match(header, /工具箱/)
+  assert.match(header, /房间/)
 })
 
 test('formal navigation uses Elysium copy while old brand stays isolated', () => {
@@ -45,14 +45,11 @@ test('the room stylesheet cannot lock scrolling on formal pages', () => {
   assert.match(room, /:has\(\.app-shell--home\)/)
 })
 
-test('the 3D home reuses the compact formal header and keeps its mode control at the bottom', () => {
-  const shell = read('components/layout/AppShell.jsx')
-  const home = read('features/elysium-room/ElysiumRoomHome.jsx')
-  const experience = read('pages/homeExperience.css')
-  assert.match(shell, /!isMusicRoom\s*&&\s*<Header \/>/)
-  assert.doesNotMatch(home, /elysium-room-home__topbar/)
-  assert.doesNotMatch(home, /NAV_ITEMS/)
-  assert.match(experience, /home-experience__mode-switch[\s\S]*bottom:/)
-  assert.doesNotMatch(experience, /home-experience__mode-switch[\s\S]*top:/)
-  assert.match(read('features/elysium-room/ui/createHud.js'), /aria-label="显示模式"/)
+test('the public home uses the flat editorial surface', () => {
+  const home = read('pages/HomePage.jsx')
+  const styles = read('pages/flatHome.css')
+  assert.match(home, /最近写下/)
+  assert.match(home, /首页播放器/)
+  assert.match(styles, /background:\s*#fff/)
+  assert.doesNotMatch(home, /HomeExperience/)
 })

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Any, List, Literal, Optional
 from datetime import datetime
+from ipaddress import ip_address
 from urllib.parse import urlparse
 
 from input_validation import validate_new_password, validate_username
@@ -783,7 +784,8 @@ class Photo(PhotoBase):
 class ArchiveItem(BaseModel):
     id: str
     source_id: int
-    type: Literal["writing", "photo"]
+    type: Literal["writing", "article", "essay", "photo", "book", "album", "movie", "game"]
+    content_type: Optional[Literal["article", "essay"]] = None
     title: str
     excerpt: Optional[str] = None
     href: Optional[str] = None
@@ -818,7 +820,42 @@ class HomepageCardConfig(BaseModel):
     theme: Literal["archive", "paper", "film", "note", "midnight"]
 
 
+class HomepageSceneConfig(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    id: Literal["study", "darkroom", "listening", "lounge"]
+    label: str = Field(min_length=1, max_length=40)
+    featured_post_ids: List[int] = Field(default_factory=list, max_length=8)
+    featured_photo_ids: List[int] = Field(default_factory=list, max_length=8)
+    featured_book_ids: List[int] = Field(default_factory=list, max_length=8)
+    featured_movie_ids: List[int] = Field(default_factory=list, max_length=8)
+    featured_album_ids: List[int] = Field(default_factory=list, max_length=8)
+
+    @field_validator(
+        "featured_post_ids",
+        "featured_photo_ids",
+        "featured_book_ids",
+        "featured_movie_ids",
+        "featured_album_ids",
+    )
+    @classmethod
+    def validate_scene_ids(cls, values: List[int]) -> List[int]:
+        if any(value <= 0 for value in values) or len(values) != len(set(values)):
+            raise ValueError("场景内容编号必须是互不重复的正整数")
+        return values
+
+
+def _default_homepage_scenes() -> List[dict[str, Any]]:
+    return [
+        {"id": "study", "label": "书房"},
+        {"id": "darkroom", "label": "暗房"},
+        {"id": "listening", "label": "唱片室"},
+        {"id": "lounge", "label": "会客厅"},
+    ]
+
+
 class HomepageConfig(BaseModel):
+    version: Literal[2] = 2
     hero_prefix: str = Field(min_length=1, max_length=80)
     hero_title: str = Field(min_length=1, max_length=120)
     german_line: str = Field(min_length=1, max_length=240)
@@ -827,15 +864,25 @@ class HomepageConfig(BaseModel):
     featured_post_ids: List[int] = Field(default_factory=list, max_length=12)
     featured_photo_ids: List[int] = Field(default_factory=list, max_length=12)
     featured_collection_ids: List[int] = Field(default_factory=list, max_length=12)
+    featured_track_ids: List[int] = Field(default_factory=list, max_length=5)
     show_messages: bool = True
     show_history: bool = True
     background_mode: Literal["auto", "paper", "midnight"] = "auto"
     cards: List[HomepageCardConfig] = Field(min_length=1, max_length=12)
+    scenes: List[HomepageSceneConfig] = Field(
+        default_factory=lambda: [
+            HomepageSceneConfig.model_validate(item)
+            for item in _default_homepage_scenes()
+        ],
+        min_length=4,
+        max_length=4,
+    )
 
     @field_validator(
         "featured_post_ids",
         "featured_photo_ids",
         "featured_collection_ids",
+        "featured_track_ids",
     )
     @classmethod
     def validate_positive_unique_ids(cls, values: List[int]) -> List[int]:
@@ -850,6 +897,10 @@ class HomepageConfig(BaseModel):
         identifiers = [card.id for card in self.cards]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("首页卡片不能重复")
+        scene_ids = [scene.id for scene in self.scenes]
+        expected = ["study", "darkroom", "listening", "lounge"]
+        if scene_ids != expected:
+            raise ValueError("首页场景必须按书房、暗房、唱片室、会客厅排列且各出现一次")
         return self
 
 
@@ -869,6 +920,9 @@ class HomepagePublicResponse(BaseModel):
     photos: List[Photo] = Field(default_factory=list)
     messages: List["MessageBoardResponse"] = Field(default_factory=list)
     collections: List[Any] = Field(default_factory=list)
+    scenes: List[Any] = Field(default_factory=list)
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+    player_tracks: List[dict[str, Any]] = Field(default_factory=list)
 
 # Sync Room Schemas
 class SyncRoomBase(BaseModel):
@@ -1282,6 +1336,292 @@ def _validate_book_tags(value: List[str]) -> List[str]:
     return normalized
 
 
+def _validate_public_https_url(value: Optional[str]) -> Optional[str]:
+    normalized = _clean_optional_text(value)
+    if normalized is None:
+        return None
+    parsed = urlparse(normalized)
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError("外链必须是无凭据的 HTTPS 网址")
+    hostname = (parsed.hostname or "").strip().lower().rstrip(".")
+    if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(".local"):
+        raise ValueError("外链不能指向本机或内网")
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        address = None
+    if address is not None and not address.is_global:
+        raise ValueError("外链不能指向本机或内网")
+    return normalized
+
+
+MEDIA_STATUSES = {
+    "planned",
+    "in_progress",
+    "paused",
+    "completed",
+    "dropped",
+    "wishlist",
+}
+MEDIA_METADATA_FIELDS = {
+    "title",
+    "creator",
+    "cover_url",
+    "year",
+    "summary",
+    "tags",
+    "source",
+    "source_id",
+    "external_url",
+    "metadata",
+}
+
+
+class MediaMetadataCandidate(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["book", "movie", "album", "game"]
+    title: str = Field(min_length=1, max_length=255)
+    creator: Optional[str] = Field(default=None, max_length=255)
+    cover_url: Optional[str] = Field(default=None, max_length=700)
+    year: Optional[int] = Field(default=None, ge=1000, le=2200)
+    summary: Optional[str] = Field(default=None, max_length=12_000)
+    tags: List[str] = Field(default_factory=list, max_length=30)
+    source: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    source_id: Optional[str] = Field(default=None, max_length=255)
+    external_url: Optional[str] = Field(default=None, max_length=1000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    raw_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("title")
+    @classmethod
+    def require_candidate_title(cls, value: str) -> str:
+        normalized = _clean_optional_text(value)
+        if normalized is None:
+            raise ValueError("标题不能为空")
+        return normalized
+
+    @field_validator("creator", "summary", "source_id")
+    @classmethod
+    def clean_candidate_text(cls, value: Optional[str]) -> Optional[str]:
+        return _clean_optional_text(value)
+
+    @field_validator("cover_url")
+    @classmethod
+    def validate_candidate_cover(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_book_cover(value)
+
+    @field_validator("external_url")
+    @classmethod
+    def validate_candidate_link(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_public_https_url(value)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_candidate_tags(cls, value: List[str]) -> List[str]:
+        return _validate_book_tags(value[:12])
+
+
+class MediaSearchRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["book", "movie", "album", "game"]
+    query: str = Field(min_length=1, max_length=180)
+
+    @field_validator("query")
+    @classmethod
+    def require_search_query(cls, value: str) -> str:
+        normalized = _clean_optional_text(value)
+        if normalized is None:
+            raise ValueError("搜索内容不能为空")
+        return normalized
+
+
+class MediaProviderStatus(BaseModel):
+    provider: str
+    available: bool
+    message: str = ""
+
+
+class MediaSearchResponse(BaseModel):
+    kind: Literal["book", "movie", "album", "game"]
+    query: str
+    providers: List[MediaProviderStatus] = Field(default_factory=list)
+    results: List[MediaMetadataCandidate] = Field(default_factory=list)
+    manual_entry_available: bool = True
+
+
+class MediaCreate(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["book", "movie", "album", "game"]
+    slug: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=120,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+    title: str = Field(min_length=1, max_length=255)
+    creator: Optional[str] = Field(default=None, max_length=255)
+    cover_url: Optional[str] = Field(default=None, max_length=700)
+    year: Optional[int] = Field(default=None, ge=1000, le=2200)
+    summary: Optional[str] = Field(default=None, max_length=12_000)
+    tags: List[str] = Field(default_factory=list, max_length=12)
+    status: Literal[
+        "planned", "in_progress", "paused", "completed", "dropped", "wishlist"
+    ] = "planned"
+    activity_at: Optional[datetime] = None
+    personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
+    personal_notes: Optional[str] = Field(default=None, max_length=20_000)
+    is_public: bool = False
+    is_featured: bool = False
+    source: str = Field(default="manual", min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    source_id: Optional[str] = Field(default=None, max_length=255)
+    external_url: Optional[str] = Field(default=None, max_length=1000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    raw_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("title")
+    @classmethod
+    def require_media_title(cls, value: str) -> str:
+        normalized = _clean_optional_text(value)
+        if normalized is None:
+            raise ValueError("标题不能为空")
+        return normalized
+
+    @field_validator("creator", "summary", "personal_notes", "source_id")
+    @classmethod
+    def clean_media_text(cls, value: Optional[str]) -> Optional[str]:
+        return _clean_optional_text(value)
+
+    @field_validator("cover_url")
+    @classmethod
+    def validate_media_cover(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_book_cover(value)
+
+    @field_validator("external_url")
+    @classmethod
+    def validate_media_external_url(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_public_https_url(value)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_media_tags(cls, value: List[str]) -> List[str]:
+        return _validate_book_tags(value)
+
+
+class MediaPatch(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    revision: int = Field(ge=0)
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    creator: Optional[str] = Field(default=None, max_length=255)
+    cover_url: Optional[str] = Field(default=None, max_length=700)
+    year: Optional[int] = Field(default=None, ge=1000, le=2200)
+    summary: Optional[str] = Field(default=None, max_length=12_000)
+    tags: Optional[List[str]] = Field(default=None, max_length=12)
+    status: Optional[Literal[
+        "planned", "in_progress", "paused", "completed", "dropped", "wishlist"
+    ]] = None
+    activity_at: Optional[datetime] = None
+    personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
+    personal_notes: Optional[str] = Field(default=None, max_length=20_000)
+    is_public: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    source: Optional[str] = Field(default=None, min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    source_id: Optional[str] = Field(default=None, max_length=255)
+    external_url: Optional[str] = Field(default=None, max_length=1000)
+    metadata: Optional[dict[str, Any]] = None
+    metadata_candidate: Optional[MediaMetadataCandidate] = None
+    confirm_metadata: bool = False
+
+    @field_validator("title", "creator", "summary", "personal_notes", "source_id")
+    @classmethod
+    def clean_patch_text(cls, value: Optional[str]) -> Optional[str]:
+        return _clean_optional_text(value)
+
+    @field_validator("cover_url")
+    @classmethod
+    def validate_patch_cover(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_book_cover(value)
+
+    @field_validator("external_url")
+    @classmethod
+    def validate_patch_external_url(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_public_https_url(value)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_patch_tags(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        return _validate_book_tags(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def validate_patch_intent(self):
+        direct_fields = self.model_fields_set - {
+            "revision",
+            "metadata_candidate",
+            "confirm_metadata",
+        }
+        if self.metadata_candidate is not None and direct_fields:
+            raise ValueError("资料刷新与手工修改必须分开提交")
+        if self.confirm_metadata and self.metadata_candidate is None:
+            raise ValueError("确认资料刷新前必须提供候选资料")
+        if self.metadata_candidate is None and not direct_fields:
+            raise ValueError("没有可更新的字段")
+        return self
+
+
+class MediaEntryView(BaseModel):
+    id: int
+    kind: Literal["book", "movie", "album", "game"]
+    title: str
+    creator: Optional[str] = None
+    cover_url: Optional[str] = None
+    year: Optional[int] = None
+    summary: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    status: str
+    activity_at: Optional[datetime] = None
+    personal_rating: Optional[float] = None
+    personal_notes: Optional[str] = None
+    source: str
+    source_id: Optional[str] = None
+    safe_external_url: Optional[str] = None
+
+
+class MediaEntryAdminView(MediaEntryView):
+    is_public: bool
+    is_featured: bool
+    revision: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata_overrides: List[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class MediaMetadataDiff(BaseModel):
+    field: str
+    current: Any = None
+    proposed: Any = None
+    blocked_by_manual_override: bool = False
+
+
+class MediaMutationResult(BaseModel):
+    entry: MediaEntryAdminView
+    diff: List[MediaMetadataDiff] = Field(default_factory=list)
+    applied: bool
+
+
+class MediaRecentResponse(BaseModel):
+    items: List[MediaEntryView] = Field(default_factory=list)
+
+
 class BookCreate(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -1293,6 +1633,12 @@ class BookCreate(BaseModel):
     category: Optional[str] = Field(default=None, max_length=80)
     tags: List[str] = Field(default_factory=list)
     reading_status: Literal["unread", "reading", "paused", "completed"] = "unread"
+    source: str = Field(default="manual", min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    source_id: Optional[str] = Field(default=None, max_length=255)
+    isbn: Optional[str] = Field(default=None, max_length=32)
+    publication_year: Optional[int] = Field(default=None, ge=1000, le=2200)
+    personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
+    personal_notes: Optional[str] = Field(default=None, max_length=20_000)
     reader_path: Optional[str] = Field(default=None, max_length=1000)
     is_public: bool = False
     is_featured: bool = False
@@ -1306,7 +1652,7 @@ class BookCreate(BaseModel):
             raise ValueError("标题不能为空")
         return normalized
 
-    @field_validator("author", "description", "category")
+    @field_validator("author", "description", "category", "source_id", "isbn", "personal_notes")
     @classmethod
     def clean_text(cls, value: Optional[str]) -> Optional[str]:
         return _clean_optional_text(value)
@@ -1339,13 +1685,19 @@ class BookUpdate(BaseModel):
     category: Optional[str] = Field(default=None, max_length=80)
     tags: Optional[List[str]] = None
     reading_status: Optional[Literal["unread", "reading", "paused", "completed"]] = None
+    source: Optional[str] = Field(default=None, min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    source_id: Optional[str] = Field(default=None, max_length=255)
+    isbn: Optional[str] = Field(default=None, max_length=32)
+    publication_year: Optional[int] = Field(default=None, ge=1000, le=2200)
+    personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
+    personal_notes: Optional[str] = Field(default=None, max_length=20_000)
     reader_path: Optional[str] = Field(default=None, max_length=1000)
     is_public: Optional[bool] = None
     is_featured: Optional[bool] = None
     display_order: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     last_read_at: Optional[datetime] = None
 
-    @field_validator("title", "author", "description", "category")
+    @field_validator("title", "author", "description", "category", "source_id", "isbn", "personal_notes")
     @classmethod
     def clean_text(cls, value: Optional[str]) -> Optional[str]:
         return _clean_optional_text(value)
@@ -1391,6 +1743,12 @@ class BookPublicView(BaseModel):
     category: Optional[str]
     tags: List[str]
     reading_status: str
+    source: str = "manual"
+    source_id: Optional[str] = None
+    isbn: Optional[str] = None
+    publication_year: Optional[int] = None
+    personal_rating: Optional[float] = None
+    personal_notes: Optional[str] = None
     reader_url: Optional[str]
     is_featured: bool
     display_order: int
@@ -1401,6 +1759,7 @@ class BookAdminView(BookPublicView):
     reader_path: Optional[str]
     is_public: bool
     revision: int
+    metadata_overrides: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

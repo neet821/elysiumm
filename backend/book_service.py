@@ -83,6 +83,16 @@ def _tags(row: models.Book) -> list[str]:
     return [item for item in value if isinstance(item, str)][:12]
 
 
+def _metadata_overrides(row: models.Book) -> list[str]:
+    try:
+        value = json.loads(row.metadata_overrides_json)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)][:32]
+
+
 def serialize_public_book(
     row: models.Book,
     *,
@@ -98,6 +108,12 @@ def serialize_public_book(
         "category": row.category,
         "tags": _tags(row),
         "reading_status": row.reading_status,
+        "source": row.source or "manual",
+        "source_id": row.source_id,
+        "isbn": row.isbn,
+        "publication_year": row.publication_year,
+        "personal_rating": row.personal_rating,
+        "personal_notes": row.personal_notes,
         "reader_url": derive_reader_url(kavita_base_url, row.reader_path),
         "is_featured": row.is_featured,
         "display_order": row.display_order,
@@ -115,6 +131,7 @@ def serialize_admin_book(
         reader_path=row.reader_path,
         is_public=row.is_public,
         revision=row.revision,
+        metadata_overrides=_metadata_overrides(row),
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -239,8 +256,15 @@ def _book_values(payload: schemas.BookCreate | schemas.BookUpdate) -> dict:
 def create_book(db: Session, payload: schemas.BookCreate, *, actor_id: int) -> schemas.BookAdminView:
     if db.query(models.Book.id).filter(models.Book.slug == payload.slug).first():
         raise BookDuplicate("book slug already exists")
+    values = _book_values(payload)
+    metadata_fields = {
+        "title", "author", "description", "cover_url", "tags", "source",
+        "source_id", "isbn", "publication_year",
+    }
+    overrides = sorted(metadata_fields.intersection(payload.model_fields_set))
     row = models.Book(
-        **_book_values(payload),
+        **values,
+        metadata_overrides_json=json.dumps(overrides, separators=(",", ":")),
         revision=1,
         updated_by=actor_id,
         created_at=datetime.utcnow(),
@@ -282,6 +306,19 @@ def update_book(
         raise BookDuplicate("book slug already exists")
     for key, value in _book_values(payload).items():
         setattr(row, key, value)
+    metadata_fields = {
+        "title", "author", "description", "cover_url", "tags", "source",
+        "source_id", "isbn", "publication_year",
+    }
+    changed_metadata = metadata_fields.intersection(payload.model_fields_set)
+    if changed_metadata:
+        overrides = set(_metadata_overrides(row))
+        overrides.update(changed_metadata)
+        row.metadata_overrides_json = json.dumps(
+            sorted(overrides),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
     row.revision += 1
     row.updated_by = actor_id
     row.updated_at = datetime.utcnow()

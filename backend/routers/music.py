@@ -256,7 +256,6 @@ async def get_catalog_audio(
     provider_track_id: str | None = Query(default=None, max_length=120),
     refresh: bool = Query(default=False),
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
 ):
     try:
         payload = await audio_resolver.resolve_audio(

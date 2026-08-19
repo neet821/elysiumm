@@ -7,6 +7,7 @@ export const DEFAULT_HOMEPAGE_SETTINGS = Object.freeze({
   featured_post_ids: [],
   featured_photo_ids: [],
   featured_collection_ids: [],
+  featured_track_ids: [],
   show_messages: true,
   show_history: true,
   background_mode: 'auto',

@@ -192,6 +192,15 @@ class PlatformConfig:
         "https://api.audius.co/v1",
     ).rstrip("/")
     KAVITA_PUBLIC_BASE_URL = os.getenv("KAVITA_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    RAINDROP_PUBLIC_URL = os.getenv("RAINDROP_PUBLIC_URL", "").strip()
+    TMDB_API_READ_TOKEN = os.getenv("TMDB_API_READ_TOKEN", "").strip()
+    METADATA_REQUEST_USER_AGENT = os.getenv(
+        "METADATA_REQUEST_USER_AGENT",
+        "Elysium/1.0 (https://elysiumm.top)",
+    ).strip()
+    METADATA_REQUEST_TIMEOUT_SECONDS = float(
+        os.getenv("METADATA_REQUEST_TIMEOUT_SECONDS", "8")
+    )
     EXTERNAL_MEDIA_DOH_URL = os.getenv(
         "EXTERNAL_MEDIA_DOH_URL",
         "https://cloudflare-dns.com/dns-query",
