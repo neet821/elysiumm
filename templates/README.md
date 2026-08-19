@@ -1,6 +1,6 @@
 # Obsidian 快速记录模板
 
-把这些文件复制到 vault 的 `Templates` 文件夹，在 QuickAdd 中分别建立 Template choice 并绑定快捷键。QuickAdd 的 Capture/Template 可以快速创建记录，也能直接保存剪贴板图片。
+把这些文件复制到 vault 的 `Templates` 文件夹。当前推荐使用已经安装的 Templater：开启“文件创建时触发”，并按文件夹配置模板；模板会用文件名自动填入标题和时间。QuickAdd 仍可用于手动快速捕获，但不要把 `{{VALUE}}` 写法和 Templater 混用。
 
 建议目标文件夹：
 
