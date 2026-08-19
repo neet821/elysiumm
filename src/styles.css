@@ -1,0 +1,66 @@
+:root {
+  color: #171717;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+  line-height: 1.55;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; }
+
+.site-header,
+main {
+  width: min(100% - 40px, 920px);
+  margin: 0 auto;
+}
+
+.site-header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid #d9d9d9;
+  font-size: 14px;
+}
+
+.site-name { font-weight: 700; text-decoration: none; }
+.site-section { color: #777; }
+.intro { padding: 58px 0 36px; }
+.intro h1, .reader h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.12; font-weight: 700; letter-spacing: -0.03em; }
+.intro p { margin: 10px 0 0; color: #777; }
+.article-list { border-top: 1px solid #171717; }
+.article-row { display: grid; grid-template-columns: 160px 1fr; gap: 24px; padding: 22px 0; border-bottom: 1px solid #d9d9d9; }
+.article-cover { display: block; aspect-ratio: 4 / 3; background: #f2f2f2; overflow: hidden; }
+.article-cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.article-info h2 { margin: 4px 0 8px; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.2; }
+.article-info h2 a { text-decoration: none; }
+.article-info h2 a:hover, .back-link:hover, .state a:hover { text-decoration: underline; }
+.article-info p, .reader-excerpt { max-width: 68ch; margin: 0; color: #555; }
+.article-meta { color: #777; font-size: 13px; }
+.empty { padding: 24px 0; color: #777; }
+.reader { padding: 44px 0 80px; }
+.back-link { display: inline-block; margin-bottom: 52px; font-size: 14px; }
+.reader-header { max-width: 760px; padding-bottom: 34px; border-bottom: 1px solid #171717; }
+.reader-header h1 { margin-top: 8px; }
+.reader-excerpt { margin-top: 18px; font-size: 18px; }
+.reader-body { max-width: 760px; padding-top: 34px; font-size: 17px; }
+.reader-body h1, .reader-body h2, .reader-body h3 { line-height: 1.25; margin: 2em 0 .6em; }
+.reader-body p, .reader-body ul, .reader-body ol, .reader-body blockquote { margin: 1em 0; }
+.reader-body img { max-width: 100%; height: auto; display: block; margin: 1.5em 0; }
+.reader-body pre { overflow: auto; padding: 14px; background: #f4f4f4; border: 1px solid #ddd; }
+.reader-body blockquote { margin-left: 0; padding-left: 18px; border-left: 3px solid #171717; color: #555; }
+.reader-body a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.state { padding: 90px 0; }
+.state h1 { margin: 0 0 10px; font-size: 28px; }
+
+@media (max-width: 600px) {
+  .site-header, main { width: min(100% - 28px, 920px); }
+  .intro { padding: 40px 0 28px; }
+  .article-row { grid-template-columns: 1fr; gap: 14px; }
+  .article-cover { width: 150px; }
+  .reader { padding-top: 30px; }
+  .back-link { margin-bottom: 36px; }
+  .reader-body { font-size: 16px; }
+}
