@@ -22,11 +22,11 @@ function shell(content, current = '') {
 
 function renderHome(articles) {
   const items = articles.map((article) => `
-    <article class="article-row">
-      ${article.cover ? `<a class="article-cover" href="/article/${encodeURIComponent(article.slug)}"><img src="${coverUrl(article)}" alt="" loading="lazy"></a>` : ''}
+    <article class="article-row ${article.type === 'image' ? 'image-row' : ''}">
+      ${article.cover ? (article.link === false ? `<div class="article-cover"><img src="${coverUrl(article)}" alt="" loading="lazy"></div>` : `<a class="article-cover" href="/article/${encodeURIComponent(article.slug)}"><img src="${coverUrl(article)}" alt="" loading="lazy"></a>`) : ''}
       <div class="article-info">
         <div class="article-meta">${escapeHtml(formatDate(article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}</div>
-        <h2><a href="/article/${encodeURIComponent(article.slug)}">${escapeHtml(article.title)}</a></h2>
+        <h2>${article.link === false ? escapeHtml(article.title) : `<a href="/article/${encodeURIComponent(article.slug)}">${escapeHtml(article.title)}</a>`}</h2>
         ${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}
       </div>
     </article>`).join('');

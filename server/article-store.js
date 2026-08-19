@@ -87,6 +87,7 @@ async function findByName(root, name) {
 
 function metadata(file, root, parsed, stats) {
   const relativePath = relative(root, file);
+  const type = cleanText(parsed.data.type || parsed.data.kind || 'article') || 'article';
   return {
     slug: slugFor(relativePath),
     title: parsed.title,
@@ -95,7 +96,10 @@ function metadata(file, root, parsed, stats) {
     date: dateText(parsed.data.date || parsed.data.published || parsed.data.created),
     tags: Array.isArray(parsed.data.tags) ? parsed.data.tags.map(cleanText).filter(Boolean) : [],
     category: cleanText(parsed.data.category || parsed.data.type || parsed.data.content_type),
-    updatedAt: stats.mtime.toISOString(),
+    type,
+    link: parsed.data.link !== false,
+    createdAt: dateText(parsed.data.created_at || parsed.data.createdAt),
+    updatedAt: dateText(parsed.data.updated_at || parsed.data.updatedAt) || stats.mtime.toISOString(),
   };
 }
 

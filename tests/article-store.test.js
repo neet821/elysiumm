@@ -70,4 +70,17 @@ describe('article store', () => {
 
     expect((await store.listArticles()).map((article) => article.slug)).toEqual(['new', 'old']);
   });
+
+  it('normalizes collection type, link, and timestamps', async () => {
+    const root = await makeRoot();
+    await writeFile(join(root, 'photo.md'), `---\ntype: image\nlink: false\ncreated_at: 2026-08-19T21:30:00+08:00\nupdated_at: 2026-08-19T21:31:00+08:00\n---\n![[photo.png]]`);
+    const store = createArticleStore({ rootDir: root });
+
+    expect(await store.listArticles()).toMatchObject([{
+      type: 'image',
+      link: false,
+      createdAt: '2026-08-19',
+      updatedAt: '2026-08-19',
+    }]);
+  });
 });

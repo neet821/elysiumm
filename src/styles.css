@@ -34,6 +34,7 @@ main {
 .article-row { display: grid; grid-template-columns: 160px 1fr; gap: 24px; padding: 22px 0; border-bottom: 1px solid #d9d9d9; }
 .article-cover { display: block; aspect-ratio: 4 / 3; background: #f2f2f2; overflow: hidden; }
 .article-cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.image-row .article-cover img { height: auto; max-height: 360px; object-fit: contain; }
 .article-info h2 { margin: 4px 0 8px; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.2; }
 .article-info h2 a { text-decoration: none; }
 .article-info h2 a:hover, .back-link:hover, .state a:hover { text-decoration: underline; }

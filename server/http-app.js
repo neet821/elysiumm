@@ -15,7 +15,7 @@ function isInside(root, target) {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`));
 }
 
-export function createHttpApp({ articleStore, publicDir }) {
+export function createHttpApp({ articleStore, publicDir, metadataSearch }) {
   const staticRoot = resolve(publicDir);
   return async (request, response) => {
     try {
@@ -27,6 +27,13 @@ export function createHttpApp({ articleStore, publicDir }) {
         const slug = decodeURIComponent(url.pathname.slice('/api/articles/'.length));
         const article = await articleStore.getArticle(slug);
         return json(response, 200, { article, html: article.html });
+      }
+      if (url.pathname === '/api/metadata/search') {
+        if (!metadataSearch) return json(response, 503, { error: 'metadata_unavailable' });
+        const type = url.searchParams.get('type')?.trim();
+        const query = url.searchParams.get('q')?.trim();
+        if (!type || !query) return json(response, 400, { error: 'type_and_q_required' });
+        return json(response, 200, { results: await metadataSearch(type, query) });
       }
       if (url.pathname.startsWith('/media/')) {
         const remainder = url.pathname.slice('/media/'.length);
@@ -55,6 +62,8 @@ export function createHttpApp({ articleStore, publicDir }) {
     } catch (error) {
       if (error.code === 'NOT_FOUND') return json(response, 404, { error: 'not_found' });
       if (error.code === 'FORBIDDEN') return json(response, 403, { error: 'forbidden' });
+      if (error.code === 'UNSUPPORTED_TYPE') return json(response, 400, { error: 'unsupported_type' });
+      if (error.message?.startsWith('metadata provider returned')) return json(response, 502, { error: 'metadata_provider_unavailable' });
       return json(response, 500, { error: 'server_error' });
     }
   };

@@ -13,11 +13,11 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-async function start() {
+async function start(options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'elysiumm-http-'));
   roots.push(root);
   await writeFile(join(root, 'hello.md'), `---\ntitle: Hello\n---\n# Hello\n\nWorld.`);
-  const server = (await import('node:http')).createServer(createHttpApp({ articleStore: createArticleStore({ rootDir: root }), publicDir: root }));
+  const server = (await import('node:http')).createServer(createHttpApp({ articleStore: createArticleStore({ rootDir: root }), publicDir: root, ...options }));
   servers.push(server);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   return `http://127.0.0.1:${server.address().port}`;
@@ -42,5 +42,13 @@ describe('article HTTP app', () => {
     const base = await start();
     const response = await fetch(`${base}/api/articles/missing`);
     expect(response.status).toBe(404);
+  });
+
+  it('serves metadata search results through the API', async () => {
+    const base = await start({ metadataSearch: async () => [{ provider: 'openlibrary', title: 'Dune' }] });
+    const response = await fetch(`${base}/api/metadata/search?type=book&q=Dune`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ results: [{ provider: 'openlibrary', title: 'Dune' }] });
   });
 });
