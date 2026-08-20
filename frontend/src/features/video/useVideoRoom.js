@@ -780,7 +780,6 @@ export function useVideoRoom({ navigate, roomId, user }) {
     uploadVideo,
     chooseLocalVideo,
     updateRoomSettings,
-    isAdmin: user?.role === 'admin',
     userId: user?.id,
   }
 }
