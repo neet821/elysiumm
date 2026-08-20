@@ -645,7 +645,10 @@ def session_payload(db, room) -> dict:
         models.VideoPlaylistItem.id,
     ).all()
     current = next((item for item in items if item.id == session.current_item_id), None)
-    visible_items = [current] if current is not None else []
+    # Return the complete queue. The current item is still identified by
+    # current_item_id; hiding the other items makes append-to-queue uploads
+    # impossible to address in the response.
+    visible_items = items
     return {
         "room_id": room.id,
         "current_item_id": session.current_item_id,
