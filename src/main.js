@@ -52,6 +52,15 @@ function articleLink(article, content) {
   return article.link === false ? content : `<a href="/article/${encodeURIComponent(article.slug)}">${content}</a>`;
 }
 
+function articleCard(article) {
+  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '';
+  return `<article class="article-card">${image ? `<a class="article-card-cover" href="/article/${encodeURIComponent(article.slug)}">${image}</a>` : ''}<div class="article-card-info"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</div></article>`;
+}
+
+function essayCard(article, fullArticle) {
+  return `<article class="essay-card"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2><div class="essay-body">${fullArticle?.html || (article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : '')}</div></article>`;
+}
+
 function writingCard(article) {
   return `<article class="writing-card"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</article>`;
 }
@@ -76,7 +85,7 @@ function collectionTitle(article) {
 }
 
 function shell(content, current = '') {
-  return `<header class="site-header"><a class="site-name" href="/">elysiumm.top</a><span class="site-section">${current}</span></header><main>${content}</main>`;
+  return `<main>${content}</main>`;
 }
 
 async function enrichArticle(article) {
@@ -95,12 +104,22 @@ async function enrichArticle(article) {
 async function renderHome(articles) {
   articles = await Promise.all(articles.map(enrichArticle));
   const writing = sortRecent(articles.filter((article) => !collectionTypes.includes(article.type) && article.type !== 'image'));
+  const essays = writing.filter((article) => article.type === 'essay');
+  const articleNotes = writing.filter((article) => article.type !== 'essay');
+  const fullEssays = await Promise.all(essays.map(async (article) => {
+    try {
+      const response = await fetch(`/api/articles/${encodeURIComponent(article.slug)}`);
+      return response.ok ? response.json() : null;
+    } catch {
+      return null;
+    }
+  }));
   const photos = sortRecent(articles.filter((article) => article.type === 'image'));
   const collectionSections = collectionTypes.map((type) => {
     const recent = sortRecent(articles.filter((article) => article.type === type)).slice(0, 2);
     return `<section class="collection-section">${sectionHeading(collectionLabels[type], recent.length)}<div class="collection-cards">${recent.length ? recent.map(collectionCard).join('') : '<p class="empty">还没有记录。</p>'}</div></section>`;
   }).join('');
-  return shell(`<div class="home-flow"><section class="writing-section">${sectionHeading('随笔与文章', writing.length)}<div class="writing-list">${writing.length ? writing.map(writingCard).join('') : '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
+  return shell(`<div class="home-flow"><section class="writing-section"><div class="writing-list">${[...essays.map((article, index) => essayCard(article, fullEssays[index])), ...articleNotes.map(articleCard)].join('') || '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
 }
 
 function renderArticle(article) {
