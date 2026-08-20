@@ -15,6 +15,7 @@ function normalized(provider, item) {
     description: text(item.description || item.overview),
     cover: text(item.cover || item.image),
     year: text(item.year || item.releaseDate || item.first_publish_year).slice(0, 4),
+    rating: text(item.rating || item.metascore || item.vote_average),
     genres: Array.isArray(item.genres) ? item.genres.filter(Boolean) : [],
     raw: item,
   };
@@ -48,6 +49,7 @@ export async function searchMetadata(type, query, env = process.env, fetchImpl =
       providerId: item.id,
       title: item.title,
       year: item['first-release-date'],
+      artist: item['artist-credit']?.map((credit) => credit.name).join(', '),
       cover: `https://coverartarchive.org/release-group/${item.id}/front-500`,
       genres: item.tags?.map((tag) => tag.name),
       raw: item,

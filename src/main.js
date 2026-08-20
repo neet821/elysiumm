@@ -31,9 +31,43 @@ function metadataDetails(article) {
   const fields = [
     metadata.year && `<div><dt>年份</dt><dd>${escapeHtml(metadata.year)}</dd></div>`,
     metadata.subtitle && `<div><dt>作者 / 艺术家</dt><dd>${escapeHtml(metadata.subtitle)}</dd></div>`,
+    metadata.rating && `<div><dt>评分</dt><dd>${escapeHtml(metadata.rating)}</dd></div>`,
     metadata.genres?.length && `<div><dt>类型</dt><dd>${escapeHtml(metadata.genres.join(' · '))}</dd></div>`,
   ].filter(Boolean).join('');
   return fields ? `<dl class="metadata-details">${fields}</dl>` : '';
+}
+
+const collectionTypes = ['album', 'movie', 'game', 'book'];
+const collectionLabels = { album: '专辑', movie: '电影', game: '游戏', book: '书籍' };
+
+function articleTime(article) {
+  return new Date(article.createdAt || article.date || article.updatedAt || 0).getTime() || 0;
+}
+
+function sortRecent(articles) {
+  return [...articles].sort((a, b) => articleTime(b) - articleTime(a));
+}
+
+function articleLink(article, content) {
+  return article.link === false ? content : `<a href="/article/${encodeURIComponent(article.slug)}">${content}</a>`;
+}
+
+function writingCard(article) {
+  return `<article class="writing-card"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</article>`;
+}
+
+function photoCard(article) {
+  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '';
+  return `<article class="photo-card">${article.link === false ? `<div class="photo-frame">${image}</div>` : `<a class="photo-frame" href="/article/${encodeURIComponent(article.slug)}">${image}</a>`}<h3>${articleLink(article, escapeHtml(article.title))}</h3></article>`;
+}
+
+function collectionCard(article) {
+  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '<span class="cover-missing">暂无封面</span>';
+  return `<article class="collection-card">${articleLink(article, `<span class="collection-cover">${image}</span><span class="collection-name">${escapeHtml(article.title)}</span>`)}</article>`;
+}
+
+function sectionHeading(title, count, href = '') {
+  return `<div class="section-heading"><h2>${title}</h2>${href ? `<a href="${href}">查看全部</a>` : `<span>${count}</span>`}</div>`;
 }
 
 function collectionTitle(article) {
@@ -60,16 +94,13 @@ async function enrichArticle(article) {
 
 async function renderHome(articles) {
   articles = await Promise.all(articles.map(enrichArticle));
-  const items = articles.map((article) => `
-    <article class="article-row ${article.type === 'image' ? 'image-row' : ''} ${['movie', 'album', 'book', 'game'].includes(article.type) ? 'collection-row' : ''}">
-      ${article.cover ? (article.link === false ? `<div class="article-cover"><img src="${coverUrl(article)}" alt="" loading="lazy"></div>` : `<a class="article-cover" href="/article/${encodeURIComponent(article.slug)}"><img src="${coverUrl(article)}" alt="" loading="lazy"></a>`) : ''}
-      <div class="article-info">
-        <div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}${metadataSummary(article)}</div>
-        <h2>${article.link === false ? escapeHtml(article.title) : `<a href="/article/${encodeURIComponent(article.slug)}">${escapeHtml(article.title)}</a>`}</h2>
-        ${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}
-      </div>
-    </article>`).join('');
-  return shell(`<div class="intro"><h1>文章</h1><p>${articles.length} 篇</p></div><section class="article-list" aria-label="文章列表">${items || '<p class="empty">还没有文章。</p>'}</section>`);
+  const writing = sortRecent(articles.filter((article) => !collectionTypes.includes(article.type) && article.type !== 'image'));
+  const photos = sortRecent(articles.filter((article) => article.type === 'image'));
+  const collectionSections = collectionTypes.map((type) => {
+    const recent = sortRecent(articles.filter((article) => article.type === type)).slice(0, 2);
+    return `<section class="collection-section">${sectionHeading(collectionLabels[type], recent.length)}<div class="collection-cards">${recent.length ? recent.map(collectionCard).join('') : '<p class="empty">还没有记录。</p>'}</div></section>`;
+  }).join('');
+  return shell(`<div class="intro"><h1>记录</h1><p>随笔、文章，以及我留下的片段。</p></div><div class="home-flow"><section class="writing-section">${sectionHeading('随笔与文章', writing.length)}<div class="writing-list">${writing.length ? writing.map(writingCard).join('') : '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
 }
 
 function renderArticle(article) {
