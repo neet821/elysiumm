@@ -28,6 +28,7 @@ export default function VideoRoomSidebar({ roomState }) {
     messages,
     sendMessage,
     session,
+    selectItem,
     uploadSubtitle,
     uploadVideo,
     transferHost,
@@ -110,6 +111,22 @@ export default function VideoRoomSidebar({ roomState }) {
             {uploadQueue.length > 0 && (
               <div className="grid gap-1 rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700" aria-label="视频上传队列">
                 {uploadQueue.map((item, index) => <div className="flex justify-between gap-2" key={`${item.name}-${index}`}><span className="truncate">{index + 1}. {item.name}</span><span className="shrink-0 text-slate-500">{item.state}</span></div>)}
+              </div>
+            )}
+            {session.playlist.length > 0 && (
+              <div className="grid gap-1 rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700" aria-label="视频选集">
+                {session.playlist.map((item, index) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => selectItem(item.id, true)}
+                    disabled={busy || item.id === session.current_item_id}
+                    className={`flex items-center justify-between gap-2 rounded px-2 py-2 text-left ${item.id === session.current_item_id ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <span className="truncate">第 {index + 1} 集 · {item.title}</span>
+                    <span className="shrink-0">{item.id === session.current_item_id ? '播放中' : '播放'}</span>
+                  </button>
+                ))}
               </div>
             )}
             {uploadProgress?.active && (
