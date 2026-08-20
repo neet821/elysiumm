@@ -88,20 +88,20 @@ export default function VideoRoomSidebar({ roomState }) {
                 支持 MP4、WebM、MOV、Ogg 和 HLS 文件直链，不支持普通视频网页。
               </span>
             </label>}
-            {sourceMode === 'openlist' && isAdmin && <label className="text-xs text-slate-600 dark:text-slate-300">
-              OpenList 视频直链
+            {sourceMode === 'openlist' && isAdmin && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+              <Film size={16} /> 从本机 OpenList 挂载目录选择视频
               <input
-                aria-label="OpenList 视频直链"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="粘贴 OpenList 的复制直链"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+                className="sr-only"
+                type="file"
+                accept="video/*,.mkv,.m4v,.mov,.ogv"
+                disabled={busy}
+                onChange={(event) => event.target.files?.[0] && addLocalVideo(event.target.files[0])}
               />
-              <span className="mt-1 block text-[11px] leading-5 text-slate-500 dark:text-slate-400">
-                只保存直链，不上传视频。请使用 FRP 公网地址或域名，确保房间成员都能访问。
-              </span>
             </label>}
-            {(sourceMode === 'url' || (sourceMode === 'openlist' && isAdmin)) && <button
+            {sourceMode === 'openlist' && isAdmin && <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+              选择后只在你的电脑上读取和播放，不上传服务器。文件选择器中进入 /home/neet821/.Cloud/OpenList/quark/ 即可。
+            </p>}
+            {sourceMode === 'url' && <button
               type="button"
               disabled={busy || !url.trim()}
               onClick={async () => {
@@ -110,7 +110,7 @@ export default function VideoRoomSidebar({ roomState }) {
               }}
               className="rounded-lg bg-sky-600 px-3 py-2 text-sm text-white disabled:opacity-40"
             >
-              <Link2 size={15} /> {sourceMode === 'openlist' ? '播放 OpenList 视频' : '替换当前视频'}
+              <Link2 size={15} /> 替换当前视频
             </button>}
             {sourceMode === 'upload' && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
               <Upload size={16} /> 上传视频
