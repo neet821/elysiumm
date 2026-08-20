@@ -491,6 +491,7 @@ async def upload_video_item(
     room_id: int,
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
+    append_to_queue: bool = Form(default=False),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -515,19 +516,27 @@ async def upload_video_item(
                 output.write(chunk)
         if size == 0:
             raise HTTPException(400, "视频文件为空")
-        item, snapshot, paths = video_service.replace_current_video_item(
-            db,
-            room,
-            created_by=current_user.id,
-            source_type="upload",
-            title=(title or original_name),
-            storage_path=str(destination.resolve()),
-            original_filename=original_name,
-            content_type=file.content_type,
-            file_size=size,
-            owned_file=True,
-            expected_version=int(room.playback_version or 0),
-        )
+        item_kwargs = {
+            "created_by": current_user.id,
+            "source_type": "upload",
+            "title": title or original_name,
+            "storage_path": str(destination.resolve()),
+            "original_filename": original_name,
+            "content_type": file.content_type,
+            "file_size": size,
+            "owned_file": True,
+        }
+        if append_to_queue and video_service.ensure_video_session(db, room).current_item_id:
+            item = video_service.create_playlist_item(db, room, **item_kwargs)
+            snapshot = video_service.current_video_snapshot(db, room)
+            paths = []
+        else:
+            item, snapshot, paths = video_service.replace_current_video_item(
+                db,
+                room,
+                expected_version=int(room.playback_version or 0),
+                **item_kwargs,
+            )
     except Exception:
         if destination.exists():
             destination.unlink()

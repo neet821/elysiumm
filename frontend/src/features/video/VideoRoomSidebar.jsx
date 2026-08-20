@@ -42,10 +42,24 @@ export default function VideoRoomSidebar({ roomState }) {
   const [messageTarget, setMessageTarget] = useState('')
   const [sourceMode, setSourceMode] = useState('url')
   const [roomName, setRoomName] = useState(roomState.room?.room_name || '')
+  const [uploadQueue, setUploadQueue] = useState([])
 
   useEffect(() => {
     setRoomName(roomState.room?.room_name || '')
   }, [roomState.room?.room_name])
+
+  const queueUploads = async (files) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
+    setUploadQueue(selected.map((file) => ({ name: file.name, state: '等待上传' })))
+    for (let index = 0; index < selected.length; index += 1) {
+      const file = selected[index]
+      setUploadQueue((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, state: '上传中' } : item))
+      const result = await uploadVideo(file, Boolean(currentItem) || index > 0)
+      setUploadQueue((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, state: result ? '已加入播放列表' : '上传失败' } : item))
+      if (!result) break
+    }
+  }
 
   return (
     <aside className="grid min-w-0 gap-4 xl:grid-rows-[auto_auto_1fr]">
@@ -87,11 +101,17 @@ export default function VideoRoomSidebar({ roomState }) {
               <input
                 className="sr-only"
                 type="file"
+                multiple
                 accept="video/mp4,video/webm,video/quicktime,video/ogg,.m4v"
                 disabled={busy || uploadProgress?.active}
-                onChange={(event) => event.target.files?.[0] && uploadVideo(event.target.files[0])}
+                onChange={(event) => queueUploads(event.target.files)}
               />
             </label>}
+            {uploadQueue.length > 0 && (
+              <div className="grid gap-1 rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700" aria-label="视频上传队列">
+                {uploadQueue.map((item, index) => <div className="flex justify-between gap-2" key={`${item.name}-${index}`}><span className="truncate">{index + 1}. {item.name}</span><span className="shrink-0 text-slate-500">{item.state}</span></div>)}
+              </div>
+            )}
             {uploadProgress?.active && (
               <div className="grid gap-1" aria-live="polite">
                 <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">

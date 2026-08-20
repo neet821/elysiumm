@@ -33,6 +33,7 @@ describe('平面公开首页', () => {
 
     expect(await screen.findByRole('heading', { name: '最近写下' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '首页播放器' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '进入观影房' })).toHaveAttribute('href', '/tools/sync-room')
     expect(screen.getByRole('link', { name: '安静地写下' })).toHaveAttribute('href', '/posts/quiet')
     expect(screen.getByRole('img', { name: '窗边' })).toHaveAttribute('src', '/uploads/quiet.jpg')
     expect(screen.queryByTestId('home-experience')).not.toBeInTheDocument()

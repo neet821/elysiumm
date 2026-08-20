@@ -156,6 +156,7 @@ export default function HomePage() {
       <section className="flat-intro"><p className="flat-kicker">Elysium</p><h1>你好，我是 Elysium。</h1><p>{settings.introduction || '记录想法与生活，收藏热爱与灵感。'}</p></section>
       <div className="flat-main-grid"><WritingList posts={homepage.posts} /><PhotoGrid photos={homepage.photos} /></div>
       <div className="flat-support-grid"><Activity homepage={homepage} /><FlatMessages messages={homepage.messages} /></div>
+      <div className="flat-archive-link"><Link to="/tools/sync-room">进入观影房</Link></div>
       <div className="flat-archive-link"><Link to="/archive">进入完整归档 →</Link></div>
     </div>
   )
