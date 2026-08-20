@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { createArticleStore } from './article-store.js';
 import { createHttpApp } from './http-app.js';
-import { createMetadataStore } from './metadata-store.js';
+import { createCachedMetadataSearch, createMetadataStore } from './metadata-store.js';
 import { searchMetadata } from './metadata-providers.js';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,15 +16,7 @@ const metadataDb = process.env.METADATA_DB || join('/opt/personal-archive/state'
 
 const store = createArticleStore({ rootDir: articleRoot, mediaRoot });
 const metadataStore = createMetadataStore(metadataDb);
-async function metadataSearch(type, query) {
-  const cached = metadataStore.get(type, query);
-  if (cached) return [cached.data];
-  const results = await searchMetadata(type, query);
-  for (const result of results.slice(0, 8)) {
-    metadataStore.put({ type, query, provider: result.provider, providerId: result.providerId, data: result });
-  }
-  return results;
-}
+const metadataSearch = createCachedMetadataSearch(metadataStore, searchMetadata);
 
 const server = createServer(createHttpApp({ articleStore: store, publicDir, metadataSearch }));
 server.listen(port, host, () => console.log(`elysiumm articles listening on http://${host}:${port}`));

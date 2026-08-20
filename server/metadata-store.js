@@ -29,3 +29,17 @@ export function createMetadataStore(databasePath) {
     },
   };
 }
+
+export function createCachedMetadataSearch(store, providerSearch) {
+  return async function cachedMetadataSearch(type, query) {
+    const cached = store.get(type, query);
+    if (cached) return Array.isArray(cached.data) ? cached.data : [cached.data];
+
+    const results = (await providerSearch(type, query)).slice(0, 8);
+    if (results.length) {
+      const first = results[0];
+      store.put({ type, query, provider: first.provider, providerId: first.providerId, data: results });
+    }
+    return results;
+  };
+}
