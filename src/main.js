@@ -100,7 +100,7 @@ async function renderHome(articles) {
     const recent = sortRecent(articles.filter((article) => article.type === type)).slice(0, 2);
     return `<section class="collection-section">${sectionHeading(collectionLabels[type], recent.length)}<div class="collection-cards">${recent.length ? recent.map(collectionCard).join('') : '<p class="empty">还没有记录。</p>'}</div></section>`;
   }).join('');
-  return shell(`<div class="intro"><h1>记录</h1><p>随笔、文章，以及我留下的片段。</p></div><div class="home-flow"><section class="writing-section">${sectionHeading('随笔与文章', writing.length)}<div class="writing-list">${writing.length ? writing.map(writingCard).join('') : '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
+  return shell(`<div class="home-flow"><section class="writing-section">${sectionHeading('随笔与文章', writing.length)}<div class="writing-list">${writing.length ? writing.map(writingCard).join('') : '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
 }
 
 function renderArticle(article) {
