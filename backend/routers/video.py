@@ -36,6 +36,7 @@ open_external_stream = safe_open_external_stream
 optional_bearer = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 VIDEO_UPLOAD_ROOT = config.PRIVATE_STORAGE_DIR / "video_rooms"
+VIDEO_TEMP_ROOT = config.PRIVATE_STORAGE_DIR / "video_room_temp"
 VIDEO_SUBTITLE_ROOT = config.PRIVATE_STORAGE_DIR / "video_subtitles"
 MAX_VIDEO_SIZE_USER = 1 * 1024 * 1024 * 1024
 MAX_VIDEO_SIZE_ADMIN = 10 * 1024 * 1024 * 1024
@@ -381,7 +382,10 @@ def _managed_path(value, root):
         return None
     candidate = Path(value).expanduser().resolve()
     root = Path(root).resolve()
-    if not candidate.is_relative_to(root):
+    allowed = candidate.is_relative_to(root)
+    if root == VIDEO_UPLOAD_ROOT.resolve():
+        allowed = allowed or candidate.is_relative_to(VIDEO_TEMP_ROOT.resolve())
+    if not allowed:
         return None
     return candidate
 
@@ -492,6 +496,7 @@ async def upload_video_item(
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
     append_to_queue: bool = Form(default=False),
+    temporary_upload: bool = Form(default=False),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -504,8 +509,9 @@ async def upload_video_item(
     maximum = (
         MAX_VIDEO_SIZE_ADMIN if current_user.role == "admin" else MAX_VIDEO_SIZE_USER
     )
-    VIDEO_UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    destination = VIDEO_UPLOAD_ROOT / f"{uuid.uuid4().hex}{suffix}"
+    storage_root = VIDEO_TEMP_ROOT if temporary_upload else VIDEO_UPLOAD_ROOT
+    storage_root.mkdir(parents=True, exist_ok=True)
+    destination = storage_root / f"{uuid.uuid4().hex}{suffix}"
     size = 0
     try:
         with destination.open("wb") as output:
@@ -525,6 +531,7 @@ async def upload_video_item(
             "content_type": file.content_type,
             "file_size": size,
             "owned_file": True,
+            "temporary_upload": temporary_upload,
         }
         if append_to_queue and video_service.ensure_video_session(db, room).current_item_id:
             item = video_service.create_playlist_item(db, room, **item_kwargs)
@@ -630,6 +637,11 @@ async def advance_video_playlist(
     db: Session = Depends(get_db),
 ):
     room = _video_room(db, room_id, current_user, controller=True)
+    old_item = video_service.get_video_item(
+        db,
+        room_id,
+        video_service.ensure_video_session(db, room).current_item_id,
+    )
     try:
         snapshot = video_service.advance_playlist(
             db,
@@ -639,6 +651,9 @@ async def advance_video_playlist(
         )
     except (ValueError, room_core.InvalidRoomTransition, room_core.RoomPlaybackConflict) as exc:
         _raise_domain_error(exc)
+    temporary_path = video_service.temporary_upload_path(old_item) if old_item else None
+    if temporary_path:
+        temporary_path.unlink(missing_ok=True)
     await broadcast_video_state(db, room, snapshot=snapshot)
     return _snapshot_result(db, room, current_user, snapshot)
 

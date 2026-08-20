@@ -580,11 +580,12 @@ export function useVideoRoom({ navigate, roomId, user }) {
     '视频网址添加失败',
   ), [numericRoomId, runMutation])
 
-  const uploadVideo = useCallback((file, appendToQueue = false) => {
+  const uploadVideo = useCallback((file, appendToQueue = false, temporaryUpload = false) => {
     const form = new FormData()
     form.append('file', file)
     form.append('title', file.name)
     form.append('append_to_queue', appendToQueue ? 'true' : 'false')
+    form.append('temporary_upload', temporaryUpload ? 'true' : 'false')
     setUploadProgress({ active: true, loaded: 0, percent: 0, total: file.size })
     return runMutation(
       () => apiClient.post(API_ENDPOINTS.VIDEO_UPLOAD(numericRoomId), form, {

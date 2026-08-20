@@ -1309,6 +1309,7 @@ class VideoPlaylistItem(Base):
         nullable=False,
     )
     owned_file = Column(Boolean, default=False, server_default="0", nullable=False)
+    temporary_upload = Column(Boolean, default=False, server_default="0", nullable=False)
     created_by = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
