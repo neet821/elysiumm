@@ -50,14 +50,14 @@ export default function VideoRoomSidebar({ roomState }) {
     setRoomName(roomState.room?.room_name || '')
   }, [roomState.room?.room_name])
 
-  const queueUploads = async (files, temporaryUpload = false) => {
+  const queueUploads = async (files) => {
     const selected = Array.from(files || [])
     if (!selected.length) return
     setUploadQueue(selected.map((file) => ({ name: file.name, state: '等待上传' })))
     for (let index = 0; index < selected.length; index += 1) {
       const file = selected[index]
       setUploadQueue((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, state: '上传中' } : item))
-      const result = await uploadVideo(file, Boolean(currentItem) || index > 0, temporaryUpload)
+      const result = await uploadVideo(file, Boolean(currentItem) || index > 0)
       setUploadQueue((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, state: result ? '已加入播放列表' : '上传失败' } : item))
       if (!result) break
     }
@@ -95,7 +95,7 @@ export default function VideoRoomSidebar({ roomState }) {
                 type="file"
                 accept="video/*,.mkv,.m4v,.mov,.ogv"
                 disabled={busy}
-                onChange={(event) => event.target.files?.[0] && queueUploads(event.target.files, true)}
+                onChange={(event) => event.target.files?.[0] && addLocalVideo(event.target.files[0])}
               />
             </label>}
             {sourceMode === 'openlist' && isAdmin && <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">

@@ -1240,16 +1240,12 @@ async def video_ended(sid, data):
             await sio.emit('error', {'message': '视频已切换，无需再次前进'}, room=sid)
             return
 
-        old_item = video_service.get_video_item(db, room_id, item_id)
         updated = video_service.advance_playlist(
             db,
             room,
             expected_version=expected_version,
             autoplay=True,
         )
-        temporary_path = video_service.temporary_upload_path(old_item) if old_item else None
-        if temporary_path:
-            temporary_path.unlink(missing_ok=True)
         now_ms = sync_room_crud.server_now_ms()
         snapshot_payload = _serialize_room_snapshot(
             updated,

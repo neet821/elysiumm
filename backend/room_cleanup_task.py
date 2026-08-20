@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 UPLOAD_DIR = "uploads/sync_room_videos"
 MUSIC_UPLOAD_ROOT = config.UPLOAD_DIR / "music_rooms"
 VIDEO_UPLOAD_ROOT = config.PRIVATE_STORAGE_DIR / "video_rooms"
-VIDEO_TEMP_ROOT = config.PRIVATE_STORAGE_DIR / "video_room_temp"
 VIDEO_SUBTITLE_ROOT = config.PRIVATE_STORAGE_DIR / "video_subtitles"
 IDLE_TIMEOUT_MINUTES = 10
 DELETE_AFTER_EXPIRED_MINUTES = 30
@@ -93,10 +92,7 @@ def cleanup_video_room_uploads(db: Session) -> int:
     ).all()
     removed = 0
     for item in items:
-        if item.owned_file and (
-            _remove_managed_file(item.storage_path, VIDEO_UPLOAD_ROOT)
-            or _remove_managed_file(item.storage_path, VIDEO_TEMP_ROOT)
-        ):
+        if item.owned_file and _remove_managed_file(item.storage_path, VIDEO_UPLOAD_ROOT):
             removed += 1
         for subtitle in item.subtitles:
             if _remove_managed_file(subtitle.storage_path, VIDEO_SUBTITLE_ROOT):

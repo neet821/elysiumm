@@ -6,7 +6,6 @@ from dataclasses import replace
 from datetime import datetime
 import math
 import re
-from pathlib import Path
 from urllib.parse import urlsplit
 
 from sqlalchemy import func
@@ -14,21 +13,10 @@ from sqlalchemy import func
 import models
 import room_core
 import sync_room_crud
-from config import config
 
 
 VIDEO_SOURCE_TYPES = frozenset({"external", "upload", "legacy_local"})
 VIDEO_AVAILABILITY = frozenset({"available", "unavailable", "failed"})
-VIDEO_TEMP_ROOT = (config.PRIVATE_STORAGE_DIR / "video_room_temp").resolve()
-
-
-def temporary_upload_path(item):
-    if not getattr(item, "temporary_upload", False) or not item.storage_path:
-        return None
-    candidate = Path(item.storage_path).expanduser().resolve()
-    if candidate.is_relative_to(VIDEO_TEMP_ROOT) and candidate.is_file():
-        return candidate
-    return None
 
 
 def validate_external_url(value: str) -> str:
@@ -78,7 +66,6 @@ def create_playlist_item(
     height=None,
     availability="available",
     owned_file=False,
-    temporary_upload=False,
 ) -> models.VideoPlaylistItem:
     ensure_video_session(db, room)
     if source_type not in VIDEO_SOURCE_TYPES:
@@ -135,7 +122,6 @@ def create_playlist_item(
         height=height,
         availability=availability,
         owned_file=bool(owned_file),
-        temporary_upload=bool(temporary_upload),
         created_by=created_by,
     )
     db.add(item)
