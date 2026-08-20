@@ -284,7 +284,7 @@ describe('video room page', () => {
     expect(screen.getByRole('button', { name: '重新同步' })).toBeEnabled()
   })
 
-  it('waits for a server snapshot before applying playback controls', async () => {
+  it('starts playback from the user gesture while syncing the server state', async () => {
     renderRoom()
     const play = await screen.findByRole('button', { name: /播放 Shared film/ })
     mocks.socket.emit.mockClear()
@@ -297,7 +297,7 @@ describe('video room page', () => {
       room_id: 9,
       time: 12,
     })
-    expect(mocks.adapter.play).not.toHaveBeenCalled()
+    expect(mocks.adapter.play).toHaveBeenCalledTimes(1)
 
     act(() => mocks.handlers.get('room_snapshot')(snapshot({ state: 'playing', version: 6 })))
     await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalledWith(

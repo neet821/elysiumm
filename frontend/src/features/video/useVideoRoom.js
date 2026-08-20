@@ -443,9 +443,22 @@ export function useVideoRoom({ navigate, roomId, user }) {
 
   const togglePlayback = useCallback(() => {
     const state = latestSnapshotRef.current?.snapshot?.state
-    const time = adapterRef.current?.snapshot().currentTime || 0
-    emitControl(state === 'playing' ? 'pause' : 'play', { time })
-  }, [emitControl])
+    const adapter = adapterRef.current
+    const time = adapter?.snapshot().currentTime || 0
+    if (state === 'playing') {
+      adapter?.pause()
+      emitControl('pause', { time })
+      return
+    }
+
+    // Start in the click handler so browsers treat this as a user-initiated
+    // playback. Waiting for the socket round-trip loses that permission.
+    const localPlay = adapter?.play()
+    Promise.resolve(localPlay).catch(() => {
+      setNotice('浏览器阻止了自动播放，请再次点击播放按钮')
+    })
+    emitControl('play', { time })
+  }, [emitControl, setNotice])
 
   const seek = useCallback((time) => {
     emitControl('seek', { time: Math.max(0, Number(time) || 0) })
