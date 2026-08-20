@@ -26,6 +26,6 @@ describe('metadata store', () => {
   it('searches Steam games without credentials', async () => {
     const results = await searchMetadata('game', 'Portal', {}, async () => new Response(JSON.stringify({ items: [{ id: 400, name: 'Portal', tiny_image: 'https://cdn.test/portal.jpg' }] }), { status: 200 }));
 
-    expect(results[0]).toMatchObject({ provider: 'steam', providerId: '400', title: 'Portal', cover: 'https://cdn.test/portal.jpg' });
+    expect(results[0]).toMatchObject({ provider: 'steam', providerId: '400', title: 'Portal', cover: 'https://cdn.akamai.steamstatic.com/steam/apps/400/header.jpg' });
   });
 });

@@ -48,6 +48,7 @@ export async function searchMetadata(type, query, env = process.env, fetchImpl =
       providerId: item.id,
       title: item.title,
       year: item['first-release-date'],
+      cover: `https://coverartarchive.org/release-group/${item.id}/front-500`,
       genres: item.tags?.map((tag) => tag.name),
       raw: item,
     }));
@@ -69,7 +70,7 @@ export async function searchMetadata(type, query, env = process.env, fetchImpl =
     return (data.items || []).slice(0, 8).map((item) => normalized('steam', {
       providerId: item.id,
       title: item.name,
-      cover: item.tiny_image,
+      cover: `https://cdn.akamai.steamstatic.com/steam/apps/${item.id}/header.jpg`,
       raw: item,
     }));
   }
