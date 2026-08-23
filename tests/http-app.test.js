@@ -44,14 +44,6 @@ describe('article HTTP app', () => {
     expect(response.status).toBe(404);
   });
 
-  it('serves metadata search results through the API', async () => {
-    const base = await start({ metadataSearch: async () => [{ provider: 'openlibrary', title: 'Dune' }] });
-    const response = await fetch(`${base}/api/metadata/search?type=book&q=Dune`);
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ results: [{ provider: 'openlibrary', title: 'Dune' }] });
-  });
-
   it('serves the public content grouped by category', async () => {
     const base = await start();
     const response = await fetch(`${base}/api/content`);

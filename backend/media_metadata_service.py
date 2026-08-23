@@ -413,7 +413,7 @@ class MediaMetadataClient:
             async with self._client() as client:
                 token_response = await client.post(
                     "https://id.twitch.tv/oauth2/token",
-                    params={
+                    data={
                         "client_id": self.igdb_client_id,
                         "client_secret": self.igdb_client_secret,
                         "grant_type": "client_credentials",
@@ -763,7 +763,7 @@ class MediaMetadataClient:
             async with self._client() as client:
                 token_response = await client.post(
                     "https://id.twitch.tv/oauth2/token",
-                    params={
+                    data={
                         "client_id": self.igdb_client_id,
                         "client_secret": self.igdb_client_secret,
                         "grant_type": "client_credentials",
