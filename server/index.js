@@ -9,12 +9,12 @@ import { searchMetadata } from './metadata-providers.js';
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3100);
-const articleRoot = process.env.ARTICLE_ROOT || join('/opt/personal-archive/state/livesync', '网站内容', '文章');
+const articleRoot = process.env.ARTICLE_ROOT || join('/opt/personal-archive/state/livesync', '网站内容');
 const mediaRoot = process.env.MEDIA_ROOT || dirname(articleRoot);
 const publicDir = process.env.PUBLIC_DIR || join(projectRoot, 'dist');
 const metadataDb = process.env.METADATA_DB || join('/opt/personal-archive/state', 'elysiumm-metadata.sqlite');
 
-const store = createArticleStore({ rootDir: articleRoot, mediaRoot });
+const store = createArticleStore({ rootDir: articleRoot, mediaRoot, includeRootFiles: false });
 const metadataStore = createMetadataStore(metadataDb);
 const metadataSearch = createCachedMetadataSearch(metadataStore, searchMetadata);
 

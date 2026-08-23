@@ -1,9 +1,15 @@
 import './styles.css';
 
-const app = document.querySelector('#app');
+const app = typeof document === 'undefined' ? null : document.querySelector('#app');
+const categoryLabels = { article: '文章', essay: '随笔', photo: '照片', record: '记录' };
+const recordLabels = { album: '专辑', movie: '电影', book: '书籍', game: '游戏' };
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function contentHref(item) {
+  return `/content/${encodeURIComponent(item.contentType)}/${encodeURIComponent(item.slug)}`;
 }
 
 function coverUrl(article) {
@@ -18,148 +24,92 @@ function formatDate(value) {
   return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
 
-function metadataSummary(article) {
-  const metadata = article.metadata;
-  if (!metadata) return '';
-  const parts = [metadata.year, ...(metadata.genres || []).slice(0, 3)].filter(Boolean);
-  return parts.length ? ` · ${escapeHtml(parts.join(' · '))}` : '';
-}
-
-function metadataDetails(article) {
-  const metadata = article.metadata;
-  if (!metadata) return '';
-  const fields = [
-    metadata.year && `<div><dt>年份</dt><dd>${escapeHtml(metadata.year)}</dd></div>`,
-    metadata.subtitle && `<div><dt>作者 / 艺术家</dt><dd>${escapeHtml(metadata.subtitle)}</dd></div>`,
-    metadata.rating && `<div><dt>评分</dt><dd>${escapeHtml(metadata.rating)}</dd></div>`,
-    metadata.genres?.length && `<div><dt>类型</dt><dd>${escapeHtml(metadata.genres.join(' · '))}</dd></div>`,
-  ].filter(Boolean).join('');
-  return fields ? `<dl class="metadata-details">${fields}</dl>` : '';
-}
-
-const collectionTypes = ['album', 'movie', 'game', 'book'];
-const collectionLabels = { album: '专辑', movie: '电影', game: '游戏', book: '书籍' };
-
 function articleTime(article) {
   return new Date(article.createdAt || article.date || article.updatedAt || 0).getTime() || 0;
 }
 
-function sortRecent(articles) {
-  return [...articles].sort((a, b) => articleTime(b) - articleTime(a));
+function sortRecent(items) {
+  return [...items].sort((a, b) => articleTime(b) - articleTime(a));
 }
 
-function articleLink(article, content) {
-  return article.link === false ? content : `<a href="/article/${encodeURIComponent(article.slug)}">${content}</a>`;
+export function buildCategoryNav(categories) {
+  return `<nav class="content-nav" aria-label="内容分类"><a href="/">全部</a>${categories.map((category) => `<a href="/content/${encodeURIComponent(category.id)}">${escapeHtml(category.label)} <span>${category.items.length}</span></a>`).join('')}</nav>`;
 }
 
-function articleCard(article) {
-  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '';
-  return `<article class="article-card">${image ? `<a class="article-card-cover" href="/article/${encodeURIComponent(article.slug)}">${image}</a>` : ''}<div class="article-card-info"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</div></article>`;
+function imageMarkup(article, className = '') {
+  if (!article.cover) return '<span class="cover-missing">暂无封面</span>';
+  return `<img class="${className}" src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">`;
 }
 
-function essayCard(article, fullArticle) {
-  return `<article class="essay-card"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2><div class="essay-body">${fullArticle?.html || (article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : '')}</div></article>`;
+export function renderContentCard(article) {
+  const coverClass = article.contentType === 'record' ? 'record-cover' : 'content-cover';
+  const details = [article.author, article.year, article.location].filter(Boolean).map(escapeHtml).join(' · ');
+  return `<article class="content-card content-card-${escapeHtml(article.contentType)}"><a href="${contentHref(article)}" class="content-card-link"><span class="content-card-cover ${coverClass}">${imageMarkup(article)}</span><span class="content-card-info"><strong>${escapeHtml(article.title)}</strong>${details ? `<small>${details}</small>` : ''}${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</span></a></article>`;
 }
 
-function writingCard(article) {
-  return `<article class="writing-card"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}</div><h2>${articleLink(article, escapeHtml(article.title))}</h2>${article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : ''}</article>`;
+function section(title, items, id) {
+  return `<section class="content-section" id="${escapeHtml(id)}"><div class="section-heading"><h2>${escapeHtml(title)}</h2><a href="/content/${encodeURIComponent(id)}">查看全部 ${items.length}</a></div><div class="content-grid content-grid-${escapeHtml(id)}">${items.length ? sortRecent(items).slice(0, 8).map(renderContentCard).join('') : '<p class="empty">还没有内容。</p>'}</div></section>`;
 }
 
-function photoCard(article) {
-  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '';
-  return `<article class="photo-card">${article.link === false ? `<div class="photo-frame">${image}</div>` : `<a class="photo-frame" href="/article/${encodeURIComponent(article.slug)}">${image}</a>`}<h3>${articleLink(article, escapeHtml(article.title))}</h3></article>`;
+function renderHome(categories) {
+  return `<main><header class="intro"><h1>内容</h1><p>从 Obsidian 同步的公开内容</p></header>${buildCategoryNav(categories)}<div class="home-flow">${categories.map((category) => section(category.label, category.items, category.id)).join('')}</div></main>`;
 }
 
-function collectionCard(article) {
-  const image = article.cover ? `<img src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}" loading="lazy">` : '<span class="cover-missing">暂无封面</span>';
-  return `<article class="collection-card">${articleLink(article, `<span class="collection-cover">${image}</span><span class="collection-name">${escapeHtml(article.title)}</span>`)}</article>`;
-}
-
-function sectionHeading(title, count, href = '') {
-  return `<div class="section-heading"><h2>${title}</h2>${href ? `<a href="${href}">查看全部</a>` : `<span>${count}</span>`}</div>`;
-}
-
-function collectionTitle(article) {
-  const title = article.metadata?.title;
-  return title && title !== article.title ? `<p class="metadata-title">资料名称：${escapeHtml(title)}</p>` : '';
-}
-
-function shell(content, current = '') {
-  return `<main>${content}</main>`;
-}
-
-async function enrichArticle(article) {
-  if (!['movie', 'album', 'book', 'game'].includes(article.type) || article.cover || article.excerpt) return article;
-  try {
-    const response = await fetch(`/api/metadata/search?type=${encodeURIComponent(article.type)}&q=${encodeURIComponent(article.title)}`);
-    if (!response.ok) return article;
-    const result = (await response.json()).results?.[0];
-    if (!result) return article;
-    return { ...article, cover: result.cover || article.cover, excerpt: result.description || article.excerpt, metadata: result };
-  } catch {
-    return article;
-  }
-}
-
-async function renderHome(articles) {
-  articles = await Promise.all(articles.map(enrichArticle));
-  const writing = sortRecent(articles.filter((article) => !collectionTypes.includes(article.type) && article.type !== 'image'));
-  const essays = writing.filter((article) => article.type === 'essay');
-  const articleNotes = writing.filter((article) => article.type !== 'essay');
-  const fullEssays = await Promise.all(essays.map(async (article) => {
-    try {
-      const response = await fetch(`/api/articles/${encodeURIComponent(article.slug)}`);
-      return response.ok ? response.json() : null;
-    } catch {
-      return null;
-    }
-  }));
-  const photos = sortRecent(articles.filter((article) => article.type === 'image'));
-  const collectionSections = collectionTypes.map((type) => {
-    const recent = sortRecent(articles.filter((article) => article.type === type)).slice(0, 2);
-    return `<section class="collection-section">${sectionHeading(collectionLabels[type], recent.length)}<div class="collection-cards">${recent.length ? recent.map(collectionCard).join('') : '<p class="empty">还没有记录。</p>'}</div></section>`;
-  }).join('');
-  return shell(`<div class="home-flow"><section class="writing-section"><div class="writing-list">${[...essays.map((article, index) => essayCard(article, fullEssays[index])), ...articleNotes.map(articleCard)].join('') || '<p class="empty">还没有文章。</p>'}</div></section>${photos.length ? `<section class="photos-section">${sectionHeading('照片', photos.length)}<div class="photo-grid">${photos.map(photoCard).join('')}</div></section>` : ''}<section class="collections-grid">${collectionSections}</section></div>`);
+function metadataDetails(article) {
+  const fields = [
+    ['作者', article.author], ['年份', article.year], ['国家', article.country], ['语言', article.language], ['地点', article.location], ['个人评论', article.review],
+  ].filter(([, value]) => value);
+  return fields.length ? `<dl class="metadata-details">${fields.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
 }
 
 function renderArticle(article) {
   const cover = article.cover ? `<img class="reader-cover" src="${escapeHtml(coverUrl(article))}" alt="${escapeHtml(article.title)}">` : '';
-  return shell(`<article class="reader"><a class="back-link" href="/">← 返回文章列表</a><header class="reader-header"><div class="article-meta">${escapeHtml(formatDate(article.createdAt || article.date || article.updatedAt))}${article.category ? ` · ${escapeHtml(article.category)}` : ''}</div>${cover}<h1>${escapeHtml(article.title)}</h1>${collectionTitle(article)}${metadataDetails(article)}${article.excerpt ? `<p class="reader-excerpt">${escapeHtml(article.excerpt)}</p>` : ''}</header><div class="reader-body">${article.html}</div></article>`, '阅读');
+  const label = categoryLabels[article.contentType] || article.type || '';
+  return `<main><article class="reader"><a class="back-link" href="/content/${encodeURIComponent(article.contentType)}">← 返回${escapeHtml(label)}</a><header class="reader-header"><div class="article-meta">${escapeHtml(formatDate(article.date || article.createdAt || article.updatedAt))}${label ? ` · ${escapeHtml(label)}` : ''}</div>${cover}<h1>${escapeHtml(article.title)}</h1>${metadataDetails(article)}${article.excerpt ? `<p class="reader-excerpt">${escapeHtml(article.excerpt)}</p>` : ''}</header><div class="reader-body">${article.html}</div></article></main>`;
+}
+
+function renderCategory(category, categories) {
+  return `<main><header class="intro"><h1>${escapeHtml(category.label)}</h1><p>${category.items.length} 条内容</p></header>${buildCategoryNav(categories)}<section class="content-section"><div class="content-grid content-grid-${escapeHtml(category.id)}">${category.items.length ? sortRecent(category.items).map(renderContentCard).join('') : '<p class="empty">还没有内容。</p>'}</div></section></main>`;
 }
 
 function renderError(message) {
-  return shell(`<section class="state"><h1>暂时无法打开</h1><p>${escapeHtml(message)}</p><a href="/">返回首页</a></section>`);
+  return `<main><section class="state"><h1>暂时无法打开</h1><p>${escapeHtml(message)}</p><a href="/">返回首页</a></section></main>`;
 }
 
 async function load(path) {
-  app.innerHTML = shell('<section class="state"><p>正在读取文章……</p></section>');
   const response = await fetch(path);
-  if (!response.ok) throw new Error(response.status === 404 ? '找不到这篇文章。' : '服务器没有返回文章。');
+  if (!response.ok) throw new Error(response.status === 404 ? '找不到这项内容。' : '服务器没有返回内容。');
   return response.json();
 }
 
 async function render() {
   try {
-    const match = window.location.pathname.match(/^\/article\/(.+)$/);
-    if (match) {
-      let { article } = await load(`/api/articles/${match[1]}`);
-      article = await enrichArticle(article);
+    const match = window.location.pathname.match(/^\/content\/([^/]+)(?:\/(.+))?$/);
+    if (match?.[2]) {
+      const { article } = await load(`/api/content/${match[1]}/${match[2]}`);
       app.innerHTML = renderArticle(article);
+    } else if (match?.[1]) {
+      const { categories } = await load('/api/content');
+      const category = categories.find((item) => item.id === decodeURIComponent(match[1]));
+      if (!category) throw new Error('找不到这个分类。');
+      app.innerHTML = renderCategory(category, categories);
     } else {
-      const { articles } = await load('/api/articles');
-      app.innerHTML = await renderHome(articles);
+      const { categories } = await load('/api/content');
+      app.innerHTML = renderHome(categories);
     }
   } catch (error) {
     app.innerHTML = renderError(error.message);
   }
 }
 
-document.addEventListener('click', (event) => {
-  const link = event.target.closest('a');
-  if (!link || link.target || link.origin !== window.location.origin || !link.pathname.startsWith('/article/')) return;
-  event.preventDefault();
-  window.history.pushState({}, '', link.href);
+if (app) {
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a');
+    if (!link || link.target || link.origin !== window.location.origin || (!link.pathname.startsWith('/content/') && link.pathname !== '/')) return;
+    event.preventDefault();
+    window.history.pushState({}, '', link.href);
+    render();
+  });
+  window.addEventListener('popstate', render);
   render();
-});
-window.addEventListener('popstate', render);
-render();
+}

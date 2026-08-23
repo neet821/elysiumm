@@ -83,4 +83,28 @@ describe('article store', () => {
       updatedAt: '2026-08-19',
     }]);
   });
+
+  it('classifies Obsidian content and only publishes opted-in writing', async () => {
+    const root = await makeRoot();
+    await mkdir(join(root, '文章'));
+    await mkdir(join(root, '随笔'));
+    await mkdir(join(root, '照片'));
+    await mkdir(join(root, '记录'));
+    await writeFile(join(root, '文章', '公开文章.md'), `---\ntype: article\ntitle: 公开文章\n同步到网站: 是\ncover: covers/article.jpg\npreview: 文章预览\n---\n正文。`);
+    await writeFile(join(root, '文章', '私密文章.md'), `---\ntype: article\ntitle: 私密文章\n同步到网站: 否\n---\n不应公开。`);
+    await writeFile(join(root, '随笔', '公开随笔.md'), `---\ntype: essay\ntitle: 公开随笔\n同步到网站: 是\n---\n随笔正文。`);
+    await writeFile(join(root, '照片', '夏日.md'), `---\ntype: photo\ntitle: 夏日\ntaken_at: 2026-08-22\nlocation: 杭州\n---\n![[summer.jpg]]`);
+    await writeFile(join(root, '记录', '电影.md'), `---\ntype: movie\ntitle: 电影\ncover: movie.jpg\n---\n观后感。`);
+
+    const store = createArticleStore({ rootDir: root });
+    const items = await store.listArticles();
+
+    expect(items.map((item) => [item.contentType, item.title]).sort((a, b) => a[0].localeCompare(b[0]))).toEqual([
+      ['article', '公开文章'],
+      ['essay', '公开随笔'],
+      ['photo', '夏日'],
+      ['record', '电影'],
+    ].sort((a, b) => a[0].localeCompare(b[0])));
+    expect(items.find((item) => item.title === '夏日')).toMatchObject({ cover: 'summer.jpg', location: '杭州', date: '2026-08-22' });
+  });
 });

@@ -17,12 +17,27 @@ function isInside(root, target) {
 
 export function createHttpApp({ articleStore, publicDir, metadataSearch }) {
   const staticRoot = resolve(publicDir);
+  const categoryLabels = { article: '文章', essay: '随笔', photo: '照片', record: '记录' };
   return async (request, response) => {
     try {
       const url = new URL(request.url, 'http://localhost');
       if (request.method !== 'GET') return json(response, 405, { error: 'method_not_allowed' });
       if (url.pathname === '/api/health') return json(response, 200, { status: 'ok' });
       if (url.pathname === '/api/articles') return json(response, 200, { articles: await articleStore.listArticles() });
+      if (url.pathname === '/api/content') {
+        const items = await articleStore.listArticles();
+        const categories = Object.entries(categoryLabels).map(([id, label]) => ({ id, label, items: items.filter((item) => item.contentType === id) }));
+        return json(response, 200, { categories, items });
+      }
+      if (url.pathname.startsWith('/api/content/')) {
+        const remainder = decodeURIComponent(url.pathname.slice('/api/content/'.length));
+        const [contentType, ...slugParts] = remainder.split('/');
+        const slug = slugParts.join('/');
+        if (!categoryLabels[contentType] || !slug) return json(response, 404, { error: 'not_found' });
+        const article = await articleStore.getArticle(slug);
+        if (article.contentType !== contentType) return json(response, 404, { error: 'not_found' });
+        return json(response, 200, { article, html: article.html });
+      }
       if (url.pathname.startsWith('/api/articles/')) {
         const slug = decodeURIComponent(url.pathname.slice('/api/articles/'.length));
         const article = await articleStore.getArticle(slug);

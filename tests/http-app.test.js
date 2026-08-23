@@ -51,4 +51,19 @@ describe('article HTTP app', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ results: [{ provider: 'openlibrary', title: 'Dune' }] });
   });
+
+  it('serves the public content grouped by category', async () => {
+    const base = await start();
+    const response = await fetch(`${base}/api/content`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(expect.objectContaining({
+      categories: expect.arrayContaining([
+        expect.objectContaining({ id: 'article', label: '文章' }),
+        expect.objectContaining({ id: 'essay', label: '随笔' }),
+        expect.objectContaining({ id: 'photo', label: '照片' }),
+        expect.objectContaining({ id: 'record', label: '记录' }),
+      ]),
+    }));
+  });
 });
