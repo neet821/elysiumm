@@ -187,9 +187,7 @@ def _homepage_capabilities() -> dict:
             "configured": kavita_url is not None,
             "url": kavita_url,
         },
-        "tmdb_metadata": {"configured": bool(config.TMDB_API_READ_TOKEN)},
-        "open_library_metadata": {"configured": True},
-        "musicbrainz_metadata": {"configured": True},
+        "records": {"mode": "manual", "message": "记录由 Obsidian 手动维护"},
     }
 
 

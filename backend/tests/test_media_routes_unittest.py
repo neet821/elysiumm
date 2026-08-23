@@ -4,13 +4,11 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 os.environ.setdefault("REFRESH_TOKEN_EXPIRE_DAYS", "30")
-os.environ["TMDB_API_READ_TOKEN"] = ""
 os.environ["RAINDROP_PUBLIC_URL"] = ""
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -25,7 +23,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
-from config import config  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -213,163 +210,6 @@ class MediaRoutesTest(unittest.TestCase):
             self.db.query(models.AdminAuditLog).order_by(models.AdminAuditLog.id).one().action,
             "media_create",
         )
-
-    def test_metadata_refresh_requires_diff_preview_and_preserves_manual_fields(self):
-        created = self.client.post(
-            "/api/admin/media",
-            headers=self.admin_headers,
-            json=self.manual_album(
-                kind="movie",
-                title="Manual title",
-                creator="Original creator",
-                personal_notes="Never overwrite this note.",
-                source="tmdb",
-                source_id="99",
-            ),
-        ).json()
-        entry_id = created["id"]
-
-        manually_edited = self.client.patch(
-            f"/api/admin/media/movie/{entry_id}",
-            headers=self.admin_headers,
-            json={"revision": 1, "title": "My preferred title"},
-        )
-        self.assertEqual(manually_edited.status_code, 200)
-        self.assertTrue(manually_edited.json()["applied"])
-        self.assertEqual(manually_edited.json()["entry"]["revision"], 2)
-
-        candidate = {
-            "kind": "movie",
-            "title": "Provider title",
-            "creator": "Refreshed creator",
-            "cover_url": "https://images.example.test/new.webp",
-            "year": 2001,
-            "summary": "Refreshed summary.",
-            "tags": ["drama"],
-            "source": "tmdb",
-            "source_id": "99",
-            "external_url": "https://www.themoviedb.org/movie/99",
-            "metadata": {"language": "zh"},
-            "raw_metadata": {"id": 99, "token": "must-not-be-returned"},
-        }
-        preview = self.client.patch(
-            f"/api/admin/media/movie/{entry_id}",
-            headers=self.admin_headers,
-            json={
-                "revision": 2,
-                "metadata_candidate": candidate,
-                "confirm_metadata": False,
-            },
-        )
-
-        self.assertEqual(preview.status_code, 200)
-        preview_payload = preview.json()
-        self.assertFalse(preview_payload["applied"])
-        self.assertEqual(preview_payload["entry"]["revision"], 2)
-        by_field = {item["field"]: item for item in preview_payload["diff"]}
-        self.assertTrue(by_field["title"]["blocked_by_manual_override"])
-        self.assertFalse(by_field["creator"]["blocked_by_manual_override"])
-        self.assertNotIn("must-not-be-returned", preview.text)
-
-        confirmed = self.client.patch(
-            f"/api/admin/media/movie/{entry_id}",
-            headers=self.admin_headers,
-            json={
-                "revision": 2,
-                "metadata_candidate": candidate,
-                "confirm_metadata": True,
-            },
-        )
-        self.assertEqual(confirmed.status_code, 200)
-        confirmed_payload = confirmed.json()
-        self.assertTrue(confirmed_payload["applied"])
-        self.assertEqual(confirmed_payload["entry"]["title"], "My preferred title")
-        self.assertEqual(confirmed_payload["entry"]["creator"], "Refreshed creator")
-        self.assertEqual(
-            confirmed_payload["entry"]["personal_notes"],
-            "Never overwrite this note.",
-        )
-        self.assertEqual(confirmed_payload["entry"]["revision"], 3)
-
-        stale = self.client.patch(
-            f"/api/admin/media/movie/{entry_id}",
-            headers=self.admin_headers,
-            json={"revision": 2, "summary": "stale"},
-        )
-        self.assertEqual(stale.status_code, 409)
-
-    def test_search_reports_unconfigured_tmdb_without_leaking_configuration(self):
-        with patch(
-            "media_metadata_service.MediaMetadataClient.search",
-            new=AsyncMock(return_value={
-                "kind": "movie",
-                "query": "Arrival",
-                "providers": [{"provider": "tmdb", "available": False, "message": "未配置 TMDB 资料服务"}],
-                "results": [],
-            }),
-        ):
-            response = self.client.post(
-                "/api/admin/media/search",
-                headers=self.admin_headers,
-                json={"kind": "movie", "query": "Arrival"},
-            )
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["kind"], "movie")
-        self.assertEqual(payload["results"], [])
-        self.assertEqual(payload["providers"][0]["provider"], "tmdb")
-        self.assertFalse(payload["providers"][0]["available"])
-        self.assertIn("未配置", payload["providers"][0]["message"])
-        for secret_name in ("TMDB_API_READ_TOKEN", "authorization", "bearer"):
-            self.assertNotIn(secret_name.lower(), response.text.lower())
-
-    def test_cover_proxy_requires_admin_and_does_not_write_media_rows(self):
-        before = self.db.query(models.MediaEntry).count() + self.db.query(models.Book).count()
-        self.assertEqual(
-            self.client.get("/api/admin/media/cover/album/musicbrainz/example").status_code,
-            401,
-        )
-        self.assertEqual(
-            self.client.get(
-                "/api/admin/media/cover/album/musicbrainz/example",
-                headers=self.member_headers,
-            ).status_code,
-            403,
-        )
-        self.assertEqual(
-            self.db.query(models.MediaEntry).count() + self.db.query(models.Book).count(),
-            before,
-        )
-
-    def test_obsidian_metadata_route_uses_dedicated_token_without_admin_login(self):
-        original = config.OBSIDIAN_METADATA_TOKEN
-        config.OBSIDIAN_METADATA_TOKEN = "obsidian-test-token"
-        try:
-            with patch(
-                "media_metadata_service.MediaMetadataClient.search",
-                new=AsyncMock(return_value={
-                    "kind": "book",
-                    "query": "Norwegian Wood",
-                    "providers": [],
-                    "results": [],
-                    "recommended_result": None,
-                }),
-            ):
-                unauthorized = self.client.post(
-                    "/api/obsidian/media/search",
-                    json={"kind": "book", "query": "Norwegian Wood"},
-                )
-                authorized = self.client.post(
-                    "/api/obsidian/media/search",
-                    headers={"X-Obsidian-Metadata-Token": "obsidian-test-token"},
-                    json={"kind": "book", "query": "Norwegian Wood"},
-                )
-            self.assertEqual(unauthorized.status_code, 401)
-            self.assertEqual(authorized.status_code, 200)
-            self.assertEqual(authorized.json()["query"], "Norwegian Wood")
-        finally:
-            config.OBSIDIAN_METADATA_TOKEN = original
-
 
 if __name__ == "__main__":
     unittest.main()

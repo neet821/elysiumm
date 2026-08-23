@@ -1383,81 +1383,6 @@ MEDIA_METADATA_FIELDS = {
 }
 
 
-class MediaMetadataCandidate(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    kind: Literal["book", "movie", "album", "game"]
-    title: str = Field(min_length=1, max_length=255)
-    creator: Optional[str] = Field(default=None, max_length=255)
-    cover_url: Optional[str] = Field(default=None, max_length=700)
-    year: Optional[int] = Field(default=None, ge=1000, le=2200)
-    summary: Optional[str] = Field(default=None, max_length=12_000)
-    tags: List[str] = Field(default_factory=list, max_length=30)
-    source: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
-    source_id: Optional[str] = Field(default=None, max_length=255)
-    external_url: Optional[str] = Field(default=None, max_length=1000)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-    raw_metadata: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("title")
-    @classmethod
-    def require_candidate_title(cls, value: str) -> str:
-        normalized = _clean_optional_text(value)
-        if normalized is None:
-            raise ValueError("标题不能为空")
-        return normalized
-
-    @field_validator("creator", "summary", "source_id")
-    @classmethod
-    def clean_candidate_text(cls, value: Optional[str]) -> Optional[str]:
-        return _clean_optional_text(value)
-
-    @field_validator("cover_url")
-    @classmethod
-    def validate_candidate_cover(cls, value: Optional[str]) -> Optional[str]:
-        return _validate_book_cover(value)
-
-    @field_validator("external_url")
-    @classmethod
-    def validate_candidate_link(cls, value: Optional[str]) -> Optional[str]:
-        return _validate_public_https_url(value)
-
-    @field_validator("tags")
-    @classmethod
-    def validate_candidate_tags(cls, value: List[str]) -> List[str]:
-        return _validate_book_tags(value[:12])
-
-
-class MediaSearchRequest(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    kind: Literal["book", "movie", "album", "game"]
-    query: str = Field(min_length=1, max_length=180)
-
-    @field_validator("query")
-    @classmethod
-    def require_search_query(cls, value: str) -> str:
-        normalized = _clean_optional_text(value)
-        if normalized is None:
-            raise ValueError("搜索内容不能为空")
-        return normalized
-
-
-class MediaProviderStatus(BaseModel):
-    provider: str
-    available: bool
-    message: str = ""
-
-
-class MediaSearchResponse(BaseModel):
-    kind: Literal["book", "movie", "album", "game"]
-    query: str
-    providers: List[MediaProviderStatus] = Field(default_factory=list)
-    results: List[MediaMetadataCandidate] = Field(default_factory=list)
-    recommended_result: Optional[MediaMetadataCandidate] = None
-    manual_entry_available: bool = True
-
-
 class MediaCreate(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -1539,8 +1464,6 @@ class MediaPatch(BaseModel):
     source_id: Optional[str] = Field(default=None, max_length=255)
     external_url: Optional[str] = Field(default=None, max_length=1000)
     metadata: Optional[dict[str, Any]] = None
-    metadata_candidate: Optional[MediaMetadataCandidate] = None
-    confirm_metadata: bool = False
 
     @field_validator("title", "creator", "summary", "personal_notes", "source_id")
     @classmethod
@@ -1564,16 +1487,8 @@ class MediaPatch(BaseModel):
 
     @model_validator(mode="after")
     def validate_patch_intent(self):
-        direct_fields = self.model_fields_set - {
-            "revision",
-            "metadata_candidate",
-            "confirm_metadata",
-        }
-        if self.metadata_candidate is not None and direct_fields:
-            raise ValueError("资料刷新与手工修改必须分开提交")
-        if self.confirm_metadata and self.metadata_candidate is None:
-            raise ValueError("确认资料刷新前必须提供候选资料")
-        if self.metadata_candidate is None and not direct_fields:
+        direct_fields = self.model_fields_set - {"revision"}
+        if not direct_fields:
             raise ValueError("没有可更新的字段")
         return self
 
@@ -1606,16 +1521,9 @@ class MediaEntryAdminView(MediaEntryView):
     updated_at: datetime
 
 
-class MediaMetadataDiff(BaseModel):
-    field: str
-    current: Any = None
-    proposed: Any = None
-    blocked_by_manual_override: bool = False
-
-
 class MediaMutationResult(BaseModel):
     entry: MediaEntryAdminView
-    diff: List[MediaMetadataDiff] = Field(default_factory=list)
+    diff: List[dict[str, Any]] = Field(default_factory=list)
     applied: bool
 
 

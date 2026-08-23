@@ -1,4 +1,4 @@
-"""Curated media persistence, normalization, and guarded metadata refreshes."""
+"""Curated media persistence and manual record normalization."""
 
 from __future__ import annotations
 
@@ -26,10 +26,6 @@ class MediaDuplicate(RuntimeError):
 
 
 class MediaRevisionConflict(RuntimeError):
-    pass
-
-
-class MediaSourceMismatch(ValueError):
     pass
 
 
@@ -409,84 +405,6 @@ def _load_row(db: Session, kind: str, entry_id: int):
     return row
 
 
-def _current_candidate_value(row, kind: str, field: str) -> Any:
-    if field == "tags":
-        return _tags(row.tags_json)
-    if field == "metadata":
-        if kind == "book":
-            return {"isbn": row.isbn} if row.isbn else {}
-        return _json_object(row.metadata_json)
-    if field == "external_url" and kind == "book":
-        return _book_external_url(row)
-    mapping = _BOOK_MODEL_FIELDS if kind == "book" else _MEDIA_MODEL_FIELDS
-    model_field = mapping.get(field)
-    return getattr(row, model_field) if model_field else None
-
-
-def _candidate_values(candidate: schemas.MediaMetadataCandidate) -> dict[str, Any]:
-    return {
-        "title": candidate.title,
-        "creator": candidate.creator,
-        "cover_url": candidate.cover_url,
-        "year": candidate.year,
-        "summary": candidate.summary,
-        "tags": candidate.tags,
-        "source": candidate.source,
-        "source_id": candidate.source_id,
-        "external_url": candidate.external_url,
-        "metadata": candidate.metadata,
-    }
-
-
-def _metadata_diff(row, kind: str, candidate: schemas.MediaMetadataCandidate) -> list[schemas.MediaMetadataDiff]:
-    overrides = set(_json_list(row.metadata_overrides_json))
-    diff: list[schemas.MediaMetadataDiff] = []
-    for field, proposed in _candidate_values(candidate).items():
-        if proposed is None or proposed == [] or proposed == {}:
-            continue
-        current = _current_candidate_value(row, kind, field)
-        if current == proposed:
-            continue
-        normalized_override = "author" if field == "creator" and kind == "book" else field
-        diff.append(
-            schemas.MediaMetadataDiff(
-                field=field,
-                current=current,
-                proposed=proposed,
-                blocked_by_manual_override=(
-                    field in overrides or normalized_override in overrides
-                ),
-            )
-        )
-    return diff
-
-
-def _apply_candidate(row, kind: str, candidate: schemas.MediaMetadataCandidate, diff) -> None:
-    for item in diff:
-        if item.blocked_by_manual_override:
-            continue
-        field = item.field
-        value = item.proposed
-        if field == "tags":
-            row.tags_json = _dump_json(value)
-        elif field == "metadata":
-            if kind == "book":
-                isbn = value.get("isbn") if isinstance(value, dict) else None
-                if isbn:
-                    row.isbn = str(isbn)[:32]
-            else:
-                row.metadata_json = _dump_json(value)
-        elif field == "external_url" and kind == "book":
-            continue
-        else:
-            mapping = _BOOK_MODEL_FIELDS if kind == "book" else _MEDIA_MODEL_FIELDS
-            model_field = mapping.get(field)
-            if model_field:
-                setattr(row, model_field, value)
-    if kind != "book":
-        row.raw_metadata_json = _dump_json(candidate.raw_metadata)
-
-
 def update_media(
     db: Session,
     kind: str,
@@ -502,56 +420,40 @@ def update_media(
         )
     serializer = serialize_book_admin if kind == "book" else serialize_media_admin
 
-    if payload.metadata_candidate is not None:
-        candidate = payload.metadata_candidate
-        if candidate.kind != kind:
-            raise MediaSourceMismatch("候选资料类型与当前条目不一致")
-        if row.source_id and (
-            candidate.source != row.source or candidate.source_id != row.source_id
-        ):
-            raise MediaSourceMismatch("候选资料来源与当前条目不一致")
-        diff = _metadata_diff(row, kind, candidate)
-        if not payload.confirm_metadata:
-            return schemas.MediaMutationResult(entry=serializer(row), diff=diff, applied=False)
-        _apply_candidate(row, kind, candidate, diff)
-        action = "media_metadata_refresh"
+    changed_fields = payload.model_fields_set - {"revision"}
+    if kind == "book":
+        for field in changed_fields:
+            value = getattr(payload, field)
+            if field == "tags":
+                row.tags_json = _dump_json(value or [])
+            elif field == "metadata":
+                row.isbn = str((value or {}).get("isbn") or "").strip() or None
+            elif field == "external_url":
+                continue
+            elif field == "status":
+                row.reading_status = _media_status_to_book(value)
+            else:
+                model_field = _BOOK_MODEL_FIELDS.get(field)
+                if model_field:
+                    setattr(row, model_field, value)
     else:
-        changed_fields = payload.model_fields_set - {
-            "revision", "metadata_candidate", "confirm_metadata"
-        }
-        if kind == "book":
-            for field in changed_fields:
-                value = getattr(payload, field)
-                if field == "tags":
-                    row.tags_json = _dump_json(value or [])
-                elif field == "metadata":
-                    row.isbn = str((value or {}).get("isbn") or "").strip() or None
-                elif field == "external_url":
-                    continue
-                elif field == "status":
-                    row.reading_status = _media_status_to_book(value)
-                else:
-                    model_field = _BOOK_MODEL_FIELDS.get(field)
-                    if model_field:
-                        setattr(row, model_field, value)
-        else:
-            for field in changed_fields:
-                value = getattr(payload, field)
-                if field == "tags":
-                    row.tags_json = _dump_json(value or [])
-                elif field == "metadata":
-                    row.metadata_json = _dump_json(value or {})
-                else:
-                    model_field = _MEDIA_MODEL_FIELDS.get(field)
-                    if model_field:
-                        setattr(row, model_field, value)
-        manual_overrides = set(_json_list(row.metadata_overrides_json))
-        manual_overrides.update(_MANUAL_METADATA_FIELDS.intersection(changed_fields))
-        if kind == "book" and "creator" in changed_fields:
-            manual_overrides.add("author")
-        row.metadata_overrides_json = _dump_json(sorted(manual_overrides))
-        diff = []
-        action = "media_update"
+        for field in changed_fields:
+            value = getattr(payload, field)
+            if field == "tags":
+                row.tags_json = _dump_json(value or [])
+            elif field == "metadata":
+                row.metadata_json = _dump_json(value or {})
+            else:
+                model_field = _MEDIA_MODEL_FIELDS.get(field)
+                if model_field:
+                    setattr(row, model_field, value)
+    manual_overrides = set(_json_list(row.metadata_overrides_json))
+    manual_overrides.update(_MANUAL_METADATA_FIELDS.intersection(changed_fields))
+    if kind == "book" and "creator" in changed_fields:
+        manual_overrides.add("author")
+    row.metadata_overrides_json = _dump_json(sorted(manual_overrides))
+    diff = []
+    action = "media_update"
 
     row.revision += 1
     row.updated_by = actor_id

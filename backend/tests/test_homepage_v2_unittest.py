@@ -11,7 +11,6 @@ os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 os.environ.setdefault("REFRESH_TOKEN_EXPIRE_DAYS", "30")
 os.environ["RAINDROP_PUBLIC_URL"] = ""
-os.environ["TMDB_API_READ_TOKEN"] = ""
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -45,13 +44,10 @@ class HomepageV2Test(unittest.TestCase):
             self.db.query(model).delete()
         self.db.commit()
         self.previous_raindrop = homepage_service.config.RAINDROP_PUBLIC_URL
-        self.previous_tmdb = homepage_service.config.TMDB_API_READ_TOKEN
         homepage_service.config.RAINDROP_PUBLIC_URL = ""
-        homepage_service.config.TMDB_API_READ_TOKEN = ""
 
     def tearDown(self):
         homepage_service.config.RAINDROP_PUBLIC_URL = self.previous_raindrop
-        homepage_service.config.TMDB_API_READ_TOKEN = self.previous_tmdb
         self.db.close()
 
     def test_default_public_homepage_has_exactly_four_scenes_and_safe_capabilities(self):
@@ -66,11 +62,8 @@ class HomepageV2Test(unittest.TestCase):
         )
         self.assertFalse(payload["capabilities"]["raindrop"]["configured"])
         self.assertIsNone(payload["capabilities"]["raindrop"]["url"])
-        self.assertFalse(payload["capabilities"]["tmdb_metadata"]["configured"])
-        self.assertTrue(payload["capabilities"]["open_library_metadata"]["configured"])
-        self.assertTrue(payload["capabilities"]["musicbrainz_metadata"]["configured"])
-        for secret_name in ("TMDB_API_READ_TOKEN", "token", "authorization"):
-            self.assertNotIn(secret_name.lower(), response.text.lower())
+        self.assertEqual(payload["capabilities"]["records"]["mode"], "manual")
+        self.assertIn("Obsidian", payload["capabilities"]["records"]["message"])
 
     def test_legacy_settings_upgrade_in_memory_and_dynamic_content_enters_its_scene(self):
         admin = models.User(
