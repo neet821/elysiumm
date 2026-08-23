@@ -7,6 +7,7 @@ failures.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -71,6 +72,24 @@ class MediaMetadataClient:
             follow_redirects=False,
             transport=self.transport,
         )
+
+    async def _get_with_retry(self, client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+        last_error: httpx.HTTPError | None = None
+        for attempt in range(2):
+            try:
+                response = await client.get(url, **kwargs)
+                if response.status_code in {429, 500, 502, 503, 504} and attempt == 0:
+                    await asyncio.sleep(0.25)
+                    continue
+                response.raise_for_status()
+                return response
+            except httpx.HTTPError as exc:
+                last_error = exc
+                if attempt == 0:
+                    await asyncio.sleep(0.25)
+                    continue
+                raise
+        raise last_error or httpx.HTTPError("资料服务请求失败")
 
     async def _search_books(self, query: str) -> schemas.MediaSearchResponse:
         google = await self._search_google_books(query)
@@ -539,11 +558,11 @@ class MediaMetadataClient:
         )
         try:
             async with self._client() as client:
-                response = await client.get(
+                response = await self._get_with_retry(
+                    client,
                     "https://musicbrainz.org/ws/2/release-group/",
                     params={"query": f'releasegroup:"{query}"', "fmt": "json", "limit": 12},
                 )
-                response.raise_for_status()
                 rows = response.json().get("release-groups", [])
             for item in rows[:12]:
                 candidate = self._musicbrainz_candidate(item)
