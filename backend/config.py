@@ -197,6 +197,7 @@ class PlatformConfig:
     GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "").strip()
     IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID", "").strip()
     IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "").strip()
+    OBSIDIAN_METADATA_TOKEN = os.getenv("OBSIDIAN_METADATA_TOKEN", "").strip()
     METADATA_REQUEST_USER_AGENT = os.getenv(
         "METADATA_REQUEST_USER_AGENT",
         "Elysium/1.0 (https://elysiumm.top)",

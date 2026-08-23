@@ -14,6 +14,11 @@ from typing import Any
 import httpx
 
 import schemas
+from media_matching import rank_candidates, search_queries
+
+
+_SEARCH_CACHE: dict[tuple[str, str, object], tuple[float, schemas.MediaSearchResponse]] = {}
+_SEARCH_CACHE_TTL_SECONDS = 600.0
 
 
 class MediaMetadataClient:
@@ -46,30 +51,44 @@ class MediaMetadataClient:
         query: str,
     ) -> schemas.MediaSearchResponse:
         normalized_query = query.strip()
+        # Tests and local callers may provide a transport; keep those isolated
+        # while production requests share the short-lived server cache.
+        cache_namespace: object = id(self.transport) if self.transport is not None else "production"
+        cache_key = (kind, normalized_query.casefold(), cache_namespace)
+        cached = _SEARCH_CACHE.get(cache_key)
+        now = asyncio.get_running_loop().time()
+        if cached and now - cached[0] < _SEARCH_CACHE_TTL_SECONDS:
+            return cached[1].model_copy(deep=True)
         if kind == "book":
-            return await self._search_books(normalized_query)
-        if kind == "movie":
+            result = await self._search_books(normalized_query)
+        elif kind == "movie":
             tmdb = await self._search_tmdb(normalized_query)
             if tmdb.results:
-                return tmdb
-            wikidata = await self._search_wikidata_movies(normalized_query)
-            return schemas.MediaSearchResponse(
-                kind="movie",
-                query=normalized_query,
-                providers=[*tmdb.providers, *wikidata.providers],
-                results=wikidata.results,
-            )
-        if kind == "album":
-            return await self._search_albums(normalized_query)
-        if kind == "game":
-            return await self._search_games(normalized_query)
-        raise ValueError("unsupported media kind")
+                result = tmdb
+            else:
+                wikidata = await self._search_wikidata_movies(normalized_query)
+                result = schemas.MediaSearchResponse(
+                    kind="movie",
+                    query=normalized_query,
+                    providers=[*tmdb.providers, *wikidata.providers],
+                    results=wikidata.results,
+                    recommended_result=wikidata.recommended_result,
+                )
+        elif kind == "album":
+            result = await self._search_albums(normalized_query)
+        elif kind == "game":
+            result = await self._search_games(normalized_query)
+        else:
+            raise ValueError("unsupported media kind")
+        if result.results:
+            _SEARCH_CACHE[cache_key] = (now, result.model_copy(deep=True))
+        return result
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             timeout=httpx.Timeout(self.timeout_seconds, connect=min(self.timeout_seconds, 5.0)),
             headers={"User-Agent": self.user_agent, "Accept": "application/json"},
-            follow_redirects=False,
+            follow_redirects=True,
             transport=self.transport,
         )
 
@@ -85,23 +104,48 @@ class MediaMetadataClient:
                 return response
             except httpx.HTTPError as exc:
                 last_error = exc
-                if attempt == 0:
+                # A timeout should move to the configured fallback promptly;
+                # retry only transient HTTP/network errors that returned a
+                # response or failed before a timeout.
+                if attempt == 0 and not isinstance(exc, httpx.TimeoutException):
                     await asyncio.sleep(0.25)
                     continue
                 raise
         raise last_error or httpx.HTTPError("资料服务请求失败")
 
     async def _search_books(self, query: str) -> schemas.MediaSearchResponse:
-        google = await self._search_google_books(query)
-        if google.results:
-            return google
+        google_results: list[schemas.MediaMetadataCandidate] = []
+        google_providers: list[schemas.MediaProviderStatus] = []
+        for candidate_query in search_queries("book", query):
+            response = await self._search_google_books(candidate_query)
+            google_providers.extend(response.providers)
+            google_results.extend(response.results)
+            if response.providers and not response.providers[0].available:
+                break
+            if google_results and candidate_query == query:
+                break
+        ranked, recommended = rank_candidates("book", query, google_results)
+        if ranked:
+            return schemas.MediaSearchResponse(
+                kind="book", query=query, providers=google_providers,
+                results=ranked[:20], recommended_result=recommended,
+            )
 
-        open_library = await self._search_open_library(query)
+        open_results: list[schemas.MediaMetadataCandidate] = []
+        open_providers: list[schemas.MediaProviderStatus] = []
+        for candidate_query in search_queries("book", query):
+            response = await self._search_open_library(candidate_query)
+            open_providers.extend(response.providers)
+            open_results.extend(response.results)
+            if response.providers and not response.providers[0].available:
+                break
+            if open_results and candidate_query == query:
+                break
+        ranked, recommended = rank_candidates("book", query, open_results)
         return schemas.MediaSearchResponse(
-            kind="book",
-            query=query,
-            providers=[*google.providers, *open_library.providers],
-            results=open_library.results,
+            kind="book", query=query,
+            providers=[*google_providers, *open_providers],
+            results=ranked[:20], recommended_result=recommended,
         )
 
     async def _search_google_books(self, query: str) -> schemas.MediaSearchResponse:
@@ -111,11 +155,10 @@ class MediaMetadataClient:
             if self.google_books_api_key:
                 params["key"] = self.google_books_api_key
             async with self._client() as client:
-                response = await client.get(
+                response = await self._get_with_retry(client,
                     "https://www.googleapis.com/books/v1/volumes",
                     params=params,
                 )
-                response.raise_for_status()
                 rows = response.json().get("items", [])
             results = [self._google_books_candidate(item) for item in rows[:12]]
             results = [item for item in results if item is not None]
@@ -174,7 +217,7 @@ class MediaMetadataClient:
         provider = schemas.MediaProviderStatus(provider="openlibrary", available=True)
         try:
             async with self._client() as client:
-                response = await client.get(
+                response = await self._get_with_retry(client,
                     "https://openlibrary.org/search.json",
                     params={
                         "q": query,
@@ -182,7 +225,6 @@ class MediaMetadataClient:
                         "fields": "key,title,author_name,first_publish_year,isbn,cover_i,subject",
                     },
                 )
-                response.raise_for_status()
                 docs = response.json().get("docs", [])
             results = [self._open_library_candidate(item) for item in docs[:12]]
             results = [item for item in results if item is not None]
@@ -244,16 +286,23 @@ class MediaMetadataClient:
                 results=[],
             )
         try:
+            results: list[schemas.MediaMetadataCandidate] = []
             async with self._client() as client:
-                response = await client.get(
-                    "https://api.themoviedb.org/3/search/movie",
-                    params={"query": query, "include_adult": "false", "language": "zh-CN"},
-                    headers={"Authorization": f"Bearer {self.tmdb_token}"},
-                )
-                response.raise_for_status()
-                rows = response.json().get("results", [])
-            results = [self._tmdb_candidate(item) for item in rows[:12]]
-            results = [item for item in results if item is not None]
+                for candidate_query in search_queries("movie", query):
+                    response = await self._get_with_retry(
+                        client,
+                        "https://api.themoviedb.org/3/search/movie",
+                        params={"query": candidate_query, "include_adult": "false", "language": "zh-CN"},
+                        headers={"Authorization": f"Bearer {self.tmdb_token}"},
+                    )
+                    rows = response.json().get("results", [])
+                    results.extend(
+                        candidate for item in rows[:12]
+                        if (candidate := self._tmdb_candidate(item)) is not None
+                    )
+                    if results and candidate_query == query:
+                        break
+            results, recommended = rank_candidates("movie", query, results)
             provider.available = True
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             provider.message = self._safe_error_message(exc)
@@ -262,7 +311,8 @@ class MediaMetadataClient:
             kind="movie",
             query=query,
             providers=[provider],
-            results=results,
+            results=results[:20],
+            recommended_result=recommended if 'recommended' in locals() else None,
         )
 
     @staticmethod
@@ -301,24 +351,29 @@ class MediaMetadataClient:
     async def _search_wikidata_movies(self, query: str) -> schemas.MediaSearchResponse:
         provider = schemas.MediaProviderStatus(provider="wikidata", available=True)
         try:
+            hits: list[dict[str, Any]] = []
             async with self._client() as client:
-                search_response = await client.get(
-                    "https://www.wikidata.org/w/api.php",
-                    params={
-                        "action": "wbsearchentities",
-                        "search": query,
-                        "language": "zh",
-                        "uselang": "zh",
-                        "format": "json",
-                        "limit": 8,
-                    },
-                )
-                search_response.raise_for_status()
-                hits = search_response.json().get("search", [])
+                for candidate_query in search_queries("movie", query):
+                    search_response = await self._get_with_retry(
+                        client,
+                        "https://www.wikidata.org/w/api.php",
+                        params={
+                            "action": "wbsearchentities",
+                            "search": candidate_query,
+                            "language": "zh",
+                            "uselang": "zh",
+                            "format": "json",
+                            "limit": 8,
+                        },
+                    )
+                    hits.extend(search_response.json().get("search", []))
+                    if hits:
+                        break
                 ids = [str(item.get("id") or "").strip() for item in hits if item.get("id")]
                 if not ids:
                     return schemas.MediaSearchResponse(kind="movie", query=query, providers=[provider], results=[])
-                entity_response = await client.get(
+                entity_response = await self._get_with_retry(
+                    client,
                     "https://www.wikidata.org/w/api.php",
                     params={
                         "action": "wbgetentities",
@@ -328,7 +383,6 @@ class MediaMetadataClient:
                         "format": "json",
                     },
                 )
-                entity_response.raise_for_status()
                 entities = entity_response.json().get("entities", {})
             results = []
             for hit in hits:
@@ -374,7 +428,11 @@ class MediaMetadataClient:
                         raw_metadata={"id": hit.get("id"), "types": types},
                     )
                 )
-            return schemas.MediaSearchResponse(kind="movie", query=query, providers=[provider], results=results[:12])
+            ranked, recommended = rank_candidates("movie", query, results)
+            return schemas.MediaSearchResponse(
+                kind="movie", query=query, providers=[provider], results=ranked[:12],
+                recommended_result=recommended,
+            )
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             provider.available = False
             provider.message = self._safe_error_message(exc)
@@ -405,19 +463,23 @@ class MediaMetadataClient:
     async def _search_games(self, query: str) -> schemas.MediaSearchResponse:
         igdb_status, igdb_results = await self._search_igdb(query)
         if igdb_results:
+            igdb_results, recommended = rank_candidates("game", query, igdb_results)
             return schemas.MediaSearchResponse(
                 kind="game",
                 query=query,
                 providers=[igdb_status],
-                results=igdb_results,
+                results=igdb_results[:20],
+                recommended_result=recommended,
             )
 
         steam_status, steam_results = await self._search_steam(query)
+        steam_results, recommended = rank_candidates("game", query, steam_results)
         return schemas.MediaSearchResponse(
             kind="game",
             query=query,
             providers=[igdb_status, steam_status],
-            results=steam_results,
+            results=steam_results[:20],
+            recommended_result=recommended,
         )
 
     async def _search_igdb(
@@ -442,22 +504,26 @@ class MediaMetadataClient:
                 access_token = str(token_response.json().get("access_token") or "").strip()
                 if not access_token:
                     raise ValueError("IGDB token missing")
-                query_body = (
-                    f'search "{query.replace(chr(34), chr(39))}"; '
-                    "fields name,first_release_date,summary,genres.name,platforms.name,"
-                    "involved_companies.company.name,cover.image_id,url; limit 12;"
-                )
-                response = await client.post(
-                    "https://api.igdb.com/v4/games",
-                    content=query_body,
-                    headers={
-                        "Client-ID": self.igdb_client_id,
-                        "Authorization": f"Bearer {access_token}",
-                        "Content-Type": "text/plain",
-                    },
-                )
-                response.raise_for_status()
-                rows = response.json()
+                rows: list[dict[str, Any]] = []
+                for candidate_query in search_queries("game", query):
+                    query_body = (
+                        f'search "{candidate_query.replace(chr(34), chr(39))}"; '
+                        "fields name,first_release_date,summary,genres.name,platforms.name,"
+                        "involved_companies.company.name,cover.image_id,url; limit 12;"
+                    )
+                    response = await client.post(
+                        "https://api.igdb.com/v4/games",
+                        content=query_body,
+                        headers={
+                            "Client-ID": self.igdb_client_id,
+                            "Authorization": f"Bearer {access_token}",
+                            "Content-Type": "text/plain",
+                        },
+                    )
+                    response.raise_for_status()
+                    rows.extend(response.json())
+                    if rows and candidate_query == query:
+                        break
             results = [self._igdb_candidate(item) for item in rows[:12]]
             results = [item for item in results if item is not None]
             status.available = True
@@ -558,16 +624,19 @@ class MediaMetadataClient:
         )
         try:
             async with self._client() as client:
-                response = await self._get_with_retry(
-                    client,
-                    "https://musicbrainz.org/ws/2/release-group/",
-                    params={"query": f'releasegroup:"{query}"', "fmt": "json", "limit": 12},
-                )
-                rows = response.json().get("release-groups", [])
-            for item in rows[:12]:
-                candidate = self._musicbrainz_candidate(item)
-                if candidate is not None:
-                    results.append(candidate)
+                for candidate_query in search_queries("album", query):
+                    response = await self._get_with_retry(
+                        client,
+                        "https://musicbrainz.org/ws/2/release-group/",
+                        params={"query": f'releasegroup:"{candidate_query}"', "fmt": "json", "limit": 12},
+                    )
+                    rows = response.json().get("release-groups", [])
+                    for item in rows[:12]:
+                        candidate = self._musicbrainz_candidate(item)
+                        if candidate is not None:
+                            results.append(candidate)
+                    if results and candidate_query == query:
+                        break
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             musicbrainz_status.available = False
             musicbrainz_status.message = self._safe_error_message(exc)
@@ -594,11 +663,13 @@ class MediaMetadataClient:
                 continue
             seen.add(identity)
             deduplicated.append(candidate)
+        ranked, recommended = rank_candidates("album", query, deduplicated)
         return schemas.MediaSearchResponse(
             kind="album",
             query=query,
             providers=providers,
-            results=deduplicated[:20],
+            results=ranked[:20],
+            recommended_result=recommended,
         )
 
     @staticmethod
@@ -709,6 +780,8 @@ class MediaMetadataClient:
         params: dict[str, str] = {}
         if normalized_source == "musicbrainz" and kind == "album":
             url = f"https://coverartarchive.org/release-group/{normalized_id}/front-500"
+        elif normalized_source == "netease" and kind == "album":
+            url = await self._netease_cover_url(normalized_id)
         elif normalized_source == "steam" and kind == "game":
             url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{normalized_id}/header.jpg"
         elif normalized_source == "igdb" and kind == "game":
@@ -756,6 +829,24 @@ class MediaMetadataClient:
                 response.raise_for_status()
                 cover_id = (response.json().get("covers") or [None])[0]
             return f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg" if isinstance(cover_id, int) else None
+        except (httpx.HTTPError, ValueError, TypeError):
+            return None
+
+    async def _netease_cover_url(self, source_id: str) -> str | None:
+        if not self.mineradio_base_url or not self.mineradio_admin_token:
+            return None
+        try:
+            async with self._client() as client:
+                response = await self._get_with_retry(
+                    client,
+                    f"{self.mineradio_base_url}/api/album",
+                    params={"id": source_id},
+                    headers={"X-Music-Provider-Token": self.mineradio_admin_token},
+                )
+                payload = response.json()
+            album = payload.get("album") or payload.get("result") or payload
+            cover = (album or {}).get("picUrl") or (album or {}).get("cover")
+            return str(cover or "").replace("http://", "https://", 1) or None
         except (httpx.HTTPError, ValueError, TypeError):
             return None
 

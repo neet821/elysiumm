@@ -90,6 +90,35 @@ class MediaMetadataServiceTest(unittest.TestCase):
         self.assertTrue(provider.available)
         self.assertTrue(result.providers[1].available)
 
+    def test_google_timeout_switches_to_open_library_without_repeating_the_timeout(self):
+        hosts = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            hosts.append(request.url.host)
+            if request.url.host == "www.googleapis.com":
+                raise httpx.ReadTimeout("google timeout", request=request)
+            return httpx.Response(
+                200,
+                json={"docs": [{
+                    "key": "/works/OL-TIMEOUT",
+                    "title": "Fallback after timeout",
+                    "author_name": ["Author"],
+                    "first_publish_year": 2002,
+                }]},
+                request=request,
+            )
+
+        client = media_metadata_service.MediaMetadataClient(
+            tmdb_token="",
+            user_agent="Elysium-Metadata-Test/1.0",
+            timeout_seconds=2,
+            transport=httpx.MockTransport(handler),
+        )
+        result = asyncio.run(client.search("book", "Fallback after timeout"))
+
+        self.assertEqual(hosts, ["www.googleapis.com", "openlibrary.org"])
+        self.assertEqual(result.results[0].source, "openlibrary")
+
     def test_igdb_is_primary_for_games_and_steam_is_fallback(self):
         requests = []
 
@@ -173,6 +202,38 @@ class MediaMetadataServiceTest(unittest.TestCase):
 
         self.assertEqual(result, (b"image-bytes", "image/jpeg"))
         self.assertEqual(len(requests), 1)
+
+    def test_cover_proxy_follows_cover_art_archive_redirect_and_keeps_image_only(self):
+        requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(str(request.url))
+            if len(requests) == 1:
+                return httpx.Response(
+                    307,
+                    headers={"location": "https://archive.test/cover.jpg"},
+                    request=request,
+                )
+            return httpx.Response(
+                200,
+                content=b"redirected-image",
+                headers={"content-type": "image/jpeg"},
+                request=request,
+            )
+
+        client = media_metadata_service.MediaMetadataClient(
+            tmdb_token="",
+            user_agent="Elysium-Metadata-Test/1.0",
+            timeout_seconds=2,
+            transport=httpx.MockTransport(handler),
+        )
+        result = asyncio.run(client.fetch_cover("album", "musicbrainz", "redirected"))
+
+        self.assertEqual(result, (b"redirected-image", "image/jpeg"))
+        self.assertEqual(requests, [
+            "https://coverartarchive.org/release-group/redirected/front-500",
+            "https://archive.test/cover.jpg",
+        ])
 
     def test_cover_proxy_rejects_unknown_provider_without_network(self):
         def unexpected(_request: httpx.Request) -> httpx.Response:

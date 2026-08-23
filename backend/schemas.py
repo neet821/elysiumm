@@ -1454,6 +1454,7 @@ class MediaSearchResponse(BaseModel):
     query: str
     providers: List[MediaProviderStatus] = Field(default_factory=list)
     results: List[MediaMetadataCandidate] = Field(default_factory=list)
+    recommended_result: Optional[MediaMetadataCandidate] = None
     manual_entry_available: bool = True
 
 

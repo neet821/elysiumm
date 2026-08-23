@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
+from config import config  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -339,6 +340,35 @@ class MediaRoutesTest(unittest.TestCase):
             self.db.query(models.MediaEntry).count() + self.db.query(models.Book).count(),
             before,
         )
+
+    def test_obsidian_metadata_route_uses_dedicated_token_without_admin_login(self):
+        original = config.OBSIDIAN_METADATA_TOKEN
+        config.OBSIDIAN_METADATA_TOKEN = "obsidian-test-token"
+        try:
+            with patch(
+                "media_metadata_service.MediaMetadataClient.search",
+                new=AsyncMock(return_value={
+                    "kind": "book",
+                    "query": "Norwegian Wood",
+                    "providers": [],
+                    "results": [],
+                    "recommended_result": None,
+                }),
+            ):
+                unauthorized = self.client.post(
+                    "/api/obsidian/media/search",
+                    json={"kind": "book", "query": "Norwegian Wood"},
+                )
+                authorized = self.client.post(
+                    "/api/obsidian/media/search",
+                    headers={"X-Obsidian-Metadata-Token": "obsidian-test-token"},
+                    json={"kind": "book", "query": "Norwegian Wood"},
+                )
+            self.assertEqual(unauthorized.status_code, 401)
+            self.assertEqual(authorized.status_code, 200)
+            self.assertEqual(authorized.json()["query"], "Norwegian Wood")
+        finally:
+            config.OBSIDIAN_METADATA_TOKEN = original
 
 
 if __name__ == "__main__":
