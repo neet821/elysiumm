@@ -1,10 +1,10 @@
-import json
 import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -298,11 +298,20 @@ class MediaRoutesTest(unittest.TestCase):
         self.assertEqual(stale.status_code, 409)
 
     def test_search_reports_unconfigured_tmdb_without_leaking_configuration(self):
-        response = self.client.post(
-            "/api/admin/media/search",
-            headers=self.admin_headers,
-            json={"kind": "movie", "query": "Arrival"},
-        )
+        with patch(
+            "media_metadata_service.MediaMetadataClient.search",
+            new=AsyncMock(return_value={
+                "kind": "movie",
+                "query": "Arrival",
+                "providers": [{"provider": "tmdb", "available": False, "message": "未配置 TMDB 资料服务"}],
+                "results": [],
+            }),
+        ):
+            response = self.client.post(
+                "/api/admin/media/search",
+                headers=self.admin_headers,
+                json={"kind": "movie", "query": "Arrival"},
+            )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["kind"], "movie")
@@ -312,6 +321,24 @@ class MediaRoutesTest(unittest.TestCase):
         self.assertIn("未配置", payload["providers"][0]["message"])
         for secret_name in ("TMDB_API_READ_TOKEN", "authorization", "bearer"):
             self.assertNotIn(secret_name.lower(), response.text.lower())
+
+    def test_cover_proxy_requires_admin_and_does_not_write_media_rows(self):
+        before = self.db.query(models.MediaEntry).count() + self.db.query(models.Book).count()
+        self.assertEqual(
+            self.client.get("/api/admin/media/cover/album/musicbrainz/example").status_code,
+            401,
+        )
+        self.assertEqual(
+            self.client.get(
+                "/api/admin/media/cover/album/musicbrainz/example",
+                headers=self.member_headers,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.db.query(models.MediaEntry).count() + self.db.query(models.Book).count(),
+            before,
+        )
 
 
 if __name__ == "__main__":

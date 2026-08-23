@@ -194,6 +194,9 @@ class PlatformConfig:
     KAVITA_PUBLIC_BASE_URL = os.getenv("KAVITA_PUBLIC_BASE_URL", "").strip().rstrip("/")
     RAINDROP_PUBLIC_URL = os.getenv("RAINDROP_PUBLIC_URL", "").strip()
     TMDB_API_READ_TOKEN = os.getenv("TMDB_API_READ_TOKEN", "").strip()
+    GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "").strip()
+    IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID", "").strip()
+    IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "").strip()
     METADATA_REQUEST_USER_AGENT = os.getenv(
         "METADATA_REQUEST_USER_AGENT",
         "Elysium/1.0 (https://elysiumm.top)",

@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -67,12 +68,43 @@ async def search_media_metadata(
 ):
     client = media_metadata_service.MediaMetadataClient(
         tmdb_token=config.TMDB_API_READ_TOKEN,
+        google_books_api_key=config.GOOGLE_BOOKS_API_KEY,
+        igdb_client_id=config.IGDB_CLIENT_ID,
+        igdb_client_secret=config.IGDB_CLIENT_SECRET,
         user_agent=config.METADATA_REQUEST_USER_AGENT,
         timeout_seconds=config.METADATA_REQUEST_TIMEOUT_SECONDS,
         mineradio_base_url=config.MUSIC_PROVIDER_BASE_URL,
         mineradio_admin_token=config.MUSIC_PROVIDER_ADMIN_TOKEN,
     )
     return await client.search(payload.kind, payload.query)
+
+
+@router.get("/api/admin/media/cover/{kind}/{source}/{source_id}")
+async def get_media_cover(
+    kind: Literal["book", "movie", "album", "game"],
+    source: str,
+    source_id: str,
+    _current_user: models.User = Depends(administrator),
+):
+    client = media_metadata_service.MediaMetadataClient(
+        tmdb_token=config.TMDB_API_READ_TOKEN,
+        google_books_api_key=config.GOOGLE_BOOKS_API_KEY,
+        igdb_client_id=config.IGDB_CLIENT_ID,
+        igdb_client_secret=config.IGDB_CLIENT_SECRET,
+        user_agent=config.METADATA_REQUEST_USER_AGENT,
+        timeout_seconds=config.METADATA_REQUEST_TIMEOUT_SECONDS,
+        mineradio_base_url=config.MUSIC_PROVIDER_BASE_URL,
+        mineradio_admin_token=config.MUSIC_PROVIDER_ADMIN_TOKEN,
+    )
+    result = await client.fetch_cover(kind, source, source_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="封面不存在或资料服务不可用")
+    content, media_type = result
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post(
