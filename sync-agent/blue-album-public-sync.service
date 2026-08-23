@@ -1,0 +1,12 @@
+[Unit]
+Description=Blue Album Public directory sync
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/neet821/Desktop/Blue-Album/sync-agent/public_sync_agent.py
+EnvironmentFile=%h/.config/blue-album/public-sync.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

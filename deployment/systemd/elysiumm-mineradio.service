@@ -1,0 +1,32 @@
+[Unit]
+Description=Elysium Mineradio service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/home/elysiumm/app/mineradio
+EnvironmentFile=-/etc/elysiumm/mineradio.env
+Environment=PORT=3000
+Environment=MINERADIO_BROWSER_RUNTIME_DIR=/var/lib/blue-album/mineradio/browser-runtime
+Environment=HOME=/var/lib/blue-album/mineradio/browser-runtime/home
+Environment=XDG_CONFIG_HOME=/var/lib/blue-album/mineradio/browser-runtime/config
+Environment=XDG_CACHE_HOME=/var/lib/blue-album/mineradio/browser-runtime/cache
+Environment=XDG_DATA_HOME=/var/lib/blue-album/mineradio/browser-runtime/data
+# mineradio.env must define MUSIC_PROVIDER_ADMIN_TOKEN and BLUE_ALBUM_SECRET_KEY.
+ExecStart=/usr/bin/node /home/elysiumm/app/mineradio/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/blue-album/mineradio /home/blue-album
+MemoryMax=512M
+TasksMax=256
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
