@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { buildCategoryNav, renderContentCard } from '../src/main.js';
 
 describe('content website navigation', () => {
@@ -20,5 +21,10 @@ describe('content website navigation', () => {
     const html = renderContentCard({ contentType: 'photo', slug: '照片/夏日', title: '夏日', cover: '' });
     expect(html).toContain('/content/photo/%E7%85%A7%E7%89%87%2F%E5%A4%8F%E6%97%A5');
     expect(html).toContain('夏日');
+  });
+
+  it('does not draw a duplicate separator before the photo strip', () => {
+    const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+    expect(styles).toMatch(/\.essay-card:has\(\+ \.photo-strip\)[\s\S]*?border-bottom: 0/);
   });
 });

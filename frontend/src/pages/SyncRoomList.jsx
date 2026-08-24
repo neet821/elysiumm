@@ -98,7 +98,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
 
       setShowCreateModal(false);
       resetForm();
-      navigate(`${isMusicRoom ? "/music/rooms" : "/tools/sync-room"}/${response.data.id}`);
+      navigate(`${isMusicRoom ? "/rooms/music" : "/rooms/watch"}/${response.data.id}`);
     } catch (error) {
       console.error("创建房间失败:", error);
       alert(error.response?.data?.detail || "创建失败，请重试");
@@ -108,7 +108,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
   const handleJoinRoom = async (roomId) => {
     try {
       await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(roomId));
-      navigate(`${isMusicRoom ? "/music/rooms" : "/tools/sync-room"}/${roomId}`);
+      navigate(`${isMusicRoom ? "/rooms/music" : "/rooms/watch"}/${roomId}`);
     } catch (error) {
       console.error("加入房间失败:", error);
       alert(error.response?.data?.detail || "加入失败，请重试");

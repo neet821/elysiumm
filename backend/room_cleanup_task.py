@@ -12,6 +12,7 @@ from database import SessionLocal
 import sync_room_crud
 import game_service
 import models
+import transfer_service
 import logging
 from config import config
 
@@ -108,6 +109,7 @@ async def run_cleanup_task():
             db = SessionLocal()
             deleted_count = cleanup_inactive_rooms(db)
             game_count = game_service.cleanup_rooms(db)
+            transfer_service.cleanup_expired(db)
             db.close()
 
             if deleted_count > 0:
@@ -118,8 +120,8 @@ async def run_cleanup_task():
         except Exception as e:
             logger.error(f"❌ 清理任务出错: {e}")
 
-        # 每5分钟检查一次
-        await asyncio.sleep(300)
+        # 中转链接必须在五分钟过期窗口后不超过三十秒内清理。
+        await asyncio.sleep(int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30")))
 
 if __name__ == "__main__":
     # 可以手动运行清理

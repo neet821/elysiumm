@@ -105,6 +105,37 @@ class AdminFile(Base):
 
     uploader = relationship("User")
 
+
+class TransferSession(Base):
+    __tablename__ = "transfer_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    total_bytes = Column(BigInteger, default=0, nullable=False)
+    max_bytes = Column(BigInteger, default=2 * 1024**3, nullable=False)
+    last_activity_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    creator = relationship("User")
+    files = relationship("TransferFile", back_populates="session", cascade="all, delete-orphan")
+
+
+class TransferFile(Base):
+    __tablename__ = "transfer_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("transfer_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    original_name = Column(String(255), nullable=False)
+    stored_name = Column(String(120), unique=True, nullable=False, index=True)
+    storage_path = Column(Text, nullable=False)
+    file_size = Column(BigInteger, nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    session = relationship("TransferSession", back_populates="files")
+
 class AdminAuditLog(Base):
     __tablename__ = "admin_audit_logs"
 
@@ -1309,6 +1340,7 @@ class VideoPlaylistItem(Base):
         nullable=False,
     )
     owned_file = Column(Boolean, default=False, server_default="0", nullable=False)
+    temporary_upload = Column(Boolean, default=False, server_default="0", nullable=False)
     created_by = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),

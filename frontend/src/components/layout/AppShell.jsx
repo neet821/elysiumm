@@ -7,17 +7,16 @@ export function AppShell({ children }) {
   const location = useLocation()
   const isHome = location.pathname === '/'
   const isToolbox = location.pathname === '/tools'
-  const isMusicRoom = /^\/music\/rooms\/[^/]+$/.test(location.pathname)
 
   return (
     <ToastProvider>
-      <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}${isMusicRoom ? ' app-shell--music-room' : ''}`}>
+      <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
         <a className="skip-link" href="#main-content">跳到主要内容</a>
-        {!isMusicRoom && <Header />}
+        <Header />
         <main className="app-shell__main" id="main-content" tabIndex={-1}>
           {children}
         </main>
-        {!isHome && !isToolbox && !isMusicRoom && <Footer />}
+        {!isHome && !isToolbox && <Footer />}
       </div>
     </ToastProvider>
   )

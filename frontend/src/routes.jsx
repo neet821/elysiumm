@@ -1,124 +1,76 @@
-import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from 'react'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
-import LegacyRedirect from "./components/LegacyRedirect";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { THEME } from "./theme";
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import ProtectedRoute from './components/ProtectedRoute'
+import { THEME } from './theme'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import ContentHomePage from './pages/ContentHomePage.jsx'
 
-const LIGHT_STYLES = THEME.light;
+const LIGHT_STYLES = THEME.light
+const AdminShell = lazy(() => import('./components/admin/AdminShell'))
+const AccountPage = lazy(() => import('./pages/AccountPage'))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage'))
+const MusicProvidersAdminPage = lazy(() => import('./pages/MusicProvidersAdminPage'))
+const AdminRoomsPage = lazy(() => import('./pages/AdminRoomsPage'))
+const AdminFilesPage = lazy(() => import('./pages/AdminFilesPage'))
+const AgentConsolePage = lazy(() => import('./pages/AgentConsolePage'))
+const SyncRoomList = lazy(() => import('./pages/SyncRoomList'))
+const SyncRoomPlayer = lazy(() => import('./pages/SyncRoomPlayer'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const MineradioPage = lazy(() => import('./pages/MineradioPage'))
+const MusicLobbyPage = lazy(() => import('./pages/MusicLobbyPage'))
+const LivePage = lazy(() => import('./pages/LivePage'))
+const AdminLivePage = lazy(() => import('./pages/AdminLivePage'))
+const RoomsPage = lazy(() => import('./pages/RoomsPage'))
+const RoomsGamesPage = lazy(() => import('./pages/RoomsGamesPage'))
+const TransferPage = lazy(() => import('./pages/TransferPage'))
 
-const AdminShell = lazy(() => import("./components/admin/AdminShell"));
-const ArchivePage = lazy(() => import("./pages/ArchivePage"));
-const ArchiveDetailPage = lazy(() => import("./pages/ArchiveDetailPage"));
-const BooksPage = lazy(() => import("./pages/BooksPage"));
-const CollectionPage = lazy(() => import("./pages/CollectionPage"));
-const PrivateCollectionPage = lazy(() => import("./pages/PrivateCollectionPage"));
-const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
-const PostEditorPage = lazy(() => import("./pages/PostEditorPage"));
-const PhotoManagePage = lazy(() => import("./pages/PhotoManagePage"));
-const AccountPage = lazy(() => import("./pages/AccountPage"));
-const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
-const AdminHomepagePage = lazy(() => import("./pages/AdminHomepagePage"));
-const AdminBooksPage = lazy(() => import("./pages/AdminBooksPage"));
-const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"));
-const AdminSecurityPage = lazy(() => import("./pages/AdminSecurityPage"));
-const MusicProvidersAdminPage = lazy(() => import("./pages/MusicProvidersAdminPage"));
-const AdminRoomsPage = lazy(() => import("./pages/AdminRoomsPage"));
-const BackupPage = lazy(() => import("./pages/BackupPage"));
-const FrpAdminPage = lazy(() => import("./pages/FrpAdminPage"));
-const SyncRoomList = lazy(() => import("./pages/SyncRoomList"));
-const SyncRoomPlayer = lazy(() => import("./pages/SyncRoomPlayer"));
-const AdminFilesPage = lazy(() => import("./pages/AdminFilesPage"));
-const AgentConsolePage = lazy(() => import("./pages/AgentConsolePage"));
-const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const GamesPage = lazy(() => import("./pages/GamesPage"));
-const GameDetailPage = lazy(() => import("./pages/GameDetailPage"));
-const GameRoomPage = lazy(() => import("./pages/GameRoomPage"));
-const MineradioPage = lazy(() => import("./pages/MineradioPage"));
-const MusicLobbyPage = lazy(() => import("./pages/MusicLobbyPage"));
-const ToolsPage = lazy(() => import("./pages/ToolsPage"));
-const LivePage = lazy(() => import("./pages/LivePage"));
-const AdminLivePage = lazy(() => import("./pages/AdminLivePage"));
+export const RouteLoadingFallback = () => <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true"><span className="route-loading__spinner" aria-hidden="true" /><span>正在载入页面…</span></div>
+export const RouteSuspense = ({ children }) => <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
+const withUserProps = (Component) => <Component styles={LIGHT_STYLES} />
+const withAuth = (children, requireAdmin = false) => <ProtectedRoute requireAdmin={requireAdmin}>{children}</ProtectedRoute>
 
-export const RouteLoadingFallback = () => (
-  <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true">
-    <span className="route-loading__spinner" aria-hidden="true" />
-    <span>正在载入页面…</span>
-  </div>
-);
-
-export const RouteSuspense = ({ children }) => <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>;
-
-const withUserProps = (Component, styles = LIGHT_STYLES) => (
-  <Component styles={styles} />
-);
-
-const withAuth = (children, requireAdmin = false) => (
-  <ProtectedRoute requireAdmin={requireAdmin}>{children}</ProtectedRoute>
-);
+function LegacyRoomRedirect({ mode }) {
+  const { id } = useParams()
+  return <Navigate replace to={`${mode === 'music' ? '/rooms/music' : '/rooms/watch'}${id ? `/${id}` : ''}`} />
+}
 
 const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<ContentHomePage />} />
+      <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
       <Route path="/register" element={withUserProps(RegisterPage)} />
+      <Route path="/rooms" element={<RoomsPage />} />
+      <Route path="/rooms/games" element={<RoomsGamesPage />} />
+      <Route path="/rooms/music" element={withAuth(<MusicLobbyPage />)} />
+      <Route path="/rooms/music/:roomId" element={withAuth(<MineradioPage />)} />
+      <Route path="/rooms/watch" element={withAuth(withUserProps(SyncRoomList))} />
+      <Route path="/rooms/watch/:id" element={withAuth(withUserProps(SyncRoomPlayer))} />
       <Route path="/live" element={<LivePage />} />
-      <Route path="/archive" element={withUserProps(ArchivePage)} />
-      <Route path="/archive/:type/:id" element={withUserProps(ArchiveDetailPage)} />
-      <Route path="/collection" element={withAuth(withUserProps(CollectionPage))} />
-      <Route path="/books" element={withAuth(<BooksPage />, true)} />
-      <Route path="/posts/new" element={withAuth(withUserProps(PostEditorPage), true)} />
-      <Route path="/posts/:id/edit" element={withAuth(withUserProps(PostEditorPage), true)} />
-      <Route path="/posts/:id" element={withUserProps(PostDetailPage)} />
-      <Route path="/posts" element={<LegacyRedirect to="/archive?type=writing" />} />
-      <Route path="/photos" element={<LegacyRedirect to="/archive?type=photo" />} />
-      <Route path="/messages" element={<LegacyRedirect to="/" hash="messages" />} />
-      <Route path="/games" element={withAuth(withUserProps(GamesPage))} />
-      <Route path="/games/rooms" element={withAuth(withUserProps(GamesPage))} />
-      <Route path="/games/rooms/:roomId" element={withAuth(withUserProps(GameRoomPage))} />
-      <Route path="/games/:gameId" element={withAuth(withUserProps(GameDetailPage))} />
-      <Route path="/music" element={withAuth(<MusicLobbyPage />)} />
-      <Route path="/music/rooms/:roomId" element={withAuth(<MineradioPage />)} />
-      <Route path="/tools" element={withUserProps(ToolsPage)} />
-      <Route path="/tools/links" element={<LegacyRedirect to="/account/admin/content/collection" preserveSearch hash={true} />} />
-      <Route path="/tools/backup" element={withAuth(<LegacyRedirect to="/account/admin/backups" preserveSearch hash={true} />, true)} />
-      <Route path="/tools/frp" element={withAuth(<LegacyRedirect to="/account/admin/services/frp" preserveSearch hash={true} />, true)} />
-      <Route path="/tools/public-sync" element={withAuth(<LegacyRedirect to="/account/admin/files" preserveSearch hash={true} />, true)} />
-      <Route path="/tools/sync-room" element={withAuth(withUserProps(SyncRoomList))} />
-      <Route path="/tools/sync-room/:id" element={withAuth(withUserProps(SyncRoomPlayer))} />
       <Route path="/account" element={withAuth(withUserProps(AccountPage))} />
-      <Route path="/account/collection" element={withAuth(<LegacyRedirect to="/account/admin/content/collection" preserveSearch hash={true} />, true)} />
-      <Route path="/account/admin" element={withAuth(<AdminShell />, true)}>
+      <Route path="/transfer/:token" element={<TransferPage />} />
+
+      <Route path="/admin/*" element={withAuth(<AdminShell />, true)}>
         <Route index element={<AdminOverviewPage />} />
-        <Route path="content" element={<LegacyRedirect to="/account/admin/content/homepage" preserveSearch hash={true} />} />
-        <Route path="content/homepage" element={<AdminHomepagePage />} />
-        <Route path="content/collection" element={<PrivateCollectionPage />} />
-        <Route path="content/books" element={<AdminBooksPage />} />
-        <Route path="content/photos" element={withUserProps(PhotoManagePage)} />
-        <Route path="users" element={withUserProps(AdminUsersPage)} />
+        <Route path="users" element={<AdminUsersPage />} />
         <Route path="rooms" element={withUserProps(AdminRoomsPage)} />
-        <Route path="files" element={withUserProps(AdminFilesPage)} />
+        <Route path="files" element={<AdminFilesPage />} />
+        <Route path="live" element={<AdminLivePage />} />
+        <Route path="music" element={<MusicProvidersAdminPage />} />
         <Route path="services" element={withUserProps(AgentConsolePage)} />
-        <Route path="services/live" element={<AdminLivePage />} />
-        <Route path="services/frp" element={withUserProps(FrpAdminPage)} />
-        <Route path="backups" element={withUserProps(BackupPage)} />
-        <Route path="security" element={<AdminSecurityPage />} />
-        <Route path="music-providers" element={<MusicProvidersAdminPage />} />
       </Route>
-      <Route path="/account/admin/homepage" element={withAuth(<LegacyRedirect to="/account/admin/content/homepage" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/users" element={withAuth(<LegacyRedirect to="/account/admin/users" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/rooms" element={withAuth(<LegacyRedirect to="/account/admin/rooms" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/music-providers" element={withAuth(<LegacyRedirect to="/account/admin/music-providers" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/photos" element={withAuth(<LegacyRedirect to="/account/admin/content/photos" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/files" element={withAuth(<LegacyRedirect to="/account/admin/files" preserveSearch hash={true} />, true)} />
-      <Route path="/admin/agent-console" element={withAuth(<LegacyRedirect to="/account/admin/services" preserveSearch hash={true} />, true)} />
+
+      <Route path="/music" element={<LegacyRoomRedirect mode="music" />} />
+      <Route path="/music/rooms/:id" element={<LegacyRoomRedirect mode="music" />} />
+      <Route path="/tools/sync-room" element={<LegacyRoomRedirect mode="watch" />} />
+      <Route path="/tools/sync-room/:id" element={<LegacyRoomRedirect mode="watch" />} />
       <Route path="*" element={withUserProps(NotFoundPage)} />
     </Routes>
   </RouteSuspense>
-);
+)
 
-export default AppRoutes;
+export default AppRoutes

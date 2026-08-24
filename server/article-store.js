@@ -7,6 +7,8 @@ import sanitizeHtml from 'sanitize-html';
 const FRONTMATTER_KEYS = ['cover', 'image', 'thumbnail'];
 const EXCERPT_KEYS = ['description', 'excerpt', 'summary', 'preview'];
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' };
+const COVER_AREA_PATTERN = /<!--\s*elysium-cover:start\s*-->[\s\S]*?<!--\s*elysium-cover:end\s*-->/i;
+const EDIT_INFO_CALLOUT_PATTERN = /^\s*>\s*\[!info\]-\s*编辑信息\s*\n(?:(?:^\s*>.*(?:\n|$))|^\s*\n)*/gim;
 
 function inside(root, candidate) {
   const rel = relative(root, candidate);
@@ -17,10 +19,42 @@ function cleanText(value) {
   return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
 }
 
+function normalizeTaskList(source) {
+  return source.replace(/^(\s*)\[([ xX])\]\s+/gm, '$1- [$2] ');
+}
+
+function stripObsidianEditPanel(source) {
+  return source.replace(
+    /<!--\s*elysium-edit-panel:start\s*-->[\s\S]*?<!--\s*elysium-edit-panel:end\s*-->/gi,
+    '',
+  ).replace(EDIT_INFO_CALLOUT_PATTERN, '');
+}
+
 function mediaReference(value) {
   const text = cleanText(value);
   const wikilink = text.match(/^!??\[\[([^\]|]+)(?:\|[^\]]+)?\]\]$/);
   return wikilink ? wikilink[1].trim() : text;
+}
+
+function firstImageReference(source) {
+  const wikilink = source.match(/!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/);
+  if (wikilink) return wikilink[1].trim();
+  const markdown = source.match(/!\[[^\]]*\]\((?:<([^>]+)>|([^\s)]+))/);
+  return (markdown?.[1] || markdown?.[2] || '').trim();
+}
+
+function coverFromBody(source) {
+  const coverArea = source.match(COVER_AREA_PATTERN)?.[0] || '';
+  return firstImageReference(coverArea);
+}
+
+function stripObsidianCoverArea(source) {
+  return source
+    .replace(COVER_AREA_PATTERN, (area) => {
+      const image = firstImageReference(area);
+      return image ? `![[${image}]]` : '';
+    })
+    .replace(/^\s*##\s+封面\s*$/gim, '');
 }
 
 function frontmatterValue(data, keys) {
@@ -33,12 +67,13 @@ function isYes(value) {
 }
 
 function classify(relativePath, data) {
+  const parts = relativePath.split(sep).map((part) => part.toLowerCase());
+  if (parts.some((part) => part === '模板' || part === 'templates' || part === 'template')) return null;
   const rawType = cleanText(data.type || data.kind || data.content_type).toLowerCase();
   if (['movie', 'album', 'book', 'game'].includes(rawType)) return { contentType: 'record', type: rawType };
   if (['essay', '随笔'].includes(rawType)) return { contentType: 'essay', type: 'essay' };
   if (['photo', 'image', 'picture', '照片'].includes(rawType)) return { contentType: 'photo', type: rawType === 'image' ? 'image' : 'photo' };
   if (['article', '文章'].includes(rawType)) return { contentType: 'article', type: 'article' };
-  const parts = relativePath.split(sep).map((part) => part.toLowerCase());
   if (parts.some((part) => part === '照片' || part === 'photos' || part === 'images')) return { contentType: 'photo', type: 'photo' };
   if (parts.some((part) => part === '随笔' || part === 'essays')) return { contentType: 'essay', type: 'essay' };
   if (parts.some((part) => part === '文章' || part === 'articles')) return { contentType: 'article', type: 'article' };
@@ -70,11 +105,12 @@ function parseTitleFollowedYaml(source) {
 function parseNote(source, fallbackTitle = '') {
   const standard = source.trimStart().startsWith('---') ? matter(source) : parseTitleFollowedYaml(source);
   const data = standard.data || {};
-  const body = standard.content || standard.body || source;
+  const body = normalizeTaskList(standard.content || standard.body || source);
   const title = cleanText(data.title) || firstHeading(source) || fallbackTitle || 'Untitled';
-  const cover = FRONTMATTER_KEYS.map((key) => mediaReference(data[key])).find(Boolean) || '';
+  const cover = coverFromBody(body) || FRONTMATTER_KEYS.map((key) => mediaReference(data[key])).find(Boolean) || '';
   const excerptKey = EXCERPT_KEYS.find((key) => Object.prototype.hasOwnProperty.call(data, key));
-  const excerpt = excerptKey ? cleanText(data[excerptKey]) : body
+  const excerptBody = stripObsidianCoverArea(stripObsidianEditPanel(body));
+  const excerpt = excerptKey ? cleanText(data[excerptKey]) : excerptBody
     .replace(/^---[\s\S]*?---\s*/m, '')
     .replace(/^\s*#.*$/gm, '')
     .replace(/!\[\[.*?\]\]/g, '')
@@ -120,11 +156,17 @@ function metadata(file, root, parsed, stats) {
   const relativePath = relative(root, file);
   const classification = classify(relativePath, parsed.data);
   if (!classification) return null;
+  const rawType = cleanText(parsed.data.type || parsed.data.kind || parsed.data.content_type).toLowerCase();
+  const pathParts = relativePath.split(sep).map((part) => part.toLowerCase());
+  const managedTitle = ['article', 'essay', 'record'].includes(classification.contentType)
+    && (['article', 'essay', 'movie', 'album', 'book', 'game'].includes(rawType)
+      || pathParts.some((part) => ['文章', '随笔', '记录', 'articles', 'essays', 'records'].includes(part)));
+  const title = managedTitle ? basename(relativePath, extname(relativePath)) : parsed.title;
   const syncValue = frontmatterValue(parsed.data, ['同步到网站', 'sync_to_site', 'syncToSite']);
   const hasSyncSetting = syncValue !== undefined;
   return {
     slug: slugFor(relativePath),
-    title: parsed.title,
+    title,
     excerpt: parsed.excerpt,
     cover: parsed.cover,
     date: dateText(parsed.data.date || parsed.data.published || parsed.data.created || parsed.data.taken_at || parsed.data.watched_at || parsed.data.listened_at || parsed.data.read_at || parsed.data.played_at),
@@ -186,7 +228,7 @@ export function createArticleStore({ rootDir, mediaRoot = rootDir, includeRootFi
       throw error;
     }
     const imagePattern = /!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
-    const markdown = record.body
+    const markdown = stripObsidianCoverArea(stripObsidianEditPanel(record.body))
       .replace(imagePattern, (_, path) => `![image](${path.trim()})`)
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, path) => {
         const cleanPath = path.trim().replace(/^<|>$/g, '');

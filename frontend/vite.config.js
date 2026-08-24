@@ -26,6 +26,21 @@ export default defineConfig(({ mode }) => {
       port: devPort,
       allowedHosts: allowedHosts.length ? allowedHosts : true,
       proxy: {
+        '/api/content': {
+          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/api/articles': {
+          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/media': {
+          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
+          changeOrigin: true,
+          secure: false,
+        },
         '/mineradio-api': {
           target: mineradioTarget,
           changeOrigin: true,
