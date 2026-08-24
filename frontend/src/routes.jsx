@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
+import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ContentHomePage from './pages/ContentHomePage.jsx'
@@ -40,7 +41,7 @@ function LegacyRoomRedirect({ mode }) {
 const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
-      <Route path="/" element={<ContentHomePage />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
       <Route path="/register" element={withUserProps(RegisterPage)} />

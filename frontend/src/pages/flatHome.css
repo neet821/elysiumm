@@ -1,12 +1,5 @@
 .flat-home { background: #fff; color: #222; margin: 0 auto; max-width: 70rem; padding: 0 1.25rem 4rem; }
 .service-shell.app-shell--home { background: #fff; color: #222; }
-.service-shell.app-shell--home .app-header { background: #fff; border-bottom: 1px solid #cfcfcf; box-shadow: none; color: #222; position: relative; }
-.service-shell.app-shell--home .app-header__inner { max-width: 70rem; }
-.service-shell.app-shell--home .brand-logo { color: #222; text-decoration: none; }
-.service-shell.app-shell--home .brand-logo__text { color: #222; font-family: inherit; font-size: 1.25rem; font-weight: 600; letter-spacing: 0; rotate: 0deg; text-shadow: none; }
-.service-shell.app-shell--home .app-header__nav-link { border-radius: 0; color: #555; font-family: inherit; font-weight: 400; }
-.service-shell.app-shell--home .app-header__nav-link::after { background: #222; bottom: .2rem; }
-.service-shell.app-shell--home .app-header__nav-link:hover, .service-shell.app-shell--home .app-header__nav-link:focus-visible, .service-shell.app-shell--home .app-header__nav-link.is-active { background: transparent; color: #111; }
 .service-shell.app-shell--home .app-shell__main { padding-top: 2rem; }
 .flat-player { border-bottom: 1px solid #cfcfcf; border-top: 1px solid #cfcfcf; margin: 0 0 3.75rem; padding: .7rem 0; }
 .flat-player__label, .flat-kicker, .flat-kind { color: #666; font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; }

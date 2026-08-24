@@ -756,7 +756,9 @@
 .app-header__action span,.app-header__account span { font-size: .8rem; }
 .app-header__account { min-width: 2.25rem; }
 .app-header__account--login { border: 0; }
-.app-header__avatar { border-radius: 0; height: 1.65rem; width: 1.65rem; }
+.app-header--static .app-header__avatar { aspect-ratio: 1; border-radius: 0; flex: 0 0 1.8rem; height: 1.8rem; overflow: hidden; width: 1.8rem; }
+.app-header--static .app-header__avatar .ui-avatar__image,
+.app-header--static .app-header__avatar .ui-avatar__fallback { border-radius: 0; height: 100%; object-fit: cover; width: 100%; }
 .app-header--static + .app-shell__main { padding-top: 0; }
 .admin-shell--tabs { max-width: 72rem; margin: 0 auto; padding: 3rem 1rem 5rem; }
 .admin-shell__header { align-items: end; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 1.5rem; }
