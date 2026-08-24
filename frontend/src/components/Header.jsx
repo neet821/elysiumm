@@ -26,7 +26,6 @@ export function Header() {
           ) : (
             <button className="app-header__icon-link" type="button" onClick={() => navigate('/')} aria-label="返回首页" title="返回首页"><ArrowLeft size={19} /></button>
           )}
-          <Link className="app-header__brand" to="/" aria-label="Elysium 首页">Elysium</Link>
         </div>
         <nav className="app-header__actions" aria-label="主导航">
           <Link className="app-header__action" to="/rooms" aria-label="房间" title="房间"><DoorOpen size={19} /><span>房间</span></Link>
