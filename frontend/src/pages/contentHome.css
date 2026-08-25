@@ -936,9 +936,24 @@
     max-width: 64px;
     width: 64px;
   }
-  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-cover img {
+.legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-cover img {
     display: block;
     height: auto;
     width: 100%;
+  }
+}
+
+/* Desktop keeps the rail in view while its longer essay list scrolls independently. */
+@media (min-width: 801px) {
+  .legacy-old-home--flat .home-sidebar {
+    align-self: start;
+    box-sizing: border-box;
+    max-height: calc(100dvh - var(--home-header-height, 3.75rem) - 1.5rem);
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position: sticky;
+    scrollbar-gutter: stable;
+    top: calc(var(--home-header-height, 3.75rem) + .75rem);
   }
 }

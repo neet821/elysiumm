@@ -364,6 +364,7 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*margin-top:\s*0;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*display:\s*flex;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*max-height:\s*calc\(100dvh[^}]*overflow-y:\s*auto;[^}]*position:\s*sticky;/s)
     expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*fixed\s*!important;[^}]*top:\s*0;/s)
     expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header__leading\s*\{[^}]*position:\s*static;/s)
     expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
