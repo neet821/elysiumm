@@ -129,6 +129,15 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
   })
 
+  it('keeps login and registration pages free of the global top bar', () => {
+    const { unmount } = renderShell({ initialPath: '/login' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+
+    unmount()
+    renderShell({ initialPath: '/register' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+  })
+
   it('uses only the home arrow on the room hub and live page', () => {
     const { unmount } = renderShell({ initialPath: '/rooms' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()

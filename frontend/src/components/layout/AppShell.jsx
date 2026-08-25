@@ -19,7 +19,8 @@ export function AppShell({ children }) {
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
-  const showHeader = isHome || (!isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute)
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
+  const showHeader = !isAuthPage && (isHome || (!isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute))
   const showFooter = !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
   const [homeSidebarOpen, setHomeSidebarOpen] = useState(false)
 

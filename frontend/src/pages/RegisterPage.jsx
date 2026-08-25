@@ -56,8 +56,8 @@ const RegisterPage = ({ styles, isDark }) => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="register-username" className={`block text-sm font-medium ${styles.text} mb-2`}>
-              <User size={16} className="inline mr-2" />
+            <label htmlFor="register-username" className={`mb-2 flex items-center gap-2 text-sm font-medium ${styles.text}`}>
+              <User size={16} aria-hidden="true" />
               用户名
             </label>
             <input
@@ -76,8 +76,8 @@ const RegisterPage = ({ styles, isDark }) => {
           </div>
 
           <div>
-            <label htmlFor="register-email" className={`block text-sm font-medium ${styles.text} mb-2`}>
-              <Mail size={16} className="inline mr-2" />
+            <label htmlFor="register-email" className={`mb-2 flex items-center gap-2 text-sm font-medium ${styles.text}`}>
+              <Mail size={16} aria-hidden="true" />
               邮箱
             </label>
             <input
@@ -96,8 +96,8 @@ const RegisterPage = ({ styles, isDark }) => {
           </div>
 
           <div>
-            <label htmlFor="register-password" className={`block text-sm font-medium ${styles.text} mb-2`}>
-              <Lock size={16} className="inline mr-2" />
+            <label htmlFor="register-password" className={`mb-2 flex items-center gap-2 text-sm font-medium ${styles.text}`}>
+              <Lock size={16} aria-hidden="true" />
               密码
             </label>
             <input
@@ -116,8 +116,8 @@ const RegisterPage = ({ styles, isDark }) => {
           </div>
 
           <div>
-            <label htmlFor="register-password-confirmation" className={`block text-sm font-medium ${styles.text} mb-2`}>
-              <Lock size={16} className="inline mr-2" />
+            <label htmlFor="register-password-confirmation" className={`mb-2 flex items-center gap-2 text-sm font-medium ${styles.text}`}>
+              <Lock size={16} aria-hidden="true" />
               确认密码
             </label>
             <input

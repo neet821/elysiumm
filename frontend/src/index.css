@@ -352,6 +352,10 @@
 .toolbox-page .route-shell__intro { margin-bottom: 0; }
 .toolbox-page .toolbox-triptych { min-height: 0; }
 .toolbox-login-dialog > .w-full { border-radius: 0 !important; box-shadow: none; margin: 0 auto; }
+.auth-form-field__input { box-sizing: border-box; min-width: 0; }
+.auth-form-field__input--leading { padding-left: 3.25rem !important; }
+.auth-form-field__input--password { padding-right: 3.25rem !important; }
+.auth-form-field__icon { flex: 0 0 auto; }
 .app-shell--toolbox { height: 100dvh; overflow: hidden; }
 .app-shell--toolbox .app-shell__main { min-height: 0; overflow: hidden; }
 .app-shell--immersive, .app-shell--immersive .app-shell__main { height: 100svh; min-height: 0; overflow: hidden; }

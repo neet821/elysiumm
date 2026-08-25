@@ -60,11 +60,11 @@ export default function LoginCard({
             用户名或邮箱
           </label>
           <div className="relative">
-            <UserRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} aria-hidden="true" />
+            <UserRound className="auth-form-field__icon pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]" size={18} aria-hidden="true" />
             <input
               id="login-identifier"
               autoComplete="username"
-              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card-muted)] py-3 pl-11 pr-4 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/20"
+              className="auth-form-field__input auth-form-field__input--leading w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card-muted)] py-3 pl-11 pr-4 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/20"
               onChange={(event) => setIdentifier(event.target.value)}
               placeholder="输入用户名或邮箱"
               required
@@ -78,11 +78,11 @@ export default function LoginCard({
             密码
           </label>
           <div className="relative">
-            <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} aria-hidden="true" />
+            <LockKeyhole className="auth-form-field__icon pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]" size={18} aria-hidden="true" />
             <input
               id="login-password"
               autoComplete="current-password"
-              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card-muted)] py-3 pl-11 pr-12 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/20"
+              className="auth-form-field__input auth-form-field__input--leading auth-form-field__input--password w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card-muted)] py-3 pl-11 pr-12 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-blue)] focus:ring-2 focus:ring-[var(--accent-blue)]/20"
               onChange={(event) => setPassword(event.target.value)}
               placeholder="输入密码"
               required
