@@ -111,6 +111,15 @@ describe('live administrator workspace', () => {
     ))
   })
 
+  it('uses concrete administrator recording endpoints', () => {
+    expect(API_ENDPOINTS.ADMIN_LIVE_RECORDINGS).toBe(
+      `${window.location.origin}/api/admin/live/recordings`,
+    )
+    expect(API_ENDPOINTS.ADMIN_LIVE_RECORDING(3)).toBe(
+      `${window.location.origin}/api/admin/live/recordings/3`,
+    )
+  })
+
   it('keeps a rotated secret one-time and confirms the destructive action', async () => {
     const user = userEvent.setup()
     apiClient.post.mockResolvedValue({

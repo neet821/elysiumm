@@ -308,12 +308,14 @@
 }
 .legacy-old-home--flat .section-heading--home span { font-size: .75rem; }
 .legacy-old-home--flat .home-sidebar {
+  --record-row-height: 7.75rem;
   border-left: 0;
   display: grid;
   gap: 2rem;
   min-width: 0;
   padding-left: clamp(1rem, 3vw, 2rem);
 }
+.legacy-old-home--flat .home-sidebar__close { display: none; }
 .legacy-old-home--flat .sidebar-section .section-heading {
   border-bottom: 1px solid #ddd;
   border-top: 0;
@@ -843,6 +845,7 @@
     display: none;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open {
+    --record-row-height: 8.25rem;
     background: #fff;
     bottom: 0;
     box-shadow: 10px 0 24px rgb(0 0 0 / 14%);
@@ -850,7 +853,7 @@
     flex-direction: column;
     gap: 1rem;
     overflow: hidden;
-    padding: 1rem 1rem 2rem;
+    padding: 3.75rem 1rem 1rem;
     position: fixed;
     left: 0;
     margin-top: 0;
@@ -858,6 +861,22 @@
     top: 0;
     width: min(88vw, 23rem);
     z-index: 100;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .home-sidebar__close {
+    align-items: center;
+    background: transparent;
+    border: 1px solid #888;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    height: 2.25rem;
+    justify-content: center;
+    padding: .25rem;
+    position: absolute;
+    right: 1rem;
+    top: .75rem;
+    width: 2.25rem;
+    z-index: 3;
   }
   .legacy-old-home--flat .home-sidebar-backdrop {
     background: rgb(0 0 0 / 24%);
@@ -926,7 +945,7 @@
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     order: 1;
     overflow: hidden;
@@ -939,9 +958,6 @@
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--has-overflow {
     position: relative;
   }
-  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records.sidebar-section--has-overflow {
-    block-size: min(17rem, 38dvh);
-  }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport {
     min-height: 0;
     overflow-y: auto;
@@ -949,10 +965,12 @@
     scrollbar-gutter: stable;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport--records {
-    flex: 1 1 auto;
+    max-block-size: calc(var(--record-row-height) * 2);
+    overflow-y: auto;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport--essays {
     flex: 1 1 auto;
+    overflow-y: auto;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-cue {
     align-items: center;
@@ -977,6 +995,8 @@
     width: .45rem;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-card {
+    block-size: var(--record-row-height);
+    box-sizing: border-box;
     grid-template-columns: 64px minmax(0, 1fr);
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-cover {
@@ -993,7 +1013,7 @@
 /* Desktop keeps the rail in document flow while each rail section scrolls independently. */
 @media (min-width: 801px) {
   .legacy-old-home--flat .home-sidebar {
-    align-self: start;
+    align-self: stretch;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -1002,7 +1022,7 @@
     grid-area: sidebar;
     max-height: none;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
     padding-left: 1rem;
     scrollbar-gutter: stable;
   }
@@ -1016,23 +1036,35 @@
     flex: 0 0 auto;
     max-height: none;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
   }
   .legacy-old-home--flat .home-sidebar > .sidebar-section--essays {
-    display: block;
-    flex: none;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
   }
   .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport {
     min-width: 0;
   }
-  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--independent {
-    max-height: min(24rem, 42dvh);
+  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--records {
+    max-block-size: calc(var(--record-row-height) * 2);
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
     min-height: 0;
+  }
+  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--essays {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .legacy-old-home--flat .home-sidebar .record-card {
+    block-size: var(--record-row-height);
+    box-sizing: border-box;
   }
   .legacy-old-home--flat .photo-strip--bottom {
     grid-area: photos;

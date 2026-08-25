@@ -74,6 +74,8 @@ export const API_ENDPOINTS = {
   ADMIN_LIVE_AUDIENCE: `${API_BASE_URL}/api/admin/live/audience`,
   ADMIN_LIVE_AUDIENCE_HISTORY: `${API_BASE_URL}/api/admin/live/audience/history`,
   ADMIN_LIVE_SESSIONS: `${API_BASE_URL}/api/admin/live/sessions`,
+  ADMIN_LIVE_RECORDINGS: `${API_BASE_URL}/api/admin/live/recordings`,
+  ADMIN_LIVE_RECORDING: (id) => `${API_BASE_URL}/api/admin/live/recordings/${id}`,
   PUBLIC_SYNC_DASHBOARD: `${API_BASE_URL}/api/sync/dashboard`,
   PUBLIC_SYNC_DEVICES: `${API_BASE_URL}/api/sync/devices`,
   PUBLIC_SYNC_ROTATE: (id) => `${API_BASE_URL}/api/sync/devices/${id}/rotate`,

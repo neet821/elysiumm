@@ -422,6 +422,17 @@ export function ArticleFlowHome() {
           aria-modal={homeSidebarOpen ? 'true' : undefined}
           aria-label={homeSidebarOpen ? '侧栏内容' : undefined}
         >
+          {homeSidebarOpen && (
+            <button
+              className="home-sidebar__close"
+              type="button"
+              aria-label="收起记录和随笔"
+              title="收起记录和随笔"
+              onClick={closeHomeSidebar}
+            >
+              <X size={19} aria-hidden="true" />
+            </button>
+          )}
           <section className={`sidebar-section sidebar-section--records sidebar-section--records-scroll${recordsHaveOverflow ? ' sidebar-section--has-overflow' : ''}`}>
             <div className="sidebar-scroll-viewport sidebar-scroll-viewport--independent sidebar-scroll-viewport--records">
               {records.length > 0
