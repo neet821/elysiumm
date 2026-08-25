@@ -414,6 +414,7 @@ describe('ArticleFlowHome', () => {
     expect(css).not.toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*position:\s*sticky;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-sidebar\s*> \.sidebar-section--essays\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s)
     expect(indexCss).not.toMatch(/\.home-header-portal/)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)
