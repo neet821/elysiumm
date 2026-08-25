@@ -131,6 +131,7 @@ describe('live administrator workspace', () => {
       'data-media-url',
       '/live-media/live/stream/index.m3u8',
     )
+    expect(screen.queryByRole('heading', { name: '直播' })).not.toBeInTheDocument()
     expect(screen.queryByText('直播管理')).not.toBeInTheDocument()
     expect(screen.queryByText('单直播间')).not.toBeInTheDocument()
     expect(screen.queryByText('设置 OBS、观看权限、访客记录和自动录像。')).not.toBeInTheDocument()

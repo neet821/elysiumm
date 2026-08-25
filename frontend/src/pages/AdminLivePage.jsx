@@ -210,12 +210,6 @@ export default function AdminLivePage() {
 
   return (
     <div className="admin-live">
-      <header className="admin-live__intro">
-        <div>
-          <h1>直播</h1>
-        </div>
-      </header>
-
       {error && <p className="admin-live__error" role="alert">{error}</p>}
 
       <section className="admin-live__status">

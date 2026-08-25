@@ -1141,11 +1141,18 @@
 }
 .legacy-old-home--flat .home-nav__action--live-active {
   animation: home-live-pulse 1.35s ease-in-out infinite;
-  color: #b42318;
+  color: var(--accent-blue);
 }
 .legacy-old-home--flat .home-nav__action--live-active:hover,
 .legacy-old-home--flat .home-nav__action--live-active:focus-visible {
-  color: #8f1d14;
+  color: var(--accent-blue);
+}
+.dark .legacy-old-home--flat .home-nav__action--live-active {
+  color: #f59e0b;
+}
+.dark .legacy-old-home--flat .home-nav__action--live-active:hover,
+.dark .legacy-old-home--flat .home-nav__action--live-active:focus-visible {
+  color: #fbbf24;
 }
 @keyframes home-live-pulse {
   0%, 100% { opacity: 1; }
