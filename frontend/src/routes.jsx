@@ -5,7 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import ContentHomePage, { ArticleFlowHome } from './pages/ContentHomePage.jsx'
+import ContentHomePage, { ArticleFlowHome, LegacyArticlePage } from './pages/ContentHomePage.jsx'
 
 const LIGHT_STYLES = THEME.light
 const AdminShell = lazy(() => import('./components/admin/AdminShell'))
@@ -41,6 +41,7 @@ const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
       <Route path="/" element={<ArticleFlowHome />} />
+      <Route path="/article/*" element={<LegacyArticlePage />} />
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
       <Route path="/register" element={withUserProps(RegisterPage)} />

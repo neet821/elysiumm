@@ -31,23 +31,52 @@ function articleType(item) {
 }
 
 function articleHref(item) {
-  const type = item.contentType || item.category || (articleType(item) === 'image' ? 'photo' : articleType(item)) || 'article'
-  return `/content/${encodeURIComponent(type)}/${encodeURIComponent(item.slug)}`
+  return `/article/${encodeURIComponent(item.slug)}`
 }
 
 function articleLink(item, children) {
   return item.link === false ? children : <Link to={articleHref(item)}>{children}</Link>
 }
 
+async function enrichArticle(article) {
+  if (!['movie', 'album', 'book', 'game'].includes(article.type) || article.cover || article.excerpt) return article
+  try {
+    const response = await fetch(`/api/metadata/search?type=${encodeURIComponent(article.type)}&q=${encodeURIComponent(article.title)}`)
+    if (!response.ok) return article
+    const result = (await response.json()).results?.[0]
+    if (!result) return article
+    return { ...article, cover: result.cover || article.cover, excerpt: result.description || article.excerpt, metadata: result }
+  } catch {
+    return article
+  }
+}
+
+function metadataDetails(article) {
+  const metadata = article.metadata
+  if (!metadata) return null
+  const fields = [
+    metadata.year && <div key="year"><dt>年份</dt><dd>{metadata.year}</dd></div>,
+    metadata.subtitle && <div key="subtitle"><dt>作者 / 艺术家</dt><dd>{metadata.subtitle}</dd></div>,
+    metadata.rating && <div key="rating"><dt>评分</dt><dd>{metadata.rating}</dd></div>,
+    metadata.genres?.length && <div key="genres"><dt>类型</dt><dd>{metadata.genres.join(' · ')}</dd></div>,
+  ].filter(Boolean)
+  return fields.length ? <dl className="metadata-details">{fields}</dl> : null
+}
+
+function collectionTitle(article) {
+  const title = article.metadata?.title
+  return title && title !== article.title ? <p className="metadata-title">资料名称：{title}</p> : null
+}
+
 function ArticleMeta({ item }) {
-  return <div className="legacy-article-meta">{formatDate(item.createdAt || item.date || item.updatedAt)}</div>
+  return <div className="article-meta">{formatDate(item.createdAt || item.date || item.updatedAt)}</div>
 }
 
 function LegacyArticleCard({ item }) {
   return (
-    <article className="legacy-article-card">
-      {item.cover && <Link className="legacy-article-card__cover" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
-      <div className="legacy-article-card__info">
+    <article className="article-card">
+      {item.cover && <Link className="article-card-cover" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
+      <div className="article-card-info">
         <ArticleMeta item={item} />
         <h2>{articleLink(item, item.title)}</h2>
         {item.excerpt && <p>{item.excerpt}</p>}
@@ -58,10 +87,10 @@ function LegacyArticleCard({ item }) {
 
 function LegacyEssayCard({ item, html }) {
   return (
-    <article className="legacy-essay-card">
+    <article className="essay-card">
       <ArticleMeta item={item} />
       <h2>{articleLink(item, item.title)}</h2>
-      <div className="legacy-essay-card__body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
+      <div className="essay-body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
     </article>
   )
 }
@@ -69,8 +98,8 @@ function LegacyEssayCard({ item, html }) {
 function LegacyPhotoCard({ item }) {
   const image = item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : null
   return (
-    <article className="legacy-photo-card">
-      {item.link === false ? <div className="legacy-photo-card__frame">{image}</div> : <Link className="legacy-photo-card__frame" to={articleHref(item)}>{image}</Link>}
+    <article className="photo-card">
+      {item.link === false ? <div className="photo-frame">{image}</div> : <Link className="photo-frame" to={articleHref(item)}>{image}</Link>}
       <h3>{articleLink(item, item.title)}</h3>
     </article>
   )
@@ -78,14 +107,14 @@ function LegacyPhotoCard({ item }) {
 
 function LegacyCollectionCard({ item }) {
   return (
-    <article className="legacy-collection-card">
-      {articleLink(item, <><span className="legacy-collection-card__cover">{item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : <span>暂无封面</span>}</span><span className="legacy-collection-card__name">{item.title}</span></>)}
+    <article className="collection-card">
+      {articleLink(item, <><span className="collection-cover">{item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : <span className="cover-missing">暂无封面</span>}</span><span className="collection-name">{item.title}</span></>)}
     </article>
   )
 }
 
 function LegacySectionHeading({ title, count }) {
-  return <div className="legacy-section-heading"><h2>{title}</h2><span>{count}</span></div>
+  return <div className="section-heading"><h2>{title}</h2><span>{count}</span></div>
 }
 
 export function ArticleFlowHome() {
@@ -97,7 +126,8 @@ export function ArticleFlowHome() {
     let active = true
     fetch('/api/articles')
       .then((response) => { if (!response.ok) throw new Error('服务器没有返回文章。'); return response.json() })
-      .then((data) => { if (active) setArticles(data.articles || []) })
+      .then((data) => Promise.all((data.articles || []).map(enrichArticle)))
+      .then((items) => { if (active) setArticles(items) })
       .catch((reason) => { if (active) setError(reason.message || '暂时无法打开') })
     return () => { active = false }
   }, [])
@@ -115,8 +145,8 @@ export function ArticleFlowHome() {
     return () => { active = false }
   }, [articles])
 
-  if (error) return <section className="legacy-home-state"><h1>暂时无法打开</h1><p>{error}</p><Link to="/">返回首页</Link></section>
-  if (!articles) return <section className="legacy-home-state" aria-busy="true"><p>正在读取文章……</p></section>
+  if (error) return <section className="state"><h1>暂时无法打开</h1><p>{error}</p><Link to="/">返回首页</Link></section>
+  if (!articles) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
 
   const sorted = [...articles].sort((a, b) => new Date(b.createdAt || b.date || b.updatedAt || 0) - new Date(a.createdAt || a.date || a.updatedAt || 0))
   const writing = sorted.filter((item) => !COLLECTION_TYPES.includes(articleType(item)) && articleType(item) !== 'image' && item.contentType !== 'photo')
@@ -125,20 +155,61 @@ export function ArticleFlowHome() {
   const photos = sorted.filter((item) => articleType(item) === 'image' || item.contentType === 'photo')
 
   return (
-    <div className="legacy-home-flow">
-      <section className="legacy-writing-section">
-        <div className="legacy-writing-list">
+    <div className="legacy-old-home">
+      <div className="home-flow">
+      <section className="writing-section">
+        <div className="writing-list">
           {[...essays.map((item) => <LegacyEssayCard key={item.slug} item={item} html={fullEssays[item.slug]?.html} />), ...articleNotes.map((item) => <LegacyArticleCard key={item.slug} item={item} />)]}
-          {!writing.length && <p className="legacy-empty">还没有文章。</p>}
+          {!writing.length && <p className="empty">还没有文章。</p>}
         </div>
       </section>
-      {!!photos.length && <section className="legacy-photos-section"><LegacySectionHeading title="照片" count={photos.length} /><div className="legacy-photo-grid">{photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)}</div></section>}
-      <section className="legacy-collections-grid">
+      {!!photos.length && <section className="photos-section"><LegacySectionHeading title="照片" count={photos.length} /><div className="photo-grid">{photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)}</div></section>}
+      <section className="collections-grid">
         {COLLECTION_TYPES.map((type) => {
           const items = sorted.filter((item) => articleType(item) === type).slice(0, 2)
-          return <section className="legacy-collection-section" key={type}><LegacySectionHeading title={COLLECTION_LABELS[type]} count={items.length} /><div className="legacy-collection-cards">{items.length ? items.map((item) => <LegacyCollectionCard key={item.slug} item={item} />) : <p className="legacy-empty">还没有记录。</p>}</div></section>
+          return <section className="collection-section" key={type}><LegacySectionHeading title={COLLECTION_LABELS[type]} count={items.length} /><div className="collection-cards">{items.length ? items.map((item) => <LegacyCollectionCard key={item.slug} item={item} />) : <p className="empty">还没有记录。</p>}</div></section>
         })}
       </section>
+      </div>
+    </div>
+  )
+}
+
+export function LegacyArticlePage() {
+  const location = useLocation()
+  const rawSlug = location.pathname.slice('/article/'.length)
+  const [article, setArticle] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    setArticle(null)
+    setError('')
+    fetch(`/api/articles/${rawSlug}`)
+      .then((response) => { if (!response.ok) throw new Error(response.status === 404 ? '找不到这篇文章。' : '服务器没有返回文章。'); return response.json() })
+      .then((data) => { if (active) setArticle(data.article || data) })
+      .catch((reason) => { if (active) setError(reason.message || '暂时无法打开') })
+    return () => { active = false }
+  }, [rawSlug])
+
+  if (error) return <section className="state"><h1>暂时无法打开</h1><p>{error}</p><Link to="/">返回首页</Link></section>
+  if (!article) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
+
+  const cover = article.cover ? <img className="reader-cover" src={coverUrl(article)} alt={article.title} /> : null
+  return (
+    <div className="legacy-old-home">
+      <article className="reader">
+        <Link className="back-link" to="/">← 返回文章列表</Link>
+        <header className="reader-header">
+          <div className="article-meta">{formatDate(article.createdAt || article.date || article.updatedAt)}{article.category ? ` · ${article.category}` : ''}</div>
+          {cover}
+          <h1>{article.title}</h1>
+          {collectionTitle(article)}
+          {metadataDetails(article)}
+          {article.excerpt && <p className="reader-excerpt">{article.excerpt}</p>}
+        </header>
+        <div className="reader-body" dangerouslySetInnerHTML={{ __html: article.html || '' }} />
+      </article>
     </div>
   )
 }
