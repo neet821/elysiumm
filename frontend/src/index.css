@@ -3690,3 +3690,22 @@ body::before { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+/* Final homepage override: the fixed bar and the writing stream are one surface. */
+body:has(.app-shell--home)::before {
+  display: none !important;
+}
+
+.service-shell.app-shell--home,
+.service-shell.app-shell--home .app-shell__main,
+.service-shell.app-shell--home .app-header {
+  background: var(--home-surface) !important;
+}
+
+.service-shell.app-shell--home .app-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 0 !important;
+  box-shadow: none;
+  position: fixed;
+}
