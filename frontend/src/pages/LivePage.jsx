@@ -65,7 +65,38 @@ function StatePanel({ state, retry }) {
 }
 
 
-function PublicLivePage() {
+function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, state, status }) {
+  if (isLoading) {
+    return <main className="live-watch-page"><div className="live-watch-page__status" role="status">正在连接直播间…</div></main>
+  }
+
+  if (isLive) {
+    return (
+      <main className="live-watch-page">
+        <h1 className="live-watch-page__title">{status?.title || '直播'}</h1>
+        <LivePlayer mediaUrl={mediaUrl} minimal />
+      </main>
+    )
+  }
+
+  const message = stateMessages[state] || stateMessages.service_unavailable
+  const isEnded = state === 'ended'
+  return (
+    <main className="live-watch-page">
+      <div className="live-watch-page__status" role={isEnded ? 'status' : 'alert'}>
+        <h1 className="live-watch-page__title">{message.title}</h1>
+        {!isEnded && (
+          <button className="live-state__action" type="button" onClick={retry}>
+            <RefreshCw aria-hidden="true" />
+            {state === 'waiting' ? '立即检查' : '重新连接'}
+          </button>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function PublicLivePage({ minimal = false }) {
   const { mediaUrl, retry, state, status } = useLiveSession()
   const isLoading = state === 'loading' || state === 'authorizing'
   const isLive = state === 'live' && mediaUrl
@@ -76,6 +107,10 @@ function PublicLivePage() {
         ? '画面延迟目标约 4–8 秒，取决于当前网络。'
         : '画面延迟约 5–10 秒，取决于当前网络。'
   )
+
+  if (minimal) {
+    return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} state={state} status={status} />
+  }
 
   return (
     <div className="live-page">
@@ -118,10 +153,11 @@ function PublicLivePage() {
 
 export default function LivePage() {
   const { isAdmin, loading } = useOptionalAuth()
+  const isWatchPage = new URLSearchParams(window.location.search).get('watch') === '1'
 
   if (loading) {
     return <section className="live-state" role="status" aria-live="polite"><p>正在确认账户…</p></section>
   }
 
-  return isAdmin ? <AdminLivePage /> : <PublicLivePage />
+  return isAdmin && !isWatchPage ? <AdminLivePage /> : <PublicLivePage minimal={isWatchPage} />
 }

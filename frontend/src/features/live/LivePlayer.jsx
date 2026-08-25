@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
+import { Maximize, Pause, Play, Volume2 } from 'lucide-react'
 
 
-export default function LivePlayer({ mediaUrl }) {
+export default function LivePlayer({ mediaUrl, minimal = false }) {
   const videoRef = useRef(null)
   const retryRef = useRef(0)
   const [message, setMessage] = useState('')
   const [muted, setMuted] = useState(true)
+  const [playing, setPlaying] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const containerRef = useRef(null)
 
   useEffect(() => {
     const video = videoRef.current
@@ -78,16 +82,48 @@ export default function LivePlayer({ mediaUrl }) {
     }
   }
 
+  const togglePlayback = () => {
+    const video = videoRef.current
+    if (!video) return
+    if (video.paused) video.play().catch(() => {})
+    else video.pause()
+  }
+
+  const toggleFullscreen = async () => {
+    const container = containerRef.current
+    if (!container) return
+    if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen()
+    else if (container.requestFullscreen) await container.requestFullscreen()
+  }
+
   return (
-    <div className="live-player">
+    <div className={`live-player${minimal ? ' live-player--minimal' : ''}`} ref={containerRef}>
       <video
         ref={videoRef}
         aria-label="直播播放器"
         autoPlay
-        controls
+        controls={!minimal}
         muted={muted}
         playsInline
+        onPause={() => setPlaying(false)}
+        onPlay={() => setPlaying(true)}
+        onVolumeChange={(event) => setVolume(Number(event.currentTarget.volume) || 0)}
       />
+      {minimal && (
+        <div className="live-player__controls" aria-label="直播播放控件">
+          <button type="button" onClick={togglePlayback} aria-label={playing ? '暂停直播' : '播放直播'}>
+            {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+          </button>
+          <label>
+            <Volume2 aria-hidden="true" />
+            <span className="sr-only">直播音量</span>
+            <input aria-label="直播音量" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => { const value = Number(event.target.value); setVolume(value); if (videoRef.current) { videoRef.current.volume = value; videoRef.current.muted = value === 0; setMuted(value === 0) } }} />
+          </label>
+          <button type="button" onClick={toggleFullscreen} aria-label="直播全屏">
+            <Maximize aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {muted && (
         <button className="live-player__sound" type="button" onClick={enableSound}>
           开启声音

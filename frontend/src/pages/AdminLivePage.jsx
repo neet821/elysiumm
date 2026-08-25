@@ -265,7 +265,7 @@ export default function AdminLivePage() {
           <span>设置 OBS、观看权限、访客记录和自动录像。</span>
         </div>
         <div>
-          <a href="/live" target="_blank" rel="noreferrer">
+          <a href="/live?watch=1" target="_blank" rel="noreferrer">
             打开观看页 <ExternalLink aria-hidden="true" />
           </a>
           <Button aria-label="刷新直播管理信息" variant="secondary" onClick={load} isLoading={loading}>

@@ -3244,6 +3244,18 @@ html.dark .polaroid-card:hover,
 .live-player video { background: #000; display: block; height: 100%; object-fit: contain; width: 100%; }
 .live-player__sound { background: rgba(232, 243, 255, 0.92); border: 0; color: #101b2a; cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 800; padding: 0.6rem 0.8rem; position: absolute; right: 0.8rem; top: 0.8rem; }
 .live-player__message { background: rgba(8, 11, 17, 0.86); bottom: 1rem; color: #dcecff; left: 50%; margin: 0; padding: 0.65rem 0.9rem; position: absolute; transform: translateX(-50%); }
+.live-player--minimal { box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38); }
+.live-player__controls { align-items: center; background: rgba(15, 23, 32, 0.94); border: 1px solid rgba(148, 180, 221, 0.2); bottom: 0.75rem; display: flex; gap: 0.75rem; left: 0.75rem; padding: 0.45rem 0.6rem; position: absolute; right: 0.75rem; }
+.live-player__controls button { align-items: center; background: transparent; border: 0; color: #e8f3ff; cursor: pointer; display: inline-flex; justify-content: center; padding: 0.35rem; }
+.live-player__controls button svg { height: 1rem; width: 1rem; }
+.live-player__controls label { align-items: center; color: #e8f3ff; display: flex; flex: 1; gap: 0.45rem; }
+.live-player__controls label svg { height: 1rem; width: 1rem; }
+.live-player__controls input { accent-color: #8dc6ff; max-width: 10rem; width: 100%; }
+.live-watch-page { background: #080b11; color: #f5f8ff; min-height: calc(100vh - 4.25rem); padding: clamp(1rem, 4vw, 3rem); }
+.live-watch-page > * { margin-inline: auto; max-width: 88rem; }
+.live-watch-page__title { font-family: var(--font-editorial); font-size: clamp(1.35rem, 2.5vw, 2.25rem); font-weight: 500; line-height: 1.15; margin: 0 0 0.85rem; overflow-wrap: anywhere; }
+.live-watch-page__status { align-items: flex-start; background: #101722; border: 1px solid rgba(148, 180, 221, 0.18); display: flex; flex-direction: column; gap: 0.75rem; min-height: 12rem; justify-content: center; padding: clamp(1rem, 4vw, 2.5rem); }
+.live-watch-page__status .live-watch-page__title { margin: 0; }
 .live-presence { align-items: center; color: #9baabd; display: flex; font-size: 0.82rem; gap: 1rem; justify-content: space-between; padding: 1rem 0.1rem; }
 .live-presence > span { align-items: center; color: #f5f8ff; display: flex; font-weight: 700; gap: 0.55rem; }
 .live-presence > span > span { animation: live-pulse 1.8s ease-out infinite; background: #ff5f72; border-radius: 50%; height: 0.55rem; width: 0.55rem; }
@@ -3279,6 +3291,7 @@ html.dark .polaroid-card:hover,
   .live-page { padding: 5.5rem 0.75rem 2rem; }
   .live-hero { min-height: 18rem; }
   .live-presence { align-items: flex-start; flex-direction: column; gap: 0.45rem; }
+  .live-watch-page { padding: 1rem 0.75rem 2rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

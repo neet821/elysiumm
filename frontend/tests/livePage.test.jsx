@@ -169,6 +169,26 @@ describe('public live page', () => {
     expect(apiClient.get).not.toHaveBeenCalled()
   })
 
+  it('opens the public minimal watch page for an administrator watch link', async () => {
+    optionalAuthState.isAdmin = true
+    window.history.replaceState({}, '', '/live?watch=1')
+    apiClient.get.mockResolvedValue({ data: liveStatus })
+    apiClient.post.mockResolvedValue({
+      data: {
+        viewer_session_id: 'viewer-1',
+        media_url: '/live-media/live/stream/index.m3u8',
+        expires_in: 120,
+      },
+    })
+
+    render(<LivePage />)
+
+    expect(await screen.findByLabelText('直播播放器')).toBeInTheDocument()
+    expect(screen.queryByTestId('inline-admin-live')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('直播留言')).not.toBeInTheDocument()
+    expect(screen.queryByText('直播中')).not.toBeInTheDocument()
+  })
+
   it('keeps the public live route free of the administrator workspace for regular users', async () => {
     optionalAuthState.isAdmin = false
     apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'ended' } })
