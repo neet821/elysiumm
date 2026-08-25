@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import ContentHomePage from '../src/pages/ContentHomePage.jsx'
+import ContentHomePage, { ArticleFlowHome } from '../src/pages/ContentHomePage.jsx'
 
 describe('ContentHomePage', () => {
   beforeEach(() => {
@@ -36,5 +36,18 @@ describe('ContentHomePage', () => {
     expect(screen.getByRole('heading', { name: '正文' })).toBeInTheDocument()
     expect(screen.getByRole('listitem')).toHaveTextContent('Markdown 项目')
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/content/article/hello')
+  })
+
+  it('marks the homepage live action while the public stream is live', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (input === '/api/articles') return { ok: true, json: async () => ({ articles: [] }) }
+      if (input === '/api/homepage') return { ok: true, json: async () => ({ settings: {} }) }
+      if (input === '/api/live/status') return { ok: true, json: async () => ({ status: 'live' }) }
+      throw new Error(`unexpected request: ${input}`)
+    })
+
+    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: '直播' })).toHaveClass('home-nav__action--live-active'))
   })
 })

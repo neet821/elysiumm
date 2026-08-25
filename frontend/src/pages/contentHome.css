@@ -1121,6 +1121,18 @@
 .legacy-old-home--flat .home-nav__action:focus-visible {
   border-color: #999;
 }
+.legacy-old-home--flat .home-nav__action--live-active {
+  animation: home-live-pulse 1.35s ease-in-out infinite;
+  color: #b42318;
+}
+.legacy-old-home--flat .home-nav__action--live-active:hover,
+.legacy-old-home--flat .home-nav__action--live-active:focus-visible {
+  color: #8f1d14;
+}
+@keyframes home-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .42; }
+}
 .legacy-old-home--flat .home-nav__admin-action { margin-right: .8rem; }
 .legacy-old-home--flat .home-nav__avatar,
 .legacy-old-home--flat .home-nav__avatar .ui-avatar__image,
