@@ -25,6 +25,11 @@ describe('ArticleFlowHome', () => {
     expect(link).toHaveAttribute('href', '/article/hello')
   })
 
+  it('uses a smaller title scale on the legacy article reader', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/\.legacy-old-home \.reader-header h1\s*\{[^}]*font-size:\s*clamp\(24px,\s*3\.2vw,\s*36px\);/s)
+  })
+
   it('renders homepage navigation inside the page instead of a global header', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
