@@ -352,6 +352,31 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
+  it('marks overflowing mobile rail sections with visual scroll cues', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'record-1', title: '最近记录一', type: 'movie', contentType: 'record', createdAt: '2026-08-25' },
+        { slug: 'record-2', title: '最近记录二', type: 'album', contentType: 'record', createdAt: '2026-08-24' },
+        { slug: 'record-3', title: '更早记录', type: 'book', contentType: 'record', createdAt: '2026-08-23' },
+        { slug: 'essay-1', title: '随笔一', type: 'essay', createdAt: '2026-08-22', excerpt: '随笔内容' },
+        { slug: 'essay-2', title: '随笔二', type: 'essay', createdAt: '2026-08-21', excerpt: '随笔内容' },
+        { slug: 'essay-3', title: '随笔三', type: 'essay', createdAt: '2026-08-20', excerpt: '随笔内容' },
+      ] }),
+    })
+
+    render(
+      <HomeSidebarContext.Provider value={{ isOpen: true, close: vi.fn(), toggle: vi.fn() }}>
+        <MemoryRouter><ArticleFlowHome /></MemoryRouter>
+      </HomeSidebarContext.Provider>,
+    )
+
+    const drawer = await screen.findByRole('dialog', { name: '侧栏内容' })
+    expect(drawer.querySelector('.sidebar-section--records')).toHaveClass('sidebar-section--has-overflow')
+    expect(drawer.querySelector('.sidebar-section--essays')).toHaveClass('sidebar-section--has-overflow')
+    expect(drawer.querySelectorAll('.sidebar-scroll-cue')).toHaveLength(2)
+  })
+
   it('fixes the homepage chrome and joins the mobile drawer to it', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
     const indexCss = fs.readFileSync('src/index.css', 'utf8')
@@ -364,6 +389,9 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*margin-top:\s*0;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*display:\s*flex;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--records\s*\{[^}]*max-height:\s*min\(18rem,\s*38dvh\);[^}]*overflow-y:\s*auto;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
+    expect(css).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*pointer-events:\s*none;[^}]*position:\s*absolute;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*max-height:\s*calc\(100dvh[^}]*overflow-y:\s*auto;[^}]*position:\s*sticky;/s)
     expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*fixed\s*!important;[^}]*top:\s*0;/s)
     expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header__leading\s*\{[^}]*position:\s*static;/s)

@@ -322,6 +322,8 @@ export function ArticleFlowHome() {
   const essays = sorted.filter((item) => contentType(item) === 'essay')
   const records = sorted.filter((item) => contentType(item) === 'record')
   const photos = sorted.filter((item) => contentType(item) === 'photo')
+  const recordsHaveOverflow = records.length > 2
+  const essaysHaveOverflow = essays.length > 2
   const totalPages = Math.max(1, Math.ceil(articleItems.length / ARTICLES_PER_PAGE))
   const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10)
   const currentPage = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), totalPages) : 1
@@ -366,15 +368,17 @@ export function ArticleFlowHome() {
           aria-modal={homeSidebarOpen ? 'true' : undefined}
           aria-label={homeSidebarOpen ? '侧栏内容' : undefined}
         >
-          <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
+          <section className={`sidebar-section sidebar-section--records sidebar-section--records-scroll${recordsHaveOverflow ? ' sidebar-section--has-overflow' : ''}`}>
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)
               : <p className="empty">还没有记录。</p>}
+            {recordsHaveOverflow && <span className="sidebar-scroll-cue" aria-hidden="true" />}
           </section>
-          <section className="sidebar-section sidebar-section--essays">
+          <section className={`sidebar-section sidebar-section--essays${essaysHaveOverflow ? ' sidebar-section--has-overflow' : ''}`}>
             {essays.length > 0
               ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
               : <p className="empty">还没有随笔。</p>}
+            {essaysHaveOverflow && <span className="sidebar-scroll-cue" aria-hidden="true" />}
           </section>
         </aside>
         <PhotoStrip photos={photos} />

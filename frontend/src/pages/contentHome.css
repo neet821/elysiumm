@@ -916,7 +916,7 @@
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records {
     display: block;
     flex: 0 0 auto;
-    max-height: min(24rem, 38dvh);
+    max-height: min(18rem, 38dvh);
     min-height: 0;
     order: 0;
     overflow-y: auto;
@@ -928,6 +928,35 @@
     order: 1;
     overflow-y: auto;
     padding-bottom: 1rem;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
+    border-top: 2px solid var(--border-subtle);
+    padding-top: .9rem;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--has-overflow {
+    position: relative;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-cue {
+    align-items: center;
+    background: linear-gradient(to bottom, rgb(20 24 31 / 0%), var(--home-surface));
+    bottom: 0;
+    color: var(--text-muted);
+    display: flex;
+    height: 1.8rem;
+    justify-content: center;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    z-index: 2;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-cue::after {
+    border-bottom: 1.5px solid currentcolor;
+    border-right: 1.5px solid currentcolor;
+    content: "";
+    height: .45rem;
+    transform: rotate(45deg) translate(-.12rem, -.12rem);
+    width: .45rem;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-card {
     grid-template-columns: 64px minmax(0, 1fr);
