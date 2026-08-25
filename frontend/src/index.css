@@ -811,6 +811,24 @@
 .admin-danger-button { align-items:center; background:none; border:1px solid transparent; color:#f87171; display:inline-flex; gap:.3rem; padding:.35rem .45rem; }
 .admin-danger-button:hover { border-color:#f87171; }
 .admin-inline-error,.admin-empty { color:#fca5a5; padding:.8rem 0; }
+.admin-user-cell__avatar {
+  display: inline-grid;
+  flex: 0 0 1.8rem;
+  height: 1.8rem !important;
+  max-height: 1.8rem;
+  max-width: 1.8rem;
+  overflow: hidden;
+  width: 1.8rem !important;
+}
+.admin-user-cell__avatar .ui-avatar__image,
+.admin-user-cell__avatar .ui-avatar__fallback {
+  display: block;
+  height: 100% !important;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100% !important;
+}
 .admin-dashboard__cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:1rem; }
 .admin-dashboard__card { border:1px solid var(--border-subtle); color:var(--text-primary); display:grid; gap:.45rem; padding:1.1rem; transition:border-color 180ms ease,transform 180ms ease; }
 .admin-dashboard__card:hover { border-color:#f59e0b; transform:translateY(-2px); }
