@@ -1004,10 +1004,9 @@
     min-height: 0;
     overflow: hidden;
     padding-left: 1rem;
-    position: sticky;
     scrollbar-gutter: stable;
-    top: 1rem;
   }
+  .legacy-old-home--flat .home-nav__sidebar-toggle { display: none; }
   .legacy-old-home--flat .home-layout {
     grid-template-areas: "main sidebar" "photos photos";
     grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
