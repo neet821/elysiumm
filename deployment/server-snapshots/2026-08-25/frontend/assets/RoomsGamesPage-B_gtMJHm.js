@@ -1,0 +1,1 @@
+import{j as s}from"./index-D_LrUCpZ.js";function o(){return s.jsx("section",{className:"rooms-hub rooms-hub--placeholder",children:s.jsxs("header",{className:"rooms-hub__intro",children:[s.jsx("p",{className:"rooms-hub__kicker",children:"Elysium Rooms / Games"}),s.jsx("h1",{children:"桌游房"}),s.jsx("p",{children:"待重做"})]})})}export{o as default};
