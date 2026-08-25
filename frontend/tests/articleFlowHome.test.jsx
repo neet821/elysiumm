@@ -138,6 +138,45 @@ describe('ArticleFlowHome', () => {
     }
   })
 
+  it('opens a long record comment in a local popup and closes it outside the card', async () => {
+    const user = userEvent.setup()
+    const review = '这是完整的个人评论内容，应该在卡片内展开显示，而不是跳转到其他页面。'.repeat(4)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{ slug: 'record', title: '长评论记录', type: 'movie', contentType: 'record', createdAt: '2026-08-22', review }] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('长评论记录')).toBeInTheDocument())
+    const card = container.querySelector('.record-card')
+    const toggle = within(card).getByRole('button', { name: '展开完整评论' })
+    expect(within(card).queryByRole('region', { name: '完整评论' })).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(within(card).getByRole('region', { name: '完整评论' })).toHaveTextContent(review)
+
+    await user.click(document.body)
+    expect(within(card).queryByRole('region', { name: '完整评论' })).not.toBeInTheDocument()
+  })
+
+  it('refreshes record comments when the homepage regains focus', async () => {
+    let requestCount = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        requestCount += 1
+        return { ok: true, json: async () => ({ articles: [{ slug: 'record', title: '会更新的记录', type: 'movie', contentType: 'record', createdAt: '2026-08-22', review: requestCount === 1 ? '旧评论' : '新评论' }] }) }
+      }
+      return { ok: true, json: async () => ({ article: null }) }
+    })
+
+    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('旧评论')).toBeInTheDocument())
+    window.dispatchEvent(new Event('focus'))
+    await waitFor(() => expect(screen.getByText('新评论')).toBeInTheDocument())
+    expect(requestCount).toBeGreaterThanOrEqual(2)
+  })
+
   it('renders Markdown for articles and essays', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
       if (path === '/api/articles') {
@@ -145,7 +184,7 @@ describe('ArticleFlowHome', () => {
           ok: true,
           json: async () => ({ articles: [
             { slug: 'essay', title: 'Markdown 随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '预览' },
-            { slug: 'article', title: 'Markdown 文章', type: 'article', createdAt: '2026-08-24' },
+            { slug: 'article', title: 'Markdown 文章', type: 'article', createdAt: '2026-08-24', excerpt: '## 文章预览标题\n\n**文章预览加粗**' },
           ] }),
         }
       }
@@ -158,6 +197,8 @@ describe('ArticleFlowHome', () => {
     render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Markdown 文章' })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: '文章预览标题' })).toBeInTheDocument()
+    expect(screen.getByText('文章预览加粗').tagName).toBe('STRONG')
     await waitFor(() => expect(screen.getByRole('heading', { name: '随笔正文' })).toBeInTheDocument())
     expect(screen.getByText('加粗内容').tagName).toBe('STRONG')
 
@@ -278,6 +319,8 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
     expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
+    expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)
+    expect(css).not.toMatch(/\.legacy-old-home--flat \.article-card--featured h2\s*\{[^}]*white-space:\s*nowrap;/s)
   })
 
   it('returns to the top after changing article pages', async () => {

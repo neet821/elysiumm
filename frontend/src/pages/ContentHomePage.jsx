@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -43,6 +43,8 @@ function coverUrl(item) {
 
 const ARTICLES_PER_PAGE = 3
 const ESSAY_COLLAPSE_THRESHOLD = 120
+const RECORD_REVIEW_PREVIEW_LENGTH = 72
+const ARTICLE_REFRESH_INTERVAL_MS = 15000
 
 function articleType(item) {
   return item.type || (item.contentType === 'photo' ? 'image' : item.contentType)
@@ -121,7 +123,7 @@ function LegacyArticleCard({ item }) {
         <h2><Link to={articleHref(item)}>{item.title}</Link></h2>
         {item.cover && <div className="article-card-cover article-card-cover--centered article-card-cover--compact"><img src={coverUrl(item)} alt={item.title} loading="lazy" /></div>}
         <div className="article-card-preview">
-          {item.excerpt && <p>{item.excerpt}</p>}
+          {item.excerpt && <MarkdownContent markdown={item.excerpt} className="article-card-preview-body" />}
           <time className="article-card-preview-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
         </div>
       </div>
@@ -167,15 +169,32 @@ function LegacyPhotoCard({ item }) {
 }
 
 function RecordCard({ item }) {
+  const [reviewExpanded, setReviewExpanded] = useState(false)
+  const reviewRegionRef = useRef(null)
   const image = item.cover
     ? <img src={coverUrl(item)} alt={item.title} loading="lazy" />
     : <span className="cover-missing">暂无封面</span>
+  const review = String(item.review || '').trim()
+  const hasLongReview = review.length > RECORD_REVIEW_PREVIEW_LENGTH
+  const reviewPreview = hasLongReview
+    ? `${review.slice(0, RECORD_REVIEW_PREVIEW_LENGTH).trimEnd()}…`
+    : review || '—'
   const fields = [
     item.author && <div key="author"><dt>作者</dt><dd>{item.author}</dd></div>,
     item.year && <div key="year"><dt>年份</dt><dd>{item.year}</dd></div>,
     item.country && <div key="country"><dt>国家</dt><dd>{item.country}</dd></div>,
     item.language && <div key="language"><dt>语言</dt><dd>{item.language}</dd></div>,
   ].filter(Boolean)
+
+  useEffect(() => {
+    if (!reviewExpanded) return undefined
+    const closeOnOutsidePointer = (event) => {
+      if (!reviewRegionRef.current?.contains(event.target)) setReviewExpanded(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [reviewExpanded])
+
   return (
     <article className="record-card record-card--priority">
       <div className="record-cover">{image}</div>
@@ -183,7 +202,28 @@ function RecordCard({ item }) {
         <h2><RecordTypeIcon type={item.type} /><span>{item.title}</span></h2>
         {fields.length > 0 && <dl className="record-details">{fields}</dl>}
         {item.createdAt && <div className="record-added-time">添加时间：{formatDate(item.createdAt)}</div>}
-        <div className="record-review"><span>个人评论：</span><span className="record-review-text">{item.review || '—'}</span></div>
+        <div className={`record-review${reviewExpanded ? ' is-expanded' : ''}`} ref={reviewRegionRef}>
+          <div className="record-review-summary">
+            <span className="record-review-label">个人评论：</span>
+            <span className="record-review-text">{reviewPreview}</span>
+            {hasLongReview && (
+              <button
+                className="record-review-toggle"
+                type="button"
+                aria-expanded={reviewExpanded}
+                aria-label={reviewExpanded ? '收起完整评论' : '展开完整评论'}
+                onClick={() => setReviewExpanded((value) => !value)}
+              >
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          {hasLongReview && reviewExpanded && (
+            <div className="record-review-popover" role="region" aria-label="完整评论">
+              <p>{review}</p>
+            </div>
+          )}
+        </div>
       </div>
     </article>
   )
@@ -210,12 +250,35 @@ export function ArticleFlowHome() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/articles')
-      .then((response) => { if (!response.ok) throw new Error('服务器没有返回文章。'); return response.json() })
-      .then((data) => Promise.all((data.articles || []).map(enrichArticle)))
-      .then((items) => { if (active) setArticles(items) })
-      .catch((reason) => { if (active) setError(reason.message || '暂时无法打开') })
-    return () => { active = false }
+    let hasLoaded = false
+    const refreshArticles = async () => {
+      try {
+        const response = await fetch('/api/articles')
+        if (!response.ok) throw new Error('服务器没有返回文章。')
+        const data = await response.json()
+        const items = await Promise.all((data.articles || []).map(enrichArticle))
+        if (!active) return
+        setArticles(items)
+        setError('')
+        hasLoaded = true
+      } catch (reason) {
+        if (active && !hasLoaded) setError(reason.message || '暂时无法打开')
+      }
+    }
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'hidden') void refreshArticles()
+    }
+
+    void refreshArticles()
+    const intervalId = window.setInterval(refreshIfVisible, ARTICLE_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
   }, [])
 
   useEffect(() => {
