@@ -48,20 +48,25 @@ describe('administrator overview and security evidence', () => {
     renderPage(AdminOverviewPage)
 
     expect(screen.getByRole('status', { name: '正在载入管理总览' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: '管理总览' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '控制台总览' })).toBeInTheDocument()
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_OVERVIEW)
-    for (const text of ['12 位用户', '3 个活跃房间', '5 个受管文件', '2 台同步设备', '4 本书', '1 个备份任务']) {
-      expect(screen.getByText(text)).toBeInTheDocument()
+    for (const text of ['12 位用户', '3 个活跃房间', '5 个受管文件', '2 台同步设备']) {
+      expect(screen.getAllByText(text).length).toBeGreaterThan(0)
+    }
+    for (const [name, href] of [['用户', '/admin/users'], ['房间', '/admin/rooms'], ['文件', '/admin/files'], ['服务器状态', '/admin/services'], ['曲库账户', '/admin/music'], ['直播', '/admin/live']]) {
+      expect(screen.getByRole('link', { name: new RegExp(name) })).toHaveAttribute('href', href)
     }
     expect(screen.getByText('上传被拒绝')).toBeInTheDocument()
-    expect(screen.getByText('数据库：已连接')).toBeInTheDocument()
+    expect(screen.getAllByText('数据库：已连接').length).toBeGreaterThan(0)
   })
 
   it('shows only generic overview errors and can retry in place', async () => {
     const user = userEvent.setup()
     apiClient.get
       .mockRejectedValueOnce(new Error('database password at /private/path'))
+      .mockResolvedValueOnce({ data: {} })
       .mockResolvedValueOnce({ data: overview })
+      .mockResolvedValueOnce({ data: {} })
     renderPage(AdminOverviewPage)
 
     const alert = await screen.findByRole('alert')

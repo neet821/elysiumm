@@ -3928,3 +3928,126 @@ body:has(.app-shell--home)::before {
   .admin-shell { padding-inline: .75rem; }
   .admin-shell__content .admin-dashboard__cards { grid-template-columns: 1fr; }
 }
+
+/* Final administrator overview: plain, dense workspace with predictable mobile stacking. */
+.admin-dashboard {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.admin-dashboard__intro {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.admin-dashboard__intro > div { min-width: 0; }
+.admin-dashboard__intro > div > p:first-child {
+  color: #777;
+  font-size: .68rem;
+  letter-spacing: .12em;
+  margin: 0 0 .55rem;
+  text-transform: uppercase;
+}
+.admin-dashboard__intro h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin: 0;
+}
+.admin-dashboard__intro > div > p:last-child {
+  color: #666;
+  font-size: .9rem;
+  margin: .8rem 0 0;
+}
+.admin-overview__refresh,
+.admin-overview__retry {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #aaa;
+  color: #111;
+  display: inline-flex;
+  font-size: .82rem;
+  gap: .45rem;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: .55rem .8rem;
+}
+.admin-overview__refresh:hover,
+.admin-overview__refresh:focus-visible,
+.admin-overview__retry:hover,
+.admin-overview__retry:focus-visible { background: #111; color: #fff; }
+.admin-overview__refresh:disabled { cursor: wait; opacity: .55; }
+.admin-dashboard__health {
+  align-items: center;
+  border: 1px solid #ddd;
+  display: grid;
+  gap: .75rem 1.25rem;
+  grid-template-columns: minmax(9rem, 1.2fr) repeat(3, minmax(0, 1fr));
+  padding: .9rem 1rem;
+}
+.admin-dashboard__health > div { align-items: center; display: flex; gap: .5rem; }
+.admin-dashboard__health > span { color: #666; font-size: .82rem; }
+.admin-dashboard__health-dot { background: #aaa; border-radius: 50%; height: .55rem; width: .55rem; }
+.admin-dashboard__health-dot--ok { background: #25834a; }
+.admin-dashboard__cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin-dashboard__card {
+  border: 1px solid #ddd;
+  color: #111;
+  display: grid;
+  gap: .45rem;
+  min-height: 9.25rem;
+  padding: 1rem;
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.admin-dashboard__card:hover,
+.admin-dashboard__card:focus-visible { border-color: #111; transform: translateY(-1px); }
+.admin-dashboard__card > svg { color: #555; }
+.admin-dashboard__card p { color: #777; font-size: .72rem; margin: .25rem 0 0; }
+.admin-dashboard__card h2 { font-size: 1.1rem; line-height: 1.2; margin: 0; }
+.admin-dashboard__card span { color: #666; font-size: .78rem; line-height: 1.45; }
+.admin-dashboard__recent { border: 1px solid #ddd; min-width: 0; }
+.admin-dashboard__recent > header {
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem;
+}
+.admin-dashboard__recent > header h2 { font-size: 1rem; margin: 0; }
+.admin-dashboard__recent > header p { color: #777; font-size: .78rem; margin: .25rem 0 0; }
+.admin-dashboard__recent > header > svg { color: #666; }
+.admin-dashboard__recent ul { list-style: none; margin: 0; padding: 0; }
+.admin-dashboard__recent li {
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, .5fr) minmax(9rem, .7fr);
+  padding: .8rem 1rem;
+}
+.admin-dashboard__recent li:last-child { border-bottom: 0; }
+.admin-dashboard__recent li span,
+.admin-dashboard__recent li time { color: #666; font-size: .78rem; }
+.admin-dashboard__empty { color: #666; margin: 0; padding: 1rem; }
+.admin-dashboard--loading,
+.admin-dashboard--message { align-content: center; min-height: 18rem; place-items: center; text-align: center; }
+.admin-dashboard--loading p { color: #666; margin: 0; }
+.admin-dashboard--message p { color: #b33; margin: 0 0 .8rem; }
+
+@media (max-width: 900px) {
+  .admin-dashboard__health { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-dashboard__intro { align-items: start; flex-direction: column; }
+  .admin-overview__refresh { align-self: start; }
+}
+
+@media (max-width: 640px) {
+  .admin-dashboard__health,
+  .admin-dashboard__cards { grid-template-columns: 1fr; }
+  .admin-dashboard__recent li { align-items: start; grid-template-columns: 1fr; gap: .25rem; }
+}
