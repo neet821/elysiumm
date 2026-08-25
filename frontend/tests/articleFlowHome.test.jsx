@@ -370,7 +370,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
-  it('marks overflowing mobile rail sections with visual scroll cues', async () => {
+  it('keeps mobile overflow cues while desktop hides them', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -430,13 +430,13 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport\s*\{[^}]*overflow-y:\s*auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
-    expect(css).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*pointer-events:\s*none;[^}]*position:\s*absolute;/s)
     const baseHomeCss = css.slice(
       css.indexOf('.legacy-old-home--flat .home-sidebar-backdrop'),
       css.indexOf('/* The mobile drawer'),
     )
-    expect(baseHomeCss).toMatch(/\.sidebar-section--has-overflow\s*\{[^}]*position:\s*relative;/s)
-    expect(baseHomeCss).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*display:\s*flex;[^}]*height:\s*1\.8rem;/s)
+    expect(baseHomeCss).toMatch(/\.sidebar-scroll-cue\s*\{\s*display:\s*none;\s*\}/s)
+    expect(baseHomeCss).toMatch(/\.home-sidebar \.essay-card:last-child\s*\{[^}]*border-bottom:\s*1px\s+solid\s+#ddd;/s)
+    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-cue\s*\{[^}]*display:\s*flex;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*align-self:\s*stretch;[^}]*overflow:\s*hidden;/s)
     expect(css).not.toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*position:\s*sticky;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)

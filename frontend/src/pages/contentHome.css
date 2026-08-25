@@ -740,30 +740,9 @@
 .legacy-old-home--flat .home-sidebar-backdrop {
   display: none;
 }
-.legacy-old-home--flat .sidebar-section--has-overflow {
-  position: relative;
-}
-.legacy-old-home--flat .sidebar-scroll-cue {
-  align-items: center;
-  background: linear-gradient(to bottom, rgb(20 24 31 / 0%), var(--home-surface));
-  bottom: 0;
-  color: var(--text-muted);
-  display: flex;
-  height: 1.8rem;
-  justify-content: center;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  z-index: 2;
-}
-.legacy-old-home--flat .sidebar-scroll-cue::after {
-  border-bottom: 1.5px solid currentcolor;
-  border-right: 1.5px solid currentcolor;
-  content: "";
-  height: .45rem;
-  transform: rotate(45deg) translate(-.12rem, -.12rem);
-  width: .45rem;
+.legacy-old-home--flat .sidebar-scroll-cue { display: none; }
+.legacy-old-home--flat .home-sidebar .essay-card:last-child {
+  border-bottom: 1px solid #ddd;
 }
 
 .legacy-old-home--flat .article-card--featured h2 {
