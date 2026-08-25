@@ -41,14 +41,14 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
-  it('routes the account avatar by role', () => {
+  it('routes every authenticated avatar to the user account', () => {
     const { unmount } = renderShell({ initialPath: '/' })
     expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
 
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
     renderShell({ initialPath: '/' })
-    expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/admin')
+    expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
   })
 
   it('keeps the administrator route free of public chrome', () => {
