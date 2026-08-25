@@ -19,6 +19,9 @@
 .legacy-old-home .essay-card h2 a { text-decoration: none; }
 .legacy-old-home .essay-body { color: var(--text-secondary); font-size: 17px; max-width: min(100%, 760px); overflow: hidden; }
 .legacy-old-home .essay-body p, .legacy-old-home .essay-body ul, .legacy-old-home .essay-body ol, .legacy-old-home .essay-body blockquote { margin: 1em 0; }
+.legacy-old-home .essay-body ul, .legacy-old-home .reader-body ul { list-style: disc; padding-left: 1.35rem; }
+.legacy-old-home .essay-body ol, .legacy-old-home .reader-body ol { list-style: decimal; padding-left: 1.35rem; }
+.legacy-old-home .essay-body li, .legacy-old-home .reader-body li { margin: .2em 0; }
 .legacy-old-home .article-card { border-bottom: 1px solid var(--border-subtle); padding: 18px 0 34px; position: relative; }
 .legacy-old-home .article-card-cover { background: var(--surface-card-muted); display: block; margin: 14px 0 16px; overflow: hidden; width: min(100%, 420px); }
 .legacy-old-home .article-card-cover img { display: block; height: auto; object-fit: contain; width: 100%; }
@@ -304,7 +307,7 @@
 }
 .legacy-old-home--flat .section-heading--home span { font-size: .75rem; }
 .legacy-old-home--flat .home-sidebar {
-  border-left: 1px solid #ddd;
+  border-left: 0;
   display: grid;
   gap: 2rem;
   min-width: 0;
@@ -521,7 +524,6 @@
 }
 
 .legacy-old-home--flat .home-sidebar > .sidebar-section--records {
-  border-bottom: 3px solid #1a1a1a;
   padding-bottom: 1.25rem;
 }
 .legacy-old-home--flat .home-sidebar > .sidebar-section--essays {
@@ -582,6 +584,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.legacy-old-home--flat .home-sidebar .essay-card--compact .card-time {
+  right: .75rem;
+}
 
 @media (min-width: 801px) {
   .legacy-old-home--flat .articles-section .article-card-info {
@@ -622,7 +627,7 @@
     padding-left: 1rem;
   }
   .legacy-old-home--flat .home-sidebar > .sidebar-section + .sidebar-section {
-    border-top: 1px solid #ddd;
+    border-top: 0;
     padding-top: 1.25rem;
   }
   .legacy-old-home--flat .article-card--featured h2 {
