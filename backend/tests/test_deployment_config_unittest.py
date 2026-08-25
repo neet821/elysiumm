@@ -50,6 +50,12 @@ class DeploymentConfigTest(unittest.TestCase):
         self.assertTrue(entrypoint.is_file())
         self.assertIn("run_migrations.py", entrypoint.read_text(encoding="utf-8"))
 
+    def test_production_bootstraps_a_missing_or_broken_virtualenv_before_dependencies(self):
+        script = (Path(__file__).resolve().parents[2] / "start-prod.sh").read_text(encoding="utf-8")
+        self.assertIn('if [[ ! -x "$VENV_DIR/bin/python" ]]; then', script)
+        self.assertIn('mv -- "$VENV_DIR"', script)
+        self.assertIn('python3 -m venv "$VENV_DIR"', script)
+
     def test_production_import_does_not_run_legacy_schema_mutation(self):
         main_source = (
             Path(__file__).resolve().parents[1] / "main.py"

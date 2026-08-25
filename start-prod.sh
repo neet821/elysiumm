@@ -37,6 +37,20 @@ log() {
   echo "[deploy] $*"
 }
 
+ensure_virtualenv() {
+  if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+    # A release may inherit a dangling symlink or a partially copied venv. Move
+    # that recoverable state aside before creating a working environment so the
+    # systemd ExecStartPre path cannot fail before the service starts.
+    if [[ -e "$VENV_DIR" || -L "$VENV_DIR" ]]; then
+      local damaged_dir="$BACKEND_DIR/.venv.damaged.$ts"
+      mv -- "$VENV_DIR" "$damaged_dir"
+      log "检测到不可用虚拟环境，已保留在：$damaged_dir"
+    fi
+    python3 -m venv "$VENV_DIR"
+  fi
+}
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "[deploy] 缺少命令：$1" >&2
@@ -242,9 +256,7 @@ chmod 600 "$BACKEND_ENV" "$FRONTEND_ENV"
 install -d -o www-data -g www-data -m 0750 "$BACKEND_LOG_DIR"
 
 log "准备 Python 后端依赖。"
-if [[ ! -d "$VENV_DIR" ]]; then
-  python3 -m venv "$VENV_DIR"
-fi
+ensure_virtualenv
 "$VENV_DIR/bin/pip" install --upgrade pip
 "$VENV_DIR/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
 
