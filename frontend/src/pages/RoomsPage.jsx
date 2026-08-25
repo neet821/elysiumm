@@ -12,7 +12,6 @@ const rooms = [
 export default function RoomsPage() {
   return (
     <section className="rooms-hub">
-      <header className="rooms-hub__intro"><h1>房间</h1><p>选择一个空间，和朋友一起听歌、观影或等待桌游房重做。</p></header>
       <div className="rooms-hub__grid">
         {rooms.map(({ title, description, to, icon: Icon, tone, action }) => (
           <article className={`rooms-hub__card rooms-hub__card--${tone}`} key={title}>

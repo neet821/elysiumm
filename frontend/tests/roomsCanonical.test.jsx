@@ -10,6 +10,8 @@ describe('rooms hub', () => {
 
     expect(screen.getByRole('link', { name: /进入听歌房/ })).toHaveAttribute('href', '/rooms/music')
     expect(screen.getByRole('link', { name: /进入观影房/ })).toHaveAttribute('href', '/rooms/watch')
+    expect(screen.queryByText('房间')).not.toBeInTheDocument()
+    expect(screen.queryByText(/选择一个空间/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
   })
 })

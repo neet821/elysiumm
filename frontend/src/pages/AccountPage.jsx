@@ -67,7 +67,6 @@ export default function AccountPage() {
 
   return (
     <section className="account-page">
-      <header className="account-page__intro"><p className="account-page__kicker">Elysium / ACCOUNT</p><h1>账户</h1><p>管理你的公开资料和登录安全。</p></header>
       <div className="account-page__grid">
         <section className="account-page__profile">
           <button className="account-page__avatar" type="button" onClick={() => inputRef.current?.click()} aria-label="上传头像"><Avatar name={user.username} src={avatarUrl(user)} size="xl" /><span><Camera size={15} />更换</span></button>

@@ -262,11 +262,11 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
       <div className={embedded ? "max-w-6xl mx-auto px-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
         {!embedded && (
           <button
-            onClick={() => navigate(isMusicRoom ? "/music" : "/tools")}
+            onClick={() => navigate("/rooms")}
             className={`flex items-center gap-2 ${styles.textMuted} hover:${styles.text} mb-6 md:mb-8 transition-colors text-sm`}
           >
             <ArrowLeft size={16} />
-            {isMusicRoom ? "返回音乐大厅" : "返回工具页"}
+            返回房间
           </button>
         )}
 

@@ -143,4 +143,22 @@ describe('同步房间列表', () => {
 
     expect(screen.getByTitle('删除房间')).toHaveClass('relative', 'z-10')
   })
+
+  it('为听歌房和观影房使用统一的返回房间按钮', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: '返回房间' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '返回工具页' })).not.toBeInTheDocument()
+
+    rerender(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} roomMode="music" />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: '返回房间' })).toBeInTheDocument()
+  })
 })

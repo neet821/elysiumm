@@ -92,9 +92,14 @@ describe('Elysium plain service shell', () => {
     unmount()
     renderShell({ initialPath: '/rooms/music/9' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')
+    expect(screen.queryByRole('link', { name: '返回首页' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+
+    unmount()
+    renderShell({ initialPath: '/account' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
   })
 
   it('uses only the home arrow on the room hub and live page', () => {
