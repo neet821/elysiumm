@@ -4114,20 +4114,10 @@ body:has(.app-shell--home)::before {
   top: auto;
   z-index: auto;
 }
-.service-shell.app-shell--home .app-shell__main { padding-top: var(--home-header-height); }
 
-/* Keep the homepage header outside the scrolling shell, mounted directly under body. */
-.home-header-portal {
-  display: block !important;
-  height: var(--home-header-height, 3.75rem);
-  min-height: 0 !important;
-  pointer-events: none;
-  position: fixed !important;
-  inset: 0 0 auto;
-  width: 100%;
-  z-index: 1000;
-}
-.home-header-portal .app-header { pointer-events: auto; position: fixed !important; z-index: 1001 !important; }
+/* The homepage has no global header. Its controls are rendered by the page itself. */
+.service-shell.app-shell--home .app-header { display: none !important; }
+.service-shell.app-shell--home .app-shell__main { padding-top: 0 !important; }
 
 /* Authentication is a self-contained viewport: its form must not create page scroll. */
 .service-shell:has(.auth-page) {

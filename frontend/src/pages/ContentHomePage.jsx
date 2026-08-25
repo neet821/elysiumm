@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronDown, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Disc3, DoorOpen, Gamepad2, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
+import { useHomeNavigation, useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
+import { Avatar } from '../components/ui/Avatar.jsx'
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
@@ -62,6 +63,13 @@ function contentTextLength(value) {
     .length
 }
 
+function avatarUrl(user) {
+  const value = user?.avatar || user?.avatar_url
+  if (!value) return undefined
+  if (/^(?:https?:|data:|\/)/i.test(value)) return value
+  return `/${value}`
+}
+
 async function enrichArticle(article) {
   if (!['movie', 'album', 'book', 'game'].includes(article.type) || article.cover || article.excerpt) return article
   try {
@@ -113,6 +121,37 @@ function RecordTypeIcon({ type }) {
     <span className="record-type-icon" aria-label={`${recordType.label}类型`} title={recordType.label}>
       <Icon aria-hidden="true" size={15} strokeWidth={1.8} />
     </span>
+  )
+}
+
+function HomeNavigation({ label }) {
+  const { isAdmin, isAuthenticated, user } = useHomeNavigation()
+  const { isOpen: homeSidebarOpen, toggle: toggleHomeSidebar } = useHomeSidebar()
+  const accountTarget = isAuthenticated ? '/account' : '/login'
+
+  return (
+    <div className="home-nav">
+      <span className="home-nav__label">{label}</span>
+      <nav className="home-nav__actions" aria-label="首页导航">
+        <button
+          className="home-nav__action home-nav__sidebar-toggle"
+          type="button"
+          aria-expanded={homeSidebarOpen}
+          aria-controls="home-sidebar"
+          aria-label={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+          title={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+          onClick={toggleHomeSidebar}
+        >
+          {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
+        </button>
+        {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /></Link>}
+        <Link className="home-nav__action" to="/rooms" aria-label="房间" title="房间"><DoorOpen size={19} /></Link>
+        <Link className="home-nav__action" to="/live" aria-label="直播" title="直播"><Radio size={19} /></Link>
+        <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
+          {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
+        </Link>
+      </nav>
+    </div>
   )
 }
 
@@ -245,6 +284,8 @@ export function ArticleFlowHome() {
   const [searchParams] = useSearchParams()
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
+  const [homeLabel, setHomeLabel] = useState('')
+  const homeLabelLoadedRef = useRef(false)
   const [error, setError] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
   const homeSidebarRef = useRef(null)
@@ -296,10 +337,22 @@ export function ArticleFlowHome() {
   }, [articles])
 
   useEffect(() => {
+    if (!articles || homeLabelLoadedRef.current) return undefined
+    homeLabelLoadedRef.current = true
+    let active = true
+    fetch('/api/homepage')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (active) setHomeLabel(data?.settings?.hero_prefix || '') })
+      .catch(() => {})
+    return () => { active = false }
+  }, [articles])
+
+  useEffect(() => {
     if (!homeSidebarOpen || !homeSidebarRef.current) return
     homeSidebarRef.current.scrollTop = 0
-    const recordsSection = homeSidebarRef.current.querySelector('.sidebar-section--records')
-    if (recordsSection) recordsSection.scrollTop = 0
+    homeSidebarRef.current.querySelectorAll('.sidebar-scroll-viewport').forEach((viewport) => {
+      viewport.scrollTop = 0
+    })
   }, [homeSidebarOpen])
 
   const pageParam = searchParams.get('page') || '1'
@@ -336,6 +389,7 @@ export function ArticleFlowHome() {
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
+      <HomeNavigation label={homeLabel} />
       {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
       <div className="home-layout">
         <main className="home-main">

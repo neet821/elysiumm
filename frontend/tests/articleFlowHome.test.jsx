@@ -25,6 +25,22 @@ describe('ArticleFlowHome', () => {
     expect(link).toHaveAttribute('href', '/article/hello')
   })
 
+  it('renders homepage navigation inside the page instead of a global header', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{ slug: 'article', title: '首页文章', type: 'article', createdAt: '2026-08-25' }] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    const navigation = await screen.findByRole('navigation', { name: '首页导航' })
+    expect(navigation.closest('.legacy-old-home')).toBe(container.querySelector('.legacy-old-home'))
+    expect(navigation.closest('header')).toBeNull()
+    expect(within(navigation).getByRole('link', { name: '房间' })).toHaveAttribute('href', '/rooms')
+    expect(within(navigation).getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
+    expect(container.querySelector('.home-header-portal')).toBeNull()
+  })
+
   it('keeps metadata enrichment available for non-feed records', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({
@@ -381,8 +397,8 @@ describe('ArticleFlowHome', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
     const indexCss = fs.readFileSync('src/index.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
-    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*var\(--home-header-height(?:,\s*[^)]+)?\)/s)
-    expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*var\(--home-header-height(?:,\s*[^)]+)?\)/s)
+    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*0;/s)
+    expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*0;/s)
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-card\s*\{[^}]*grid-template-columns:\s*64px\s+minmax\(0,\s*1fr\);/s)
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-cover\s*\{[^}]*max-width:\s*64px;[^}]*width:\s*64px;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
@@ -394,13 +410,12 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--records\s*\{[^}]*flex:\s*1 1 auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
     expect(css).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*pointer-events:\s*none;[^}]*position:\s*absolute;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*max-height:\s*calc\(100dvh[^}]*overflow-y:\s*auto;[^}]*position:\s*sticky;/s)
-    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*fixed\s*!important;[^}]*top:\s*0;/s)
-    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header__leading\s*\{[^}]*position:\s*static;/s)
-    expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*max-height:\s*calc\(100dvh\s*-\s*2rem\);[^}]*overflow:\s*hidden;[^}]*position:\s*sticky;/s)
+    expect(indexCss).not.toMatch(/\.home-header-portal/)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)
     expect(css).not.toMatch(/\.legacy-old-home--flat \.article-card--featured h2\s*\{[^}]*white-space:\s*nowrap;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[^}]*grid-template-areas:/s)
   })
 
   it('returns to the top after changing article pages', async () => {

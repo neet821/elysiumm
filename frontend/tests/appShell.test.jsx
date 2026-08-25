@@ -3,7 +3,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
@@ -36,27 +35,16 @@ describe('Elysium plain service shell', () => {
     expect(within(primaryNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
   })
 
-  it('places the mobile sidebar control in the homepage top bar', async () => {
-    const user = userEvent.setup()
+  it('keeps homepage controls out of the global shell header', () => {
     renderShell({ initialPath: '/' })
-
-    const toggle = screen.getByRole('button', { name: '展开记录和随笔' })
-    expect(toggle.closest('header')).toBe(screen.getByRole('banner'))
-    expect(toggle.closest('.home-header-portal')).toBeInTheDocument()
-    await user.click(toggle)
-    expect(screen.getByRole('button', { name: '收起记录和随笔' })).toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(document.querySelector('.home-header-portal')).not.toBeInTheDocument()
   })
 
-  it('renders the configured custom text in the desktop homepage top bar', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ settings: { hero_prefix: '我的顶栏文字' } }),
-    })
-
+  it('does not fetch homepage chrome from the global shell', () => {
+    const fetch = vi.spyOn(globalThis, 'fetch')
     renderShell({ initialPath: '/' })
-
-    const label = await screen.findByText('我的顶栏文字')
-    expect(screen.getByRole('banner')).toContainElement(label)
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('shows login instead of account to signed-out visitors', () => {
@@ -67,12 +55,12 @@ describe('Elysium plain service shell', () => {
   })
 
   it('routes every authenticated avatar to the user account', () => {
-    const { unmount } = renderShell({ initialPath: '/' })
+    const { unmount } = renderShell({ initialPath: '/archive' })
     expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
 
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
-    renderShell({ initialPath: '/' })
+    renderShell({ initialPath: '/archive' })
     expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
   })
 
@@ -89,21 +77,14 @@ describe('Elysium plain service shell', () => {
     unmount()
     renderShell({ initialPath: '/' })
     expect(document.querySelector('.app-shell')).toHaveClass('app-shell--home')
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    const homeNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(homeNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
-    expect(within(homeNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
-    expect(within(homeNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
-    expect(homeNav.querySelectorAll('.app-header__action > span')).toHaveLength(0)
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '主导航' })).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
 
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
     renderShell({ initialPath: '/' })
-    const adminLink = screen.getByRole('link', { name: '打开管理员控制台' })
-    expect(adminLink).toHaveAttribute('href', '/admin')
-    const roomLink = within(adminLink.closest('nav')).getByRole('link', { name: '房间' })
-    expect(adminLink.compareDocumentPosition(roomLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '打开管理员控制台' })).not.toBeInTheDocument()
   })
 
   it('keeps formal pages free of current-page and theme controls', () => {
