@@ -563,20 +563,47 @@
   flex: 0 0 auto;
   justify-content: center;
 }
+.legacy-old-home--flat .home-sidebar > .sidebar-section--records-scroll {
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.legacy-old-home--flat .home-sidebar .record-details {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.legacy-old-home--flat .home-sidebar .record-added-time {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @media (min-width: 801px) {
   .legacy-old-home--flat .articles-section .article-card-info {
     margin-inline: auto;
     width: min(100%, 900px);
   }
-  .legacy-old-home--flat .article-card-cover--centered {
-    margin-inline: 0;
-    max-width: none;
-    width: 100%;
+  .legacy-old-home--flat .article-card-cover--compact {
+    margin-inline: auto;
+    max-width: 460px;
+    width: min(100%, 460px);
   }
   .legacy-old-home--flat .article-card--featured .article-card-info > p { max-width: none; }
   .legacy-old-home--flat .article-card--featured > .card-time {
     right: max(0px, calc((100% - 900px) / 2));
+  }
+}
+
+@media (max-width: 800px) {
+  .legacy-old-home--flat .article-card-cover--compact {
+    margin-inline: auto;
+    max-width: 280px;
+    width: min(100%, 280px);
   }
 }
 

@@ -98,7 +98,7 @@ describe('ArticleFlowHome', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: '大标题文章' })).toBeInTheDocument())
     expect(container.querySelector('.legacy-old-home')).toHaveClass('legacy-old-home--flat')
     expect(container.querySelector('.article-card')).toHaveClass('article-card--featured')
-    expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered')
+    expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered', 'article-card-cover--compact')
     expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
     expect(container.querySelector('.record-card')).toHaveClass('record-card--priority')
     expect(container.querySelector('.essay-toggle')).toBeNull()
@@ -107,7 +107,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.record-added-time')).toHaveTextContent('添加时间：2026/08/22')
     expect(container.querySelector('.record-card > .card-time')).toBeNull()
     const sidebarSections = [...container.querySelectorAll('.home-sidebar > .sidebar-section')]
-    expect(sidebarSections[0]).toHaveClass('sidebar-section--records')
+    expect(sidebarSections[0]).toHaveClass('sidebar-section--records', 'sidebar-section--records-scroll')
     expect(sidebarSections[1]).toHaveClass('sidebar-section--essays')
     expect(screen.getByLabelText('电影类型')).toBeInTheDocument()
   })
@@ -151,7 +151,7 @@ describe('ArticleFlowHome', () => {
     render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Markdown 文章' })).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: '随笔正文' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { name: '随笔正文' })).toBeInTheDocument())
     expect(screen.getByText('加粗内容').tagName).toBe('STRONG')
 
     render(<MemoryRouter initialEntries={['/article/article']}><LegacyArticlePage /></MemoryRouter>)

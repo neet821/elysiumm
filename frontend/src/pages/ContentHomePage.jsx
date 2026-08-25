@@ -118,7 +118,7 @@ function LegacyArticleCard({ item }) {
     <article className="article-card article-card--featured">
       <div className="article-card-info">
         <h2><Link to={articleHref(item)}>{item.title}</Link></h2>
-        {item.cover && <div className="article-card-cover article-card-cover--centered"><img src={coverUrl(item)} alt={item.title} loading="lazy" /></div>}
+        {item.cover && <div className="article-card-cover article-card-cover--centered article-card-cover--compact"><img src={coverUrl(item)} alt={item.title} loading="lazy" /></div>}
         {item.excerpt && <p>{item.excerpt}</p>}
       </div>
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
@@ -263,7 +263,7 @@ export function ArticleFlowHome() {
         </main>
         <PhotoStrip photos={photos} />
         <aside className="home-sidebar">
-          <section className="sidebar-section sidebar-section--records">
+          <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)
               : <p className="empty">还没有记录。</p>}
