@@ -369,15 +369,19 @@ export function ArticleFlowHome() {
           aria-label={homeSidebarOpen ? '侧栏内容' : undefined}
         >
           <section className={`sidebar-section sidebar-section--records sidebar-section--records-scroll${recordsHaveOverflow ? ' sidebar-section--has-overflow' : ''}`}>
-            {records.length > 0
-              ? records.map((item) => <RecordCard key={item.slug} item={item} />)
-              : <p className="empty">还没有记录。</p>}
+            <div className="sidebar-scroll-viewport sidebar-scroll-viewport--records">
+              {records.length > 0
+                ? records.map((item) => <RecordCard key={item.slug} item={item} />)
+                : <p className="empty">还没有记录。</p>}
+            </div>
             {recordsHaveOverflow && <span className="sidebar-scroll-cue" aria-hidden="true" />}
           </section>
           <section className={`sidebar-section sidebar-section--essays${essaysHaveOverflow ? ' sidebar-section--has-overflow' : ''}`}>
-            {essays.length > 0
-              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
-              : <p className="empty">还没有随笔。</p>}
+            <div className="sidebar-scroll-viewport sidebar-scroll-viewport--essays">
+              {essays.length > 0
+                ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
+                : <p className="empty">还没有随笔。</p>}
+            </div>
             {essaysHaveOverflow && <span className="sidebar-scroll-cue" aria-hidden="true" />}
           </section>
         </aside>

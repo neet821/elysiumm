@@ -4119,12 +4119,15 @@ body:has(.app-shell--home)::before {
 /* Keep the homepage header outside the scrolling shell, mounted directly under body. */
 .home-header-portal {
   display: block !important;
-  height: 0;
+  height: var(--home-header-height, 3.75rem);
   min-height: 0 !important;
-  position: static !important;
+  pointer-events: none;
+  position: fixed !important;
+  inset: 0 0 auto;
   width: 100%;
+  z-index: 1000;
 }
-.home-header-portal .app-header { position: fixed !important; }
+.home-header-portal .app-header { pointer-events: auto; position: fixed !important; z-index: 1001 !important; }
 
 /* Authentication is a self-contained viewport: its form must not create page scroll. */
 .service-shell:has(.auth-page) {

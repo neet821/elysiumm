@@ -738,6 +738,7 @@
 .legacy-old-home--flat .home-sidebar-backdrop {
   display: none;
 }
+.legacy-old-home--flat .sidebar-scroll-cue { display: none; }
 
 .legacy-old-home--flat .article-card--featured h2 {
   max-width: 100%;
@@ -914,19 +915,21 @@
 /* The mobile drawer keeps records as the first, stable column; essays follow below. */
 @media (max-width: 800px) {
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records {
-    display: block;
+    display: flex;
     flex: 0 0 auto;
-    max-height: min(18rem, 38dvh);
+    flex-direction: column;
     min-height: 0;
     order: 0;
-    overflow-y: auto;
+    overflow: hidden;
     padding-bottom: 0;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
     order: 1;
-    overflow-y: auto;
+    overflow: hidden;
     padding-bottom: 1rem;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
@@ -935,6 +938,21 @@
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--has-overflow {
     position: relative;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records.sidebar-section--has-overflow {
+    block-size: min(17rem, 38dvh);
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport--records {
+    flex: 1 1 auto;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-viewport--essays {
+    flex: 1 1 auto;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .sidebar-scroll-cue {
     align-items: center;
