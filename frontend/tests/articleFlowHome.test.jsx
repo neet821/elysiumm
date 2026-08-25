@@ -8,6 +8,7 @@ import { ArticleFlowHome, LegacyArticlePage } from '../src/pages/ContentHomePage
 describe('ArticleFlowHome', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   })
 
   it('keeps the Git-era article links on the original /article route', async () => {
@@ -78,8 +79,8 @@ describe('ArticleFlowHome', () => {
     const layout = container.querySelector('.home-layout')
     expect([...layout.children]).toEqual([
       container.querySelector('.home-main'),
-      container.querySelector('.photo-strip--bottom'),
       container.querySelector('.home-sidebar'),
+      container.querySelector('.photo-strip--bottom'),
     ])
   })
 
@@ -235,7 +236,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.home-sidebar'))
     expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.photo-strip--bottom'))
     expect([...container.querySelector('.home-layout').children].map((node) => node.className)).toEqual([
-      'home-main', 'photo-strip photo-strip--bottom', 'home-sidebar',
+      'home-main', 'home-sidebar', 'photo-strip photo-strip--bottom',
     ])
   })
 
@@ -260,6 +261,28 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.home-sidebar')).toHaveClass('home-sidebar--mobile-open')
     await user.click(screen.getByRole('button', { name: '收起记录和随笔' }))
     expect(screen.getByRole('button', { name: '展开记录和随笔' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('returns to the top after changing article pages', async () => {
+    const user = userEvent.setup()
+    const scrollTo = window.scrollTo
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'article-1', title: '第一页文章一', type: 'article', createdAt: '2026-08-25' },
+        { slug: 'article-2', title: '第一页文章二', type: 'article', createdAt: '2026-08-24' },
+        { slug: 'article-3', title: '第一页文章三', type: 'article', createdAt: '2026-08-23' },
+        { slug: 'article-4', title: '第二页文章', type: 'article', createdAt: '2026-08-22' },
+      ] }),
+    })
+
+    render(<MemoryRouter initialEntries={['/?page=1']}><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '第一页文章一' })).toBeInTheDocument())
+    scrollTo.mockClear()
+    await user.click(screen.getByRole('link', { name: '下一页' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: '第二页文章' })).toBeInTheDocument())
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' })
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {

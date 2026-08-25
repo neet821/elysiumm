@@ -230,6 +230,11 @@ export function ArticleFlowHome() {
     return () => { active = false }
   }, [articles])
 
+  const pageParam = searchParams.get('page') || '1'
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pageParam])
+
   if (error) return <section className="state"><h1>暂时无法打开</h1><p>{error}</p><Link to="/">返回首页</Link></section>
   if (!articles) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
 
@@ -286,7 +291,6 @@ export function ArticleFlowHome() {
             )}
           </section>
         </main>
-        <PhotoStrip photos={photos} />
         <aside className={`home-sidebar${mobileSidebarOpen ? ' home-sidebar--mobile-open' : ''}`} id="home-sidebar">
           <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
             {records.length > 0
@@ -299,6 +303,7 @@ export function ArticleFlowHome() {
               : <p className="empty">还没有随笔。</p>}
           </section>
         </aside>
+        <PhotoStrip photos={photos} />
       </div>
     </div>
   )
