@@ -3796,3 +3796,135 @@ body:has(.app-shell--home)::before {
 .service-shell:has(.rooms-hub) .app-shell__main { padding-top: 0; }
 .service-shell:has(.live-page) .live-page { padding-top: 4.25rem; }
 .service-shell:has(.rooms-hub) .rooms-hub { padding-top: 4.75rem; }
+
+/* Final administrator workspace: compact rail on desktop, compact menu on mobile. */
+.service-shell:has(.admin-shell) .app-shell__main { padding: 0; }
+.admin-shell {
+  align-items: start;
+  background: #fff;
+  color: #111;
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  grid-template-columns: minmax(13rem, 15rem) minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 76rem;
+  min-height: 100vh;
+  padding: 2rem clamp(1rem, 4vw, 3rem) 4rem;
+  width: 100%;
+}
+.admin-shell__rail {
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 6rem);
+  padding-right: clamp(1rem, 3vw, 2rem);
+}
+.admin-shell__brand {
+  align-items: center;
+  color: #111;
+  display: flex;
+  gap: .7rem;
+  text-decoration: none;
+}
+.admin-shell__brand-mark {
+  align-items: center;
+  background: #111;
+  color: #fff;
+  display: inline-flex;
+  font: 700 1.1rem/1 var(--font-interface);
+  height: 2.35rem;
+  justify-content: center;
+  width: 2.35rem;
+}
+.admin-shell__brand > span:last-child { display: grid; gap: .18rem; }
+.admin-shell__brand strong { font-size: 1rem; }
+.admin-shell__brand small,
+.admin-shell__navigation-label,
+.admin-shell__mobile-header p {
+  color: #888;
+  font-size: .64rem;
+  letter-spacing: .12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.admin-shell__navigation { display: grid; gap: .2rem; margin-top: 2.5rem; }
+.admin-shell__navigation-label { padding: 0 .7rem .45rem; }
+.admin-shell__link {
+  align-items: center;
+  color: #555;
+  display: flex;
+  font-size: .86rem;
+  gap: .65rem;
+  min-height: 2.5rem;
+  padding: .55rem .7rem;
+  text-decoration: none;
+}
+.admin-shell__link:hover,
+.admin-shell__link:focus-visible { color: #111; }
+.admin-shell__link--active { background: #111; color: #fff; }
+.admin-shell__link--active:hover,
+.admin-shell__link--active:focus-visible { color: #fff; }
+.admin-shell__home-link {
+  align-items: center;
+  color: #666;
+  display: inline-flex;
+  font-size: .82rem;
+  gap: .45rem;
+  margin-top: auto;
+  padding: .75rem .7rem 0;
+  text-decoration: none;
+}
+.admin-shell__home-link:hover,
+.admin-shell__home-link:focus-visible { color: #111; }
+.admin-shell__workspace { min-width: 0; }
+.admin-shell__content { min-width: 0; padding-top: .1rem; }
+.admin-shell__mobile-header,
+.admin-shell__mobile-navigation { display: none; }
+.admin-shell__mobile-header strong { font-size: 1rem; }
+
+@media (max-width: 900px) {
+  .admin-shell {
+    display: block;
+    max-width: 48rem;
+    padding: 1rem clamp(.85rem, 3vw, 1.5rem) 3rem;
+  }
+  .admin-shell__rail {
+    border-right: 0;
+    min-height: 0;
+    padding-right: 0;
+  }
+  .admin-shell__rail > .admin-shell__navigation,
+  .admin-shell__rail > .admin-shell__home-link { display: none; }
+  .admin-shell__workspace { margin-top: 1rem; }
+  .admin-shell__mobile-header {
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: .9rem;
+  }
+  .admin-shell__mobile-header div { display: grid; gap: .25rem; }
+  .admin-shell__menu-toggle {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #aaa;
+    color: #111;
+    display: inline-flex;
+    height: 2.5rem;
+    justify-content: center;
+    width: 2.5rem;
+  }
+  .admin-shell__mobile-navigation--open {
+    border-bottom: 1px solid #ddd;
+    display: block;
+    padding: .75rem 0 1rem;
+  }
+  .admin-shell__navigation--mobile { display: grid; gap: .2rem; margin-top: 0; }
+  .admin-shell__navigation--mobile .admin-shell__link { min-height: 2.75rem; }
+  .admin-shell__content { padding-top: 1.25rem; }
+}
+
+@media (max-width: 640px) {
+  .admin-shell { padding-inline: .75rem; }
+  .admin-shell__content .admin-dashboard__cards { grid-template-columns: 1fr; }
+}
