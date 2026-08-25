@@ -195,7 +195,7 @@ export default function MineradioRoomStage({
             <label><Volume2 size={17} /><span className="sr-only">本机音量</span><input aria-label="本机音量" type="range" min="0" max="1" step="0.01" value={snapshot.volume} onChange={changeVolume} /></label>
           </div>
         </div>
-        <p className="mineradio-room-stage__credit">视觉方向基于 Mineradio v1.1.1，房间状态由 Elysium 管理</p>
+        <p className="mineradio-room-stage__credit">房间状态已同步</p>
       </div>
 
       {settingsOpen && (

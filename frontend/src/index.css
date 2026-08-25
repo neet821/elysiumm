@@ -3709,3 +3709,11 @@ body:has(.app-shell--home)::before {
   box-shadow: none;
   position: fixed;
 }
+
+/* The article stream owns its small navigation; it is not a site-wide bar. */
+.service-shell.app-shell--home,
+.service-shell.app-shell--home .app-shell__main {
+  background: #fff !important;
+  color: #111;
+}
+.service-shell.app-shell--home .app-header { display: none !important; }

@@ -35,7 +35,7 @@ export async function mountElysiumRoom(root, { onNavigate, onOpenLauncher, onMod
   const stage = root.querySelector('.room-stage')
   const canvas = document.createElement('canvas')
   canvas.id = 'room-canvas'
-  canvas.setAttribute('aria-label', 'Elysium 三维房间')
+  canvas.setAttribute('aria-label', '三维房间')
   stage.appendChild(canvas)
 
   let runtime

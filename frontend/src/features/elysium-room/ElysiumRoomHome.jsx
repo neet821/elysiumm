@@ -64,7 +64,7 @@ export default function ElysiumRoomHome({ onSwitchMode }) {
   }, [])
 
   return (
-    <section aria-label="Elysium 三维房间" className="elysium-room-home">
+    <section aria-label="三维房间" className="elysium-room-home">
       <div className="elysium-room-home__mount" ref={mountRef} />
       <div className="elysium-room-home__fallback" role={status ? 'status' : undefined}>
         {status}

@@ -158,3 +158,122 @@
 .legacy-old-home--flat .record-card--priority .record-cover {
   align-self: center;
 }
+
+/* Minimal homepage: the buttons sit in the document flow and the feed stays compact. */
+.service-shell.app-shell--home .app-shell__main { padding-top: 0; }
+.legacy-old-home--flat {
+  background: #fff;
+  width: min(calc(100% - 32px), 960px);
+}
+.legacy-old-home--flat .home-actions {
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem .8rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem 0 .75rem;
+}
+.legacy-old-home--flat .home-actions a {
+  color: #111;
+  display: inline-block;
+  font-size: .9rem;
+  padding: .25rem .1rem;
+  text-decoration: none;
+}
+.legacy-old-home--flat .home-actions a:hover,
+.legacy-old-home--flat .home-actions a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: .18em;
+}
+.legacy-old-home--flat .article-card--featured {
+  padding: 24px 0 34px;
+}
+.legacy-old-home--flat .article-card--featured h2 {
+  font-size: clamp(1.8rem, 4.5vw, 3.25rem);
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+.legacy-old-home--flat .article-card--featured h2 a {
+  color: inherit;
+  text-decoration-color: transparent;
+  text-decoration-line: underline;
+  text-underline-offset: .12em;
+}
+.legacy-old-home--flat .article-card--featured h2 a:hover,
+.legacy-old-home--flat .article-card--featured h2 a:focus-visible {
+  text-decoration-color: currentColor;
+}
+.legacy-old-home--flat .article-card-cover--centered {
+  margin: 1rem auto 1.1rem;
+  max-width: 520px;
+  width: min(100%, 520px);
+}
+.legacy-old-home--flat .article-card--featured .article-card-info > p {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.legacy-old-home--flat .essay-card--compact {
+  padding: 16px 0 22px;
+}
+.legacy-old-home--flat .essay-card--compact h2 {
+  font-size: clamp(1.2rem, 2.4vw, 1.75rem);
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+.legacy-old-home--flat .essay-card--compact .essay-body {
+  font-size: .9rem;
+  line-height: 1.5;
+}
+.legacy-old-home--flat .record-card--priority {
+  gap: 16px;
+  grid-template-columns: minmax(76px, 104px) minmax(0, 1fr);
+  padding: 16px 0 24px;
+}
+.legacy-old-home--flat .record-card--priority h2 {
+  font-size: clamp(1.2rem, 2.4vw, 1.75rem);
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+.legacy-old-home--flat .record-card--priority .record-cover {
+  align-self: start;
+  max-width: 104px;
+}
+.legacy-old-home--flat .record-card--priority .record-review {
+  font-size: .88rem;
+  line-height: 1.5;
+  max-height: 110px;
+  padding: 0;
+}
+.legacy-old-home--flat .record-card--priority .record-details {
+  font-size: .8rem;
+  gap: 4px 12px;
+  margin-bottom: 7px;
+}
+.legacy-old-home--flat .card-time { font-size: 11px; }
+.legacy-old-home--flat .back-link {
+  color: #111;
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 2.5rem;
+  text-decoration: none;
+}
+.legacy-old-home--flat .back-link:hover,
+.legacy-old-home--flat .back-link:focus-visible { text-decoration: underline; }
+.legacy-old-home:not(.legacy-old-home--flat) {
+  background: #fff;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+  color: #111;
+  font-family: var(--font-editorial, serif);
+  line-height: 1.75;
+}
+
+@media (max-width: 600px) {
+  .legacy-old-home--flat .record-card--priority {
+    gap: 12px;
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .legacy-old-home--flat .record-card--priority .record-cover { max-width: 72px; }
+  .legacy-old-home--flat .record-card--priority .record-review { max-height: 90px; }
+}

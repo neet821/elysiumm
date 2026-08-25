@@ -102,6 +102,42 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.record-card')).toHaveClass('record-card--priority')
   })
 
+  it('keeps only the article title as a homepage detail link', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'article', title: '可点击文章', type: 'article', createdAt: '2026-08-24', cover: '/cover.jpg' },
+        { slug: 'essay', title: '不可点击随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
+        { slug: 'record', title: '不可点击记录', type: 'record', createdAt: '2026-08-22', cover: '/record.jpg', review: '记录内容' },
+        { slug: 'photo', title: '不可点击照片', contentType: 'photo', createdAt: '2026-08-21', cover: '/photo.jpg' },
+      ] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '可点击文章' })).toBeInTheDocument())
+    const articleCard = container.querySelector('.article-card')
+    expect(articleCard.querySelector('h2 a')).toHaveAttribute('href', '/article/article')
+    expect(articleCard.querySelector('.article-card-cover').closest('a')).toBeNull()
+    expect(container.querySelector('.essay-card a')).toBeNull()
+    expect(container.querySelector('.record-card a')).toBeNull()
+    expect(container.querySelector('.photo-card a')).toBeNull()
+  })
+
+  it('places plain navigation buttons above the homepage stream', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '首页操作' })).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: '房间' })).toHaveAttribute('href', '/rooms')
+    expect(screen.getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
+    expect(container.querySelector('.home-actions')).not.toHaveClass('is-fixed')
+  })
+
   it('loads the old article detail URL and renders its HTML body', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -112,6 +148,8 @@ describe('ArticleFlowHome', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '详情文章' })).toBeInTheDocument())
     expect(screen.getByText('旧正文')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')
+    expect(screen.queryByText('返回文章列表')).not.toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/articles/hello')
   })
 })

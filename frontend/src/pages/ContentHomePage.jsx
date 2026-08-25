@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
+import { useOptionalAuth } from '../contexts/AuthContext.jsx'
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
@@ -80,8 +81,8 @@ function LegacyArticleCard({ item }) {
   return (
     <article className="article-card article-card--featured">
       <div className="article-card-info">
-        <h2>{articleLink(item, item.title)}</h2>
-        {item.cover && <Link className="article-card-cover article-card-cover--centered" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
+        <h2><Link to={articleHref(item)}>{item.title}</Link></h2>
+        {item.cover && <div className="article-card-cover article-card-cover--centered"><img src={coverUrl(item)} alt={item.title} loading="lazy" /></div>}
         {item.excerpt && <p>{item.excerpt}</p>}
       </div>
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
@@ -92,7 +93,7 @@ function LegacyArticleCard({ item }) {
 function LegacyEssayCard({ item, html }) {
   return (
     <article className="essay-card essay-card--compact">
-      <h2>{articleLink(item, item.title)}</h2>
+      <h2>{item.title}</h2>
       <div className="essay-body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
@@ -103,8 +104,8 @@ function LegacyPhotoCard({ item }) {
   const image = item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : null
   return (
     <article className="photo-card">
-      {image ? <a className="photo-frame" href={coverUrl(item)} target="_blank" rel="noreferrer">{image}</a> : <div className="photo-frame" />}
-      <h3>{articleLink(item, item.title)}</h3>
+      {image ? <div className="photo-frame">{image}</div> : <div className="photo-frame" />}
+      <h3>{item.title}</h3>
       <div className="photo-meta">{formatDate(item.date || item.createdAt || item.updatedAt)}{item.location ? ` · ${item.location}` : ''}</div>
     </article>
   )
@@ -125,7 +126,7 @@ function RecordCard({ item }) {
     <article className="record-card record-card--priority">
       <div className="record-cover">{image}</div>
       <div className="record-info">
-        <h2>{articleLink(item, item.title)}</h2>
+        <h2>{item.title}</h2>
         {fields.length > 0 && <dl className="record-details">{fields}</dl>}
         <div className="record-review"><span>个人评论：</span><span className="record-review-text">{item.review || '—'}</span></div>
       </div>
@@ -160,6 +161,7 @@ function LegacySectionHeading({ title, count }) {
 }
 
 export function ArticleFlowHome() {
+  const { isAdmin, isAuthenticated } = useOptionalAuth()
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
@@ -200,6 +202,12 @@ export function ArticleFlowHome() {
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
+      <nav className="home-actions" aria-label="首页操作">
+        <Link to="/rooms">房间</Link>
+        <Link to="/live">直播</Link>
+        {isAdmin && <Link to="/admin">管理</Link>}
+        <Link to={isAuthenticated ? '/account' : '/login'}>{isAuthenticated ? '账户' : '登录'}</Link>
+      </nav>
       <div className="home-flow">
         <section className="writing-section">
           <div className="writing-list">
@@ -247,7 +255,7 @@ export function LegacyArticlePage() {
   return (
     <div className="legacy-old-home">
       <article className="reader">
-        <Link className="back-link" to="/">← 返回文章列表</Link>
+        <Link className="back-link" to="/" aria-label="返回首页" title="返回首页">←</Link>
         <header className="reader-header">
           <div className="article-meta">{formatDate(article.createdAt || article.date || article.updatedAt)}{article.category ? ` · ${article.category}` : ''}</div>
           {cover}

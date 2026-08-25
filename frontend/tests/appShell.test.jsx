@@ -26,13 +26,12 @@ describe('Elysium plain service shell', () => {
     authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
   })
 
-  it('keeps the global top bar but hides the current service label', () => {
+  it('keeps a small global bar on formal pages', () => {
     renderShell()
     expect(screen.getByRole('banner')).toBeInTheDocument()
     const primaryNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '归档' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
   })
 
   it('shows login instead of account to signed-out visitors', () => {
@@ -42,28 +41,32 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
-  it('uses the same compact header on the 3D home without invented service links', () => {
+  it('removes the global header from the article stream homepage', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
-    expect(screen.getByRole('link', { name: 'Elysium 首页' })).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/' })
     expect(document.querySelector('.app-shell')).toHaveClass('app-shell--home')
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '归档' })).toBeInTheDocument()
-    expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
-    expect(within(primaryNav).queryByText('直播')).not.toBeInTheDocument()
-    expect(within(primaryNav).queryByText('音乐')).not.toBeInTheDocument()
-    expect(within(primaryNav).queryByText('书籍')).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
   it('keeps formal pages free of current-page and theme controls', () => {
     renderShell()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
+  })
+
+  it('removes global chrome from the article reader and branding from rooms', () => {
+    const { unmount } = renderShell({ initialPath: '/article/hello' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+
+    unmount()
+    renderShell({ initialPath: '/rooms/music/9' })
+    expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
   it('renders a simple footer and the specialized routes remain immersive', () => {
@@ -76,9 +79,7 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
     unmount()
     renderShell({ initialPath: '/music/rooms/9' })
-    expect(screen.queryByRole('link', { name: 'Elysium 首页' })).not.toBeInTheDocument()
-    expect(document.querySelector('.app-shell')).toHaveClass('app-shell--music-room')
-    expect(document.querySelector('.app-shell')).not.toHaveClass('app-shell--immersive')
+    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
   it('publishes the plain surface tokens and no decorative service background', () => {

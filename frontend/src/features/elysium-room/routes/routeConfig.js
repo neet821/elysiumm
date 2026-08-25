@@ -4,7 +4,7 @@ export const ROUTES = Object.freeze({
     title: 'Projects',
     subtitle: '我做过的小项目',
     items: [
-      { title: 'Elysium 3D Room', body: '纯前端 Three.js 线稿数字房间，三个固定机位与环境系统。' },
+      { title: '3D Room', body: '纯前端 Three.js 线稿数字房间，三个固定机位与环境系统。' },
       { title: '桌面小工具', body: '日常使用的本地小工具集合，内容正在整理中。' },
       { title: '原型与实验', body: '一些交互原型与视觉实验的存档。' },
     ],
