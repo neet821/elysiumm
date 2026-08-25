@@ -19,7 +19,7 @@ vi.mock('../src/pages/AdminLivePage.jsx', () => ({
   default: () => <div data-testid="inline-admin-live" />,
 }))
 
-const optionalAuthState = vi.hoisted(() => ({ isAdmin: true }))
+const optionalAuthState = vi.hoisted(() => ({ isAdmin: true, loading: false }))
 
 vi.mock('../src/contexts/AuthContext', () => ({
   useOptionalAuth: () => optionalAuthState,
@@ -43,7 +43,8 @@ describe('public live page', () => {
   beforeEach(() => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
-    optionalAuthState.isAdmin = true
+    optionalAuthState.isAdmin = false
+    optionalAuthState.loading = false
     window.history.replaceState({}, '', '/live')
     Object.defineProperty(navigator, 'sendBeacon', {
       configurable: true,
@@ -159,13 +160,13 @@ describe('public live page', () => {
     getItem.mockRestore()
   })
 
-  it('renders the administrator live workspace for administrators', async () => {
-    apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'ended' } })
-
+  it('opens the administrator workspace directly without starting the public live session', async () => {
+    optionalAuthState.isAdmin = true
     render(<LivePage />)
 
-    expect(await screen.findByText('直播已结束')).toBeInTheDocument()
     expect(screen.getByTestId('inline-admin-live')).toBeInTheDocument()
+    expect(screen.queryByText('直播已结束')).not.toBeInTheDocument()
+    expect(apiClient.get).not.toHaveBeenCalled()
   })
 
   it('keeps the public live route free of the administrator workspace for regular users', async () => {

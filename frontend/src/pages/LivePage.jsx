@@ -65,8 +65,7 @@ function StatePanel({ state, retry }) {
 }
 
 
-export default function LivePage() {
-  const { isAdmin } = useOptionalAuth()
+function PublicLivePage() {
   const { mediaUrl, retry, state, status } = useLiveSession()
   const isLoading = state === 'loading' || state === 'authorizing'
   const isLive = state === 'live' && mediaUrl
@@ -113,7 +112,16 @@ export default function LivePage() {
         )}
         {!isLoading && !isLive && <StatePanel state={state} retry={retry} />}
       </div>
-      {isAdmin && <section className="live-page__admin" aria-label="直播管理"><AdminLivePage /></section>}
     </div>
   )
+}
+
+export default function LivePage() {
+  const { isAdmin, loading } = useOptionalAuth()
+
+  if (loading) {
+    return <section className="live-state" role="status" aria-live="polite"><p>正在确认账户…</p></section>
+  }
+
+  return isAdmin ? <AdminLivePage /> : <PublicLivePage />
 }

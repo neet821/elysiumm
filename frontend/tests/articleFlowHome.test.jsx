@@ -393,6 +393,24 @@ describe('ArticleFlowHome', () => {
     expect(drawer.querySelectorAll('.sidebar-scroll-cue')).toHaveLength(2)
   })
 
+  it('gives records and essays matching independent scroll regions', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'record', title: '可滚动记录', type: 'movie', contentType: 'record', createdAt: '2026-08-25' },
+        { slug: 'essay', title: '可滚动随笔', type: 'essay', createdAt: '2026-08-24', excerpt: '随笔内容' },
+      ] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('可滚动随笔')).toBeInTheDocument())
+    const recordsViewport = container.querySelector('.sidebar-scroll-viewport--records')
+    const essaysViewport = container.querySelector('.sidebar-scroll-viewport--essays')
+    expect(recordsViewport).toHaveClass('sidebar-scroll-viewport--independent')
+    expect(essaysViewport).toHaveClass('sidebar-scroll-viewport--independent')
+  })
+
   it('fixes the homepage chrome and joins the mobile drawer to it', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
     const indexCss = fs.readFileSync('src/index.css', 'utf8')
@@ -410,11 +428,10 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--records\s*\{[^}]*flex:\s*1 1 auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
     expect(css).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*pointer-events:\s*none;[^}]*position:\s*absolute;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*max-height:\s*calc\(100dvh\s*-\s*2rem\);[^}]*overflow:\s*hidden;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*height:\s*auto;[^}]*overflow:\s*visible;/s)
     expect(css).not.toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*position:\s*sticky;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-sidebar\s*> \.sidebar-section--essays\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--independent\s*\{[^}]*max-height:\s*min\(24rem,\s*42dvh\);[^}]*overflow-y:\s*auto;/s)
     expect(indexCss).not.toMatch(/\.home-header-portal/)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)

@@ -990,7 +990,7 @@
   }
 }
 
-/* Desktop keeps the rail in view while its longer essay list scrolls independently. */
+/* Desktop keeps the rail in document flow while each rail section scrolls independently. */
 @media (min-width: 801px) {
   .legacy-old-home--flat .home-sidebar {
     align-self: start;
@@ -998,11 +998,11 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    height: calc(100dvh - 2rem);
+    height: auto;
     grid-area: sidebar;
-    max-height: calc(100dvh - 2rem);
+    max-height: none;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     padding-left: 1rem;
     scrollbar-gutter: stable;
   }
@@ -1019,27 +1019,20 @@
     overflow: visible;
   }
   .legacy-old-home--flat .home-sidebar > .sidebar-section--essays {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
+    display: block;
+    flex: none;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
   .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport {
     min-width: 0;
   }
-  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--records {
-    max-height: min(17rem, 42dvh);
+  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--independent {
+    max-height: min(24rem, 42dvh);
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-  .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--essays {
-    flex: 1 1 auto;
-    height: auto;
-    max-height: none;
+    scrollbar-gutter: stable;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
   }
   .legacy-old-home--flat .photo-strip--bottom {
     grid-area: photos;
