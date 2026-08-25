@@ -3761,6 +3761,14 @@ body:has(.app-shell--home)::before {
   top: .75rem;
   z-index: 61;
 }
+.service-shell.app-shell--home .app-header__home-label {
+  color: #111;
+  font-family: var(--font-interface, sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
 .service-shell.app-shell--home .app-header__icon-link--admin {
   border: 1px solid transparent;
   color: #111;

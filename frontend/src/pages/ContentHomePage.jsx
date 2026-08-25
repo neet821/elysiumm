@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clapperboard, Disc3, Gamepad2, X } from 'lucide-react'
+import { BookOpen, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -206,7 +206,6 @@ export function ArticleFlowHome() {
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
-  const [homeLabel, setHomeLabel] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
 
   useEffect(() => {
@@ -229,16 +228,6 @@ export function ArticleFlowHome() {
         return [item.slug, response.ok ? ((await response.json()).article || null) : null]
       } catch { return [item.slug, null] }
     })).then((entries) => { if (active) setFullEssays(Object.fromEntries(entries)) })
-    return () => { active = false }
-  }, [articles])
-
-  useEffect(() => {
-    if (!articles) return undefined
-    let active = true
-    fetch('/api/homepage')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => { if (active) setHomeLabel(data?.settings?.hero_prefix || '') })
-      .catch(() => {})
     return () => { active = false }
   }, [articles])
 
@@ -298,13 +287,8 @@ export function ArticleFlowHome() {
           id="home-sidebar"
           role={homeSidebarOpen ? 'dialog' : undefined}
           aria-modal={homeSidebarOpen ? 'true' : undefined}
-          aria-label={homeSidebarOpen ? '记录和随笔' : undefined}
+          aria-label={homeSidebarOpen ? '侧栏内容' : undefined}
         >
-          {homeLabel && <p className="home-sidebar__label">{homeLabel}</p>}
-          <header className="home-sidebar__drawer-header">
-            <h2>记录和随笔</h2>
-            <button className="home-sidebar__drawer-close" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar}><X size={18} aria-hidden="true" /></button>
-          </header>
           <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)

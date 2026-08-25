@@ -261,39 +261,23 @@ describe('ArticleFlowHome', () => {
     )
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '抽屉文章' })).toBeInTheDocument())
-    const drawer = screen.getByRole('dialog', { name: '记录和随笔' })
+    const drawer = screen.getByRole('dialog', { name: '侧栏内容' })
     expect(drawer).toHaveClass('home-sidebar--drawer-open')
     expect(drawer).toHaveTextContent('抽屉记录')
     expect(drawer).toHaveTextContent('抽屉随笔')
-    expect(within(drawer).getByRole('button', { name: '关闭记录和随笔' })).toBeInTheDocument()
+    expect(drawer.querySelector('.home-sidebar__drawer-header')).toBeNull()
+    expect(within(drawer).queryByRole('button', { name: '关闭记录和随笔' })).not.toBeInTheDocument()
     expect(container.querySelector('.home-layout')).toContainElement(drawer)
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
-  it('places the configured label above the sidebar cards', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
-      if (path === '/api/articles') {
-        return { ok: true, json: async () => ({ articles: [{ slug: 'article', title: '自定义文字文章', type: 'article', createdAt: '2026-08-24' }] }) }
-      }
-      if (path === '/api/homepage') {
-        return { ok: true, json: async () => ({ settings: { hero_prefix: '我的首页文字' } }) }
-      }
-      return { ok: true, json: async () => ({ article: null }) }
-    })
-
-    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: '自定义文字文章' })).toBeInTheDocument())
-    await waitFor(() => expect(container.querySelector('.home-sidebar__label')).toHaveTextContent('我的首页文字'))
-    expect(container.querySelector('.home-sidebar')).toContainElement(container.querySelector('.home-sidebar__label'))
-    expect(container.querySelector('.home-sidebar').firstElementChild).toHaveClass('home-sidebar__label')
-  })
-
   it('anchors the mobile drawer on the left and lowers the desktop rail', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const indexCss = fs.readFileSync('src/index.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
-    expect(css).toMatch(/\.home-sidebar__label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
+    expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
+    expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
   })
 
   it('returns to the top after changing article pages', async () => {

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { ArrowLeft, LayoutDashboard, Menu, Radio, DoorOpen, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
@@ -18,11 +19,23 @@ export function Header() {
   const { isOpen: homeSidebarOpen, toggle: toggleHomeSidebar } = useHomeSidebar()
   const isHome = location.pathname === '/'
   const accountTarget = isAuthenticated ? '/account' : '/login'
+  const [homeLabel, setHomeLabel] = useState('')
+
+  useEffect(() => {
+    if (!isHome || typeof fetch !== 'function') return undefined
+    let active = true
+    fetch('/api/homepage')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (active) setHomeLabel(data?.settings?.hero_prefix || '') })
+      .catch(() => {})
+    return () => { active = false }
+  }, [isHome])
 
   return (
     <header className="app-header app-header--static">
       <div className="app-header__inner">
         <div className="app-header__leading">
+          {isHome && homeLabel && <span className="app-header__home-label">{homeLabel}</span>}
           {isHome && (
             <button
               className="app-header__sidebar-toggle"

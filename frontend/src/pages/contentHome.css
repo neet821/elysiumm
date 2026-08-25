@@ -734,14 +734,6 @@
   min-width: 1rem;
   padding-inline: .1rem;
 }
-.legacy-old-home--flat .home-sidebar__label {
-  color: #555;
-  font-family: var(--home-title-font);
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin: 0 0 .25rem;
-}
-.legacy-old-home--flat .home-sidebar__drawer-header,
 .legacy-old-home--flat .home-sidebar-backdrop {
   display: none;
 }
@@ -755,7 +747,6 @@
 }
 
 @media (max-width: 800px) {
-  .legacy-old-home--flat .home-sidebar__label { display: none; }
   .legacy-old-home--flat .home-sidebar {
     display: none;
   }
@@ -786,28 +777,6 @@
     top: 3.75rem;
     width: 100%;
     z-index: 90;
-  }
-  .legacy-old-home--flat .home-sidebar__drawer-header {
-    align-items: center;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    padding-bottom: .75rem;
-  }
-  .legacy-old-home--flat .home-sidebar__drawer-header h2 {
-    font-size: 1rem;
-    margin: 0;
-  }
-  .legacy-old-home--flat .home-sidebar__drawer-close {
-    align-items: center;
-    background: #fff;
-    border: 1px solid #aaa;
-    color: #111;
-    display: inline-flex;
-    height: 2.25rem;
-    justify-content: center;
-    padding: 0;
-    width: 2.25rem;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records,
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
@@ -845,5 +814,6 @@
     padding: .25rem;
     width: 2.25rem;
   }
+  .service-shell.app-shell--home .app-header__home-label { display: none; }
   .service-shell.app-shell--home .app-header { z-index: 110; }
 }

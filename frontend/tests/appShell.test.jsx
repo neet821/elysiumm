@@ -24,6 +24,7 @@ function renderShell({ initialPath = '/archive' } = {}) {
 
 describe('Elysium plain service shell', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
   })
 
@@ -43,6 +44,18 @@ describe('Elysium plain service shell', () => {
     expect(toggle.closest('header')).toBe(screen.getByRole('banner'))
     await user.click(toggle)
     expect(screen.getByRole('button', { name: '收起记录和随笔' })).toBeInTheDocument()
+  })
+
+  it('renders the configured custom text in the desktop homepage top bar', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ settings: { hero_prefix: '我的顶栏文字' } }),
+    })
+
+    renderShell({ initialPath: '/' })
+
+    const label = await screen.findByText('我的顶栏文字')
+    expect(screen.getByRole('banner')).toContainElement(label)
   })
 
   it('shows login instead of account to signed-out visitors', () => {
