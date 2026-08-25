@@ -845,9 +845,10 @@
     background: #fff;
     bottom: 0;
     box-shadow: 10px 0 24px rgb(0 0 0 / 14%);
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 1rem 1rem 2rem;
     position: fixed;
     left: 0;
@@ -914,13 +915,19 @@
 @media (max-width: 800px) {
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records {
     display: block;
-    max-height: 24rem;
+    flex: 0 0 auto;
+    max-height: min(24rem, 38dvh);
+    min-height: 0;
     order: 0;
     overflow-y: auto;
     padding-bottom: 0;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
+    flex: 1 1 auto;
+    min-height: 0;
     order: 1;
+    overflow-y: auto;
+    padding-bottom: 1rem;
   }
   .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-card {
     grid-template-columns: 64px minmax(0, 1fr);
