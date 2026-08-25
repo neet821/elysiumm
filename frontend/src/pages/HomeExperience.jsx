@@ -27,7 +27,7 @@ export default function HomeExperience() {
 
   return (
     <div className={`home-experience home-experience--${mode}`} data-room-mode={mode} data-testid="home-experience">
-      <h1 className="sr-only">Elysium 首页</h1>
+      <h1 className="sr-only">首页</h1>
       {mode === '3d' ? (
         <ElysiumRoomHome onSwitchMode={() => switchMode('lite')} />
       ) : (

@@ -22,11 +22,11 @@ test('formal header does not expose the legacy theme switch', () => {
   assert.match(header, /房间/)
 })
 
-test('formal navigation uses Elysium copy while old brand stays isolated', () => {
+test('formal navigation has neutral copy while old brand stays isolated', () => {
   const navigation = read('navigation.js')
-  assert.match(navigation, /Elysium/)
   assert.match(navigation, /SERVICE_DIRECTORY/)
   assert.doesNotMatch(navigation, /Blue Album/)
+  assert.doesNotMatch(navigation, /Elysium/i)
 })
 
 test('toolbox keeps the four plain directory groups', () => {

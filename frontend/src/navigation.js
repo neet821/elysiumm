@@ -20,7 +20,7 @@ export const AUTHENTICATED_NAV_ITEMS = [
 export const ANONYMOUS_NAV_ITEMS = [
   SERVICE_DIRECTORY.find((item) => item.id === 'archive'),
   { id: 'tools', label: '工具箱', to: '/tools', description: '打开所有服务' },
-  { id: 'login', label: '登录', to: '/login', description: '登录 Elysium' },
+  { id: 'login', label: '登录', to: '/login', description: '登录账户' },
 ]
 
 export function getPrimaryNavigation(isAuthenticated) {

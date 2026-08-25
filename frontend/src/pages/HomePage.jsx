@@ -153,7 +153,7 @@ export default function HomePage() {
   return (
     <div className="flat-home">
       <FlatPlayer tracks={homepage.player_tracks || homepage.tracks || []} />
-      <section className="flat-intro"><p className="flat-kicker">Elysium</p><h1>你好，我是 Elysium。</h1><p>{settings.introduction || '记录想法与生活，收藏热爱与灵感。'}</p></section>
+      <section className="flat-intro"><h1>你好。</h1><p>{settings.introduction || '记录想法与生活，收藏热爱与灵感。'}</p></section>
       <div className="flat-main-grid"><WritingList posts={homepage.posts} /><PhotoGrid photos={homepage.photos} /></div>
       <div className="flat-support-grid"><Activity homepage={homepage} /><FlatMessages messages={homepage.messages} /></div>
       <div className="flat-archive-link"><Link to="/rooms/watch">进入观影房</Link></div>

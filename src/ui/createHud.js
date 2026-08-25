@@ -28,7 +28,6 @@ export function createHud(mount, { onCamera, onTimeMode }) {
     <div class="hud" data-testid="hud">
       <header class="hud-top">
         <div class="brand">
-          <p class="eyebrow">ELYSIUM</p>
           <h1>我的数字房间</h1>
         </div>
         <nav class="legacy-nav" data-testid="legacy-nav" aria-label="站内功能">

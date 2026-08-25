@@ -10,7 +10,7 @@ export default function LoginCard({
   isDark = false,
   onSuccess,
   styles = {},
-  subtitle = '登录到 Elysium',
+  subtitle = '登录账户',
 }) {
   const { login } = useAuth()
   const [identifier, setIdentifier] = useState('')
@@ -43,7 +43,6 @@ export default function LoginCard({
       aria-labelledby="login-card-title"
     >
       <header className="mb-7 text-center">
-        <p className={`mb-2 text-xs font-semibold tracking-[0.2em] ${styles.accentClass || 'text-[var(--accent-blue)]'}`}>Elysium</p>
         <h1 id="login-card-title" className={`text-3xl font-semibold ${styles.text || 'text-[var(--text-primary)]'}`}>{heading}</h1>
         <p className={`mt-2 text-sm ${styles.textMuted || 'text-[var(--text-muted)]'}`}>{subtitle}</p>
       </header>

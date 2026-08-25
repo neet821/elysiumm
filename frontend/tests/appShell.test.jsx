@@ -94,7 +94,7 @@ describe('Elysium plain service shell', () => {
     expect(within(homeNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
     expect(within(homeNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
     expect(homeNav.querySelectorAll('.app-header__action > span')).toHaveLength(0)
-    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+    expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
 
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
@@ -121,7 +121,7 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '返回首页' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
-    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+    expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/account' })
@@ -151,15 +151,15 @@ describe('Elysium plain service shell', () => {
 
   it('renders a simple footer and the specialized routes remain immersive', () => {
     const { unmount: unmountArchive } = renderShell()
-    expect(screen.getByText('© 2026 Elysium')).toBeInTheDocument()
+    expect(screen.getByText('© 2026')).toBeInTheDocument()
     expect(screen.queryByText(/已运行/)).not.toBeInTheDocument()
 
     unmountArchive()
     const { unmount } = renderShell({ initialPath: '/tools' })
-    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+    expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
     unmount()
     renderShell({ initialPath: '/music/rooms/9' })
-    expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+    expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
   })
 
   it('publishes the plain surface tokens and no decorative service background', () => {

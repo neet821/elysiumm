@@ -50,7 +50,7 @@ export default function ElysiumRoomHome({ onSwitchMode }) {
         }
       })
       .catch((error) => {
-        console.error('Elysium 3D room failed to load', error)
+        console.error('3D room failed to load', error)
         if (active) setStatus('三维房间暂时无法载入，请切换到轻量模式。')
       })
     return () => {

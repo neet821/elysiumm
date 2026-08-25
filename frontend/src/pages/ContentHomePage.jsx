@@ -441,7 +441,7 @@ function ContentListing({ categories, categoryId }) {
 
   return (
     <>
-      <header className="content-intro"><p className="content-kicker">Elysium · Obsidian</p><h1>{category?.label || '内容'}</h1><p>{category ? `${category.items.length} 条内容` : '从 Obsidian 同步的公开内容'}</p></header>
+      <header className="content-intro"><p className="content-kicker">Obsidian</p><h1>{category?.label || '内容'}</h1><p>{category ? `${category.items.length} 条内容` : '从 Obsidian 同步的公开内容'}</p></header>
       <CategoryNav categories={categories} />
       <div className="content-flow">
         {sections.map((section) => (
