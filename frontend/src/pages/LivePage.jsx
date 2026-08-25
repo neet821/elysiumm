@@ -1,4 +1,4 @@
-import { Clock3, LogIn, Radio, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Clock3, LogIn, RefreshCw, ShieldCheck } from 'lucide-react'
 
 import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
@@ -65,82 +65,38 @@ function StatePanel({ state, retry }) {
 }
 
 
-function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, status }) {
+function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, showMessages, state, status }) {
   if (isLoading) {
     return <main className="live-watch-page"><div className="live-watch-page__status" role="status">正在连接直播间…</div></main>
+  }
+
+  if (!isLive && !['waiting', 'ended'].includes(state)) {
+    return <main className="live-watch-page"><StatePanel state={state} retry={retry} /></main>
   }
 
   if (isLive) {
     return (
       <main className="live-watch-page">
-        <h1 className="live-watch-page__title">{status?.title || '直播'}</h1>
+        {status?.title && <h1 className="live-watch-page__title">{status.title}</h1>}
         <LivePlayer mediaUrl={mediaUrl} minimal onRefresh={retry} />
+        {showMessages && <LiveMessageBoard />}
       </main>
     )
   }
 
   return (
     <main className="live-watch-page">
-      <div className="live-watch-page__status" role="status">
-        <h1 className="live-watch-page__title">未开播</h1>
-      </div>
+      <p className="live-watch-page__empty-prompt" role="status">未开播</p>
+      <LivePlayer mediaUrl="" minimal onRefresh={retry} />
     </main>
   )
 }
 
-function PublicLivePage({ minimal = false }) {
+function PublicLivePage({ showMessages = true }) {
   const { mediaUrl, retry, state, status } = useLiveSession()
   const isLoading = state === 'loading' || state === 'authorizing'
   const isLive = state === 'live' && mediaUrl
-  const latencyText = (
-    status?.latency_mode === 'ultra_low'
-      ? '画面延迟目标约 2–4 秒，网络波动时可能短暂增加。'
-      : status?.latency_mode === 'low'
-        ? '画面延迟目标约 4–8 秒，取决于当前网络。'
-        : '画面延迟约 5–10 秒，取决于当前网络。'
-  )
-
-  if (minimal) {
-    return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} status={status} />
-  }
-
-  return (
-    <div className="live-page">
-      <header
-        className="live-hero"
-        style={status?.cover_url ? { '--live-cover': `url("${status.cover_url}")` } : undefined}
-      >
-        <div>
-          <p className="live-hero__eyebrow">
-            <Radio aria-hidden="true" />
-            {isLive ? '正在直播' : '直播'}
-          </p>
-          <h1>{status?.title || '直播'}</h1>
-          {status?.description ? <p>{status.description}</p> : null}
-        </div>
-      </header>
-
-      <div className="live-page__content">
-        {isLoading && (
-          <section className="live-state" role="status" aria-live="polite">
-            <span className="live-state__pulse" aria-hidden="true" />
-            <p>正在连接直播间…</p>
-          </section>
-        )}
-        {isLive && (
-          <>
-            <LivePlayer mediaUrl={mediaUrl} />
-            <div className="live-presence">
-              <span><span aria-hidden="true" />直播中</span>
-              <p>{latencyText}</p>
-            </div>
-            <LiveMessageBoard />
-          </>
-        )}
-        {!isLoading && !isLive && <StatePanel state={state} retry={retry} />}
-      </div>
-    </div>
-  )
+  return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} showMessages={showMessages} state={state} status={status} />
 }
 
 export default function LivePage() {
@@ -151,5 +107,5 @@ export default function LivePage() {
     return <section className="live-state" role="status" aria-live="polite"><p>正在确认账户…</p></section>
   }
 
-  return isAdmin && !isWatchPage ? <AdminLivePage /> : <PublicLivePage minimal={isWatchPage} />
+  return isAdmin && !isWatchPage ? <AdminLivePage /> : <PublicLivePage showMessages={!isWatchPage} />
 }

@@ -161,6 +161,15 @@ class LiveAdminRoutesTest(unittest.TestCase):
         now = datetime.utcnow()
         viewers = [
             models.LiveViewerSession(
+                id="fresh-admin",
+                live_session_id=self.session.id,
+                user_id=self.admin.id,
+                ip_address="203.0.113.7",
+                first_seen_at=now - timedelta(minutes=2),
+                last_seen_at=now,
+                watched_seconds=90,
+            ),
+            models.LiveViewerSession(
                 id="fresh-member",
                 live_session_id=self.session.id,
                 user_id=self.member.id,

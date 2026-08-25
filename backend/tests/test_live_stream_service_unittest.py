@@ -216,6 +216,35 @@ class LiveStreamServiceTest(unittest.TestCase):
         self.assertEqual(fingerprint.operating_system, "Android")
         self.assertEqual(fingerprint.browser, "Chrome")
 
+    def test_open_viewer_session_reuses_one_identity_per_ip_and_live_session(self):
+        decision = authorize_viewer(
+            self.db,
+            user=None,
+            invite_token=None,
+            now=self.now,
+        )
+        first = open_viewer_session(
+            self.db,
+            live_session=self.live,
+            decision=decision,
+            client_ip="203.0.113.20",
+            user_agent="first-agent",
+            now=self.now,
+        )
+        self.db.commit()
+        second = open_viewer_session(
+            self.db,
+            live_session=self.live,
+            decision=decision,
+            client_ip="203.0.113.20",
+            user_agent="second-agent",
+            now=self.now + timedelta(seconds=5),
+        )
+
+        self.assertEqual(second.id, first.id)
+        self.assertEqual(self.db.query(models.LiveViewerSession).count(), 1)
+        self.assertIsNone(second.ended_at)
+
 
 if __name__ == "__main__":
     unittest.main()

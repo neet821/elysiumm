@@ -128,6 +128,24 @@ def open_viewer_session(
     if not decision.allowed:
         raise PermissionError(decision.reason)
     resolved = fingerprint or identify_visitor(client_ip, user_agent)
+    viewer = (
+        db.query(models.LiveViewerSession)
+        .filter(
+            models.LiveViewerSession.live_session_id == live_session.id,
+            models.LiveViewerSession.ip_address == client_ip[:45],
+        )
+        .order_by(models.LiveViewerSession.first_seen_at.asc())
+        .first()
+    )
+    if viewer is not None:
+        if decision.user_id is not None:
+            viewer.user_id = decision.user_id
+        if decision.invite_id is not None:
+            viewer.invite_id = decision.invite_id
+        viewer.last_seen_at = now
+        viewer.ended_at = None
+        db.flush()
+        return viewer
     viewer = models.LiveViewerSession(
         live_session_id=live_session.id,
         user_id=decision.user_id,

@@ -9,6 +9,8 @@ from pathlib import Path
 from sqlalchemy import Float, create_engine, inspect, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.schema import CreateIndex
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -17,6 +19,10 @@ MIGRATION_RUNNER = ROOT_DIR / "backend" / "run_migrations.py"
 
 
 class AlembicMigrationsTest(unittest.TestCase):
+    def current_head(self) -> str:
+        config = Config(str(ALEMBIC_CONFIG))
+        return ScriptDirectory.from_config(config).get_current_head()
+
     def test_revision_identifiers_fit_mariadb_alembic_version_column(self):
         versions = ROOT_DIR / "backend" / "alembic" / "versions"
         for migration_path in versions.glob("*.py"):
@@ -131,7 +137,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                     connection.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one(),
-                    "0016_music_room_switching",
+                    self.current_head(),
                 )
             engine.dispose()
 
@@ -372,32 +378,68 @@ class AlembicMigrationsTest(unittest.TestCase):
                 version = connection.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one()
-            self.assertEqual(version, "0016_music_room_switching")
+            self.assertEqual(version, self.current_head())
             engine.dispose()
 
     def test_head_repairs_legacy_integer_playback_time_without_losing_rows(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database_path = Path(temp_dir) / "legacy-time.sqlite"
             database_url = f"sqlite:///{database_path}"
+            self.run_alembic(database_url, "upgrade", "0011_local_video_fingerprint")
             engine = create_engine(database_url)
             with engine.begin() as connection:
+                columns = connection.exec_driver_sql(
+                    "PRAGMA table_info(sync_rooms)"
+                ).mappings().all()
+                definitions = []
+                names = []
+                for column in columns:
+                    name = column["name"]
+                    names.append(name)
+                    definition = f'"{name}" {"INTEGER" if name == "current_time" else column["type"]}'
+                    if column["pk"]:
+                        definition += " PRIMARY KEY"
+                    if column["notnull"] and not column["pk"]:
+                        definition += " NOT NULL"
+                    definitions.append(definition)
+                connection.exec_driver_sql(
+                    "CREATE TABLE sync_rooms_legacy (" + ", ".join(definitions) + ")"
+                )
+                quoted_names = ", ".join(f'"{name}"' for name in names)
+                connection.exec_driver_sql(
+                    f"INSERT INTO sync_rooms_legacy ({quoted_names}) "
+                    f"SELECT {quoted_names} FROM sync_rooms"
+                )
+                connection.exec_driver_sql("DROP TABLE sync_rooms")
+                connection.exec_driver_sql(
+                    "ALTER TABLE sync_rooms_legacy RENAME TO sync_rooms"
+                )
+                required = columns
+                values = {}
+                for column in required:
+                    name = column["name"]
+                    if name == "id":
+                        values[name] = 1
+                    elif name == "current_time":
+                        values[name] = 12
+                    elif name == "host_user_id":
+                        values[name] = 1
+                    elif name == "lifecycle_status":
+                        values[name] = "active"
+                    elif "CHAR" in column["type"].upper() or "TEXT" in column["type"].upper():
+                        values[name] = "legacy"
+                    elif "DATE" in column["type"].upper() or "TIME" in column["type"].upper():
+                        values[name] = "2026-08-26 00:00:00"
+                    else:
+                        values[name] = 0
+                insert_names = ", ".join(f'"{name}"' for name in values)
+                insert_placeholders = ", ".join(f":value_{name}" for name in values)
                 connection.execute(
                     text(
-                        "CREATE TABLE sync_rooms ("
-                        "id INTEGER PRIMARY KEY, current_time INTEGER NULL)"
-                    )
-                )
-                connection.execute(
-                    text("INSERT INTO sync_rooms (id, current_time) VALUES (1, 12)")
-                )
-                connection.execute(
-                    text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-                )
-                connection.execute(
-                    text(
-                        "INSERT INTO alembic_version (version_num) "
-                        "VALUES ('0011_local_video_fingerprint')"
-                    )
+                        f"INSERT INTO sync_rooms ({insert_names}) "
+                        f"VALUES ({insert_placeholders})"
+                    ),
+                    {f"value_{name}": value for name, value in values.items()},
                 )
             engine.dispose()
 
@@ -425,7 +467,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                     connection.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one(),
-                    "0016_music_room_switching",
+                    self.current_head(),
                 )
             engine.dispose()
 

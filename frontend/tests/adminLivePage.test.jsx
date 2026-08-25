@@ -24,6 +24,10 @@ vi.mock('../src/features/live/LivePlayer.jsx', () => ({
   default: ({ mediaUrl }) => <div data-testid="admin-live-preview" data-media-url={mediaUrl} />,
 }))
 
+vi.mock('../src/features/live/LiveMessageBoard.jsx', () => ({
+  default: () => <section aria-label="直播留言" data-testid="admin-live-messages" />,
+}))
+
 import { API_ENDPOINTS } from '../src/config.js'
 import AdminLivePage from '../src/pages/AdminLivePage.jsx'
 import apiClient from '../src/utils/request.js'
@@ -146,6 +150,22 @@ describe('live administrator workspace', () => {
     expect(await screen.findByLabelText('OBS 当前密钥')).toBeInTheDocument()
     expect(screen.getByText('直播场次')).toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /203\.0\.113\.8/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('开始时间')).not.toBeInTheDocument()
+    expect(screen.queryByText('画面')).not.toBeInTheDocument()
+    expect(screen.queryByText('编码')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '清除记录' })).not.toBeInTheDocument()
+  })
+
+  it('places the status bar below the preview and can open the live message board', async () => {
+    const user = userEvent.setup()
+    render(<AdminLivePage />)
+
+    const preview = await screen.findByLabelText('直播预览')
+    const status = screen.getByText('当前状态').closest('section')
+    expect(preview.nextElementSibling).toBe(status)
+    expect(screen.queryByTestId('admin-live-messages')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '留言' }))
+    expect(screen.getByTestId('admin-live-messages')).toBeInTheDocument()
   })
 
   it('places live sessions beside opening settings on desktop', async () => {

@@ -396,11 +396,16 @@ def live_status(
     if active is not None:
         active_viewers = (
             db.query(func.count(models.LiveViewerSession.id))
+            .outerjoin(models.User, models.User.id == models.LiveViewerSession.user_id)
             .filter(
                 models.LiveViewerSession.live_session_id == active.id,
                 models.LiveViewerSession.ended_at.is_(None),
                 models.LiveViewerSession.last_seen_at
                 >= datetime.utcnow() - timedelta(seconds=60),
+                or_(
+                    models.LiveViewerSession.user_id.is_(None),
+                    models.User.role != "admin",
+                ),
             )
             .scalar()
             or 0
@@ -452,11 +457,18 @@ def list_audience(
     )
     if active is None or (session_id is not None and session_id != active.id):
         return []
-    query = db.query(models.LiveViewerSession).filter(
+    query = db.query(models.LiveViewerSession).outerjoin(
+        models.User,
+        models.User.id == models.LiveViewerSession.user_id,
+    ).filter(
         models.LiveViewerSession.live_session_id == active.id,
         models.LiveViewerSession.ended_at.is_(None),
         models.LiveViewerSession.last_seen_at
         >= datetime.utcnow() - timedelta(seconds=60),
+        or_(
+            models.LiveViewerSession.user_id.is_(None),
+            models.User.role != "admin",
+        ),
     )
     viewers = (
         query.order_by(models.LiveViewerSession.last_seen_at.desc())

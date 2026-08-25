@@ -102,6 +102,19 @@ export default function LiveMessageBoard() {
         <h2>留言区</h2>
         <p>起个昵称，发一条弹幕。</p>
       </header>
+      {error && <p className="live-message-board__error" role="alert">{error}</p>}
+      <ul>
+        {messages.map((message) => (
+          <li key={message.id}>
+            <div>
+              <strong>{message.nickname}</strong>
+              <time>{formatTime(message.created_at)}</time>
+            </div>
+            <p>{message.content}</p>
+          </li>
+        ))}
+        {!messages.length && <li className="live-message-board__empty">还没有留言。</li>}
+      </ul>
       <form onSubmit={submit}>
         <input
           aria-label="昵称"
@@ -121,19 +134,6 @@ export default function LiveMessageBoard() {
           {sending ? '发送中…' : '发送留言'}
         </button>
       </form>
-      {error && <p className="live-message-board__error" role="alert">{error}</p>}
-      <ul>
-        {messages.map((message) => (
-          <li key={message.id}>
-            <div>
-              <strong>{message.nickname}</strong>
-              <time>{formatTime(message.created_at)}</time>
-            </div>
-            <p>{message.content}</p>
-          </li>
-        ))}
-        {!messages.length && <li className="live-message-board__empty">还没有留言。</li>}
-      </ul>
     </section>
   )
 }

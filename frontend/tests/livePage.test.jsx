@@ -10,8 +10,11 @@ vi.mock('../src/utils/request.js', () => ({
 }))
 
 vi.mock('../src/features/live/LivePlayer.jsx', () => ({
-  default: ({ mediaUrl }) => (
-    <video aria-label="直播播放器" data-media-url={mediaUrl} />
+  default: ({ mediaUrl, minimal }) => (
+    <div className={minimal ? 'live-player live-player--minimal' : 'live-player'} data-media-url={mediaUrl || ''}>
+      <video aria-label="直播播放器" data-media-url={mediaUrl || ''} />
+      {minimal && <div aria-label="直播播放控件" />}
+    </div>
   ),
 }))
 
@@ -78,7 +81,7 @@ describe('public live page', () => {
     )
   })
 
-  it('shows the waiting state without mounting a black video element', async () => {
+  it('shows an empty centered player with a not-started prompt', async () => {
     apiClient.get.mockResolvedValue({
       data: {
         ...liveStatus,
@@ -89,12 +92,14 @@ describe('public live page', () => {
 
     render(<LivePage />)
 
-    expect(await screen.findByText('等待开播')).toBeInTheDocument()
-    expect(screen.queryByLabelText('直播播放器')).not.toBeInTheDocument()
+    expect(await screen.findByText('未开播')).toBeInTheDocument()
+    expect(screen.getByLabelText('直播播放器')).toHaveAttribute('data-media-url', '')
+    expect(screen.getByLabelText('直播播放控件')).toBeInTheDocument()
+    expect(screen.queryByText('等待开播')).not.toBeInTheDocument()
     expect(apiClient.post).not.toHaveBeenCalled()
   })
 
-  it('shows a final ended state without reconnecting after a completed broadcast', async () => {
+  it('keeps the empty player for a completed broadcast without a state overlay', async () => {
     apiClient.get.mockResolvedValue({
       data: {
         ...liveStatus,
@@ -104,8 +109,9 @@ describe('public live page', () => {
 
     render(<LivePage />)
 
-    expect(await screen.findByText('直播已结束')).toBeInTheDocument()
-    expect(screen.queryByLabelText('直播播放器')).not.toBeInTheDocument()
+    expect(await screen.findByText('未开播')).toBeInTheDocument()
+    expect(screen.getByLabelText('直播播放器')).toHaveAttribute('data-media-url', '')
+    expect(screen.queryByText('直播已结束')).not.toBeInTheDocument()
     expect(apiClient.post).not.toHaveBeenCalled()
   })
 
@@ -156,7 +162,12 @@ describe('public live page', () => {
     render(<LivePage />)
 
     expect(await screen.findByRole('heading', { name: '今晚直播' })).toBeInTheDocument()
+    expect(screen.queryByText('正在直播')).not.toBeInTheDocument()
+    expect(screen.queryByText('直播中')).not.toBeInTheDocument()
+    expect(screen.queryByText('画面延迟目标约')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('直播播放控件')).toBeInTheDocument()
     expect(screen.getByLabelText('直播留言')).toBeInTheDocument()
+    expect(screen.getByLabelText('直播留言').querySelector('ul').nextElementSibling.tagName).toBe('FORM')
     getItem.mockRestore()
   })
 
@@ -195,7 +206,7 @@ describe('public live page', () => {
 
     render(<LivePage />)
 
-    expect(await screen.findByText('直播已结束')).toBeInTheDocument()
+    expect(await screen.findByText('未开播')).toBeInTheDocument()
     expect(screen.queryByTestId('inline-admin-live')).not.toBeInTheDocument()
   })
 

@@ -10,6 +10,7 @@ import {
 
 import { API_ENDPOINTS } from '../config'
 import AdminLiveAudience from '../features/live/AdminLiveAudience'
+import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
 import useLiveSession from '../features/live/useLiveSession'
 import apiClient from '../utils/request'
@@ -52,6 +53,7 @@ export default function AdminLivePage() {
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const [audienceRefreshedAt, setAudienceRefreshedAt] = useState(null)
   const [audienceExpanded, setAudienceExpanded] = useState(false)
+  const [messagesExpanded, setMessagesExpanded] = useState(false)
   const preview = useLiveSession()
 
   const load = useCallback(async () => {
@@ -205,12 +207,19 @@ export default function AdminLivePage() {
     await navigator.clipboard?.writeText(oneTimeSecret.value)
   }
 
-  const session = data.status?.session
   const activeInvite = data.invites.find((invite) => invite.status === 'active')
 
   return (
     <div className="admin-live">
       {error && <p className="admin-live__error" role="alert">{error}</p>}
+
+      <section className="admin-live__preview" aria-label="直播预览">
+        {preview.state === 'live' && preview.mediaUrl ? (
+          <LivePlayer mediaUrl={preview.mediaUrl} minimal onRefresh={preview.retry} />
+        ) : (
+          <div className="admin-live__preview-empty">未开播</div>
+        )}
+      </section>
 
       <section className="admin-live__status">
         <div>
@@ -233,41 +242,26 @@ export default function AdminLivePage() {
               <dd>{data.status?.active_viewers ?? 0}</dd>
             </button>
           </div>
-          <div><dt>开始时间</dt><dd>{dateTime(session?.started_at)}</dd></div>
-          <div><dt>画面</dt><dd>{session?.width ? `${session.width} × ${session.height} · ${session.frame_rate || '—'} fps` : '—'}</dd></div>
-          <div><dt>编码</dt><dd>{session?.video_codec ? `${session.video_codec} · ${session.audio_codec || '无音频'}` : '—'}</dd></div>
         </dl>
       </section>
 
-      <section className="admin-live__preview" aria-label="直播预览">
-        {preview.state === 'live' && preview.mediaUrl ? (
-          <LivePlayer mediaUrl={preview.mediaUrl} minimal onRefresh={preview.retry} />
-        ) : (
-          <div className="admin-live__preview-empty">未开播</div>
-        )}
-      </section>
-
       <div className="admin-live__grid">
+        <section className="admin-live__card admin-live__card--wide admin-live__messages-control">
+          <Button
+            type="button"
+            aria-expanded={messagesExpanded}
+            aria-pressed={messagesExpanded}
+            onClick={() => setMessagesExpanded((open) => !open)}
+          >
+            留言
+          </Button>
+          {messagesExpanded && <LiveMessageBoard />}
+        </section>
         {audienceExpanded && (
           <section className="admin-live__card admin-live__card--wide" aria-label="当前在线观众">
             <header>
               <Users aria-hidden="true" />
               <div><h2>当前在线观众</h2><p>实时查看正在观看的用户信息。</p></div>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => ask(
-                  '确认清除访客记录',
-                  '当前列出的观众历史将从数据库删除。',
-                  '确认清除',
-                  async () => {
-                    await apiClient.delete(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY)
-                    await load()
-                  },
-                )}
-              >
-                清除记录
-              </Button>
             </header>
             <AdminLiveAudience audience={data.audience} refreshedAt={audienceRefreshedAt} />
             <p className="admin-live__attribution">

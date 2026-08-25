@@ -355,6 +355,11 @@ class LiveViewerSession(Base):
             "watched_seconds >= 0",
             name="ck_live_viewer_sessions_watched_seconds",
         ),
+        UniqueConstraint(
+            "live_session_id",
+            "ip_address",
+            name="uq_live_viewer_sessions_session_ip",
+        ),
         Index(
             "ix_live_viewer_sessions_session_seen",
             "live_session_id",

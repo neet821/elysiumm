@@ -3251,9 +3251,12 @@ html.dark .polaroid-card:hover,
 .live-player__controls label { align-items: center; color: #e8f3ff; display: flex; flex: 1; gap: 0.45rem; }
 .live-player__controls label svg { height: 1rem; width: 1rem; }
 .live-player__controls input { accent-color: #8dc6ff; max-width: 10rem; width: 100%; }
-.live-watch-page { background: #080b11; color: #f5f8ff; min-height: calc(100vh - 4.25rem); padding: clamp(1rem, 4vw, 3rem); }
+.live-watch-page { align-content: center; background: #080b11; color: #f5f8ff; display: grid; gap: 0.85rem; justify-items: center; min-height: calc(100vh - 4.25rem); padding: clamp(1rem, 4vw, 3rem); }
 .live-watch-page > * { margin-inline: auto; max-width: 88rem; }
 .live-watch-page__title { font-family: var(--font-editorial); font-size: clamp(1.35rem, 2.5vw, 2.25rem); font-weight: 500; line-height: 1.15; margin: 0 0 0.85rem; overflow-wrap: anywhere; }
+.live-watch-page__empty-prompt { font-family: var(--font-editorial); font-size: clamp(1.35rem, 2.5vw, 2.25rem); margin: 0; }
+.live-watch-page > .live-player { width: min(100%, 88rem); }
+.live-watch-page > .live-message-board { justify-self: stretch; width: min(100%, 88rem); }
 .live-watch-page__status { align-items: flex-start; background: #101722; border: 1px solid rgba(148, 180, 221, 0.18); display: flex; flex-direction: column; gap: 0.75rem; min-height: 12rem; justify-content: center; padding: clamp(1rem, 4vw, 2.5rem); }
 .live-watch-page__status .live-watch-page__title { margin: 0; }
 .live-presence { align-items: center; color: #9baabd; display: flex; font-size: 0.82rem; gap: 1rem; justify-content: space-between; padding: 1rem 0.1rem; }
@@ -3322,6 +3325,8 @@ html.dark .polaroid-card:hover,
 .admin-live__preview { background: var(--surface-inverse); border: 1px solid var(--border-subtle); min-height: 12rem; }
 .admin-live__preview .live-player { border: 0; box-shadow: none; }
 .admin-live__preview-empty { align-items: center; color: var(--text-inverse); display: flex; justify-content: center; min-height: 12rem; }
+.admin-live__messages-control { align-items: start; }
+.admin-live__messages-control > .live-message-board { margin-top: 0; width: 100%; }
 .admin-live__grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-live__card { background: var(--surface-card); border: 1px solid var(--border-subtle); display: grid; gap: 1rem; padding: 1.15rem; }
 .admin-live__card--wide { grid-column: 1 / -1; }
