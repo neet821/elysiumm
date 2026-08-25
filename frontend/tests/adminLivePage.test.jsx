@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,6 +9,19 @@ vi.mock('../src/utils/request.js', () => ({
     post: vi.fn(),
     put: vi.fn(),
   },
+}))
+
+vi.mock('../src/features/live/useLiveSession.js', () => ({
+  default: () => ({
+    mediaUrl: '/live-media/live/stream/index.m3u8',
+    retry: vi.fn(),
+    state: 'live',
+    status: { title: '今晚直播' },
+  }),
+}))
+
+vi.mock('../src/features/live/LivePlayer.jsx', () => ({
+  default: ({ mediaUrl }) => <div data-testid="admin-live-preview" data-media-url={mediaUrl} />,
 }))
 
 import { API_ENDPOINTS } from '../src/config.js'
@@ -111,6 +124,29 @@ describe('live administrator workspace', () => {
     ))
   })
 
+  it('embeds the preview and keeps the administrator workspace focused', async () => {
+    render(<AdminLivePage />)
+
+    expect(await screen.findByTestId('admin-live-preview')).toHaveAttribute(
+      'data-media-url',
+      '/live-media/live/stream/index.m3u8',
+    )
+    expect(screen.queryByText('直播管理')).not.toBeInTheDocument()
+    expect(screen.queryByText('单直播间')).not.toBeInTheDocument()
+    expect(screen.queryByText('设置 OBS、观看权限、访客记录和自动录像。')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /打开观看页/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /刷新直播管理信息/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('自动录像')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('直播标题')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('直播简介')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('目标码率（kbps）')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('封面地址')).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('OBS 服务器')).toBeInTheDocument()
+    expect(await screen.findByLabelText('OBS 当前密钥')).toBeInTheDocument()
+    expect(screen.getByText('直播场次')).toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /203\.0\.113\.8/ })).not.toBeInTheDocument()
+  })
+
   it('uses concrete administrator recording endpoints', () => {
     expect(API_ENDPOINTS.ADMIN_LIVE_RECORDINGS).toBe(
       `${window.location.origin}/api/admin/live/recordings`,
@@ -147,6 +183,7 @@ describe('live administrator workspace', () => {
   it('shows visitor region, device, browser and watch time without storage paths', async () => {
     render(<AdminLivePage />)
 
+    await userEvent.setup().click(await screen.findByRole('button', { name: /观看人数：1/ }))
     const row = await screen.findByRole('row', { name: /203\.0\.113\.8/ })
     expect(within(row).getByText('member')).toBeInTheDocument()
     expect(within(row).getByText('member@example.com')).toBeInTheDocument()
@@ -166,86 +203,23 @@ describe('live administrator workspace', () => {
     expect(document.body).not.toHaveTextContent('/srv/blue-live/recordings')
   })
 
-  it('downloads a recording through the authenticated API client', async () => {
-    const user = userEvent.setup()
-    const createObjectURL = vi.fn(() => 'blob:recording')
-    const revokeObjectURL = vi.fn()
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      value: createObjectURL,
-    })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      value: revokeObjectURL,
-    })
-    apiClient.get.mockImplementation((endpoint) => {
-      if (endpoint === '/api/admin/live/recordings/3/download') {
-        return Promise.resolve({
-          data: new Blob(['recording']),
-          headers: { 'content-disposition': 'attachment; filename="live.mp4"' },
-        })
-      }
-      return Promise.resolve({ data: responses[endpoint] })
-    })
-
+  it('does not expose automatic recording controls', async () => {
     render(<AdminLivePage />)
-    await user.click(await screen.findByRole('button', { name: '播放录像 第 1 场.mp4' }))
-    expect(document.querySelector('video[aria-label="播放录像 第 1 场.mp4"]')).toHaveAttribute(
-      'src',
-      'blob:recording',
-    )
-    await user.click(screen.getByRole('button', { name: '关闭' }))
-    await user.click(await screen.findByRole('button', { name: '下载录像 第 1 场.mp4' }))
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/api/admin/live/recordings/3/download',
-      { responseType: 'blob' },
-    )
-    expect(createObjectURL).toHaveBeenCalled()
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:recording')
+    expect(await screen.findByText('开播设置')).toBeInTheDocument()
+    expect(screen.queryByText('录像')).not.toBeInTheDocument()
+    expect(screen.queryByText('自动录制直播')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /播放录像/ })).not.toBeInTheDocument()
   })
 
-  it('submits streamer quality, bitrate and latency settings', async () => {
-    const user = userEvent.setup()
-    apiClient.put.mockResolvedValue({ data: settings })
-
+  it('keeps the compact settings focused on viewing and OBS', async () => {
     render(<AdminLivePage />)
 
-    await user.clear(await screen.findByLabelText('目标码率（kbps）'))
-    await user.type(screen.getByLabelText('目标码率（kbps）'), '5800')
-    await user.selectOptions(screen.getByLabelText('推流画质'), 'clear')
-    await user.selectOptions(screen.getByLabelText('直播延时'), 'ultra_low')
-    await user.click(screen.getByRole('button', { name: '保存设置' }))
-
-    expect(apiClient.put).toHaveBeenCalledWith(
-      API_ENDPOINTS.ADMIN_LIVE_SETTINGS,
-      expect.objectContaining({
-        stream_quality: 'clear',
-        target_bitrate_kbps: 5800,
-        latency_mode: 'ultra_low',
-      }),
-    )
-  })
-
-  it('submits the automatic recording switch with its safety explanation', async () => {
-    const user = userEvent.setup()
-    apiClient.put.mockResolvedValue({ data: settings })
-    render(<AdminLivePage />)
-
+    const viewerToggle = await screen.findByLabelText('观看人数：1')
+    expect(viewerToggle).toBeInTheDocument()
+    await userEvent.setup().click(viewerToggle)
     expect(await screen.findByText('当前在线：2 人')).toBeInTheDocument()
-    expect(screen.getByText(/最近刷新：/)).toBeInTheDocument()
-    const recordingToggle = await screen.findByLabelText('自动录制直播')
-    expect(recordingToggle).toBeChecked()
-    expect(screen.getByText(/关闭后当前和后续直播都不会自动录像/)).toBeInTheDocument()
-    expect(screen.getByText(/磁盘空间不足时会自动暂停/)).toBeInTheDocument()
-
-    await user.click(recordingToggle)
-    await user.click(screen.getByRole('button', { name: '保存设置' }))
-
-    expect(apiClient.put).toHaveBeenCalledWith(
-      API_ENDPOINTS.ADMIN_LIVE_SETTINGS,
-      expect.objectContaining({ recording_enabled: false }),
-    )
+    expect(screen.queryByLabelText('自动录制直播')).not.toBeInTheDocument()
+    expect(screen.queryByText(/磁盘空间不足时会自动暂停/)).not.toBeInTheDocument()
   })
 
   it('keeps the last audience visible when an automatic refresh fails', async () => {
@@ -261,6 +235,7 @@ describe('live administrator workspace', () => {
 
     const view = render(<AdminLivePage />)
     await act(async () => {})
+    fireEvent.click(screen.getByLabelText('观看人数：1'))
     expect(screen.getByRole('row', { name: /203\.0\.113\.8/ })).toBeInTheDocument()
 
     await act(async () => {
@@ -280,6 +255,7 @@ describe('live administrator workspace', () => {
 
     render(<AdminLivePage />)
 
+    fireEvent.click(await screen.findByLabelText('观看人数：1'))
     expect(await screen.findByText('当前没有人观看直播。')).toBeInTheDocument()
   })
 })

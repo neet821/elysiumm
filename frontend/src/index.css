@@ -3317,6 +3317,11 @@ html.dark .polaroid-card:hover,
 .admin-live__status dl { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
 .admin-live__status dt { font-size: 0.68rem; opacity: 0.65; }
 .admin-live__status dd { font-size: 0.82rem; margin: 0.3rem 0 0; overflow-wrap: anywhere; }
+.admin-live__viewer-toggle { background: transparent; border: 0; color: inherit; cursor: pointer; display: block; font: inherit; padding: 0; text-align: left; width: 100%; }
+.admin-live__viewer-toggle:hover dt, .admin-live__viewer-toggle:focus-visible dt { color: var(--accent-blue); }
+.admin-live__preview { background: var(--surface-inverse); border: 1px solid var(--border-subtle); min-height: 12rem; }
+.admin-live__preview .live-player { border: 0; box-shadow: none; }
+.admin-live__preview-empty { align-items: center; color: var(--text-inverse); display: flex; justify-content: center; min-height: 12rem; }
 .admin-live__grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-live__card { background: var(--surface-card); border: 1px solid var(--border-subtle); display: grid; gap: 1rem; padding: 1.15rem; }
 .admin-live__card--wide { grid-column: 1 / -1; }
@@ -3326,6 +3331,7 @@ html.dark .polaroid-card:hover,
 .admin-live__card h2 { font-size: 1rem; margin: 0; }
 .admin-live__card header p { color: var(--text-secondary); font-size: 0.76rem; line-height: 1.5; margin: 0.25rem 0 0; }
 .admin-live__card form, .admin-live__credentials { display: grid; gap: 0.85rem; }
+.admin-live__credentials--embedded { border-top: 1px solid var(--border-subtle); padding-top: 1rem; }
 .admin-live__hint { color: var(--text-secondary); font-size: 0.78rem; margin: 0; }
 .admin-live__field { display: grid; gap: 0.4rem; }
 .admin-live__field > span, .admin-live__users legend { color: var(--text-primary); font-size: 0.78rem; font-weight: 700; }
@@ -3354,6 +3360,14 @@ html.dark .polaroid-card:hover,
 .admin-live__empty { color: var(--text-secondary); margin: 0; padding: 0.85rem 0; }
 .admin-live__dialog-actions { justify-content: flex-end; margin-top: 1rem; }
 .admin-live__recording-player { aspect-ratio: 16 / 9; background: #050607; border-radius: 0.75rem; display: block; max-height: 68vh; width: 100%; }
+.admin-live__sessions-card > summary { align-items: flex-start; cursor: pointer; display: flex; gap: 0.7rem; list-style: none; }
+.admin-live__sessions-card > summary::-webkit-details-marker { display: none; }
+.admin-live__sessions-card > summary::after { color: var(--text-secondary); content: '+'; font-size: 1.25rem; margin-left: auto; }
+.admin-live__sessions-card[open] > summary::after { content: '−'; }
+.admin-live__sessions-card > summary > svg { color: var(--accent-blue); flex: 0 0 auto; height: 1.1rem; margin-top: 0.15rem; width: 1.1rem; }
+.admin-live__sessions-card > summary > div { display: grid; gap: 0.25rem; }
+.admin-live__sessions-card > summary strong { font-size: 1rem; }
+.admin-live__sessions-card > summary span { color: var(--text-secondary); font-size: 0.76rem; line-height: 1.5; }
 
 @media (max-width: 800px) {
   .admin-live__intro, .admin-live__invites li, .admin-live__recordings li, .admin-live__sessions li { align-items: stretch; flex-direction: column; }

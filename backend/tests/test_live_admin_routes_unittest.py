@@ -366,6 +366,28 @@ class LiveAdminRoutesTest(unittest.TestCase):
             .one_or_none()
         )
 
+    def test_only_one_active_invite_can_exist_at_a_time(self):
+        first = self.client.post(
+            "/api/admin/live/invites",
+            headers=self.admin_auth,
+            json={"expires_in_hours": 2},
+        )
+        self.assertEqual(first.status_code, 201, first.text)
+
+        second = self.client.post(
+            "/api/admin/live/invites",
+            headers=self.admin_auth,
+            json={"expires_in_hours": 2},
+        )
+        self.assertEqual(second.status_code, 409, second.text)
+
+        listed = self.client.get(
+            "/api/admin/live/invites",
+            headers=self.admin_auth,
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()), 1)
+
     def test_kick_and_clear_history_are_rate_limited_and_audited(self):
         viewer = models.LiveViewerSession(
             live_session_id=self.session.id,

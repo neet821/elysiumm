@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
-import { Maximize, Pause, Play, Volume2 } from 'lucide-react'
+import { Maximize, Pause, Play, RefreshCw, Volume2 } from 'lucide-react'
 
 
-export default function LivePlayer({ mediaUrl, minimal = false }) {
+export default function LivePlayer({ mediaUrl, minimal = false, onRefresh }) {
   const videoRef = useRef(null)
   const retryRef = useRef(0)
   const [message, setMessage] = useState('')
   const [muted, setMuted] = useState(true)
   const [playing, setPlaying] = useState(false)
-  const [volume, setVolume] = useState(1)
+  const [volume, setVolume] = useState(0)
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -72,15 +73,13 @@ export default function LivePlayer({ mediaUrl, minimal = false }) {
       reconnectTimers.forEach((timer) => window.clearTimeout(timer))
       hls.destroy()
     }
-  }, [mediaUrl])
+  }, [mediaUrl, refreshVersion])
 
-  const enableSound = () => {
-    setMuted(false)
-    if (videoRef.current) {
-      videoRef.current.muted = false
-      videoRef.current.play().catch(() => {})
-    }
-  }
+  useEffect(() => {
+    if (!videoRef.current) return
+    videoRef.current.volume = volume
+    videoRef.current.muted = muted
+  }, [muted, volume])
 
   const togglePlayback = () => {
     const video = videoRef.current
@@ -94,6 +93,11 @@ export default function LivePlayer({ mediaUrl, minimal = false }) {
     if (!container) return
     if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen()
     else if (container.requestFullscreen) await container.requestFullscreen()
+  }
+
+  const refresh = () => {
+    if (onRefresh) onRefresh()
+    else setRefreshVersion((value) => value + 1)
   }
 
   return (
@@ -114,20 +118,18 @@ export default function LivePlayer({ mediaUrl, minimal = false }) {
           <button type="button" onClick={togglePlayback} aria-label={playing ? '暂停直播' : '播放直播'}>
             {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
           </button>
+          <button type="button" onClick={refresh} aria-label="刷新直播">
+            <RefreshCw aria-hidden="true" />
+          </button>
           <label>
             <Volume2 aria-hidden="true" />
             <span className="sr-only">直播音量</span>
-            <input aria-label="直播音量" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => { const value = Number(event.target.value); setVolume(value); if (videoRef.current) { videoRef.current.volume = value; videoRef.current.muted = value === 0; setMuted(value === 0) } }} />
+            <input aria-label="直播音量" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => { const value = Number(event.target.value); setVolume(value); setMuted(value === 0) }} />
           </label>
           <button type="button" onClick={toggleFullscreen} aria-label="直播全屏">
             <Maximize aria-hidden="true" />
           </button>
         </div>
-      )}
-      {muted && (
-        <button className="live-player__sound" type="button" onClick={enableSound}>
-          开启声音
-        </button>
       )}
       {message && <p className="live-player__message" role="status">{message}</p>}
     </div>

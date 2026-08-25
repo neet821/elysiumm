@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Copy,
-  ExternalLink,
-  KeyRound,
   Link2,
   Radio,
-  RefreshCw,
   Save,
   Unplug,
   Users,
-  Video,
 } from 'lucide-react'
 
 import { API_ENDPOINTS } from '../config'
 import AdminLiveAudience from '../features/live/AdminLiveAudience'
-import AdminLiveRecordings from '../features/live/AdminLiveRecordings'
+import LivePlayer from '../features/live/LivePlayer'
+import useLiveSession from '../features/live/useLiveSession'
 import apiClient from '../utils/request'
 import { Button, Dialog, Input } from '../components/ui'
 
@@ -26,7 +23,6 @@ const endpointEntries = [
   ['invites', API_ENDPOINTS.ADMIN_LIVE_INVITES],
   ['audience', API_ENDPOINTS.ADMIN_LIVE_AUDIENCE],
   ['sessions', API_ENDPOINTS.ADMIN_LIVE_SESSIONS],
-  ['recordings', API_ENDPOINTS.ADMIN_LIVE_RECORDINGS],
   ['users', API_ENDPOINTS.ADMIN_USERS],
 ]
 
@@ -40,7 +36,6 @@ export default function AdminLivePage() {
     allowedUsers: [],
     audience: [],
     invites: [],
-    recordings: [],
     sessions: [],
     settings: null,
     status: null,
@@ -48,17 +43,16 @@ export default function AdminLivePage() {
   })
   const [form, setForm] = useState(null)
   const [selectedUsers, setSelectedUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmation, setConfirmation] = useState(null)
   const [oneTimeSecret, setOneTimeSecret] = useState(null)
   const [inviteHours, setInviteHours] = useState(24)
-  const [renameTarget, setRenameTarget] = useState(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [recordingPreview, setRecordingPreview] = useState(null)
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const [audienceRefreshedAt, setAudienceRefreshedAt] = useState(null)
+  const [audienceExpanded, setAudienceExpanded] = useState(false)
+  const preview = useLiveSession()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -211,66 +205,14 @@ export default function AdminLivePage() {
     await navigator.clipboard?.writeText(oneTimeSecret.value)
   }
 
-  const downloadRecording = async (recording) => {
-    setBusy(true)
-    try {
-      const response = await apiClient.get(recording.download_url, {
-        responseType: 'blob',
-      })
-      const objectUrl = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = objectUrl
-      link.download = recording.display_name
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(objectUrl)
-    } catch {
-      setError('录像下载失败。')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const previewRecording = async (recording) => {
-    setBusy(true)
-    try {
-      const response = await apiClient.get(recording.download_url, {
-        responseType: 'blob',
-      })
-      setRecordingPreview({
-        name: recording.display_name,
-        url: URL.createObjectURL(response.data),
-      })
-    } catch {
-      setError('录像播放失败。')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const closeRecordingPreview = () => {
-    if (recordingPreview?.url) URL.revokeObjectURL(recordingPreview.url)
-    setRecordingPreview(null)
-  }
-
   const session = data.status?.session
+  const activeInvite = data.invites.find((invite) => invite.status === 'active')
 
   return (
     <div className="admin-live">
       <header className="admin-live__intro">
         <div>
-          <p>直播管理</p>
-          <h1>单直播间</h1>
-          <span>设置 OBS、观看权限、访客记录和自动录像。</span>
-        </div>
-        <div>
-          <a href="/live?watch=1" target="_blank" rel="noreferrer">
-            打开观看页 <ExternalLink aria-hidden="true" />
-          </a>
-          <Button aria-label="刷新直播管理信息" variant="secondary" onClick={load} isLoading={loading}>
-            <RefreshCw aria-hidden="true" /> 刷新
-          </Button>
+          <h1>直播</h1>
         </div>
       </header>
 
@@ -285,24 +227,66 @@ export default function AdminLivePage() {
           </div>
         </div>
         <dl>
-          <div><dt>观看人数</dt><dd>{data.status?.active_viewers ?? 0}</dd></div>
+          <div>
+            <button
+              type="button"
+              className="admin-live__viewer-toggle"
+              aria-expanded={audienceExpanded}
+              aria-label={`观看人数：${data.status?.active_viewers ?? 0}`}
+              onClick={() => setAudienceExpanded((open) => !open)}
+            >
+              <dt>观看人数</dt>
+              <dd>{data.status?.active_viewers ?? 0}</dd>
+            </button>
+          </div>
           <div><dt>开始时间</dt><dd>{dateTime(session?.started_at)}</dd></div>
           <div><dt>画面</dt><dd>{session?.width ? `${session.width} × ${session.height} · ${session.frame_rate || '—'} fps` : '—'}</dd></div>
           <div><dt>编码</dt><dd>{session?.video_codec ? `${session.video_codec} · ${session.audio_codec || '无音频'}` : '—'}</dd></div>
         </dl>
       </section>
 
+      <section className="admin-live__preview" aria-label="直播预览">
+        {preview.state === 'live' && preview.mediaUrl ? (
+          <LivePlayer mediaUrl={preview.mediaUrl} minimal onRefresh={preview.retry} />
+        ) : (
+          <div className="admin-live__preview-empty">未开播</div>
+        )}
+      </section>
+
       <div className="admin-live__grid">
+        {audienceExpanded && (
+          <section className="admin-live__card admin-live__card--wide" aria-label="当前在线观众">
+            <header>
+              <Users aria-hidden="true" />
+              <div><h2>当前在线观众</h2><p>实时查看正在观看的用户信息。</p></div>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => ask(
+                  '确认清除访客记录',
+                  '当前列出的观众历史将从数据库删除。',
+                  '确认清除',
+                  async () => {
+                    await apiClient.delete(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY)
+                    await load()
+                  },
+                )}
+              >
+                清除记录
+              </Button>
+            </header>
+            <AdminLiveAudience audience={data.audience} refreshedAt={audienceRefreshedAt} />
+            <p className="admin-live__attribution">
+              <a href="https://db-ip.com" target="_blank" rel="noreferrer">
+                地区数据由 DB-IP 提供
+              </a>
+            </p>
+          </section>
+        )}
         <section className="admin-live__card admin-live__card--settings">
           <header><Save aria-hidden="true" /><div><h2>开播设置</h2><p>保存后下一位访客立即按新规则进入。</p></div></header>
           {form && (
             <form onSubmit={saveSettings}>
-              <Input label="直播标题" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
-              <label className="admin-live__field">
-                <span>直播简介</span>
-                <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-              </label>
-              <Input label="封面地址" type="url" value={form.cover_url || ''} onChange={(event) => setForm({ ...form, cover_url: event.target.value })} />
               <label className="admin-live__field">
                 <span>推流画质</span>
                 <select value={form.stream_quality || 'balanced'} onChange={(event) => setForm({ ...form, stream_quality: event.target.value })}>
@@ -312,18 +296,6 @@ export default function AdminLivePage() {
                   <option value="source">原画（高带宽）</option>
                 </select>
               </label>
-              <Input
-                label="目标码率（kbps）"
-                type="number"
-                min="300"
-                max="50000"
-                value={form.target_bitrate_kbps ?? ''}
-                onChange={(event) => setForm({
-                  ...form,
-                  target_bitrate_kbps: event.target.value,
-                })}
-                hint="留空时使用 OBS 当前场景默认码率。"
-              />
               <label className="admin-live__field">
                 <span>直播延时</span>
                 <select value={form.latency_mode || 'normal'} onChange={(event) => setForm({ ...form, latency_mode: event.target.value })}>
@@ -363,132 +335,70 @@ export default function AdminLivePage() {
                 <input type="checkbox" checked={form.viewing_enabled} onChange={(event) => setForm({ ...form, viewing_enabled: event.target.checked })} />
                 允许访客观看
               </label>
-              <label className="admin-live__check">
-                <input type="checkbox" checked={form.recording_enabled} onChange={(event) => setForm({ ...form, recording_enabled: event.target.checked })} />
-                自动录制直播
-              </label>
-              <p className="admin-live__hint">关闭后当前和后续直播都不会自动录像；磁盘空间不足时会自动暂停。</p>
+              <div className="admin-live__credentials admin-live__credentials--embedded">
+                <Input label="OBS 服务器" value={data.settings?.rtmp_server || ''} readOnly />
+                <Input label="OBS 当前密钥" value={data.settings?.stream_key_hint ? `••••••${data.settings.stream_key_hint}` : '尚未生成'} readOnly />
+                <div className="admin-live__actions">
+                  <Button type="button" onClick={rotateKey}>更换推流密钥</Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={() => ask(
+                      '确认强制断流',
+                      'OBS 会立即与服务器断开。',
+                      '确认断流',
+                      async () => {
+                        await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_KICK)
+                        await load()
+                      },
+                    )}
+                  >
+                    <Unplug aria-hidden="true" /> 强制断流
+                  </Button>
+                </div>
+              </div>
               <Button type="submit" isLoading={busy}>保存设置</Button>
             </form>
           )}
         </section>
 
-        <section className="admin-live__card">
-          <header><KeyRound aria-hidden="true" /><div><h2>OBS 推流</h2><p>永久密钥只显示末六位。</p></div></header>
-          <div className="admin-live__credentials">
-            <Input label="服务器" value={data.settings?.rtmp_server || ''} readOnly />
-            <Input label="当前密钥" value={data.settings?.stream_key_hint ? `••••••${data.settings.stream_key_hint}` : '尚未生成'} readOnly />
-          </div>
-          <p className="admin-live__hint">
-            当前主播配置：{data.settings?.stream_quality || 'balanced'} 画质
-            {data.settings?.target_bitrate_kbps ? ` · ${data.settings.target_bitrate_kbps} kbps` : ' · 码率按 OBS 设置'}
-            {' · '}
-            {data.settings?.latency_mode === 'ultra_low' ? '超低延时' : data.settings?.latency_mode === 'low' ? '低延时' : '标准延时'}
-          </p>
-          <div className="admin-live__actions">
-            <Button onClick={rotateKey}>更换推流密钥</Button>
-            <Button
-              variant="danger"
-              onClick={() => ask(
-                '确认强制断流',
-                'OBS 会立即与服务器断开。',
-                '确认断流',
-                async () => {
-                  await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_KICK)
-                  await load()
-                },
-              )}
-            >
-              <Unplug aria-hidden="true" /> 强制断流
-            </Button>
-          </div>
-        </section>
-
+        {form?.access_mode === 'invite' && (
         <section className="admin-live__card admin-live__card--wide">
           <header><Link2 aria-hidden="true" /><div><h2>邀请链接</h2><p>新链接的完整地址只显示一次。</p></div></header>
-          <div className="admin-live__invite-create">
+          {!activeInvite && <div className="admin-live__invite-create">
             <Input label="有效小时数" min="1" max="8760" type="number" value={inviteHours} onChange={(event) => setInviteHours(event.target.value)} />
             <Button onClick={createInvite} isLoading={busy}>创建邀请</Button>
-          </div>
+          </div>}
           <ul className="admin-live__invites">
-            {data.invites.map((invite) => (
-              <li key={invite.id}>
-                <div><strong>尾号 {invite.token_hint}</strong><span>{invite.status} · 到期 {dateTime(invite.expires_at)}</span></div>
-                {invite.status === 'active' && (
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => ask(
-                      '确认停用邀请',
-                      `尾号 ${invite.token_hint} 的链接会立即失效。`,
-                      '确认停用',
-                      async () => {
-                        await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_INVITE_REVOKE(invite.id))
-                        await load()
-                      },
-                    )}
-                  >
-                    停用
-                  </Button>
-                )}
+            {activeInvite && (
+              <li key={activeInvite.id}>
+                <div><strong>尾号 {activeInvite.token_hint}</strong><span>有效 · 到期 {dateTime(activeInvite.expires_at)}</span></div>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => ask(
+                    '确认停用邀请',
+                    `尾号 ${activeInvite.token_hint} 的链接会立即失效。`,
+                    '确认停用',
+                    async () => {
+                      await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_INVITE_REVOKE(activeInvite.id))
+                      await load()
+                    },
+                  )}
+                >
+                  停用
+                </Button>
               </li>
-            ))}
-            {!data.invites.length && <li className="admin-live__empty">还没有邀请链接。</li>}
+            )}
+            {!activeInvite && (
+              <li className="admin-live__empty">还没有有效邀请链接。</li>
+            )}
           </ul>
         </section>
+        )}
 
-        <section className="admin-live__card admin-live__card--wide">
-          <header>
-            <Users aria-hidden="true" />
-            <div><h2>当前在线观众</h2><p>实时刷新当前仍在观看的访客信息和人数。</p></div>
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={() => ask(
-                '确认清除访客记录',
-                '当前列出的观众历史将从数据库删除。',
-                '确认清除',
-                async () => {
-                  await apiClient.delete(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY)
-                  await load()
-                },
-              )}
-            >
-              清除记录
-            </Button>
-          </header>
-          <AdminLiveAudience audience={data.audience} refreshedAt={audienceRefreshedAt} />
-          <p className="admin-live__attribution">
-            <a href="https://db-ip.com" target="_blank" rel="noreferrer">
-              地区数据由 DB-IP 提供
-            </a>
-          </p>
-        </section>
-
-        <section className="admin-live__card admin-live__card--wide">
-          <header><Video aria-hidden="true" /><div><h2>自动录像</h2><p>录像保存在服务器；网盘接入位置已经预留。</p></div></header>
-          <AdminLiveRecordings
-            recordings={data.recordings}
-            onDownload={downloadRecording}
-            onPreview={previewRecording}
-            onRename={(recording) => {
-              setRenameTarget(recording)
-              setRenameValue(recording.display_name)
-            }}
-            onDelete={(recording) => ask(
-              '确认删除录像',
-              `${recording.display_name} 会从服务器永久删除。`,
-              '确认删除',
-              async () => {
-                await apiClient.delete(API_ENDPOINTS.ADMIN_LIVE_RECORDING(recording.id))
-                await load()
-              },
-            )}
-          />
-        </section>
-
-        <section className="admin-live__card admin-live__card--wide">
-          <header><Radio aria-hidden="true" /><div><h2>直播场次</h2><p>短暂断流会归入同一场，正式结束后才生成下一场。</p></div></header>
+        <details className="admin-live__card admin-live__card--wide admin-live__sessions-card">
+          <summary><Radio aria-hidden="true" /><div><strong>直播场次</strong><span>短暂断流会归入同一场，正式结束后才生成下一场。</span></div></summary>
           <ul className="admin-live__sessions">
             {data.sessions.map((entry) => (
               <li key={entry.id}>
@@ -498,7 +408,7 @@ export default function AdminLivePage() {
             ))}
             {!data.sessions.length && <li className="admin-live__empty">还没有历史场次。</li>}
           </ul>
-        </section>
+        </details>
       </div>
 
       <Dialog
@@ -528,46 +438,6 @@ export default function AdminLivePage() {
         </div>
       </Dialog>
 
-      <Dialog
-        open={Boolean(renameTarget)}
-        onOpenChange={(open) => !open && setRenameTarget(null)}
-        title="修改录像名称"
-      >
-        <Input label="录像名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} />
-        <div className="admin-live__dialog-actions">
-          <Button variant="secondary" onClick={() => setRenameTarget(null)}>取消</Button>
-          <Button onClick={async () => {
-            setBusy(true)
-            try {
-              await apiClient.put(API_ENDPOINTS.ADMIN_LIVE_RECORDING(renameTarget.id), { display_name: renameValue })
-              setRenameTarget(null)
-              await load()
-            } catch {
-              setError('录像名称修改失败。')
-            } finally {
-              setBusy(false)
-            }
-          }}>保存名称</Button>
-        </div>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(recordingPreview)}
-        onOpenChange={(open) => !open && closeRecordingPreview()}
-        title={recordingPreview?.name || '录像播放'}
-      >
-        {recordingPreview && (
-          <video
-            aria-label={`播放录像 ${recordingPreview.name}`}
-            className="admin-live__recording-player"
-            controls
-            src={recordingPreview.url}
-          />
-        )}
-        <div className="admin-live__dialog-actions">
-          <Button onClick={closeRecordingPreview}>关闭</Button>
-        </div>
-      </Dialog>
     </div>
   )
 }

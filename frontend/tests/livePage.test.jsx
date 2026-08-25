@@ -199,6 +199,19 @@ describe('public live page', () => {
     expect(screen.queryByTestId('inline-admin-live')).not.toBeInTheDocument()
   })
 
+  it('shows only the centered not-started state on the administrator watch page', async () => {
+    optionalAuthState.isAdmin = true
+    window.history.replaceState({}, '', '/live?watch=1')
+    apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'ended' } })
+
+    render(<LivePage />)
+
+    expect(await screen.findByText('未开播')).toBeInTheDocument()
+    expect(screen.getByRole('main')).toHaveClass('live-watch-page')
+    expect(screen.queryByText('直播已结束')).not.toBeInTheDocument()
+    expect(screen.queryByText('感谢观看，下一次开播时这里会出现新的画面。')).not.toBeInTheDocument()
+  })
+
   it('lets viewers set a nickname and send a live message', async () => {
     const user = userEvent.setup()
     apiClient.get.mockResolvedValue({ data: liveStatus })

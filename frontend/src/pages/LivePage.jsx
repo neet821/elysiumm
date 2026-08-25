@@ -65,7 +65,7 @@ function StatePanel({ state, retry }) {
 }
 
 
-function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, state, status }) {
+function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, status }) {
   if (isLoading) {
     return <main className="live-watch-page"><div className="live-watch-page__status" role="status">正在连接直播间…</div></main>
   }
@@ -74,23 +74,15 @@ function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, state, status })
     return (
       <main className="live-watch-page">
         <h1 className="live-watch-page__title">{status?.title || '直播'}</h1>
-        <LivePlayer mediaUrl={mediaUrl} minimal />
+        <LivePlayer mediaUrl={mediaUrl} minimal onRefresh={retry} />
       </main>
     )
   }
 
-  const message = stateMessages[state] || stateMessages.service_unavailable
-  const isEnded = state === 'ended'
   return (
     <main className="live-watch-page">
-      <div className="live-watch-page__status" role={isEnded ? 'status' : 'alert'}>
-        <h1 className="live-watch-page__title">{message.title}</h1>
-        {!isEnded && (
-          <button className="live-state__action" type="button" onClick={retry}>
-            <RefreshCw aria-hidden="true" />
-            {state === 'waiting' ? '立即检查' : '重新连接'}
-          </button>
-        )}
+      <div className="live-watch-page__status" role="status">
+        <h1 className="live-watch-page__title">未开播</h1>
       </div>
     </main>
   )
@@ -109,7 +101,7 @@ function PublicLivePage({ minimal = false }) {
   )
 
   if (minimal) {
-    return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} state={state} status={status} />
+    return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} status={status} />
   }
 
   return (

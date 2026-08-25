@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 import models
@@ -113,6 +113,17 @@ def _invite_payload(invite: models.LiveInvite) -> dict:
         "last_used_at": invite.last_used_at,
         "created_at": invite.created_at,
     }
+
+
+def _active_invite_query(db: Session):
+    now = datetime.utcnow()
+    return db.query(models.LiveInvite).filter(
+        models.LiveInvite.revoked_at.is_(None),
+        or_(
+            models.LiveInvite.expires_at.is_(None),
+            models.LiveInvite.expires_at > now,
+        ),
+    )
 
 
 @router.get("/settings")
@@ -298,12 +309,7 @@ def list_invites(
     db: Session = Depends(get_db),
     _admin: models.User = Depends(active_administrator),
 ):
-    rows = (
-        db.query(models.LiveInvite)
-        .order_by(models.LiveInvite.created_at.desc())
-        .limit(500)
-        .all()
-    )
+    rows = _active_invite_query(db).order_by(models.LiveInvite.created_at.desc()).limit(1).all()
     return [_invite_payload(invite) for invite in rows]
 
 
@@ -314,6 +320,8 @@ def create_invite(
     admin: models.User = Depends(active_administrator),
 ):
     _rate_limit(db, admin, "live_invite_create")
+    if _active_invite_query(db).first() is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "已有有效邀请链接，请先停用后再生成")
     raw, digest, hint = generate_secret()
     invite = models.LiveInvite(
         token_hash=digest,
