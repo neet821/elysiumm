@@ -852,7 +852,7 @@
     position: fixed;
     left: 0;
     right: auto;
-    top: 4.25rem;
+    top: var(--home-header-height, 3.75rem);
     width: min(88vw, 23rem);
     z-index: 100;
   }
@@ -865,7 +865,7 @@
     padding: 0;
     position: fixed;
     right: 0;
-    top: 3.75rem;
+    top: var(--home-header-height, 3.75rem);
     width: 100%;
     z-index: 90;
   }
@@ -889,10 +889,10 @@
 @media (max-width: 800px) {
   .service-shell.app-shell--home .app-header__leading {
     display: flex;
-    left: max(1rem, calc((100vw - 680px) / 2));
-    position: fixed;
-    top: .75rem;
-    z-index: 120;
+    left: auto;
+    position: static;
+    top: auto;
+    z-index: auto;
   }
   .service-shell.app-shell--home .app-header__sidebar-toggle {
     align-items: center;

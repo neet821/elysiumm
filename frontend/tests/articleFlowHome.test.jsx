@@ -119,6 +119,25 @@ describe('ArticleFlowHome', () => {
     expect(screen.getByLabelText('电影类型')).toBeInTheDocument()
   })
 
+  it('keeps media records visible when the feed omits the derived content type', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{
+        slug: 'movie-record',
+        title: '瑞克和莫蒂 S4',
+        type: 'movie',
+        createdAt: '2026-08-25',
+        cover: '/media/movie-cover.png',
+        review: '看好啊',
+      }] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('瑞克和莫蒂 S4')).toBeInTheDocument())
+    expect(container.querySelector('.record-card')).toHaveTextContent('瑞克和莫蒂 S4')
+  })
+
   it('shows a flat icon for each supported record type', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -316,7 +335,11 @@ describe('ArticleFlowHome', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
     const indexCss = fs.readFileSync('src/index.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
+    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*var\(--home-header-height(?:,\s*[^)]+)?\)/s)
+    expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*var\(--home-header-height(?:,\s*[^)]+)?\)/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
+    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*sticky\s*!important;[^}]*top:\s*0;/s)
+    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header__leading\s*\{[^}]*position:\s*static;/s)
     expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)

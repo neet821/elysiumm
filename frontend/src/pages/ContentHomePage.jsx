@@ -303,7 +303,11 @@ export function ArticleFlowHome() {
   if (!articles) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
 
   const sorted = [...articles].sort((a, b) => new Date(b.createdAt || b.date || b.updatedAt || 0) - new Date(a.createdAt || a.date || a.updatedAt || 0))
-  const contentType = (item) => item.contentType || (articleType(item) === 'image' ? 'photo' : articleType(item))
+  const contentType = (item) => {
+    if (item.contentType) return item.contentType
+    if (['movie', 'album', 'book', 'game'].includes(item.type)) return 'record'
+    return articleType(item) === 'image' ? 'photo' : articleType(item)
+  }
   const fullEssayBySlug = fullEssays
   const articleItems = sorted.filter((item) => contentType(item) === 'article')
   const essays = sorted.filter((item) => contentType(item) === 'essay')

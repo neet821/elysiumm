@@ -4086,3 +4086,32 @@ body:has(.app-shell--home)::before {
   .admin-dashboard__cards { grid-template-columns: 1fr; }
   .admin-dashboard__recent li { align-items: start; grid-template-columns: 1fr; gap: .25rem; }
 }
+
+/* Keep the homepage trigger and its top bar in one stable positioning context. */
+.service-shell.app-shell--home {
+  --home-header-height: 3.75rem;
+}
+.service-shell.app-shell--home .app-header {
+  align-items: flex-start;
+  box-sizing: border-box;
+  display: flex !important;
+  height: var(--home-header-height);
+  inset: 0 auto auto 0;
+  padding: .75rem max(1rem, calc((100vw - 1280px) / 2));
+  position: sticky !important;
+  top: 0;
+  width: 100%;
+  z-index: 110;
+}
+.service-shell.app-shell--home .app-header__inner {
+  justify-content: space-between;
+  max-width: 1280px;
+  width: 100%;
+}
+.service-shell.app-shell--home .app-header__leading {
+  left: auto;
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+.service-shell.app-shell--home .app-shell__main { padding-top: 0; }
