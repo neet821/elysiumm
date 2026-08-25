@@ -42,6 +42,7 @@ describe('Elysium plain service shell', () => {
 
     const toggle = screen.getByRole('button', { name: '展开记录和随笔' })
     expect(toggle.closest('header')).toBe(screen.getByRole('banner'))
+    expect(toggle.closest('.home-header-portal')).toBeInTheDocument()
     await user.click(toggle)
     expect(screen.getByRole('button', { name: '收起记录和随笔' })).toBeInTheDocument()
   })
