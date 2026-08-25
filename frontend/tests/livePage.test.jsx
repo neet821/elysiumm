@@ -128,6 +128,26 @@ describe('public live page', () => {
     })
   })
 
+  it('keeps the live page usable when browser storage is unavailable', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage is unavailable', 'SecurityError')
+    })
+    apiClient.get.mockResolvedValue({ data: liveStatus })
+    apiClient.post.mockResolvedValue({
+      data: {
+        viewer_session_id: 'viewer-1',
+        media_url: '/live-media/live/stream/index.m3u8',
+        expires_in: 120,
+      },
+    })
+
+    render(<LivePage />)
+
+    expect(await screen.findByRole('heading', { name: '今晚直播' })).toBeInTheDocument()
+    expect(screen.getByLabelText('直播留言')).toBeInTheDocument()
+    getItem.mockRestore()
+  })
+
   it('lets viewers set a nickname and send a live message', async () => {
     const user = userEvent.setup()
     apiClient.get.mockResolvedValue({ data: liveStatus })

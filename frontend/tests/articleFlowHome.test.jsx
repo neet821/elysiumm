@@ -52,14 +52,14 @@ describe('ArticleFlowHome', () => {
       return { ok: true, json: async () => ({ article: { html: '<p>开始吃就不会塌</p>' } }) }
     })
 
-    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '打瓦得分儿' })).toBeInTheDocument())
-    const headings = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)
-    expect(headings.slice(0, 2)).toEqual(['打瓦得分儿', '方便面定律'])
+    expect(container.querySelector('.home-main h2')).toHaveTextContent('打瓦得分儿')
+    expect(container.querySelector('.home-sidebar .essay-card h2')).toHaveTextContent('方便面定律')
   })
 
-  it('inserts the photo strip into the feed after two entries', async () => {
+  it('keeps the photo strip below articles and supporting content', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -73,13 +73,8 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '第三条' })).toBeInTheDocument())
-    const children = [...container.querySelector('.writing-list').children]
-    expect(children.map((child) => child.className)).toEqual([
-      'article-card article-card--featured',
-      'essay-card essay-card--compact',
-      'photo-strip',
-      'article-card article-card--featured',
-    ])
+    expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(2)
+    expect(container.querySelector('.photo-strip--bottom')).toBe(container.querySelector('.legacy-old-home').lastElementChild)
   })
 
   it('uses the flat priority treatment for articles, essays, and records', async () => {
@@ -124,18 +119,28 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-card a')).toBeNull()
   })
 
-  it('places plain navigation buttons above the homepage stream', async () => {
+  it('paginates articles by three and places side content below the desktop layout', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ articles: [] }),
+      json: async () => ({ articles: [
+        { slug: 'article-1', title: '文章一', type: 'article', createdAt: '2026-08-25' },
+        { slug: 'article-2', title: '文章二', type: 'article', createdAt: '2026-08-24' },
+        { slug: 'article-3', title: '文章三', type: 'article', createdAt: '2026-08-23' },
+        { slug: 'article-4', title: '文章四', type: 'article', createdAt: '2026-08-22' },
+        { slug: 'essay', title: '侧栏随笔', type: 'essay', createdAt: '2026-08-21', excerpt: '随笔正文' },
+        { slug: 'record', title: '侧栏记录', type: 'record', createdAt: '2026-08-20', review: '最近看过' },
+        { slug: 'photo', title: '底部照片', contentType: 'photo', createdAt: '2026-08-19', cover: '/photo.jpg' },
+      ] }),
     })
 
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
-    await waitFor(() => expect(screen.getByRole('navigation', { name: '首页操作' })).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: '房间' })).toHaveAttribute('href', '/rooms')
-    expect(screen.getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
-    expect(container.querySelector('.home-actions')).not.toHaveClass('is-fixed')
+    await waitFor(() => expect(screen.getByRole('heading', { name: '文章一' })).toBeInTheDocument())
+    expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(3)
+    expect(screen.getByRole('navigation', { name: '文章分页' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '第 2 页' })).toHaveAttribute('href', '/?page=2')
+    expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.home-sidebar'))
+    expect(container.querySelector('.home-layout').nextElementSibling).toHaveClass('photo-strip', 'photo-strip--bottom')
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {

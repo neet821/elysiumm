@@ -48,7 +48,12 @@ describe('Elysium plain service shell', () => {
     unmount()
     renderShell({ initialPath: '/' })
     expect(document.querySelector('.app-shell')).toHaveClass('app-shell--home')
-    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    const homeNav = screen.getByRole('navigation', { name: '主导航' })
+    expect(within(homeNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
+    expect(within(homeNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
+    expect(within(homeNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
+    expect(homeNav.querySelectorAll('.app-header__action > span')).toHaveLength(0)
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
   })
 
@@ -65,8 +70,21 @@ describe('Elysium plain service shell', () => {
 
     unmount()
     renderShell({ initialPath: '/rooms/music/9' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')
     expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+  })
+
+  it('uses only the home arrow on the room hub and live page', () => {
+    const { unmount } = renderShell({ initialPath: '/rooms' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
+
+    unmount()
+    renderShell({ initialPath: '/live' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
   })
 
   it('renders a simple footer and the specialized routes remain immersive', () => {

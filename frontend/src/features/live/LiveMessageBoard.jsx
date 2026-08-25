@@ -6,6 +6,22 @@ import apiClient from '../../utils/request'
 
 const NICKNAME_KEY = 'blue_live_nickname'
 
+const readNickname = () => {
+  try {
+    return window.localStorage?.getItem(NICKNAME_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+const saveNickname = (value) => {
+  try {
+    window.localStorage?.setItem(NICKNAME_KEY, value)
+  } catch {
+    // Private browsing and embedded webviews may deny storage access.
+  }
+}
+
 const normalizeNickname = (value) => value.trim().slice(0, 40)
 const normalizeContent = (value) => value.trim().slice(0, 300)
 const formatTime = (value) => (
@@ -14,7 +30,7 @@ const formatTime = (value) => (
 
 
 export default function LiveMessageBoard() {
-  const [nickname, setNickname] = useState(() => localStorage.getItem(NICKNAME_KEY) || '')
+  const [nickname, setNickname] = useState(readNickname)
   const [content, setContent] = useState('')
   const [messages, setMessages] = useState([])
   const [sending, setSending] = useState(false)
@@ -66,7 +82,7 @@ export default function LiveMessageBoard() {
         nickname: trimmedNickname,
         content: trimmedContent,
       }, { skipAuthRedirect: true })
-      localStorage.setItem(NICKNAME_KEY, trimmedNickname)
+      saveNickname(trimmedNickname)
       setContent('')
       await reload()
     } catch (requestError) {

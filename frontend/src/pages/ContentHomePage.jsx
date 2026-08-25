@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
 import './contentHome.css'
 
@@ -31,8 +31,7 @@ function coverUrl(item) {
   return `/media/${encodeURIComponent(item.slug)}/${encodeURIComponent(item.cover)}`
 }
 
-const COLLECTION_TYPES = ['album', 'movie', 'game', 'book']
-const COLLECTION_LABELS = { album: '专辑', movie: '电影', game: '游戏', book: '书籍' }
+const ARTICLES_PER_PAGE = 3
 
 function articleType(item) {
   return item.type || (item.contentType === 'photo' ? 'image' : item.contentType)
@@ -40,10 +39,6 @@ function articleType(item) {
 
 function articleHref(item) {
   return `/article/${encodeURIComponent(item.slug)}`
-}
-
-function articleLink(item, children) {
-  return item.link === false ? children : <Link to={articleHref(item)}>{children}</Link>
 }
 
 async function enrichArticle(article) {
@@ -136,7 +131,7 @@ function RecordCard({ item }) {
 
 function PhotoStrip({ photos }) {
   return (
-    <section className="photo-strip">
+    <section className="photo-strip photo-strip--bottom">
       <LegacySectionHeading title="照片" count={photos.length} />
       <div className="photo-strip-grid">
         {photos.length > 0
@@ -147,19 +142,12 @@ function PhotoStrip({ photos }) {
   )
 }
 
-function LegacyCollectionCard({ item }) {
-  return (
-    <article className="collection-card">
-      {articleLink(item, <><span className="collection-cover">{item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : <span className="cover-missing">暂无封面</span>}</span><span className="collection-name">{item.title}</span></>)}
-    </article>
-  )
-}
-
 function LegacySectionHeading({ title, count }) {
   return <div className="section-heading"><h2>{title}</h2><span>{count}</span></div>
 }
 
 export function ArticleFlowHome() {
+  const [searchParams] = useSearchParams()
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
@@ -192,38 +180,52 @@ export function ArticleFlowHome() {
 
   const sorted = [...articles].sort((a, b) => new Date(b.createdAt || b.date || b.updatedAt || 0) - new Date(a.createdAt || a.date || a.updatedAt || 0))
   const contentType = (item) => item.contentType || (articleType(item) === 'image' ? 'photo' : articleType(item))
-  const essays = sorted.filter((item) => contentType(item) === 'essay')
   const fullEssayBySlug = fullEssays
+  const articleItems = sorted.filter((item) => contentType(item) === 'article')
+  const essays = sorted.filter((item) => contentType(item) === 'essay')
+  const records = sorted.filter((item) => contentType(item) === 'record')
   const photos = sorted.filter((item) => contentType(item) === 'photo')
-  const feed = sorted.filter((item) => ['article', 'essay', 'record'].includes(contentType(item)))
-  const strip = <PhotoStrip photos={photos} />
+  const totalPages = Math.max(1, Math.ceil(articleItems.length / ARTICLES_PER_PAGE))
+  const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10)
+  const currentPage = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), totalPages) : 1
+  const visibleArticles = articleItems.slice((currentPage - 1) * ARTICLES_PER_PAGE, currentPage * ARTICLES_PER_PAGE)
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
-      <nav className="home-actions" aria-label="首页操作">
-        <Link to="/rooms">房间</Link>
-        <Link to="/live">直播</Link>
-        <Link to="/login">登录</Link>
-      </nav>
-      <div className="home-flow">
-        <section className="writing-section">
-          <div className="writing-list">
-            {feed.length > 0
-              ? feed.map((item, index) => (
-                <Fragment key={item.slug}>
-                  {index === 2 && strip}
-                  {contentType(item) === 'record'
-                    ? <RecordCard item={item} />
-                    : contentType(item) === 'essay'
-                      ? <LegacyEssayCard item={item} html={fullEssayBySlug[item.slug]?.html} />
-                      : <LegacyArticleCard item={item} />}
-                </Fragment>
-              ))
-              : strip}
-            {feed.length > 0 && feed.length < 3 && strip}
-          </div>
-        </section>
+      <div className="home-layout">
+        <main className="home-main">
+          <section className="articles-section" aria-labelledby="articles-heading">
+            <div className="section-heading section-heading--home"><h1 id="articles-heading">文章</h1><span>{articleItems.length}</span></div>
+            <div className="writing-list">
+              {visibleArticles.length > 0
+                ? visibleArticles.map((item) => <LegacyArticleCard key={item.slug} item={item} />)
+                : <p className="empty">还没有文章。</p>}
+            </div>
+            {totalPages > 1 && (
+              <nav className="home-pagination" aria-label="文章分页">
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  <Link key={page} aria-current={page === currentPage ? 'page' : undefined} to={`/?page=${page}`}>第 {page} 页</Link>
+                ))}
+              </nav>
+            )}
+          </section>
+        </main>
+        <aside className="home-sidebar" aria-label="最近内容">
+          <section className="sidebar-section" aria-labelledby="essay-heading">
+            <div className="section-heading"><h2 id="essay-heading">随笔</h2><span>{essays.length}</span></div>
+            {essays.length > 0
+              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} html={fullEssayBySlug[item.slug]?.html} />)
+              : <p className="empty">还没有随笔。</p>}
+          </section>
+          <section className="sidebar-section" aria-labelledby="record-heading">
+            <div className="section-heading"><h2 id="record-heading">最近记录</h2><span>{records.length}</span></div>
+            {records.length > 0
+              ? records.map((item) => <RecordCard key={item.slug} item={item} />)
+              : <p className="empty">还没有记录。</p>}
+          </section>
+        </aside>
       </div>
+      <PhotoStrip photos={photos} />
     </div>
   )
 }
