@@ -615,7 +615,7 @@
   }
   .legacy-old-home--flat .home-layout {
     gap: clamp(1.5rem, 3vw, 2.75rem);
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
   }
   .legacy-old-home--flat .home-sidebar {
     gap: 1.25rem;
@@ -628,5 +628,21 @@
   .legacy-old-home--flat .article-card--featured h2 {
     font-size: clamp(1.9rem, 4vw, 3.6rem);
     white-space: nowrap;
+  }
+}
+
+.legacy-old-home--flat .article-card--featured .article-card-info > h2 {
+  text-align: center;
+}
+.legacy-old-home--flat .article-card--featured .article-card-info > p {
+  margin-inline: auto;
+  max-width: 460px;
+  width: min(100%, 460px);
+}
+
+@media (max-width: 800px) {
+  .legacy-old-home--flat .article-card--featured .article-card-info > p {
+    max-width: 280px;
+    width: min(100%, 280px);
   }
 }
