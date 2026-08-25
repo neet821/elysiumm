@@ -908,3 +908,29 @@
   .service-shell.app-shell--home .app-header__home-label { display: none; }
   .service-shell.app-shell--home .app-header { z-index: 110; }
 }
+
+/* The mobile drawer keeps records as the first, stable column; essays follow below. */
+@media (max-width: 800px) {
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--records {
+    display: block;
+    max-height: 24rem;
+    order: 0;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open > .sidebar-section--essays {
+    order: 1;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-cover {
+    max-width: 64px;
+    width: 64px;
+  }
+  .legacy-old-home--flat .home-sidebar.home-sidebar--drawer-open .record-cover img {
+    display: block;
+    height: auto;
+    width: 100%;
+  }
+}
