@@ -1,30 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildCategoryNav, renderContentCard } from '../src/main.js';
 
-describe('content website navigation', () => {
-  it('shows the four public content categories', () => {
-    const html = buildCategoryNav([
-      { id: 'article', label: '文章', items: [] },
-      { id: 'essay', label: '随笔', items: [] },
-      { id: 'photo', label: '照片', items: [] },
-      { id: 'record', label: '记录', items: [] },
-    ]);
+const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
-    expect(html).toContain('href="/content/article"');
-    expect(html).toContain('href="/content/essay"');
-    expect(html).toContain('href="/content/photo"');
-    expect(html).toContain('href="/content/record"');
+describe('single-page article homepage', () => {
+  it('interleaves articles, essays, and records in one feed', () => {
+    expect(source).toContain("['article', 'essay', 'record'].includes(article.contentType)");
+    expect(source).toContain("article.type === 'essay'");
+    expect(source).toContain('recordCard(article)');
   });
 
-  it('links a card to a type-specific detail page', () => {
-    const html = renderContentCard({ contentType: 'photo', slug: '照片/夏日', title: '夏日', cover: '' });
-    expect(html).toContain('/content/photo/%E7%85%A7%E7%89%87%2F%E5%A4%8F%E6%97%A5');
-    expect(html).toContain('夏日');
+  it('inserts the photo strip after the first two feed entries', () => {
+    expect(source).toContain('index === 2 ? strip :');
+    expect(source).toContain('function photoStrip(photos)');
   });
 
-  it('does not draw a duplicate separator before the photo strip', () => {
-    const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
-    expect(styles).toMatch(/\.essay-card:has\(\+ \.photo-strip\)[\s\S]*?border-bottom: 0/);
+  it('keeps photos inside the content flow instead of a right sidebar', () => {
+    expect(source).toContain('class="photo-strip"');
+    expect(styles).toMatch(/\.photo-strip-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(4/);
+    expect(source).not.toContain('fixed-sidebar');
   });
 });

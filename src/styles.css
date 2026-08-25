@@ -19,39 +19,71 @@ main {
 .intro h1, .reader h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.12; font-weight: 700; letter-spacing: -0.03em; }
 .intro p { margin: 10px 0 0; color: #777; }
 .home-flow { display: grid; gap: 56px; }
+.home-columns { display: block; }
+.fixed-sidebar { position: sticky; top: 24px; display: grid; gap: 30px; }
+.fixed-section .section-heading { border-top-color: #777; }
+.fixed-cards { display: grid; gap: 18px; }
+.fixed-card { min-width: 0; }
+.fixed-card a { display: block; text-decoration: none; }
+.fixed-card-cover { display: block; aspect-ratio: 4 / 3; background: #f2f2f2; overflow: hidden; }
+.fixed-card-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fixed-record .fixed-card-cover { aspect-ratio: 2 / 3; }
+.fixed-record .fixed-card-cover img { object-fit: contain; }
+.fixed-card-name { display: block; margin-top: 7px; font-size: 14px; line-height: 1.35; }
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-top: 1px solid #171717; padding: 16px 0 12px; }
 .section-heading h2 { margin: 0; font-size: 20px; }
 .section-heading a, .section-heading span { color: #777; font-size: 13px; text-decoration: none; }
 .section-heading a:hover { text-decoration: underline; }
 .writing-list { border-bottom: 1px solid #d9d9d9; }
-.writing-card { padding: 18px 0 22px; border-bottom: 1px solid #d9d9d9; }
+.writing-card { position: relative; padding: 18px 0 34px; border-bottom: 1px solid #d9d9d9; }
 .writing-card:last-child { border-bottom: 0; }
 .writing-card h2 { margin: 4px 0 8px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; }
 .writing-card h2 a, .writing-card h3 a { text-decoration: none; }
 .writing-card h2 a:hover, .writing-card h3 a:hover { text-decoration: underline; }
 .writing-card p { max-width: 68ch; margin: 0; color: #555; }
-.essay-card { padding: 18px 0 30px; border-bottom: 1px solid #d9d9d9; }
+.type-icon { display: inline-block; width: 1.05em; height: 1.05em; margin-right: .28em; color: #777; font-size: .72em; vertical-align: -.08em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.type-icon-article { color: #6d7f91; }
+.type-icon-essay { color: #8b6f9f; }
+.type-icon-record { color: #a47752; }
+.type-icon-photo { color: #5f8d81; }
+.essay-card { position: relative; padding: 18px 0 34px; border-bottom: 1px solid #d9d9d9; }
 .essay-card h2 { margin: 4px 0 16px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; }
 .essay-card h2 a { text-decoration: none; }
 .essay-card h2 a:hover { text-decoration: underline; }
-.essay-body { max-width: 760px; font-size: 17px; }
+.essay-body { max-width: min(100%, 760px); overflow: hidden; font-size: 17px; }
 .essay-body p, .essay-body ul, .essay-body ol, .essay-body blockquote { margin: 1em 0; }
-.essay-card:has(+ .photo-strip),
-.article-card:has(+ .photo-strip),
-.record-card:has(+ .photo-strip) { border-bottom: 0; }
-.article-card { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 18px 0 22px; border-bottom: 1px solid #d9d9d9; }
-.article-card-cover { display: block; aspect-ratio: 4 / 3; background: #f2f2f2; overflow: hidden; }
-.article-card-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.essay-body img { display: none; }
+.article-card { position: relative; padding: 18px 0 34px; border-bottom: 1px solid #d9d9d9; }
+.article-card-cover { display: block; width: min(100%, 420px); margin: 14px 0 16px; background: #f2f2f2; overflow: hidden; }
+.article-card-cover img { display: block; width: 100%; height: auto; object-fit: contain; }
 .article-card-info h2 { margin: 4px 0 8px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; }
 .article-card-info h2 a { text-decoration: none; }
 .article-card-info h2 a:hover { text-decoration: underline; }
 .article-card-info p { max-width: 68ch; margin: 0; color: #555; }
 .photos-section { min-width: 0; }
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.photo-card { min-width: 0; }
-.photo-frame { display: block; aspect-ratio: 4 / 3; background: #f2f2f2; overflow: hidden; }
-.photo-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.photo-card { position: relative; min-width: 0; padding-bottom: 26px; }
+.photo-frame { display: block; background: #f2f2f2; overflow: hidden; }
+.photo-frame img { display: block; width: 100%; height: auto; object-fit: contain; }
 .photo-card h3 { margin: 8px 0 0; font-size: 15px; font-weight: 400; }
+.photo-meta { margin-top: 3px; color: #777; font-size: 12px; }
+.photo-strip { margin: 0; padding: 18px 0 24px; border-bottom: 1px solid #d9d9d9; }
+.photo-strip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; min-height: 150px; align-items: start; }
+.photo-strip-empty { display: grid; place-items: center; min-height: 150px; margin: 0; color: #777; }
+.card-time { position: absolute; right: 0; bottom: 10px; color: #777; font-size: 12px; }
+.record-card { position: relative; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; padding: 22px 0 38px; border-bottom: 1px solid #d9d9d9; }
+.record-cover { display: block; align-self: start; background: transparent; overflow: hidden; }
+.record-cover img { display: block; width: 100%; height: auto; object-fit: contain; }
+.record-info { min-width: 0; }
+.record-info h2 { margin: 0 0 6px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; }
+.record-info h2 a { text-decoration: none; }
+.record-details { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 12px; color: #555; font-size: 14px; }
+.record-details div { min-width: 80px; }
+.record-details dt, .record-review span { color: #777; font-size: 12px; }
+.record-details dd { margin: 2px 0 0; }
+.record-review { min-height: 0; max-height: var(--record-review-height, 180px); overflow-y: auto; padding: 0; background: transparent; color: #333; line-height: 1.45; }
+.record-review > span:first-child { color: #777; font-size: 12px; }
+.record-review-text { white-space: pre-wrap; }
 .collections-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 42px 28px; }
 .collection-section { min-width: 0; }
 .collection-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -99,10 +131,15 @@ main {
   main { width: min(100% - 28px, 920px); }
   .intro { padding: 40px 0 28px; }
   .home-flow { gap: 42px; }
+  .home-columns { grid-template-columns: 1fr; gap: 42px; }
+  .fixed-sidebar { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
   .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .collections-grid { grid-template-columns: 1fr; gap: 34px; }
-  .article-card { grid-template-columns: 1fr; gap: 14px; }
-  .article-card-cover { width: 150px; }
+  .article-card-cover { width: min(100%, 320px); }
+  .photo-strip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .record-card { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; }
+  .record-review { min-height: 0; max-height: var(--record-review-height, 120px); padding: 12px; }
+  .record-review p { min-height: 0; }
   .article-row { grid-template-columns: 1fr; gap: 14px; }
   .article-cover { width: 150px; }
   .collection-row .article-cover { width: min(100%, 220px); }
@@ -110,23 +147,3 @@ main {
   .back-link { margin-bottom: 36px; }
   .reader-body { font-size: 16px; }
 }
-
-.content-nav { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 16px 0 34px; border-bottom: 1px solid #171717; }
-.content-nav a { color: #555; text-decoration: none; font-size: 14px; }
-.content-nav a:hover, .back-link:hover { text-decoration: underline; }
-.content-nav span { color: #999; }
-.content-section { margin-top: 38px; }
-.content-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
-.content-card { min-width: 0; }
-.content-card-link { display: block; color: inherit; text-decoration: none; }
-.content-card-cover { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: #f2f2f2; }
-.content-card-record .content-card-cover { aspect-ratio: 2 / 3; }
-.content-card-cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.content-card-record .content-card-cover img { object-fit: contain; }
-.content-card-info { display: block; padding-top: 10px; }
-.content-card-info strong { display: block; font-size: 16px; line-height: 1.35; }
-.content-card-info small { display: block; margin-top: 4px; color: #777; font-size: 13px; }
-.content-card-info p { margin: 7px 0 0; color: #666; font-size: 14px; line-height: 1.45; }
-.content-card:hover strong { text-decoration: underline; }
-@media (max-width: 760px) { .content-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .content-grid { gap: 14px; } .content-card-info strong { font-size: 15px; } }
