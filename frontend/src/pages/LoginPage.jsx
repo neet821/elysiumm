@@ -20,7 +20,7 @@ const LoginPage = ({ styles, isDark }) => {
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center py-12 px-4 ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}
+      className={`auth-page min-h-screen flex items-center justify-center py-12 px-4 ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}
     >
       <LoginCard isDark={isDark} onSuccess={handleSuccess} styles={styles} />
     </div>

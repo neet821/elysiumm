@@ -36,7 +36,7 @@ const RegisterPage = ({ styles, isDark }) => {
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center py-12 px-4 ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}
+      className={`auth-page min-h-screen flex items-center justify-center py-12 px-4 ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}
     >
       <div
         className={`max-w-md w-full ${styles.bg} rounded-2xl shadow-xl p-5 sm:p-8 border ${styles.border}`}

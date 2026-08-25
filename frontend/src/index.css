@@ -4115,3 +4115,21 @@ body:has(.app-shell--home)::before {
   z-index: auto;
 }
 .service-shell.app-shell--home .app-shell__main { padding-top: 0; }
+
+/* Authentication is a self-contained viewport: its form must not create page scroll. */
+.service-shell:has(.auth-page) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.service-shell:has(.auth-page) .app-shell__main {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.auth-page {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0 !important;
+  overflow: hidden;
+}
