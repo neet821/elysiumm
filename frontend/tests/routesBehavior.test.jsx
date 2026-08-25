@@ -51,6 +51,11 @@ describe('stable public routes', () => {
     authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
   })
 
+  it('keeps the preserved flat HomePage as the root route', async () => {
+    renderAppRoute('/')
+    expect(await screen.findByText('Home page')).toBeInTheDocument()
+  })
+
   it.each([
     ['/archive?type=writing', '归档'],
     ['/archive?type=photo', '归档'],

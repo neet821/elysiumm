@@ -3,9 +3,10 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
+import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import ContentHomePage, { ArticleFlowHome, LegacyArticlePage } from './pages/ContentHomePage.jsx'
+import ContentHomePage, { LegacyArticlePage } from './pages/ContentHomePage.jsx'
 
 const LIGHT_STYLES = THEME.light
 const AdminShell = lazy(() => import('./components/admin/AdminShell'))
@@ -40,7 +41,7 @@ function LegacyRoomRedirect({ mode }) {
 const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
-      <Route path="/" element={<ArticleFlowHome />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/article/*" element={<LegacyArticlePage />} />
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
