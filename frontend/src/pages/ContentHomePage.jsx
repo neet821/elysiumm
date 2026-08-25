@@ -119,9 +119,11 @@ function LegacyArticleCard({ item }) {
       <div className="article-card-info">
         <h2><Link to={articleHref(item)}>{item.title}</Link></h2>
         {item.cover && <div className="article-card-cover article-card-cover--centered article-card-cover--compact"><img src={coverUrl(item)} alt={item.title} loading="lazy" /></div>}
-        {item.excerpt && <p>{item.excerpt}</p>}
+        <div className="article-card-preview">
+          {item.excerpt && <p>{item.excerpt}</p>}
+          <time className="article-card-preview-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
+        </div>
       </div>
-      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
 }
@@ -147,7 +149,7 @@ function LegacyEssayCard({ item, markdown, html }) {
           <span className="essay-toggle-icon" aria-hidden="true">⌄</span>
         </button>
       )}
-      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
+      <time className="card-time">{formatDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
 }
