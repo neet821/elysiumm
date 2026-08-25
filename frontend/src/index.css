@@ -777,6 +777,7 @@
 .app-header__icon-link { cursor: pointer; width: 2.25rem; }
 .app-header__icon-link:hover,.app-header__action:hover,.app-header__account:hover { color: var(--text-primary); }
 .app-header__icon-link--admin { color: #f59e0b; }
+.app-header__actions--home .app-header__admin-action { margin-right: .8rem; }
 .app-header__action span,.app-header__account span { font-size: .8rem; }
 .app-header__account { min-width: 2.25rem; }
 .app-header__account--login { border: 0; }

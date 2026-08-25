@@ -21,13 +21,12 @@ export function Header() {
     <header className="app-header app-header--static">
       <div className="app-header__inner">
         <div className="app-header__leading">
-          {isHome && isAdmin ? (
-            <Link className="app-header__icon-link app-header__icon-link--admin" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /></Link>
-          ) : !isHome && (
+          {!isHome && (
             <button className="app-header__icon-link" type="button" onClick={() => navigate('/')} aria-label="返回首页" title="返回首页"><ArrowLeft size={19} /></button>
           )}
         </div>
         <nav className={`app-header__actions${isHome ? ' app-header__actions--home' : ''}`} aria-label="主导航">
+          {isHome && isAdmin && <Link className="app-header__action app-header__admin-action" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /></Link>}
           <Link className="app-header__action" to="/rooms" aria-label="房间" title="房间"><DoorOpen size={19} />{!isHome && <span>房间</span>}</Link>
           <Link className="app-header__action" to="/live" aria-label="直播" title="直播"><Radio size={19} />{!isHome && <span>直播</span>}</Link>
           <Link className={`app-header__account${isAuthenticated ? '' : ' app-header__account--login'}`} to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>

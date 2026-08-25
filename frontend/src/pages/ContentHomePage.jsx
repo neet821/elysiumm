@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
+import { BookOpen, Clapperboard, Disc3, Gamepad2, Menu, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -205,6 +205,7 @@ export function ArticleFlowHome() {
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -243,9 +244,25 @@ export function ArticleFlowHome() {
   const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10)
   const currentPage = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), totalPages) : 1
   const visibleArticles = articleItems.slice((currentPage - 1) * ARTICLES_PER_PAGE, currentPage * ARTICLES_PER_PAGE)
+  const paginationItems = Array.from(new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1].filter((page) => page >= 1 && page <= totalPages))).sort((a, b) => a - b).reduce((items, page, index, pages) => {
+    if (index > 0 && page - pages[index - 1] > 1) items.push(`ellipsis-${page}`)
+    items.push(page)
+    return items
+  }, [])
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
+      <button
+        aria-controls="home-sidebar"
+        aria-expanded={mobileSidebarOpen}
+        aria-label={mobileSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+        className="home-sidebar-toggle"
+        onClick={() => setMobileSidebarOpen((open) => !open)}
+        title={mobileSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+        type="button"
+      >
+        {mobileSidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+      </button>
       <div className="home-layout">
         <main className="home-main">
           <section className="articles-section">
@@ -256,15 +273,21 @@ export function ArticleFlowHome() {
             </div>
             {totalPages > 1 && (
               <nav className="home-pagination" aria-label="文章分页">
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-                  <Link key={page} aria-current={page === currentPage ? 'page' : undefined} to={`/?page=${page}`}>第 {page} 页</Link>
-                ))}
+                {currentPage > 1
+                  ? <Link className="home-pagination__previous" to={`/?page=${currentPage - 1}`} rel="prev">上一页</Link>
+                  : <span className="home-pagination__disabled" aria-disabled="true">上一页</span>}
+                {paginationItems.map((item) => typeof item === 'number'
+                  ? <Link key={item} aria-current={item === currentPage ? 'page' : undefined} to={`/?page=${item}`}>{item}</Link>
+                  : <span className="home-pagination__ellipsis" key={item} aria-hidden="true">…</span>)}
+                {currentPage < totalPages
+                  ? <Link className="home-pagination__next" to={`/?page=${currentPage + 1}`} rel="next">下一页</Link>
+                  : <span className="home-pagination__disabled" aria-disabled="true">下一页</span>}
               </nav>
             )}
           </section>
         </main>
         <PhotoStrip photos={photos} />
-        <aside className="home-sidebar">
+        <aside className={`home-sidebar${mobileSidebarOpen ? ' home-sidebar--mobile-open' : ''}`} id="home-sidebar">
           <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)

@@ -75,7 +75,10 @@ describe('Elysium plain service shell', () => {
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
     renderShell({ initialPath: '/' })
-    expect(screen.getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin')
+    const adminLink = screen.getByRole('link', { name: '打开管理员控制台' })
+    expect(adminLink).toHaveAttribute('href', '/admin')
+    const roomLink = within(adminLink.closest('nav')).getByRole('link', { name: '房间' })
+    expect(adminLink.compareDocumentPosition(roomLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('keeps formal pages free of current-page and theme controls', () => {

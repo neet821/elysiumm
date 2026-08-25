@@ -230,12 +230,36 @@ describe('ArticleFlowHome', () => {
     expect(screen.queryByText('照片')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(3)
     expect(screen.getByRole('navigation', { name: '文章分页' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '第 2 页' })).toHaveAttribute('href', '/?page=2')
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute('href', '/?page=2')
+    expect(screen.getByRole('link', { name: '下一页' })).toHaveAttribute('href', '/?page=2')
     expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.home-sidebar'))
     expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.photo-strip--bottom'))
     expect([...container.querySelector('.home-layout').children].map((node) => node.className)).toEqual([
       'home-main', 'photo-strip photo-strip--bottom', 'home-sidebar',
     ])
+  })
+
+  it('toggles the record and essay rail from the mobile control', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'article', title: '移动文章', type: 'article', createdAt: '2026-08-24' },
+        { slug: 'essay', title: '移动随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
+        { slug: 'record', title: '移动记录', contentType: 'record', type: 'movie', createdAt: '2026-08-22' },
+      ] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '移动文章' })).toBeInTheDocument())
+    const toggle = screen.getByRole('button', { name: '展开记录和随笔' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: '收起记录和随笔' })).toHaveAttribute('aria-expanded', 'true')
+    expect(container.querySelector('.home-sidebar')).toHaveClass('home-sidebar--mobile-open')
+    await user.click(screen.getByRole('button', { name: '收起记录和随笔' }))
+    expect(screen.getByRole('button', { name: '展开记录和随笔' })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {
