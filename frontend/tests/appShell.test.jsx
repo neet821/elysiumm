@@ -41,7 +41,7 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
-  it('removes the global header from the article stream homepage', () => {
+  it('keeps icon-only home navigation and restores the admin control entry', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
     expect(screen.getByRole('banner')).toBeInTheDocument()
 
@@ -55,6 +55,11 @@ describe('Elysium plain service shell', () => {
     expect(within(homeNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
     expect(homeNav.querySelectorAll('.app-header__action > span')).toHaveLength(0)
     expect(screen.queryByText('© 2026 Elysium')).not.toBeInTheDocument()
+
+    unmount()
+    authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
+    renderShell({ initialPath: '/' })
+    expect(screen.getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin')
   })
 
   it('keeps formal pages free of current-page and theme controls', () => {

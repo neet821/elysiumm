@@ -136,6 +136,11 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '文章一' })).toBeInTheDocument())
+    expect(container.querySelector('.section-heading')).toBeNull()
+    expect(screen.queryByText('文章')).not.toBeInTheDocument()
+    expect(screen.queryByText('随笔')).not.toBeInTheDocument()
+    expect(screen.queryByText('最近记录')).not.toBeInTheDocument()
+    expect(screen.queryByText('照片')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(3)
     expect(screen.getByRole('navigation', { name: '文章分页' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '第 2 页' })).toHaveAttribute('href', '/?page=2')

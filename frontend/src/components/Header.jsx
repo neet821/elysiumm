@@ -1,4 +1,4 @@
-import { ArrowLeft, Radio, DoorOpen, UserRound } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Radio, DoorOpen, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -11,7 +11,7 @@ function avatarUrl(user) {
 }
 
 export function Header() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAdmin, isAuthenticated, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const isHome = location.pathname === '/'
@@ -21,7 +21,9 @@ export function Header() {
     <header className="app-header app-header--static">
       <div className="app-header__inner">
         <div className="app-header__leading">
-          {!isHome && (
+          {isHome && isAdmin ? (
+            <Link className="app-header__icon-link app-header__icon-link--admin" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /></Link>
+          ) : !isHome && (
             <button className="app-header__icon-link" type="button" onClick={() => navigate('/')} aria-label="返回首页" title="返回首页"><ArrowLeft size={19} /></button>
           )}
         </div>

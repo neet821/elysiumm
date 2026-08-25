@@ -3731,7 +3731,21 @@ body:has(.app-shell--home)::before {
   z-index: 60;
 }
 .service-shell.app-shell--home .app-header__inner { justify-content: flex-end; max-width: none; }
-.service-shell.app-shell--home .app-header__leading { display: none; }
+.service-shell.app-shell--home .app-header__leading {
+  display: flex;
+  left: max(1rem, calc((100vw - 1120px) / 2));
+  position: fixed;
+  top: .75rem;
+  z-index: 61;
+}
+.service-shell.app-shell--home .app-header__icon-link--admin {
+  border: 1px solid transparent;
+  color: #111;
+  height: 2.25rem;
+  width: 2.25rem;
+}
+.service-shell.app-shell--home .app-header__icon-link--admin:hover,
+.service-shell.app-shell--home .app-header__icon-link--admin:focus-visible { border-color: #999; }
 .service-shell.app-shell--home .app-header__actions { gap: .35rem; }
 .service-shell.app-shell--home .app-header__action,
 .service-shell.app-shell--home .app-header__account {

@@ -3,8 +3,6 @@ import { Clock3, LogIn, Radio, RefreshCw, ShieldCheck } from 'lucide-react'
 import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
 import useLiveSession from '../features/live/useLiveSession'
-import AdminLivePage from './AdminLivePage'
-import { useOptionalAuth } from '../contexts/AuthContext'
 
 
 const stateMessages = {
@@ -66,7 +64,6 @@ function StatePanel({ state, retry }) {
 
 
 export default function LivePage() {
-  const { isAdmin } = useOptionalAuth()
   const { mediaUrl, retry, state, status } = useLiveSession()
   const isLoading = state === 'loading' || state === 'authorizing'
   const isLive = state === 'live' && mediaUrl
@@ -113,7 +110,6 @@ export default function LivePage() {
         )}
         {!isLoading && !isLive && <StatePanel state={state} retry={retry} />}
       </div>
-      {isAdmin && <section className="live-page__admin"><AdminLivePage /></section>}
     </div>
   )
 }

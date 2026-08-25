@@ -15,6 +15,14 @@ vi.mock('../src/features/live/LivePlayer.jsx', () => ({
   ),
 }))
 
+vi.mock('../src/pages/AdminLivePage.jsx', () => ({
+  default: () => <div data-testid="inline-admin-live" />,
+}))
+
+vi.mock('../src/contexts/AuthContext', () => ({
+  useOptionalAuth: () => ({ isAdmin: true }),
+}))
+
 import { API_ENDPOINTS } from '../src/config.js'
 import LivePage from '../src/pages/LivePage.jsx'
 import apiClient from '../src/utils/request.js'
@@ -146,6 +154,15 @@ describe('public live page', () => {
     expect(await screen.findByRole('heading', { name: '今晚直播' })).toBeInTheDocument()
     expect(screen.getByLabelText('直播留言')).toBeInTheDocument()
     getItem.mockRestore()
+  })
+
+  it('keeps the public live route independent from the admin workspace', async () => {
+    apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'ended' } })
+
+    render(<LivePage />)
+
+    expect(await screen.findByText('直播已结束')).toBeInTheDocument()
+    expect(screen.queryByTestId('inline-admin-live')).not.toBeInTheDocument()
   })
 
   it('lets viewers set a nickname and send a live message', async () => {

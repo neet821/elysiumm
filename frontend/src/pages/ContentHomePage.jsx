@@ -132,7 +132,6 @@ function RecordCard({ item }) {
 function PhotoStrip({ photos }) {
   return (
     <section className="photo-strip photo-strip--bottom">
-      <LegacySectionHeading title="照片" count={photos.length} />
       <div className="photo-strip-grid">
         {photos.length > 0
           ? photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)
@@ -140,10 +139,6 @@ function PhotoStrip({ photos }) {
       </div>
     </section>
   )
-}
-
-function LegacySectionHeading({ title, count }) {
-  return <div className="section-heading"><h2>{title}</h2><span>{count}</span></div>
 }
 
 export function ArticleFlowHome() {
@@ -194,8 +189,7 @@ export function ArticleFlowHome() {
     <div className="legacy-old-home legacy-old-home--flat">
       <div className="home-layout">
         <main className="home-main">
-          <section className="articles-section" aria-labelledby="articles-heading">
-            <div className="section-heading section-heading--home"><h1 id="articles-heading">文章</h1><span>{articleItems.length}</span></div>
+          <section className="articles-section">
             <div className="writing-list">
               {visibleArticles.length > 0
                 ? visibleArticles.map((item) => <LegacyArticleCard key={item.slug} item={item} />)
@@ -210,15 +204,13 @@ export function ArticleFlowHome() {
             )}
           </section>
         </main>
-        <aside className="home-sidebar" aria-label="最近内容">
-          <section className="sidebar-section" aria-labelledby="essay-heading">
-            <div className="section-heading"><h2 id="essay-heading">随笔</h2><span>{essays.length}</span></div>
+        <aside className="home-sidebar">
+          <section className="sidebar-section">
             {essays.length > 0
               ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} html={fullEssayBySlug[item.slug]?.html} />)
               : <p className="empty">还没有随笔。</p>}
           </section>
-          <section className="sidebar-section" aria-labelledby="record-heading">
-            <div className="section-heading"><h2 id="record-heading">最近记录</h2><span>{records.length}</span></div>
+          <section className="sidebar-section">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)
               : <p className="empty">还没有记录。</p>}
