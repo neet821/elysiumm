@@ -2,6 +2,8 @@ import Header from '../Header.jsx'
 import Footer from '../Footer.jsx'
 import { ToastProvider } from '../ui/index.js'
 import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { HomeSidebarContext } from '../../contexts/HomeSidebarContext.jsx'
 
 export function AppShell({ children }) {
   const location = useLocation()
@@ -19,18 +21,45 @@ export function AppShell({ children }) {
   const isLive = location.pathname === '/live'
   const showHeader = isHome || (!isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute)
   const showFooter = !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
+  const [homeSidebarOpen, setHomeSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    setHomeSidebarOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!isHome || !homeSidebarOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setHomeSidebarOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [homeSidebarOpen, isHome])
+
+  const sidebarContext = {
+    isOpen: homeSidebarOpen,
+    toggle: () => setHomeSidebarOpen((open) => !open),
+    close: () => setHomeSidebarOpen(false),
+  }
 
   return (
     <ToastProvider>
-      <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
-        <a className="skip-link" href="#main-content">跳到主要内容</a>
-        {showHeader && <Header />}
-        {(isAccount || isRoomsHub || isLive) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
-        <main className="app-shell__main" id="main-content" tabIndex={-1}>
-          {children}
-        </main>
-        {showFooter && <Footer />}
-      </div>
+      <HomeSidebarContext.Provider value={sidebarContext}>
+        <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
+          <a className="skip-link" href="#main-content">跳到主要内容</a>
+          {showHeader && <Header />}
+          {(isAccount || isRoomsHub || isLive) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
+          <main className="app-shell__main" id="main-content" tabIndex={-1}>
+            {children}
+          </main>
+          {showFooter && <Footer />}
+        </div>
+      </HomeSidebarContext.Provider>
     </ToastProvider>
   )
 }

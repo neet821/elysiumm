@@ -42,7 +42,7 @@ describe('administrator homepage editor', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: '首页设置' })).toBeInTheDocument()
-    expect(screen.getByLabelText('首屏前缀')).toHaveValue(savedSettings.hero_prefix)
+    expect(screen.getByLabelText('首页左上角文字')).toHaveValue(savedSettings.hero_prefix)
     expect(screen.getByLabelText('首屏标题')).toHaveValue(savedSettings.hero_title)
     expect(screen.getByLabelText('首页介绍')).toHaveValue(savedSettings.introduction)
     expect(JSON.parse(screen.getByLabelText('卡片布局 JSON').value)).toEqual(savedSettings.cards)
@@ -93,7 +93,7 @@ describe('administrator homepage editor', () => {
     apiClient.put.mockRejectedValue({ response: { data: { detail: 'revision conflict' } } })
     renderPage()
 
-    const prefix = await screen.findByLabelText('首屏前缀')
+    const prefix = await screen.findByLabelText('首页左上角文字')
     await user.clear(prefix)
     await user.type(prefix, 'Still here')
     await user.click(screen.getByRole('button', { name: '保存首页设置' }))
@@ -102,11 +102,10 @@ describe('administrator homepage editor', () => {
     expect(prefix).toHaveValue('Still here')
   })
 
-  it('is reachable from the account administrator console', () => {
-    const source = fs.readFileSync(path.join(frontendRoot, 'src', 'pages', 'AccountPage.jsx'), 'utf8')
-    expect(source).toContain('navigate("/account/admin")')
-    expect(source).not.toMatch(/navigate\("\/(?:admin|tools)\//)
-    expect(source).not.toContain('我的收藏')
-    expect(source).not.toContain('管理私人文件夹、公开收藏、访问记录和个人起始页')
+  it('is reachable from the current administrator console', () => {
+    const routes = fs.readFileSync(path.join(frontendRoot, 'src', 'routes.jsx'), 'utf8')
+    const shell = fs.readFileSync(path.join(frontendRoot, 'src', 'components', 'admin', 'AdminShell.jsx'), 'utf8')
+    expect(routes).toContain('path="homepage" element={<AdminHomepagePage />}')
+    expect(shell).toContain("to: '/admin/homepage'")
   })
 })

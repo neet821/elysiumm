@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
@@ -32,6 +33,16 @@ describe('Elysium plain service shell', () => {
     const primaryNav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
+  })
+
+  it('places the mobile sidebar control in the homepage top bar', async () => {
+    const user = userEvent.setup()
+    renderShell({ initialPath: '/' })
+
+    const toggle = screen.getByRole('button', { name: '展开记录和随笔' })
+    expect(toggle.closest('header')).toBe(screen.getByRole('banner'))
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: '收起记录和随笔' })).toBeInTheDocument()
   })
 
   it('shows login instead of account to signed-out visitors', () => {

@@ -92,6 +92,7 @@ describe('stable public routes', () => {
     ['/posts/42', 'Post detail'],
     ['/posts/new', 'Post editor'],
     ['/posts/42/edit', 'Post editor'],
+    ['/admin/homepage', 'Admin homepage'],
     ['/admin/users', 'Admin users'],
     ['/account/admin/homepage', 'Admin homepage'],
     ['/account/collection', 'Private collection'],

@@ -1,9 +1,10 @@
-import { Activity, ArrowLeft, Files, Gauge, Menu, Music2, Radio, Users, Video, X } from 'lucide-react'
+import { Activity, ArrowLeft, Files, Gauge, Home, Menu, Music2, Radio, Users, Video, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navigation = [
   { label: '总览', to: '/admin', icon: Gauge, end: true },
+  { label: '首页设置', to: '/admin/homepage', icon: Home },
   { label: '用户', to: '/admin/users', icon: Users },
   { label: '房间', to: '/admin/rooms', icon: Video },
   { label: '文件', to: '/admin/files', icon: Files },

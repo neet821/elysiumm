@@ -12,6 +12,7 @@ const AdminShell = lazy(() => import('./components/admin/AdminShell'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage'))
+const AdminHomepagePage = lazy(() => import('./pages/AdminHomepagePage'))
 const MusicProvidersAdminPage = lazy(() => import('./pages/MusicProvidersAdminPage'))
 const AdminRoomsPage = lazy(() => import('./pages/AdminRoomsPage'))
 const AdminFilesPage = lazy(() => import('./pages/AdminFilesPage'))
@@ -57,6 +58,7 @@ const AppRoutes = () => (
 
       <Route path="/admin/*" element={withAuth(<AdminShell />, true)}>
         <Route index element={<AdminOverviewPage />} />
+        <Route path="homepage" element={<AdminHomepagePage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="rooms" element={withUserProps(AdminRoomsPage)} />
         <Route path="files" element={<AdminFilesPage />} />

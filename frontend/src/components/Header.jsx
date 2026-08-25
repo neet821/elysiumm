@@ -1,8 +1,9 @@
-import { ArrowLeft, LayoutDashboard, Radio, DoorOpen, UserRound } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Menu, Radio, DoorOpen, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { Avatar } from './ui/Avatar.jsx'
+import { useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
 
 function avatarUrl(user) {
   if (!user?.avatar) return undefined
@@ -14,6 +15,7 @@ export function Header() {
   const { isAdmin, isAuthenticated, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const { isOpen: homeSidebarOpen, toggle: toggleHomeSidebar } = useHomeSidebar()
   const isHome = location.pathname === '/'
   const accountTarget = isAuthenticated ? '/account' : '/login'
 
@@ -21,6 +23,19 @@ export function Header() {
     <header className="app-header app-header--static">
       <div className="app-header__inner">
         <div className="app-header__leading">
+          {isHome && (
+            <button
+              className="app-header__sidebar-toggle"
+              type="button"
+              aria-expanded={homeSidebarOpen}
+              aria-controls="home-sidebar"
+              aria-label={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+              title={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+              onClick={toggleHomeSidebar}
+            >
+              {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
+            </button>
+          )}
           {!isHome && (
             <button className="app-header__icon-link" type="button" onClick={() => navigate('/')} aria-label="返回首页" title="返回首页"><ArrowLeft size={19} /></button>
           )}

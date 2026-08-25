@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ArticleFlowHome, LegacyArticlePage } from '../src/pages/ContentHomePage.jsx'
+import { HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
 
 describe('ArticleFlowHome', () => {
   beforeEach(() => {
@@ -240,27 +241,50 @@ describe('ArticleFlowHome', () => {
     ])
   })
 
-  it('toggles the record and essay rail from the mobile control', async () => {
-    const user = userEvent.setup()
+  it('renders the records and essays as an overlay drawer when opened', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
-        { slug: 'article', title: '移动文章', type: 'article', createdAt: '2026-08-24' },
-        { slug: 'essay', title: '移动随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
-        { slug: 'record', title: '移动记录', contentType: 'record', type: 'movie', createdAt: '2026-08-22' },
+        { slug: 'article', title: '抽屉文章', type: 'article', createdAt: '2026-08-24' },
+        { slug: 'essay', title: '抽屉随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
+        { slug: 'record', title: '抽屉记录', contentType: 'record', type: 'movie', createdAt: '2026-08-22' },
       ] }),
+    })
+
+    const close = vi.fn()
+    const toggle = vi.fn()
+    const { container } = render(
+      <HomeSidebarContext.Provider value={{ isOpen: true, close, toggle }}>
+        <MemoryRouter><ArticleFlowHome /></MemoryRouter>
+      </HomeSidebarContext.Provider>,
+    )
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '抽屉文章' })).toBeInTheDocument())
+    const drawer = screen.getByRole('dialog', { name: '记录和随笔' })
+    expect(drawer).toHaveClass('home-sidebar--drawer-open')
+    expect(drawer).toHaveTextContent('抽屉记录')
+    expect(drawer).toHaveTextContent('抽屉随笔')
+    expect(within(drawer).getByRole('button', { name: '关闭记录和随笔' })).toBeInTheDocument()
+    expect(container.querySelector('.home-layout')).toContainElement(drawer)
+    expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
+  })
+
+  it('shows the configured desktop label and hides it on mobile through CSS', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        return { ok: true, json: async () => ({ articles: [{ slug: 'article', title: '自定义文字文章', type: 'article', createdAt: '2026-08-24' }] }) }
+      }
+      if (path === '/api/homepage') {
+        return { ok: true, json: async () => ({ settings: { hero_prefix: '我的首页文字' } }) }
+      }
+      return { ok: true, json: async () => ({ article: null }) }
     })
 
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: '移动文章' })).toBeInTheDocument())
-    const toggle = screen.getByRole('button', { name: '展开记录和随笔' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await user.click(toggle)
-    expect(screen.getByRole('button', { name: '收起记录和随笔' })).toHaveAttribute('aria-expanded', 'true')
-    expect(container.querySelector('.home-sidebar')).toHaveClass('home-sidebar--mobile-open')
-    await user.click(screen.getByRole('button', { name: '收起记录和随笔' }))
-    expect(screen.getByRole('button', { name: '展开记录和随笔' })).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() => expect(screen.getByRole('heading', { name: '自定义文字文章' })).toBeInTheDocument())
+    await waitFor(() => expect(container.querySelector('.home-custom-label')).toHaveTextContent('我的首页文字'))
+    expect(container.querySelector('.home-custom-label')).toHaveClass('home-custom-label')
   })
 
   it('returns to the top after changing article pages', async () => {

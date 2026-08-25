@@ -157,8 +157,8 @@ export default function AdminHomepagePage() {
             <legend>首页内容</legend>
             <div className="admin-homepage__two-column">
               <Input
-                label="首屏前缀（当前不显示）"
-                aria-label="首屏前缀"
+                label="首页左上角文字"
+                aria-label="首页左上角文字"
                 value={draft.hero_prefix}
                 maxLength={80}
                 required

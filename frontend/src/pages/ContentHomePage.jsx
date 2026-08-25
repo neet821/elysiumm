@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, Clapperboard, Disc3, Gamepad2, Menu, X } from 'lucide-react'
+import { BookOpen, Clapperboard, Disc3, Gamepad2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+import { useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
@@ -205,7 +206,8 @@ export function ArticleFlowHome() {
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [homeLabel, setHomeLabel] = useState('')
+  const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
 
   useEffect(() => {
     let active = true
@@ -227,6 +229,16 @@ export function ArticleFlowHome() {
         return [item.slug, response.ok ? ((await response.json()).article || null) : null]
       } catch { return [item.slug, null] }
     })).then((entries) => { if (active) setFullEssays(Object.fromEntries(entries)) })
+    return () => { active = false }
+  }, [articles])
+
+  useEffect(() => {
+    if (!articles) return undefined
+    let active = true
+    fetch('/api/homepage')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (active) setHomeLabel(data?.settings?.hero_prefix || '') })
+      .catch(() => {})
     return () => { active = false }
   }, [articles])
 
@@ -257,17 +269,8 @@ export function ArticleFlowHome() {
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
-      <button
-        aria-controls="home-sidebar"
-        aria-expanded={mobileSidebarOpen}
-        aria-label={mobileSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-        className="home-sidebar-toggle"
-        onClick={() => setMobileSidebarOpen((open) => !open)}
-        title={mobileSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-        type="button"
-      >
-        {mobileSidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-      </button>
+      {homeLabel && <p className="home-custom-label">{homeLabel}</p>}
+      {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
       <div className="home-layout">
         <main className="home-main">
           <section className="articles-section">
@@ -291,7 +294,17 @@ export function ArticleFlowHome() {
             )}
           </section>
         </main>
-        <aside className={`home-sidebar${mobileSidebarOpen ? ' home-sidebar--mobile-open' : ''}`} id="home-sidebar">
+        <aside
+          className={`home-sidebar${homeSidebarOpen ? ' home-sidebar--drawer-open' : ''}`}
+          id="home-sidebar"
+          role={homeSidebarOpen ? 'dialog' : undefined}
+          aria-modal={homeSidebarOpen ? 'true' : undefined}
+          aria-label={homeSidebarOpen ? '记录和随笔' : undefined}
+        >
+          <header className="home-sidebar__drawer-header">
+            <h2>记录和随笔</h2>
+            <button className="home-sidebar__drawer-close" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar}><X size={18} aria-hidden="true" /></button>
+          </header>
           <section className="sidebar-section sidebar-section--records sidebar-section--records-scroll">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)
