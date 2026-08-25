@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -269,7 +270,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
-  it('shows the configured desktop label and hides it on mobile through CSS', async () => {
+  it('places the configured label above the sidebar cards', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
       if (path === '/api/articles') {
         return { ok: true, json: async () => ({ articles: [{ slug: 'article', title: '自定义文字文章', type: 'article', createdAt: '2026-08-24' }] }) }
@@ -283,8 +284,16 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '自定义文字文章' })).toBeInTheDocument())
-    await waitFor(() => expect(container.querySelector('.home-custom-label')).toHaveTextContent('我的首页文字'))
-    expect(container.querySelector('.home-custom-label')).toHaveClass('home-custom-label')
+    await waitFor(() => expect(container.querySelector('.home-sidebar__label')).toHaveTextContent('我的首页文字'))
+    expect(container.querySelector('.home-sidebar')).toContainElement(container.querySelector('.home-sidebar__label'))
+    expect(container.querySelector('.home-sidebar').firstElementChild).toHaveClass('home-sidebar__label')
+  })
+
+  it('anchors the mobile drawer on the left and lowers the desktop rail', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
+    expect(css).toMatch(/\.home-sidebar__label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
   })
 
   it('returns to the top after changing article pages', async () => {

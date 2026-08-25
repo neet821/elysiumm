@@ -269,7 +269,6 @@ export function ArticleFlowHome() {
 
   return (
     <div className="legacy-old-home legacy-old-home--flat">
-      {homeLabel && <p className="home-custom-label">{homeLabel}</p>}
       {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
       <div className="home-layout">
         <main className="home-main">
@@ -301,6 +300,7 @@ export function ArticleFlowHome() {
           aria-modal={homeSidebarOpen ? 'true' : undefined}
           aria-label={homeSidebarOpen ? '记录和随笔' : undefined}
         >
+          {homeLabel && <p className="home-sidebar__label">{homeLabel}</p>}
           <header className="home-sidebar__drawer-header">
             <h2>记录和随笔</h2>
             <button className="home-sidebar__drawer-close" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar}><X size={18} aria-hidden="true" /></button>
