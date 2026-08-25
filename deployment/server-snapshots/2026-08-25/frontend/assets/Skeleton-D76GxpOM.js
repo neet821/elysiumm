@@ -1,0 +1,1 @@
+import{j as t}from"./index-zjQxGCVA.js";function n({className:e,label:o="正在载入",...s}){return t.jsx("span",{className:["ui-skeleton",e].filter(Boolean).join(" "),role:"status","aria-label":o,...s})}export{n as S};
