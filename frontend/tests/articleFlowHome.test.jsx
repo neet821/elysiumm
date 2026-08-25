@@ -89,7 +89,7 @@ describe('ArticleFlowHome', () => {
       json: async () => ({ articles: [
         { slug: 'article', title: '大标题文章', type: 'article', createdAt: '2026-08-24', cover: '/cover.jpg', excerpt: '文章预览' },
         { slug: 'essay', title: '压缩随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
-        { slug: 'record', title: '记录者', type: 'record', createdAt: '2026-08-22', review: '记录内容' },
+        { slug: 'record', title: '记录者', type: 'record', createdAt: '2026-08-22', author: '作者', year: '2026', review: '记录内容' },
       ] }),
     })
 
@@ -101,6 +101,11 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered')
     expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
     expect(container.querySelector('.record-card')).toHaveClass('record-card--priority')
+    expect(container.querySelector('.essay-toggle')).toBeNull()
+    expect(container.querySelector('.record-card h2')).toHaveTextContent('记录者')
+    expect(container.querySelector('.record-card .record-details')).toHaveTextContent('作者')
+    expect(container.querySelector('.record-added-time')).toHaveTextContent('添加时间：2026/08/22')
+    expect(container.querySelector('.record-card > .card-time')).toBeNull()
   })
 
   it('renders Markdown for articles and essays', async () => {
@@ -137,7 +142,7 @@ describe('ArticleFlowHome', () => {
       if (path === '/api/articles') {
         return { ok: true, json: async () => ({ articles: [{ slug: 'essay', title: '可折叠随笔', type: 'essay', createdAt: '2026-08-23' }] }) }
       }
-      return { ok: true, json: async () => ({ article: { markdown: '第一段\n\n第二段\n\n第三段\n\n第四段' } }) }
+      return { ok: true, json: async () => ({ article: { markdown: '第一段内容用于测试折叠显示。\n\n第二段内容用于测试折叠显示。\n\n第三段内容用于测试折叠显示。\n\n第四段内容用于测试折叠显示。\n\n第五段内容用于测试折叠显示。\n\n第六段内容用于测试折叠显示。\n\n第七段内容用于测试折叠显示。\n\n第八段内容用于测试折叠显示。\n\n第九段内容用于测试折叠显示。\n\n第十段内容用于测试折叠显示。' } }) }
     })
 
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)

@@ -34,6 +34,7 @@ function coverUrl(item) {
 }
 
 const ARTICLES_PER_PAGE = 3
+const ESSAY_COLLAPSE_THRESHOLD = 120
 
 function articleType(item) {
   return item.type || (item.contentType === 'photo' ? 'image' : item.contentType)
@@ -41,6 +42,14 @@ function articleType(item) {
 
 function articleHref(item) {
   return `/article/${encodeURIComponent(item.slug)}`
+}
+
+function contentTextLength(value) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[`*_#>\-[\]|]/g, '')
+    .replace(/\s+/g, '')
+    .length
 }
 
 async function enrichArticle(article) {
@@ -103,20 +112,24 @@ function LegacyArticleCard({ item }) {
 function LegacyEssayCard({ item, markdown, html }) {
   const [expanded, setExpanded] = useState(false)
   const bodyId = `essay-body-${item.slug.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+  const source = markdown || html || item.excerpt || ''
+  const collapsible = contentTextLength(source) > ESSAY_COLLAPSE_THRESHOLD
   return (
-    <article className={`essay-card essay-card--compact${expanded ? ' is-expanded' : ''}`}>
+    <article className={`essay-card essay-card--compact${collapsible ? ' essay-card--collapsible' : ''}${expanded ? ' is-expanded' : ''}`}>
       <h2>{item.title}</h2>
       <MarkdownContent markdown={markdown} html={html} fallback={item.excerpt} className="essay-body" id={bodyId} />
-      <button
-        className="essay-toggle"
-        type="button"
-        aria-controls={bodyId}
-        aria-expanded={expanded}
-        aria-label={expanded ? '收起随笔' : '展开随笔'}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <span aria-hidden="true">{expanded ? '↑' : '↓'}</span>
-      </button>
+      {collapsible && (
+        <button
+          className="essay-toggle"
+          type="button"
+          aria-controls={bodyId}
+          aria-expanded={expanded}
+          aria-label={expanded ? '收起随笔' : '展开随笔'}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span className="essay-toggle-icon" aria-hidden="true">⌄</span>
+        </button>
+      )}
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
@@ -142,7 +155,6 @@ function RecordCard({ item }) {
     item.year && <div key="year"><dt>年份</dt><dd>{item.year}</dd></div>,
     item.country && <div key="country"><dt>国家</dt><dd>{item.country}</dd></div>,
     item.language && <div key="language"><dt>语言</dt><dd>{item.language}</dd></div>,
-    item.createdAt && <div key="createdAt"><dt>添加时间</dt><dd>{formatDate(item.createdAt)}</dd></div>,
   ].filter(Boolean)
   return (
     <article className="record-card record-card--priority">
@@ -150,9 +162,9 @@ function RecordCard({ item }) {
       <div className="record-info">
         <h2>{item.title}</h2>
         {fields.length > 0 && <dl className="record-details">{fields}</dl>}
+        {item.createdAt && <div className="record-added-time">添加时间：{formatDate(item.createdAt)}</div>}
         <div className="record-review"><span>个人评论：</span><span className="record-review-text">{item.review || '—'}</span></div>
       </div>
-      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
 }
