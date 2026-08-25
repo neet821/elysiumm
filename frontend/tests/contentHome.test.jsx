@@ -27,13 +27,14 @@ describe('ContentHomePage', () => {
   it('renders a content detail from the Obsidian content API', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ article: { slug: 'hello', title: '详情文章', contentType: 'article', html: '<p>正文</p>' } }),
+      json: async () => ({ article: { slug: 'hello', title: '详情文章', contentType: 'article', markdown: '## 正文\n\n- Markdown 项目' } }),
     })
 
     render(<MemoryRouter initialEntries={['/content/article/hello']}><ContentHomePage /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '详情文章' })).toBeInTheDocument())
-    expect(screen.getByText('正文')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '正文' })).toBeInTheDocument()
+    expect(screen.getByRole('listitem')).toHaveTextContent('Markdown 项目')
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/content/article/hello')
   })
 })

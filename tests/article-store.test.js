@@ -98,6 +98,16 @@ describe('article store', () => {
     expect(article.html).toContain('只保留正文。');
   });
 
+  it('returns normalized Markdown alongside rendered HTML', async () => {
+    const root = await makeRoot();
+    await writeFile(join(root, 'markdown.md'), `---\ntitle: Markdown\n---\n## 正文\n\n| 名称 | 值 |\n| --- | --- |\n| 版本 | 1 |`);
+    const store = createArticleStore({ rootDir: root });
+
+    const article = await store.getArticle('markdown');
+    expect(article.markdown).toContain('| 名称 | 值 |');
+    expect(article.html).toContain('<table>');
+  });
+
   it('removes the live cover view and keeps only the final cover image public', async () => {
     const root = await makeRoot();
     await mkdir(join(root, '文章'), { recursive: true });

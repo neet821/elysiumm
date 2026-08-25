@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import './contentHome.css'
 
@@ -71,6 +73,20 @@ function collectionTitle(article) {
   return title && title !== article.title ? <p className="metadata-title">资料名称：{title}</p> : null
 }
 
+function MarkdownContent({ markdown, html, fallback, className, id }) {
+  return (
+    <div className={className} id={id}>
+      {markdown
+        ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+        : html
+          ? <div dangerouslySetInnerHTML={{ __html: html }} />
+          : fallback
+            ? <p>{fallback}</p>
+            : null}
+    </div>
+  )
+}
+
 function LegacyArticleCard({ item }) {
   return (
     <article className="article-card article-card--featured">
@@ -84,11 +100,23 @@ function LegacyArticleCard({ item }) {
   )
 }
 
-function LegacyEssayCard({ item, html }) {
+function LegacyEssayCard({ item, markdown, html }) {
+  const [expanded, setExpanded] = useState(false)
+  const bodyId = `essay-body-${item.slug.replace(/[^a-zA-Z0-9_-]/g, '-')}`
   return (
-    <article className="essay-card essay-card--compact">
+    <article className={`essay-card essay-card--compact${expanded ? ' is-expanded' : ''}`}>
       <h2>{item.title}</h2>
-      <div className="essay-body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
+      <MarkdownContent markdown={markdown} html={html} fallback={item.excerpt} className="essay-body" id={bodyId} />
+      <button
+        className="essay-toggle"
+        type="button"
+        aria-controls={bodyId}
+        aria-expanded={expanded}
+        aria-label={expanded ? '收起随笔' : '展开随笔'}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span aria-hidden="true">{expanded ? '↑' : '↓'}</span>
+      </button>
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
@@ -204,10 +232,11 @@ export function ArticleFlowHome() {
             )}
           </section>
         </main>
+        <PhotoStrip photos={photos} />
         <aside className="home-sidebar">
           <section className="sidebar-section">
             {essays.length > 0
-              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} html={fullEssayBySlug[item.slug]?.html} />)
+              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
               : <p className="empty">还没有随笔。</p>}
           </section>
           <section className="sidebar-section">
@@ -217,7 +246,6 @@ export function ArticleFlowHome() {
           </section>
         </aside>
       </div>
-      <PhotoStrip photos={photos} />
     </div>
   )
 }
@@ -255,7 +283,7 @@ export function LegacyArticlePage() {
           {metadataDetails(article)}
           {article.excerpt && <p className="reader-excerpt">{article.excerpt}</p>}
         </header>
-        <div className="reader-body" dangerouslySetInnerHTML={{ __html: article.html || '' }} />
+        <MarkdownContent markdown={article.markdown} html={article.html} className="reader-body" />
       </article>
     </div>
   )
@@ -321,7 +349,7 @@ function ContentDetail({ article }) {
         <h1>{article.title}</h1>
         {article.excerpt && <p>{article.excerpt}</p>}
       </header>
-      <div className="content-reader__body" dangerouslySetInnerHTML={{ __html: article.html || '' }} />
+      <MarkdownContent markdown={article.markdown} html={article.html} className="content-reader__body" />
     </article>
   )
 }

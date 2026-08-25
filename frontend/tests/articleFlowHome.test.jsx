@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -59,7 +60,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.home-sidebar .essay-card h2')).toHaveTextContent('方便面定律')
   })
 
-  it('keeps the photo strip below articles and supporting content', async () => {
+  it('places photos after the article stream and before the sidebar in document order', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -74,7 +75,12 @@ describe('ArticleFlowHome', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '第三条' })).toBeInTheDocument())
     expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(2)
-    expect(container.querySelector('.photo-strip--bottom')).toBe(container.querySelector('.legacy-old-home').lastElementChild)
+    const layout = container.querySelector('.home-layout')
+    expect([...layout.children]).toEqual([
+      container.querySelector('.home-main'),
+      container.querySelector('.photo-strip--bottom'),
+      container.querySelector('.home-sidebar'),
+    ])
   })
 
   it('uses the flat priority treatment for articles, essays, and records', async () => {
@@ -95,6 +101,55 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered')
     expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
     expect(container.querySelector('.record-card')).toHaveClass('record-card--priority')
+  })
+
+  it('renders Markdown for articles and essays', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        return {
+          ok: true,
+          json: async () => ({ articles: [
+            { slug: 'essay', title: 'Markdown 随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '预览' },
+            { slug: 'article', title: 'Markdown 文章', type: 'article', createdAt: '2026-08-24' },
+          ] }),
+        }
+      }
+      if (path === '/api/articles/essay') {
+        return { ok: true, json: async () => ({ article: { markdown: '## 随笔正文\n\n**加粗内容**' } }) }
+      }
+      return { ok: true, json: async () => ({ article: { markdown: '## 文章正文\n\n- 第一项' } }) }
+    })
+
+    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Markdown 文章' })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: '随笔正文' })).toBeInTheDocument()
+    expect(screen.getByText('加粗内容').tagName).toBe('STRONG')
+
+    render(<MemoryRouter initialEntries={['/article/article']}><LegacyArticlePage /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByRole('heading', { name: '文章正文' })).toBeInTheDocument())
+    expect(screen.getByRole('listitem')).toHaveTextContent('第一项')
+  })
+
+  it('collapses long essays behind an arrow toggle', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        return { ok: true, json: async () => ({ articles: [{ slug: 'essay', title: '可折叠随笔', type: 'essay', createdAt: '2026-08-23' }] }) }
+      }
+      return { ok: true, json: async () => ({ article: { markdown: '第一段\n\n第二段\n\n第三段\n\n第四段' } }) }
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    const button = await screen.findByRole('button', { name: '展开随笔' })
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(container.querySelector('.essay-card')).not.toHaveClass('is-expanded')
+    await user.click(button)
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    expect(container.querySelector('.essay-card')).toHaveClass('is-expanded')
+    await user.click(screen.getByRole('button', { name: '收起随笔' }))
+    expect(container.querySelector('.essay-card')).not.toHaveClass('is-expanded')
   })
 
   it('keeps only the article title as a homepage detail link', async () => {
@@ -145,19 +200,23 @@ describe('ArticleFlowHome', () => {
     expect(screen.getByRole('navigation', { name: '文章分页' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '第 2 页' })).toHaveAttribute('href', '/?page=2')
     expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.home-sidebar'))
-    expect(container.querySelector('.home-layout').nextElementSibling).toHaveClass('photo-strip', 'photo-strip--bottom')
+    expect(container.querySelector('.home-layout')).toContainElement(container.querySelector('.photo-strip--bottom'))
+    expect([...container.querySelector('.home-layout').children].map((node) => node.className)).toEqual([
+      'home-main', 'photo-strip photo-strip--bottom', 'home-sidebar',
+    ])
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ article: { slug: 'hello', title: '详情文章', html: '<p>旧正文</p>' } }),
+      json: async () => ({ article: { slug: 'hello', title: '详情文章', markdown: '## 旧正文\n\n兼容 Markdown' } }),
     })
 
     render(<MemoryRouter initialEntries={['/article/hello']}><LegacyArticlePage /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '详情文章' })).toBeInTheDocument())
-    expect(screen.getByText('旧正文')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '旧正文' })).toBeInTheDocument()
+    expect(screen.getByText('兼容 Markdown')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')
     expect(screen.queryByText('返回文章列表')).not.toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/articles/hello')

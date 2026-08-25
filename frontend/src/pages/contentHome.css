@@ -373,10 +373,36 @@
 }
 .legacy-old-home--flat .photo-strip--bottom {
   border-bottom: 0;
+  grid-column: 1 / -1;
+  grid-row: 2;
   border-top: 1px solid #ddd;
   margin-top: 4rem;
   padding-top: 1rem;
 }
+.legacy-old-home--flat .home-main { grid-column: 1; grid-row: 1; }
+.legacy-old-home--flat .home-sidebar { grid-column: 2; grid-row: 1; }
+.legacy-old-home--flat .essay-card--compact .essay-body {
+  max-height: 7.5rem;
+  overflow: hidden;
+  position: relative;
+}
+.legacy-old-home--flat .essay-card--compact.is-expanded .essay-body { max-height: none; }
+.legacy-old-home--flat .essay-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  justify-content: center;
+  line-height: 1;
+  margin: .35rem 0 0;
+  min-height: 1.5rem;
+  padding: 0 .25rem;
+}
+.legacy-old-home--flat .essay-toggle:hover,
+.legacy-old-home--flat .essay-toggle:focus-visible { text-decoration: underline; }
 
 @media (max-width: 800px) {
   .legacy-old-home--flat {
@@ -393,5 +419,8 @@
     padding-top: 1.5rem;
   }
   .legacy-old-home--flat .home-sidebar .record-card { grid-template-columns: 64px minmax(0, 1fr); }
-  .legacy-old-home--flat .photo-strip--bottom { margin-top: 2.5rem; }
+  .legacy-old-home--flat .photo-strip--bottom {
+    margin-top: 1.5rem;
+    padding-bottom: 0;
+  }
 }

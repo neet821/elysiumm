@@ -240,7 +240,7 @@ export function createArticleStore({ rootDir, mediaRoot = rootDir, includeRootFi
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'h1', 'h2', 'h3', 'h4', 'pre', 'code']),
       allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt', 'title'], a: ['href', 'name', 'target', 'rel'] },
     });
-    return { ...record, html, body: undefined, file: undefined, directory: undefined };
+    return { ...record, markdown, html, body: undefined, file: undefined, directory: undefined };
   }
 
   async function resolveMedia(slug, relativePath) {
