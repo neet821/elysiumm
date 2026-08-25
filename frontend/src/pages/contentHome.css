@@ -1006,7 +1006,7 @@
     padding-left: 1rem;
     scrollbar-gutter: stable;
   }
-  .legacy-old-home--flat .home-nav__sidebar-toggle { display: none; }
+  .legacy-old-home--flat .home-nav__sidebar-toggle { display: none !important; }
   .legacy-old-home--flat .home-layout {
     grid-template-areas: "main sidebar" "photos photos";
     grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
@@ -1032,8 +1032,10 @@
     overscroll-behavior: contain;
   }
   .legacy-old-home--flat .home-sidebar .sidebar-scroll-viewport--essays {
-    height: 100%;
-    max-height: calc(100dvh - 8rem);
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
