@@ -246,15 +246,15 @@ export function ArticleFlowHome() {
         </main>
         <PhotoStrip photos={photos} />
         <aside className="home-sidebar">
-          <section className="sidebar-section">
-            {essays.length > 0
-              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
-              : <p className="empty">还没有随笔。</p>}
-          </section>
-          <section className="sidebar-section">
+          <section className="sidebar-section sidebar-section--records">
             {records.length > 0
               ? records.map((item) => <RecordCard key={item.slug} item={item} />)
               : <p className="empty">还没有记录。</p>}
+          </section>
+          <section className="sidebar-section sidebar-section--essays">
+            {essays.length > 0
+              ? essays.map((item) => <LegacyEssayCard key={item.slug} item={item} markdown={fullEssayBySlug[item.slug]?.markdown} html={fullEssayBySlug[item.slug]?.html} />)
+              : <p className="empty">还没有随笔。</p>}
           </section>
         </aside>
       </div>

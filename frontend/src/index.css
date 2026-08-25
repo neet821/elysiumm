@@ -3748,10 +3748,14 @@ body:has(.app-shell--home)::before {
   width: auto;
   z-index: 60;
 }
+.service-shell.app-shell--home .app-header {
+  padding-inline: 0;
+  right: max(1rem, calc((100vw - 1280px) / 2));
+}
 .service-shell.app-shell--home .app-header__inner { justify-content: flex-end; max-width: none; }
 .service-shell.app-shell--home .app-header__leading {
   display: flex;
-  left: max(1rem, calc((100vw - 1120px) / 2));
+  left: max(1rem, calc((100vw - 1280px) / 2));
   position: fixed;
   top: .75rem;
   z-index: 61;

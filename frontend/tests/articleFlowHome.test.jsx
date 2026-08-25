@@ -106,6 +106,9 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.record-card .record-details')).toHaveTextContent('作者')
     expect(container.querySelector('.record-added-time')).toHaveTextContent('添加时间：2026/08/22')
     expect(container.querySelector('.record-card > .card-time')).toBeNull()
+    const sidebarSections = [...container.querySelectorAll('.home-sidebar > .sidebar-section')]
+    expect(sidebarSections[0]).toHaveClass('sidebar-section--records')
+    expect(sidebarSections[1]).toHaveClass('sidebar-section--essays')
   })
 
   it('renders Markdown for articles and essays', async () => {
