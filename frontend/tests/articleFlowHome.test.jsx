@@ -138,6 +138,25 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.record-card')).toHaveTextContent('瑞克和莫蒂 S4')
   })
 
+  it('normalizes media content types so records remain visible', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{
+        slug: 'movie-record-with-media-type',
+        title: '接口媒体类型电影',
+        type: 'movie',
+        contentType: 'movie',
+        createdAt: '2026-08-25',
+      }] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('接口媒体类型电影')).toBeInTheDocument())
+    expect(container.querySelector('.sidebar-section--records .record-card')).toHaveTextContent('接口媒体类型电影')
+    expect(container.querySelector('.sidebar-section--essays')).toHaveTextContent('还没有随笔。')
+  })
+
   it('shows a flat icon for each supported record type', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -333,7 +352,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
-  it('anchors the mobile drawer on the left and lowers the desktop rail', () => {
+  it('fixes the homepage chrome and joins the mobile drawer to it', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
     const indexCss = fs.readFileSync('src/index.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
@@ -342,7 +361,8 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-card\s*\{[^}]*grid-template-columns:\s*64px\s+minmax\(0,\s*1fr\);/s)
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-cover\s*\{[^}]*max-width:\s*64px;[^}]*width:\s*64px;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
-    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*sticky\s*!important;[^}]*top:\s*0;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*margin-top:\s*0;/s)
+    expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header\s*\{[^}]*position:\s*fixed\s*!important;[^}]*top:\s*0;/s)
     expect(indexCss).toMatch(/\.service-shell\.app-shell--home \.app-header__leading\s*\{[^}]*position:\s*static;/s)
     expect(indexCss).toMatch(/\.app-header__home-label\s*\{[^}]*font-size:\s*1\.15rem;[^}]*font-weight:\s*700;/s)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)

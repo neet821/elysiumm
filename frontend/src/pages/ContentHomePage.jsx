@@ -247,6 +247,7 @@ export function ArticleFlowHome() {
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
+  const homeSidebarRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -294,6 +295,13 @@ export function ArticleFlowHome() {
     return () => { active = false }
   }, [articles])
 
+  useEffect(() => {
+    if (!homeSidebarOpen || !homeSidebarRef.current) return
+    homeSidebarRef.current.scrollTop = 0
+    const recordsSection = homeSidebarRef.current.querySelector('.sidebar-section--records')
+    if (recordsSection) recordsSection.scrollTop = 0
+  }, [homeSidebarOpen])
+
   const pageParam = searchParams.get('page') || '1'
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -304,8 +312,9 @@ export function ArticleFlowHome() {
 
   const sorted = [...articles].sort((a, b) => new Date(b.createdAt || b.date || b.updatedAt || 0) - new Date(a.createdAt || a.date || a.updatedAt || 0))
   const contentType = (item) => {
+    const mediaRecordTypes = ['movie', 'album', 'book', 'game']
+    if (mediaRecordTypes.includes(item.type) || mediaRecordTypes.includes(item.category) || mediaRecordTypes.includes(item.contentType)) return 'record'
     if (item.contentType) return item.contentType
-    if (['movie', 'album', 'book', 'game'].includes(item.type)) return 'record'
     return articleType(item) === 'image' ? 'photo' : articleType(item)
   }
   const fullEssayBySlug = fullEssays
@@ -350,6 +359,7 @@ export function ArticleFlowHome() {
           </section>
         </main>
         <aside
+          ref={homeSidebarRef}
           className={`home-sidebar${homeSidebarOpen ? ' home-sidebar--drawer-open' : ''}`}
           id="home-sidebar"
           role={homeSidebarOpen ? 'dialog' : undefined}

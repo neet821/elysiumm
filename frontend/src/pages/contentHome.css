@@ -851,6 +851,7 @@
     padding: 1rem 1rem 2rem;
     position: fixed;
     left: 0;
+    margin-top: 0;
     right: auto;
     top: var(--home-header-height, 3.75rem);
     width: min(88vw, 23rem);
