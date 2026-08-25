@@ -397,7 +397,7 @@ export default function AdminLivePage() {
         </section>
         )}
 
-        <details className="admin-live__card admin-live__card--wide admin-live__sessions-card">
+        <details className="admin-live__card admin-live__card--sessions admin-live__sessions-card">
           <summary><Radio aria-hidden="true" /><div><strong>直播场次</strong><span>短暂断流会归入同一场，正式结束后才生成下一场。</span></div></summary>
           <ul className="admin-live__sessions">
             {data.sessions.map((entry) => (

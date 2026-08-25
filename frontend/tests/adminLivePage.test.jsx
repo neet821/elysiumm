@@ -147,6 +147,17 @@ describe('live administrator workspace', () => {
     expect(screen.queryByRole('row', { name: /203\.0\.113\.8/ })).not.toBeInTheDocument()
   })
 
+  it('places live sessions beside opening settings on desktop', async () => {
+    render(<AdminLivePage />)
+
+    const settingsCard = (await screen.findByRole('heading', { name: '开播设置' })).closest('section')
+    const sessionsCard = screen.getByText('直播场次').closest('details')
+
+    expect(settingsCard.parentElement).toHaveClass('admin-live__grid')
+    expect(sessionsCard).toHaveClass('admin-live__card--sessions')
+    expect(sessionsCard).not.toHaveClass('admin-live__card--wide')
+  })
+
   it('uses concrete administrator recording endpoints', () => {
     expect(API_ENDPOINTS.ADMIN_LIVE_RECORDINGS).toBe(
       `${window.location.origin}/api/admin/live/recordings`,
