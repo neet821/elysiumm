@@ -15,7 +15,7 @@ export function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const isHome = location.pathname === '/'
-  const accountTarget = isAuthenticated ? '/account' : '/login'
+  const accountTarget = isAdmin ? '/admin' : isAuthenticated ? '/account' : '/login'
 
   return (
     <header className="app-header app-header--static">

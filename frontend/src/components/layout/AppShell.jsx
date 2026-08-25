@@ -8,14 +8,15 @@ export function AppShell({ children }) {
   const isHome = location.pathname === '/'
   const isToolbox = location.pathname === '/tools'
   const isArticleReader = location.pathname.startsWith('/article/')
+  const isAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
   const isRoom = location.pathname === '/rooms'
     || location.pathname.startsWith('/rooms/')
     || location.pathname === '/music'
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
-  const showHeader = isHome || (!isArticleReader && !isRoom && !isLive)
-  const showFooter = !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive
+  const showHeader = isHome || (!isArticleReader && !isRoom && !isLive && !isAdminRoute)
+  const showFooter = !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
 
   return (
     <ToastProvider>

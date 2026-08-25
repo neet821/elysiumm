@@ -41,6 +41,22 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
   })
 
+  it('routes the account avatar by role', () => {
+    const { unmount } = renderShell({ initialPath: '/' })
+    expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
+
+    unmount()
+    authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
+    renderShell({ initialPath: '/' })
+    expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/admin')
+  })
+
+  it('keeps the administrator route free of public chrome', () => {
+    renderShell({ initialPath: '/admin' })
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+  })
+
   it('keeps icon-only home navigation and restores the admin control entry', () => {
     const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
     expect(screen.getByRole('banner')).toBeInTheDocument()
