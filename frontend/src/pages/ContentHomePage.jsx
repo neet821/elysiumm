@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-import { useOptionalAuth } from '../contexts/AuthContext.jsx'
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
@@ -161,7 +160,6 @@ function LegacySectionHeading({ title, count }) {
 }
 
 export function ArticleFlowHome() {
-  const { isAdmin, isAuthenticated } = useOptionalAuth()
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [error, setError] = useState('')
@@ -205,8 +203,7 @@ export function ArticleFlowHome() {
       <nav className="home-actions" aria-label="首页操作">
         <Link to="/rooms">房间</Link>
         <Link to="/live">直播</Link>
-        {isAdmin && <Link to="/admin">管理</Link>}
-        <Link to={isAuthenticated ? '/account' : '/login'}>{isAuthenticated ? '账户' : '登录'}</Link>
+        <Link to="/login">登录</Link>
       </nav>
       <div className="home-flow">
         <section className="writing-section">
