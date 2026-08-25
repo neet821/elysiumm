@@ -46,6 +46,23 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.home-header-portal')).toBeNull()
   })
 
+  it('applies the administrator title scale to the homepage article stream', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        return { ok: true, json: async () => ({ articles: [{ slug: 'scaled', title: '可调字号文章', type: 'article', createdAt: '2026-08-25' }] }) }
+      }
+      if (path === '/api/homepage') {
+        return { ok: true, json: async () => ({ settings: { article_title_scale: 0.75 } }) }
+      }
+      return { ok: true, json: async () => ({ status: 'waiting' }) }
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '可调字号文章' })).toBeInTheDocument())
+    expect(container.querySelector('.legacy-old-home')).toHaveStyle('--home-article-title-scale: 0.75')
+  })
+
   it('keeps metadata enrichment available for non-feed records', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({

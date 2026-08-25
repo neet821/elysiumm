@@ -674,6 +674,24 @@
   text-align: right;
 }
 
+.legacy-old-home--flat .article-card--featured h2 {
+  font-size: clamp(
+    1.8rem,
+    calc(4vw * var(--home-article-title-scale, .8)),
+    calc(3.6rem * var(--home-article-title-scale, .8))
+  );
+}
+
+@media (max-width: 800px) {
+  .legacy-old-home--flat .article-card--featured h2 {
+    font-size: clamp(
+      1.5rem,
+      calc(8vw * var(--home-article-title-scale, .8)),
+      calc(2.8rem * var(--home-article-title-scale, .8))
+    );
+  }
+}
+
 .legacy-old-home--flat .photo-strip--bottom {
   padding-block: 0;
 }

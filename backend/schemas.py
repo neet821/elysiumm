@@ -857,6 +857,7 @@ def _default_homepage_scenes() -> List[dict[str, Any]]:
 class HomepageConfig(BaseModel):
     version: Literal[2] = 2
     hero_prefix: str = Field(min_length=1, max_length=80)
+    article_title_scale: float = Field(default=0.8, ge=0.6, le=1.2)
     hero_title: str = Field(min_length=1, max_length=120)
     german_line: str = Field(min_length=1, max_length=240)
     introduction: str = Field(min_length=1, max_length=1200)

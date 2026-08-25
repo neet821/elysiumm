@@ -74,6 +74,7 @@ class HomepageRoutesTest(unittest.TestCase):
     def valid_settings(**overrides):
         settings = {
             "hero_prefix": "Hello, this is",
+            "article_title_scale": 0.8,
             "hero_title": "Blue Album.",
             "german_line": "Wovon man nicht sprechen kann, darüber muss man schweigen.",
             "introduction": "Writing, photographs, and saved places from a personal archive.",
@@ -102,6 +103,7 @@ class HomepageRoutesTest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["settings"]["revision"], 0)
         self.assertEqual(payload["settings"]["hero_prefix"], "Hello, this is")
+        self.assertEqual(payload["settings"]["article_title_scale"], 0.8)
         self.assertEqual(payload["settings"]["hero_title"], "Blue Album.")
         self.assertEqual(payload["settings"]["introduction"], "文字、照片与沿途收藏，都留在这本私人相册里。")
         self.assertEqual(payload["settings"]["short_quote"], "把安静的部分留下来。")
@@ -197,6 +199,8 @@ class HomepageRoutesTest(unittest.TestCase):
             ]),
             self.valid_settings(hero_title="x" * 121),
             self.valid_settings(featured_post_ids=[-1]),
+            self.valid_settings(article_title_scale=0.5),
+            self.valid_settings(article_title_scale=1.3),
         ]
 
         for settings in invalid_payloads:
@@ -212,7 +216,7 @@ class HomepageRoutesTest(unittest.TestCase):
 
     def test_admin_update_persists_revision_and_audits_only_a_summary(self):
         secret_marker = "homepage-copy-must-not-enter-audit"
-        settings = self.valid_settings(introduction=secret_marker)
+        settings = self.valid_settings(introduction=secret_marker, article_title_scale=0.95)
 
         saved = self.client.put(
             "/api/admin/homepage",
@@ -223,6 +227,7 @@ class HomepageRoutesTest(unittest.TestCase):
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(saved.json()["revision"], 1)
         self.assertEqual(saved.json()["introduction"], secret_marker)
+        self.assertEqual(saved.json()["article_title_scale"], 0.95)
         stored = self.db.query(models.HomepageSetting).filter_by(id=1).one()
         self.assertEqual(stored.revision, 1)
         self.assertEqual(json.loads(stored.config_json)["introduction"], secret_marker)
@@ -236,6 +241,7 @@ class HomepageRoutesTest(unittest.TestCase):
         public = self.client.get("/api/homepage").json()
         self.assertEqual(public["settings"]["revision"], 1)
         self.assertEqual(public["settings"]["introduction"], secret_marker)
+        self.assertEqual(public["settings"]["article_title_scale"], 0.95)
 
     def test_stale_revision_is_rejected_without_partial_write(self):
         first = self.client.put(

@@ -15,6 +15,7 @@ const errorDetail = (error, fallback) => {
 export default function AdminHomepagePage() {
   const [storedSettings, setStoredSettings] = useState(DEFAULT_HOMEPAGE_SETTINGS)
   const [draftPrefix, setDraftPrefix] = useState(DEFAULT_HOMEPAGE_SETTINGS.hero_prefix)
+  const [draftTitleScale, setDraftTitleScale] = useState(DEFAULT_HOMEPAGE_SETTINGS.article_title_scale)
   const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -25,6 +26,7 @@ export default function AdminHomepagePage() {
     const normalized = { ...DEFAULT_HOMEPAGE_SETTINGS, ...settings }
     setStoredSettings(normalized)
     setDraftPrefix(normalized.hero_prefix)
+    setDraftTitleScale(normalized.article_title_scale)
     setRevision(normalized.revision || 0)
   }, [])
 
@@ -54,6 +56,7 @@ export default function AdminHomepagePage() {
       Object.entries(storedSettings).filter(([key]) => !['revision', 'updated_at'].includes(key)),
     )
     settings.hero_prefix = draftPrefix
+    settings.article_title_scale = draftTitleScale
 
     setSaving(true)
     try {
@@ -87,6 +90,20 @@ export default function AdminHomepagePage() {
               required
               onChange={(event) => {
                 setDraftPrefix(event.target.value)
+                setSuccess('')
+              }}
+            />
+            <Input
+              label="文章标题字号"
+              aria-label="文章标题字号"
+              type="range"
+              min="0.6"
+              max="1.2"
+              step="0.05"
+              value={draftTitleScale}
+              hint={`当前为 ${Math.round(draftTitleScale * 100)}%，用于控制首页文章标题的整体大小。`}
+              onChange={(event) => {
+                setDraftTitleScale(Number(event.target.value))
                 setSuccess('')
               }}
             />

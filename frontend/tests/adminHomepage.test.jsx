@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -43,6 +43,7 @@ describe('administrator homepage editor', () => {
 
     expect(await screen.findByRole('heading', { name: '首页设置' })).toBeInTheDocument()
     expect(screen.getByLabelText('首页顶栏文字')).toHaveValue(savedSettings.hero_prefix)
+    expect(screen.getByLabelText('文章标题字号')).toHaveValue(String(savedSettings.article_title_scale))
     expect(screen.queryByLabelText('首屏标题')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('首页介绍')).not.toBeInTheDocument()
     expect(screen.queryByText('精选内容')).not.toBeInTheDocument()
@@ -58,8 +59,10 @@ describe('administrator homepage editor', () => {
     renderPage()
 
     const prefix = await screen.findByLabelText('首页顶栏文字')
+    const titleScale = await screen.findByLabelText('文章标题字号')
     await user.clear(prefix)
     await user.type(prefix, '新的顶栏文字')
+    fireEvent.change(titleScale, { target: { value: '0.95' } })
     await user.click(screen.getByRole('button', { name: '保存首页设置' }))
 
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1))
@@ -67,6 +70,7 @@ describe('administrator homepage editor', () => {
     expect(apiClient.put.mock.calls[0][0]).toBe(API_ENDPOINTS.ADMIN_HOMEPAGE)
     expect(payload.revision).toBe(3)
     expect(payload.settings.hero_prefix).toBe('新的顶栏文字')
+    expect(payload.settings.article_title_scale).toBe(0.95)
     expect(payload.settings.hero_title).toBe(savedSettings.hero_title)
     expect(payload.settings.show_messages).toBe(savedSettings.show_messages)
     expect(payload.settings.cards).toEqual(savedSettings.cards)

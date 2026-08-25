@@ -1,5 +1,6 @@
 export const DEFAULT_HOMEPAGE_SETTINGS = Object.freeze({
   hero_prefix: 'Hello, this is',
+  article_title_scale: 0.8,
   hero_title: 'Blue Album.',
   german_line: 'Wovon man nicht sprechen kann, darüber muss man schweigen.',
   introduction: '文字、照片与沿途收藏，都留在这本私人相册里。',

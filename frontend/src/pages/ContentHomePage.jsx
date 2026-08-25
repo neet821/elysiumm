@@ -46,6 +46,12 @@ const ARTICLES_PER_PAGE = 3
 const ESSAY_COLLAPSE_THRESHOLD = 120
 const RECORD_REVIEW_PREVIEW_LENGTH = 72
 const ARTICLE_REFRESH_INTERVAL_MS = 15000
+const DEFAULT_ARTICLE_TITLE_SCALE = 0.8
+
+function normalizeArticleTitleScale(value) {
+  const scale = Number(value)
+  return Number.isFinite(scale) && scale >= 0.6 && scale <= 1.2 ? scale : DEFAULT_ARTICLE_TITLE_SCALE
+}
 
 function articleType(item) {
   return item.type || (item.contentType === 'photo' ? 'image' : item.contentType)
@@ -313,6 +319,7 @@ export function ArticleFlowHome() {
   const [articles, setArticles] = useState(null)
   const [fullEssays, setFullEssays] = useState({})
   const [homeLabel, setHomeLabel] = useState('')
+  const [articleTitleScale, setArticleTitleScale] = useState(DEFAULT_ARTICLE_TITLE_SCALE)
   const homeLabelLoadedRef = useRef(false)
   const [error, setError] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
@@ -370,7 +377,11 @@ export function ArticleFlowHome() {
     let active = true
     fetch('/api/homepage')
       .then((response) => (response.ok ? response.json() : null))
-      .then((data) => { if (active) setHomeLabel(data?.settings?.hero_prefix || '') })
+      .then((data) => {
+        if (!active) return
+        setHomeLabel(data?.settings?.hero_prefix || '')
+        setArticleTitleScale(normalizeArticleTitleScale(data?.settings?.article_title_scale))
+      })
       .catch(() => {})
     return () => { active = false }
   }, [articles])
@@ -416,7 +427,7 @@ export function ArticleFlowHome() {
   }, [])
 
   return (
-    <div className="legacy-old-home legacy-old-home--flat">
+    <div className="legacy-old-home legacy-old-home--flat" style={{ '--home-article-title-scale': articleTitleScale }}>
       <HomeNavigation label={homeLabel} />
       {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
       <div className="home-layout">
