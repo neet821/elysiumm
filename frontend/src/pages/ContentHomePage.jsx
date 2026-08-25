@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import './contentHome.css'
@@ -11,6 +11,14 @@ function formatDate(value) {
   return Number.isNaN(date.valueOf())
     ? String(value)
     : new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+}
+
+function formatWritingDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.valueOf())
+    ? String(value)
+    : new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(date)
 }
 
 function contentHref(item) {
@@ -68,19 +76,15 @@ function collectionTitle(article) {
   return title && title !== article.title ? <p className="metadata-title">资料名称：{title}</p> : null
 }
 
-function ArticleMeta({ item }) {
-  return <div className="article-meta">{formatDate(item.createdAt || item.date || item.updatedAt)}</div>
-}
-
 function LegacyArticleCard({ item }) {
   return (
     <article className="article-card">
-      {item.cover && <Link className="article-card-cover" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
       <div className="article-card-info">
-        <ArticleMeta item={item} />
         <h2>{articleLink(item, item.title)}</h2>
+        {item.cover && <Link className="article-card-cover" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
         {item.excerpt && <p>{item.excerpt}</p>}
       </div>
+      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
 }
@@ -88,9 +92,9 @@ function LegacyArticleCard({ item }) {
 function LegacyEssayCard({ item, html }) {
   return (
     <article className="essay-card">
-      <ArticleMeta item={item} />
       <h2>{articleLink(item, item.title)}</h2>
       <div className="essay-body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
+      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
     </article>
   )
 }
@@ -99,9 +103,47 @@ function LegacyPhotoCard({ item }) {
   const image = item.cover ? <img src={coverUrl(item)} alt={item.title} loading="lazy" /> : null
   return (
     <article className="photo-card">
-      {item.link === false ? <div className="photo-frame">{image}</div> : <Link className="photo-frame" to={articleHref(item)}>{image}</Link>}
+      {image ? <a className="photo-frame" href={coverUrl(item)} target="_blank" rel="noreferrer">{image}</a> : <div className="photo-frame" />}
       <h3>{articleLink(item, item.title)}</h3>
+      <div className="photo-meta">{formatDate(item.date || item.createdAt || item.updatedAt)}{item.location ? ` · ${item.location}` : ''}</div>
     </article>
+  )
+}
+
+function RecordCard({ item }) {
+  const image = item.cover
+    ? <img src={coverUrl(item)} alt={item.title} loading="lazy" />
+    : <span className="cover-missing">暂无封面</span>
+  const fields = [
+    item.author && <div key="author"><dt>作者</dt><dd>{item.author}</dd></div>,
+    item.year && <div key="year"><dt>年份</dt><dd>{item.year}</dd></div>,
+    item.country && <div key="country"><dt>国家</dt><dd>{item.country}</dd></div>,
+    item.language && <div key="language"><dt>语言</dt><dd>{item.language}</dd></div>,
+    item.createdAt && <div key="createdAt"><dt>添加时间</dt><dd>{formatDate(item.createdAt)}</dd></div>,
+  ].filter(Boolean)
+  return (
+    <article className="record-card">
+      <div className="record-cover">{image}</div>
+      <div className="record-info">
+        <h2>{articleLink(item, item.title)}</h2>
+        {fields.length > 0 && <dl className="record-details">{fields}</dl>}
+        <div className="record-review"><span>个人评论：</span><span className="record-review-text">{item.review || '—'}</span></div>
+      </div>
+      <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
+    </article>
+  )
+}
+
+function PhotoStrip({ photos }) {
+  return (
+    <section className="photo-strip">
+      <LegacySectionHeading title="照片" count={photos.length} />
+      <div className="photo-strip-grid">
+        {photos.length > 0
+          ? photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)
+          : <p className="photo-strip-empty">还没有照片。</p>}
+      </div>
+    </section>
   )
 }
 
@@ -149,27 +191,33 @@ export function ArticleFlowHome() {
   if (!articles) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
 
   const sorted = [...articles].sort((a, b) => new Date(b.createdAt || b.date || b.updatedAt || 0) - new Date(a.createdAt || a.date || a.updatedAt || 0))
-  const writing = sorted.filter((item) => !COLLECTION_TYPES.includes(articleType(item)) && articleType(item) !== 'image' && item.contentType !== 'photo')
-  const essays = writing.filter((item) => articleType(item) === 'essay')
-  const articleNotes = writing.filter((item) => articleType(item) !== 'essay')
-  const photos = sorted.filter((item) => articleType(item) === 'image' || item.contentType === 'photo')
+  const contentType = (item) => item.contentType || (articleType(item) === 'image' ? 'photo' : articleType(item))
+  const essays = sorted.filter((item) => contentType(item) === 'essay')
+  const fullEssayBySlug = fullEssays
+  const photos = sorted.filter((item) => contentType(item) === 'photo')
+  const feed = sorted.filter((item) => ['article', 'essay', 'record'].includes(contentType(item)))
+  const strip = <PhotoStrip photos={photos} />
 
   return (
     <div className="legacy-old-home">
       <div className="home-flow">
-      <section className="writing-section">
-        <div className="writing-list">
-          {[...essays.map((item) => <LegacyEssayCard key={item.slug} item={item} html={fullEssays[item.slug]?.html} />), ...articleNotes.map((item) => <LegacyArticleCard key={item.slug} item={item} />)]}
-          {!writing.length && <p className="empty">还没有文章。</p>}
-        </div>
-      </section>
-      {!!photos.length && <section className="photos-section"><LegacySectionHeading title="照片" count={photos.length} /><div className="photo-grid">{photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)}</div></section>}
-      <section className="collections-grid">
-        {COLLECTION_TYPES.map((type) => {
-          const items = sorted.filter((item) => articleType(item) === type).slice(0, 2)
-          return <section className="collection-section" key={type}><LegacySectionHeading title={COLLECTION_LABELS[type]} count={items.length} /><div className="collection-cards">{items.length ? items.map((item) => <LegacyCollectionCard key={item.slug} item={item} />) : <p className="empty">还没有记录。</p>}</div></section>
-        })}
-      </section>
+        <section className="writing-section">
+          <div className="writing-list">
+            {feed.length > 0
+              ? feed.map((item, index) => (
+                <Fragment key={item.slug}>
+                  {index === 2 && strip}
+                  {contentType(item) === 'record'
+                    ? <RecordCard item={item} />
+                    : contentType(item) === 'essay'
+                      ? <LegacyEssayCard item={item} html={fullEssayBySlug[item.slug]?.html} />
+                      : <LegacyArticleCard item={item} />}
+                </Fragment>
+              ))
+              : strip}
+            {feed.length > 0 && feed.length < 3 && strip}
+          </div>
+        </section>
       </div>
     </div>
   )

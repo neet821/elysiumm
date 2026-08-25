@@ -51,9 +51,13 @@ describe('stable public routes', () => {
     authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
   })
 
-  it('keeps the preserved flat HomePage as the root route', async () => {
+  it('keeps the migrated single-page article flow as the root route', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [] }),
+    })
     renderAppRoute('/')
-    expect(await screen.findByText('Home page')).toBeInTheDocument()
+    expect(await screen.findByText('还没有照片。')).toBeInTheDocument()
   })
 
   it.each([

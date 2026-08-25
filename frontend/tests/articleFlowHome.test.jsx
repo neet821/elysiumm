@@ -21,7 +21,7 @@ describe('ArticleFlowHome', () => {
     expect(link).toHaveAttribute('href', '/article/hello')
   })
 
-  it('uses the old metadata enrichment request for collection entries', async () => {
+  it('keeps metadata enrichment available for non-feed records', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({
         ok: true,
@@ -34,8 +34,47 @@ describe('ArticleFlowHome', () => {
 
     render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
-    await waitFor(() => expect(screen.getByRole('img', { name: '电影' })).toHaveAttribute('src', '/media/movie.jpg'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/metadata/search?type=movie&q=%E7%94%B5%E5%BD%B1'))
     expect(fetch).toHaveBeenCalledWith('/api/metadata/search?type=movie&q=%E7%94%B5%E5%BD%B1')
+  })
+
+  it('keeps the homepage writing stream in date order across essays and articles', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') {
+        return {
+          ok: true,
+          json: async () => ({ articles: [
+            { slug: 'essay', title: '方便面定律', type: 'essay', createdAt: '2026-08-22', excerpt: '开始吃就不会塌' },
+            { slug: 'article', title: '打瓦得分儿', type: 'article', createdAt: '2026-08-24', excerpt: '低洼地发外网' },
+          ] }),
+        }
+      }
+      return { ok: true, json: async () => ({ article: { html: '<p>开始吃就不会塌</p>' } }) }
+    })
+
+    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '打瓦得分儿' })).toBeInTheDocument())
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)
+    expect(headings.slice(0, 2)).toEqual(['打瓦得分儿', '方便面定律'])
+  })
+
+  it('inserts the photo strip into the feed after two entries', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'one', title: '第一条', type: 'article', createdAt: '2026-08-24' },
+        { slug: 'two', title: '第二条', type: 'essay', createdAt: '2026-08-23', excerpt: '第二条正文' },
+        { slug: 'three', title: '第三条', type: 'article', createdAt: '2026-08-22' },
+        { slug: 'photo', title: '照片一', contentType: 'photo', cover: '/photo.jpg', createdAt: '2026-08-21' },
+      ] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '第三条' })).toBeInTheDocument())
+    const children = [...container.querySelector('.writing-list').children]
+    expect(children.map((child) => child.className)).toEqual(['article-card', 'essay-card', 'photo-strip', 'article-card'])
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {
