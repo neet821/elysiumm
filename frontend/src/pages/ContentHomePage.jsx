@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { BookOpen, Clapperboard, Disc3, Gamepad2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
+const RECORD_TYPES = {
+  album: { label: '专辑', Icon: Disc3 },
+  movie: { label: '电影', Icon: Clapperboard },
+  game: { label: '游戏', Icon: Gamepad2 },
+  book: { label: '书籍', Icon: BookOpen },
+}
 
 function formatDate(value) {
   if (!value) return ''
@@ -85,14 +92,24 @@ function collectionTitle(article) {
 function MarkdownContent({ markdown, html, fallback, className, id }) {
   return (
     <div className={className} id={id}>
-      {markdown
-        ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-        : html
+      {html
           ? <div dangerouslySetInnerHTML={{ __html: html }} />
+          : markdown
+            ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
           : fallback
             ? <p>{fallback}</p>
             : null}
     </div>
+  )
+}
+
+function RecordTypeIcon({ type }) {
+  const recordType = RECORD_TYPES[type] || { label: '记录', Icon: BookOpen }
+  const Icon = recordType.Icon
+  return (
+    <span className="record-type-icon" aria-label={`${recordType.label}类型`} title={recordType.label}>
+      <Icon aria-hidden="true" size={15} strokeWidth={1.8} />
+    </span>
   )
 }
 
@@ -160,7 +177,7 @@ function RecordCard({ item }) {
     <article className="record-card record-card--priority">
       <div className="record-cover">{image}</div>
       <div className="record-info">
-        <h2>{item.title}</h2>
+        <h2><RecordTypeIcon type={item.type} /><span>{item.title}</span></h2>
         {fields.length > 0 && <dl className="record-details">{fields}</dl>}
         {item.createdAt && <div className="record-added-time">添加时间：{formatDate(item.createdAt)}</div>}
         <div className="record-review"><span>个人评论：</span><span className="record-review-text">{item.review || '—'}</span></div>

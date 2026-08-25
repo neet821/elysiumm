@@ -89,7 +89,7 @@ describe('ArticleFlowHome', () => {
       json: async () => ({ articles: [
         { slug: 'article', title: '大标题文章', type: 'article', createdAt: '2026-08-24', cover: '/cover.jpg', excerpt: '文章预览' },
         { slug: 'essay', title: '压缩随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
-        { slug: 'record', title: '记录者', type: 'record', createdAt: '2026-08-22', author: '作者', year: '2026', review: '记录内容' },
+        { slug: 'record', title: '记录者', type: 'movie', contentType: 'record', createdAt: '2026-08-22', author: '作者', year: '2026', review: '记录内容' },
       ] }),
     })
 
@@ -109,6 +109,26 @@ describe('ArticleFlowHome', () => {
     const sidebarSections = [...container.querySelectorAll('.home-sidebar > .sidebar-section')]
     expect(sidebarSections[0]).toHaveClass('sidebar-section--records')
     expect(sidebarSections[1]).toHaveClass('sidebar-section--essays')
+    expect(screen.getByLabelText('电影类型')).toBeInTheDocument()
+  })
+
+  it('shows a flat icon for each supported record type', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'album', title: '专辑记录', type: 'album', contentType: 'record', createdAt: '2026-08-24' },
+        { slug: 'movie', title: '电影记录', type: 'movie', contentType: 'record', createdAt: '2026-08-23' },
+        { slug: 'game', title: '游戏记录', type: 'game', contentType: 'record', createdAt: '2026-08-22' },
+        { slug: 'book', title: '书籍记录', type: 'book', contentType: 'record', createdAt: '2026-08-21' },
+      ] }),
+    })
+
+    render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('专辑记录')).toBeInTheDocument())
+    for (const label of ['专辑类型', '电影类型', '游戏类型', '书籍类型']) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument()
+    }
   })
 
   it('renders Markdown for articles and essays', async () => {
