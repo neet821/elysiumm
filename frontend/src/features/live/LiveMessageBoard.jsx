@@ -21,7 +21,7 @@ export default function LiveMessageBoard() {
   const [error, setError] = useState('')
 
   const reload = useCallback(async () => {
-    const response = await apiClient.get(API_ENDPOINTS.LIVE_MESSAGES)
+    const response = await apiClient.get(API_ENDPOINTS.LIVE_MESSAGES, { skipAuthRedirect: true })
     setMessages(Array.isArray(response.data) ? response.data : [])
   }, [])
 
@@ -65,7 +65,7 @@ export default function LiveMessageBoard() {
       await apiClient.post(API_ENDPOINTS.LIVE_MESSAGES, {
         nickname: trimmedNickname,
         content: trimmedContent,
-      })
+      }, { skipAuthRedirect: true })
       localStorage.setItem(NICKNAME_KEY, trimmedNickname)
       setContent('')
       await reload()

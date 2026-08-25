@@ -108,7 +108,7 @@ const AdminRoomsPage = ({ styles, isDark }) => {
 
   // 查房 - 进入房间
   const handleInspectRoom = (room) => {
-    navigate(`/tools/sync-room/${room.id}?stealth=1`);
+    navigate(`/rooms/watch/${room.id}?stealth=1`);
   };
 
   // 分离视频和音乐房间

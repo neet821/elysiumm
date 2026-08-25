@@ -87,6 +87,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const skipAuthRedirect = originalRequest?.skipAuthRedirect === true;
 
     const isAuthRequest = [API_ENDPOINTS.LOGIN, API_ENDPOINTS.REFRESH].includes(
       originalRequest?.url,
@@ -94,6 +95,10 @@ apiClient.interceptors.response.use(
 
     // 401错误优先尝试刷新登录态，再平滑退出
     if (error.response?.status === 401) {
+      if (skipAuthRedirect) {
+        return Promise.reject(error);
+      }
+
       if (!originalRequest?._retry && !isAuthRequest) {
         originalRequest._retry = true;
         try {

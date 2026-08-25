@@ -410,7 +410,7 @@ export default function MineradioPage() {
     } catch {
       // Navigation is still safe if the best-effort leave request fails.
     }
-    navigate('/music')
+    navigate('/rooms/music')
   }
 
   const enterRoom = async (targetRoomId) => {
@@ -423,7 +423,7 @@ export default function MineradioPage() {
         return
       }
     }
-    navigate(`/music/rooms/${targetRoomId}`)
+    navigate(`/rooms/music/${targetRoomId}`)
   }
 
   const voteForTrack = async (itemId) => {

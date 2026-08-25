@@ -78,10 +78,10 @@ function collectionTitle(article) {
 
 function LegacyArticleCard({ item }) {
   return (
-    <article className="article-card">
+    <article className="article-card article-card--featured">
       <div className="article-card-info">
         <h2>{articleLink(item, item.title)}</h2>
-        {item.cover && <Link className="article-card-cover" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
+        {item.cover && <Link className="article-card-cover article-card-cover--centered" to={articleHref(item)}><img src={coverUrl(item)} alt={item.title} loading="lazy" /></Link>}
         {item.excerpt && <p>{item.excerpt}</p>}
       </div>
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
@@ -91,7 +91,7 @@ function LegacyArticleCard({ item }) {
 
 function LegacyEssayCard({ item, html }) {
   return (
-    <article className="essay-card">
+    <article className="essay-card essay-card--compact">
       <h2>{articleLink(item, item.title)}</h2>
       <div className="essay-body" dangerouslySetInnerHTML={{ __html: html || (item.excerpt ? `<p>${item.excerpt}</p>` : '') }} />
       <time className="card-time">{formatWritingDate(item.createdAt || item.date || item.updatedAt)}</time>
@@ -122,7 +122,7 @@ function RecordCard({ item }) {
     item.createdAt && <div key="createdAt"><dt>添加时间</dt><dd>{formatDate(item.createdAt)}</dd></div>,
   ].filter(Boolean)
   return (
-    <article className="record-card">
+    <article className="record-card record-card--priority">
       <div className="record-cover">{image}</div>
       <div className="record-info">
         <h2>{articleLink(item, item.title)}</h2>
@@ -199,7 +199,7 @@ export function ArticleFlowHome() {
   const strip = <PhotoStrip photos={photos} />
 
   return (
-    <div className="legacy-old-home">
+    <div className="legacy-old-home legacy-old-home--flat">
       <div className="home-flow">
         <section className="writing-section">
           <div className="writing-list">

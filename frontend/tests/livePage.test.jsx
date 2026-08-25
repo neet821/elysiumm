@@ -57,6 +57,7 @@ describe('public live page', () => {
     expect(apiClient.post).toHaveBeenCalledWith(
       API_ENDPOINTS.LIVE_SESSION,
       { invite_token: 'secret-invite' },
+      { skipAuthRedirect: true },
     )
     expect(window.location.search).toBe('')
     expect(screen.getByLabelText('直播播放器')).toHaveAttribute(
@@ -162,6 +163,7 @@ describe('public live page', () => {
         nickname: '小蓝',
         content: '开播啦',
       },
+      { skipAuthRedirect: true },
     )
   })
 })

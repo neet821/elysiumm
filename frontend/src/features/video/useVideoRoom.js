@@ -259,7 +259,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
         if (!active) return
         setNotice(detailMessage(error, '视频房无法进入'))
         setSyncStatus('error')
-        navigate('/tools', { replace: true })
+        navigate('/rooms/watch', { replace: true })
       } finally {
         if (active) setLoading(false)
       }
@@ -736,7 +736,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const leave = useCallback(async () => {
     await apiClient.post(API_ENDPOINTS.SYNC_ROOM_LEAVE(numericRoomId)).catch(() => null)
     socketRef.current?.disconnect()
-    navigate('/tools')
+    navigate('/rooms/watch')
   }, [navigate, numericRoomId])
 
   return {

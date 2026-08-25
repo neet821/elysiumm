@@ -60,6 +60,7 @@
     --transition-fast: var(--motion-fast) var(--ease-standard);
     --transition-normal: var(--motion-normal) var(--ease-standard);
     --transition-spring: 480ms var(--ease-emphasized);
+    --home-surface: #f5f2eb;
   }
 
   /* Paper Texture Overlay */
@@ -122,6 +123,7 @@
     --border-color: var(--border-subtle);
     --surface-color: var(--surface-card);
     --surface-muted: var(--surface-card-muted);
+    --home-surface: #14181f;
     /* 深灰线 - 边框 */
   }
 
@@ -176,6 +178,28 @@
   right: 0;
   top: var(--app-header-height, 4.75rem);
   z-index: -1;
+}
+
+/* The writing home is intentionally one continuous, solid surface. */
+.app-shell--home {
+  background: var(--home-surface);
+}
+
+.app-shell--home::before,
+.app-shell--home::after {
+  display: none;
+}
+
+.app-shell--home .app-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--home-surface);
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.app-shell--home .app-shell__main {
+  background: var(--home-surface);
 }
 
 .app-background::before {
@@ -3307,6 +3331,23 @@ html.dark .polaroid-card:hover,
   .admin-live__table tr { border-top: 1px solid var(--border-subtle); padding: 0.7rem 0; }
   .admin-live__table td { border: 0; display: grid; gap: 0.5rem; grid-template-columns: 7rem minmax(0, 1fr); padding: 0.3rem 0; }
   .admin-live__table td::before { color: var(--text-muted); content: attr(data-label); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; }
+}
+
+/* Keep the homepage header on exactly the same solid surface as the feed. */
+body:has(.app-shell--home)::before {
+  display: none;
+}
+
+.service-shell.app-shell--home,
+.service-shell.app-shell--home .app-shell__main,
+.service-shell.app-shell--home .app-header {
+  background: var(--home-surface);
+}
+
+.service-shell.app-shell--home .app-header {
+  border-bottom: 0;
+  box-shadow: none;
+  position: fixed;
 }
 
 @media (max-width: 480px) {

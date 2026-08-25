@@ -74,7 +74,32 @@ describe('ArticleFlowHome', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '第三条' })).toBeInTheDocument())
     const children = [...container.querySelector('.writing-list').children]
-    expect(children.map((child) => child.className)).toEqual(['article-card', 'essay-card', 'photo-strip', 'article-card'])
+    expect(children.map((child) => child.className)).toEqual([
+      'article-card article-card--featured',
+      'essay-card essay-card--compact',
+      'photo-strip',
+      'article-card article-card--featured',
+    ])
+  })
+
+  it('uses the flat priority treatment for articles, essays, and records', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [
+        { slug: 'article', title: '大标题文章', type: 'article', createdAt: '2026-08-24', cover: '/cover.jpg', excerpt: '文章预览' },
+        { slug: 'essay', title: '压缩随笔', type: 'essay', createdAt: '2026-08-23', excerpt: '随笔正文' },
+        { slug: 'record', title: '记录者', type: 'record', createdAt: '2026-08-22', review: '记录内容' },
+      ] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '大标题文章' })).toBeInTheDocument())
+    expect(container.querySelector('.legacy-old-home')).toHaveClass('legacy-old-home--flat')
+    expect(container.querySelector('.article-card')).toHaveClass('article-card--featured')
+    expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered')
+    expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
+    expect(container.querySelector('.record-card')).toHaveClass('record-card--priority')
   })
 
   it('loads the old article detail URL and renders its HTML body', async () => {

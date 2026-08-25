@@ -44,7 +44,7 @@ export default function useLiveSession() {
     const connect = async () => {
       setState('loading')
       try {
-        const statusResponse = await apiClient.get(API_ENDPOINTS.LIVE_STATUS)
+        const statusResponse = await apiClient.get(API_ENDPOINTS.LIVE_STATUS, { skipAuthRedirect: true })
         if (cancelled) return
         setStatus(statusResponse.data)
         if (statusResponse.data.status !== 'live') {
@@ -61,6 +61,7 @@ export default function useLiveSession() {
         const sessionResponse = await apiClient.post(
           API_ENDPOINTS.LIVE_SESSION,
           { invite_token: inviteToken || null },
+          { skipAuthRedirect: true },
         )
         if (cancelled) return
         if (inviteToken) removeInviteFromAddress()
@@ -88,7 +89,7 @@ export default function useLiveSession() {
     const heartbeat = async () => {
       if (document.visibilityState !== 'visible') return
       try {
-        await apiClient.post(API_ENDPOINTS.LIVE_HEARTBEAT)
+        await apiClient.post(API_ENDPOINTS.LIVE_HEARTBEAT, undefined, { skipAuthRedirect: true })
       } catch (error) {
         if (!mountedRef.current) return
         const nextState = accessErrorState(error)

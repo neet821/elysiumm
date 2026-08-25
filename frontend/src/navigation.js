@@ -2,7 +2,7 @@ export const SERVICE_DIRECTORY = [
   { id: 'archive', label: '归档', to: '/archive', description: '浏览文章与照片', group: '公开服务' },
   { id: 'live', label: '直播', to: '/live', description: '查看当前直播', group: '公开服务' },
   { id: 'music', label: '音乐', to: '/music', description: '创建或加入听歌房', group: '协作房间', auth: true },
-  { id: 'sync-room', label: '同步观影', to: '/tools/sync-room', description: '创建或加入观影房', group: '协作房间', auth: true },
+  { id: 'sync-room', label: '同步观影', to: '/rooms/watch', description: '创建或加入观影房', group: '协作房间', auth: true },
   { id: 'games', label: '桌游', to: '/games', description: '进入桌游大厅', group: '协作房间', auth: true },
   { id: 'collection', label: '收藏', to: '/collection', description: '管理个人收藏', group: '个人内容', auth: true },
   { id: 'books', label: '书籍', to: '/books', description: '打开个人书架', group: '个人内容', auth: true },
