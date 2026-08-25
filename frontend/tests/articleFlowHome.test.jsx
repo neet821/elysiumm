@@ -431,6 +431,12 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
     expect(css).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*pointer-events:\s*none;[^}]*position:\s*absolute;/s)
+    const baseHomeCss = css.slice(
+      css.indexOf('.legacy-old-home--flat .home-sidebar-backdrop'),
+      css.indexOf('/* The mobile drawer'),
+    )
+    expect(baseHomeCss).toMatch(/\.sidebar-section--has-overflow\s*\{[^}]*position:\s*relative;/s)
+    expect(baseHomeCss).toMatch(/\.sidebar-scroll-cue\s*\{[^}]*display:\s*flex;[^}]*height:\s*1\.8rem;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*align-self:\s*stretch;[^}]*overflow:\s*hidden;/s)
     expect(css).not.toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*position:\s*sticky;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)
