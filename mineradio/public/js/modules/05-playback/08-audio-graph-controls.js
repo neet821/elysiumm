@@ -681,7 +681,11 @@ function setVolumePanelSiblingSuppressed(suppressed) {
   }
 }
 
-function toggleMute() {
+function toggleMute(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
   setVolume(targetVolume > 0.01 ? 0 : (lastNonZeroVolume || 0.8));
 }
 

@@ -233,31 +233,6 @@
     return song;
   }
 
-  function playRoomStreamFast(song, resumeAt, shouldPlay) {
-    if (!song || !song.roomStreamUrl) return false;
-    var media = window.audio;
-    if (!media) {
-      media = new Audio();
-      media.crossOrigin = 'anonymous';
-      window.audio = media;
-    }
-    try { media.pause(); } catch (_) {}
-    media.autoplay = true;
-    media.preload = 'auto';
-    media.src = song.roomStreamUrl;
-    try { media.load(); } catch (_) {}
-    try { media.currentTime = Math.max(0, Number(resumeAt || 0)); } catch (_) {}
-    window.currentLocalSong = song;
-    window.playing = false;
-    if (shouldPlay !== false) {
-      media.play().then(function () {
-        window.playing = true;
-        if (window.setPlayIcon) window.setPlayIcon(true);
-      }).catch(showAudioUnlockPrompt);
-    }
-    return true;
-  }
-
   async function applyRoomState(state) {
     var sequence = ++applyRoomSequence;
     state = state || {};
@@ -308,9 +283,7 @@
       window.__BLUE_ROOM_SHELF_ITEMS = roomSongs;
       window.currentIdx = Math.max(0, roomSongs.findIndex(function (entry) { return trackKey(trackPayload(entry)) === wantedKey; }));
       lastTrackKey = wantedKey;
-      if (!playRoomStreamFast(song, state.time, state.is_playing === true || state.action === 'play')) {
-        await window.playQueueAt(window.currentIdx, { resumeAt: Number(state.time || 0), preserveHomeState: true });
-      }
+      await window.playQueueAt(window.currentIdx, { resumeAt: Number(state.time || 0), preserveHomeState: true });
       if (sequence !== applyRoomSequence) return;
     }
 
@@ -393,7 +366,7 @@
       '.br-chat-form{display:flex;gap:6px;margin-top:9px}.br-chat-form .br-input{flex:1;min-width:0;height:34px}.br-empty{padding:18px 8px;text-align:center;font-size:10px;line-height:1.6;color:rgba(255,255,255,.28)}',
       '.br-footer{display:flex;gap:7px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)}',
       '.br-footer .br-btn{flex:1}.br-host-fold{margin-top:10px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.024);overflow:hidden}.br-host-fold summary{padding:13px 12px;color:rgba(255,255,255,.72);cursor:pointer;font-size:11px;font-weight:700}.br-host-fold[open] summary{color:#fff;background:rgba(255,255,255,.024)}.br-host-fold-body{display:grid;gap:9px;padding:0 11px 11px}.br-member-chat{display:grid;gap:12px}.br-member-chat .br-list{max-height:170px;overflow:auto}',
-      '@media(max-width:720px){#blue-room-panel{left:12px;right:12px!important;top:68px;bottom:auto;width:auto;max-height:calc(100dvh - 112px)}#blue-room-leave{left:12px;top:12px;width:44px;height:44px}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
+      '@media(max-width:720px){#blue-room-panel{left:12px;right:12px!important;top:68px;bottom:auto;width:auto;max-height:calc(100dvh - 112px)}#blue-room-leave{left:12px;top:12px;width:44px;height:44px}#blue-room-btn{position:fixed;top:24px;right:24px;width:44px;height:44px;margin:0;z-index:16;transform:none}.br-head{padding-bottom:10px}.br-body{padding-top:10px}.br-section{margin-bottom:11px}.br-now{grid-template-columns:44px minmax(0,1fr)}.br-cover{width:44px;height:44px}.br-row{padding:8px}.br-footer{padding-top:9px}.br-footer .br-btn{padding:0 5px}.br-members{grid-template-columns:1fr}}'
     ].join('');
     document.head.appendChild(style);
   }

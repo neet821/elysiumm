@@ -288,4 +288,13 @@ describe('Mineradio room embed', () => {
     expect(playback).toContain('var proxyAudioUrl = isRoomStream ? song.roomStreamUrl')
     expect(playback).toContain('song.roomStreamUrl || song.type === \'podcast\'')
   })
+
+  it('keeps room track switches on the native playback lifecycle for covers and lyrics', () => {
+    const root = path.resolve(process.cwd(), '..')
+    const bridge = fs.readFileSync(path.join(root, 'mineradio/public/blue-album-room-bridge.js'), 'utf8')
+    const roomSwitch = bridge.match(/if \(track && wantedKey[\s\S]*?if \(sequence !== applyRoomSequence\) return;/)?.[0] || ''
+
+    expect(roomSwitch).toContain('await window.playQueueAt(window.currentIdx')
+    expect(roomSwitch).not.toContain('playRoomStreamFast')
+  })
 })

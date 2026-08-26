@@ -17916,3 +17916,92 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
     width: calc(100vw - var(--desktop-safe-left) - var(--desktop-safe-right) - 24px);
   }
 }
+
+/* Mobile profile: keep the player readable and leave only the two useful right-side actions. */
+@media (max-width:720px) {
+  #fx-fab,
+  #fx-fab-hide-btn {
+    display: none !important;
+    pointer-events: none !important;
+  }
+}
+
+body.mobile-device #fx-fab,
+body.mobile-device #fx-fab-hide-btn {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body.mobile-device #bottom-bar,
+body.mobile-device #bottom-bar.stage-mode {
+  width: calc(100vw - 24px);
+  bottom: 10px;
+  padding: 8px 12px 10px;
+}
+
+body.mobile-device #controls {
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  gap: 8px;
+}
+
+body.mobile-device .control-cluster {
+  height: 48px;
+  gap: 6px;
+}
+
+body.mobile-device .control-cluster.actions {
+  min-width: 0;
+}
+
+body.mobile-device .control-track {
+  display: flex !important;
+  min-width: 0;
+  gap: 8px;
+}
+
+body.mobile-device .control-cover {
+  display: none !important;
+}
+
+body.mobile-device .control-meta {
+  max-width: min(200px, 38vw);
+}
+
+body.mobile-device #quality-control,
+body.mobile-device #heart-btn,
+body.mobile-device #collect-btn {
+  display: none !important;
+}
+
+body.mobile-device .control-cluster.transport {
+  width: max-content;
+  gap: 5px;
+}
+
+body.mobile-device .control-cluster.modes {
+  width: max-content;
+  gap: 6px;
+}
+
+body.mobile-device .control-cluster.modes #lyric-timing-control,
+body.mobile-device .control-cluster.modes .lyrics-toggle-btn,
+body.mobile-device #controls-hide-btn,
+body.mobile-device .fullscreen-toggle-btn,
+body.mobile-device #time-display {
+  display: none !important;
+}
+
+body.mobile-device #volume-control,
+body.mobile-device #immersive-btn {
+  display: flex !important;
+}
+
+body.mobile-device .ctrl-btn {
+  width: 32px;
+  height: 32px;
+}
+
+body.mobile-device #play-btn {
+  width: 42px;
+  height: 42px;
+}

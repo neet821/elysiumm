@@ -1,5 +1,9 @@
 applyDiyMode(diyPlayerMode, { save: false });
 bindFxPanel();
+applyMobileFxArchiveForDevice();
+window.addEventListener('resize', applyMobileFxArchiveForDevice);
+var mobileFxMediaQuery = window.matchMedia && window.matchMedia('(max-width: 720px)');
+if (mobileFxMediaQuery && mobileFxMediaQuery.addEventListener) mobileFxMediaQuery.addEventListener('change', applyMobileFxArchiveForDevice);
 applySavedLyricPaletteState();
 bindQualityControl();
 bindAudioOutputControls();

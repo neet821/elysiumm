@@ -738,6 +738,22 @@ if (!hadStoredUserFxArchives) {
 }
 var userFxArchiveEditing = -1;
 var userFxArchiveShareDraft = '';
+var MOBILE_FX_ARCHIVE_NAME = '移动端';
+var mobileFxArchiveAutoApplied = false;
+function isMobileFxDevice() {
+  return !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+}
+function applyMobileFxArchiveForDevice() {
+  var mobile = isMobileFxDevice();
+  if (document.body) document.body.classList.toggle('mobile-device', mobile);
+  if (!mobile || mobileFxArchiveAutoApplied) return false;
+  var slot = userFxArchives.find(function (item) {
+    return item && item.name === MOBILE_FX_ARCHIVE_NAME && item.snapshot;
+  });
+  if (!slot || !applyFxArchiveSnapshot(slot.snapshot)) return false;
+  mobileFxArchiveAutoApplied = true;
+  return true;
+}
 function renderUserFxArchives() {
   var grid = document.getElementById('user-archive-grid');
   if (!grid) return;
