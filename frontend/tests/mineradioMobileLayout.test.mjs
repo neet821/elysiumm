@@ -45,5 +45,11 @@ test('volume button uses the shared mute toggle and restores the last audible le
 test('mobile room button owns a fixed viewport hit area', () => {
   assert.match(bridge, /body\.blue-album-room-mode #top-right\{z-index:50!important\}/)
   assert.match(bridge, /@media\(max-width:720px\)\{.*#blue-room-btn\{position:fixed;/s)
-  assert.match(bridge, /#blue-room-btn\{position:fixed;top:24px;right:24px;[^}]*z-index:50;/)
+  assert.match(bridge, /#blue-room-btn\{position:fixed;top:12px;right:12px;[^}]*z-index:50;/)
+})
+
+test('mobile room header reserves separate rows for back, search, and room controls', () => {
+  assert.match(bridge, /@media\(max-width:720px\)\{.*#blue-room-panel\{left:12px;right:12px!important;top:132px;/s)
+  assert.match(bridge, /#blue-room-btn\{position:fixed;top:12px;right:12px;/)
+  assert.match(bridge, /body\.blue-album-room-mode #search-area\{top:68px!important;left:12px!important;right:12px!important;width:auto!important;transform:none!important\}/)
 })
