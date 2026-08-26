@@ -421,7 +421,6 @@ export function ArticleFlowHome() {
                 ? visibleArticles.map((item) => <LegacyArticleCard key={item.slug} item={item} />)
                 : <p className="empty">还没有文章。</p>}
             </div>
-            {visibleArticles.length > 0 && <div className="articles-section__end-mask" aria-hidden="true" />}
             {totalPages > 1 && (
               <nav className="home-pagination" aria-label="文章分页">
                 {currentPage > 1
@@ -435,6 +434,7 @@ export function ArticleFlowHome() {
                   : <span className="home-pagination__disabled" aria-disabled="true">下一页</span>}
               </nav>
             )}
+            {visibleArticles.length > 0 && <div className="articles-section__end-cap" aria-hidden="true" />}
           </section>
         </main>
         <aside

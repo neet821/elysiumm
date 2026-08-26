@@ -798,28 +798,24 @@
 }
 .legacy-old-home--flat .article-card-preview-body > :first-child { margin-top: 0; }
 
-/* A soft edge marks where the article stream ends without adding another label
-   or a hard divider before the photo area. */
+/* The article stream ends with a quiet structural base, rather than a fade. */
 .legacy-old-home--flat .articles-section {
   position: relative;
 }
-.legacy-old-home--flat .articles-section__end-mask {
-  background: linear-gradient(to bottom, rgb(255 255 255 / 0%), rgb(255 255 255 / .86) 72%, #fff);
-  height: 3rem;
-  margin-top: -3rem;
+.legacy-old-home--flat .articles-section__end-cap {
+  background: #f5f6f7;
+  border-block: 1px solid #e1e4e8;
+  height: .7rem;
+  margin-top: 2rem;
   pointer-events: none;
   position: relative;
   z-index: 1;
 }
-.legacy-old-home--flat .home-pagination {
-  position: relative;
-  z-index: 2;
-}
 
 @media (max-width: 800px) {
-  .legacy-old-home--flat .articles-section__end-mask {
-    height: 2.25rem;
-    margin-top: -2.25rem;
+  .legacy-old-home--flat .articles-section__end-cap {
+    height: .6rem;
+    margin-top: 1.5rem;
   }
 }
 .legacy-old-home--flat .article-card-preview-body > :last-child { margin-bottom: 0; }
@@ -1226,4 +1222,73 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+/* Article pages use a centered, paper-like reading surface. */
+.service-shell:has(.reader--article),
+.service-shell:has(.reader--article) .app-shell__main {
+  background: #f3f5f7 !important;
+  color: #111;
+}
+.legacy-old-home:not(.legacy-old-home--flat) {
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  box-sizing: border-box;
+  margin: clamp(1rem, 3vw, 2.5rem) auto 4rem;
+  max-width: 960px;
+  min-height: calc(100vh - 6rem);
+  padding-inline: clamp(1rem, 5vw, 4rem);
+  width: min(calc(100% - 2rem), 960px);
+}
+.legacy-old-home:not(.legacy-old-home--flat) .reader {
+  background: #fff;
+  margin-inline: auto;
+  max-width: 760px;
+  padding: clamp(2rem, 5vw, 4rem) 0 5rem;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .back-link {
+  align-items: center;
+  background: #fff;
+  border: 2px solid #252a30;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 8%);
+  color: #111;
+  display: inline-flex;
+  font-size: 1.75rem;
+  height: 3.25rem;
+  justify-content: center;
+  line-height: 1;
+  margin-bottom: 2.5rem;
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  width: 3.25rem;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .back-link:hover,
+.legacy-old-home:not(.legacy-old-home--flat) .back-link:focus-visible {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+  text-decoration: none;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .reader-header {
+  max-width: none;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+  color: #222;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .legacy-old-home:not(.legacy-old-home--flat) {
+    margin-top: .5rem;
+    width: min(calc(100% - 1rem), 960px);
+  }
+  .legacy-old-home:not(.legacy-old-home--flat) .reader {
+    padding-top: 1.5rem;
+  }
+  .legacy-old-home:not(.legacy-old-home--flat) .back-link {
+    height: 3rem;
+    margin-bottom: 2rem;
+    width: 3rem;
+  }
 }
