@@ -26,10 +26,11 @@ test('mobile profile is frozen and delivered by the server', () => {
   assert.match(archive, /decodeUserFxArchiveShareCode/)
 })
 
-test('player mode is device-based and keeps iPad in the desktop profile', () => {
+test('player mode is device-based and keeps iPad in the mobile profile', () => {
   assert.match(archive, /userAgent/)
   assert.match(archive, /maxTouchPoints/)
   assert.match(archive, /iPadDesktopUa/)
+  assert.match(archive, /if \(iPadDesktopUa \|\| iPadUa\) return true/)
   assert.match(archive, /desktop-player/)
   assert.doesNotMatch(archive, /matchMedia\('\\(max-width: 720px\\)'\)/)
 })

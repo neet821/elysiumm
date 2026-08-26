@@ -751,7 +751,7 @@ function isMobileFxDevice() {
   var touchPoints = Number(nav.maxTouchPoints || 0);
   var iPadDesktopUa = /Macintosh/i.test(ua) && touchPoints > 1;
   var iPadUa = /iPad/i.test(ua) || /iPad/i.test(platform);
-  if (iPadDesktopUa || iPadUa) return false;
+  if (iPadDesktopUa || iPadUa) return true;
   return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(ua);
 }
 function applyMobileFxArchiveSnapshot(snapshot) {
