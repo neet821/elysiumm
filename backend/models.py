@@ -1275,6 +1275,12 @@ class SyncRoom(Base):
     expires_at = Column(DateTime, nullable=True) # 自动关闭时间
     last_activity_at = Column(DateTime, default=datetime.utcnow)  # 最后有人活动的时间
     deleted_at = Column(DateTime, nullable=True)  # 软删除时间
+    is_locked = Column(
+        Boolean,
+        default=False,
+        server_default="0",
+        nullable=False,
+    )  # 管理员锁定后不参与自动清理
     auto_delete_file = Column(Boolean, default=True)  # 是否随房间删除文件（管理员可设为False）
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

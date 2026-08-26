@@ -188,6 +188,9 @@ const AdminRoomsPage = ({ styles, isDark }) => {
                       {room.password_hash && (
                         <Lock size={12} className={`${styles.textMuted}`} title="密码保护" />
                       )}
+                      {room.is_locked && (
+                        <Lock size={12} className="text-amber-500" title="已锁定，不自动删除" />
+                      )}
                       {room.is_active ? (
                         <CheckCircle size={12} className="text-green-500" title="房间活跃" />
                       ) : (
@@ -271,7 +274,11 @@ const AdminRoomsPage = ({ styles, isDark }) => {
                       </div>
                     )}
 
-                    {(room.last_activity_at || room.created_at) && (
+                    {room.is_locked ? (
+                      <div className="text-xs text-amber-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        🔒 已锁定，不自动删除
+                      </div>
+                    ) : (room.last_activity_at || room.created_at) && (
                       <div className={`text-xs mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 ${
                         isDark ? 'text-orange-400' : 'text-[#189BCC]'
                       }`}>
@@ -316,6 +323,9 @@ const AdminRoomsPage = ({ styles, isDark }) => {
                       </span>
                       {room.password_hash && (
                         <Lock size={12} className={`${styles.textMuted}`} title="密码保护" />
+                      )}
+                      {room.is_locked && (
+                        <Lock size={12} className="text-amber-500" title="已锁定，不自动删除" />
                       )}
                       {room.is_active ? (
                         <CheckCircle size={12} className="text-green-500" title="房间活跃" />
@@ -375,7 +385,11 @@ const AdminRoomsPage = ({ styles, isDark }) => {
                       </span>
                     </div>
 
-                    {(room.last_activity_at || room.created_at) && (
+                    {room.is_locked ? (
+                      <div className="text-xs text-amber-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        🔒 已锁定，不自动删除
+                      </div>
+                    ) : (room.last_activity_at || room.created_at) && (
                       <div className="text-xs text-purple-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                         🕐 自动关闭: {getAutoCloseMinutes(room.last_activity_at || room.created_at)}
                       </div>

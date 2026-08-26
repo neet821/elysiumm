@@ -51,7 +51,40 @@ class SyncRoomLifecycleTest(unittest.TestCase):
         self.assertEqual(room.lifecycle_status, "active")
         self.assertEqual(room.playback_version, 0)
         self.assertFalse(room.is_deleted)
+        self.assertFalse(room.is_locked)
         self.assertIsNone(room.deleted_at)
+
+    def test_locked_empty_room_is_not_expired_or_deleted_by_cleanup(self):
+        room = self.create_room()
+        sync_room_crud.leave_room(self.db, room.id, self.host.id)
+        room.is_locked = True
+        room.last_activity_at = datetime.utcnow() - timedelta(minutes=31)
+        room.updated_at = room.last_activity_at
+        self.db.commit()
+
+        changed_count = sync_room_crud.cleanup_empty_rooms(
+            self.db,
+            minutes=10,
+            delete_after_minutes=30,
+        )
+        self.db.refresh(room)
+
+        self.assertEqual(changed_count, 0)
+        self.assertTrue(room.is_active)
+        self.assertEqual(room.lifecycle_status, "idle")
+        self.assertFalse(room.is_deleted)
+
+    def test_room_list_exposes_lock_state(self):
+        room = self.create_room()
+        room.is_locked = True
+        self.db.commit()
+
+        listed_room = next(
+            item for item in sync_room_crud.get_user_rooms(self.db, self.host.id)
+            if item["id"] == room.id
+        )
+
+        self.assertTrue(listed_room["is_locked"])
 
     def test_last_member_leaving_moves_room_to_idle(self):
         room = self.create_room()

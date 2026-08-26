@@ -220,6 +220,23 @@ describe('authoritative room sync engine', () => {
     expect(release).toHaveBeenCalledOnce()
   })
 
+  it('can apply a remote playing snapshot without invoking autoplay', async () => {
+    const adapter = adapterWith({ currentTime: 0, isPlaying: false, track: null })
+
+    const result = await applyAuthoritativeSnapshot(adapter, snapshot(), {
+      allowPlay: false,
+      clientNowMs: 1_000,
+      mediaKind: 'video',
+      playerTrack,
+      receivedAtMs: 1_000,
+      syncState: createRoomSyncState(),
+    })
+
+    expect(result.playbackBlocked).toBe(true)
+    expect(adapter.play).not.toHaveBeenCalled()
+    expect(adapter.snapshot().isPlaying).toBe(false)
+  })
+
   it('keeps video steady-state confirmation behavior separate from music playback', async () => {
     const adapter = adapterWith({ currentTime: 4 })
     const syncState = createRoomSyncState()

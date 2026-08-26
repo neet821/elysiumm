@@ -153,6 +153,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
   const clearTimer = options.clearTimer || clearTimeout
   const setTimer = options.setTimer || setTimeout
   const beginRemoteApply = options.beginRemoteApply || (() => () => {})
+  const allowPlay = options.allowPlay !== false
   const playerTrack = options.playerTrack || null
   const steadyState = options.steadyState === true
   const mediaKind = options.mediaKind || normalized.media_kind || 'music'
@@ -171,6 +172,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
   clearRateTimer(adapter, syncState, clearTimer, authoritativeRate)
   const release = beginRemoteApply()
   let scheduledTimer = null
+  let playbackBlocked = false
   try {
     let playerState = adapter.snapshot()
     const trackChanged = Boolean(
@@ -185,6 +187,9 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
     let forceSeek = trackChanged || (!steadyState && drift.kind === 'seek')
     if (normalized.state === 'paused' && drift.kind !== 'none') forceSeek = true
     if (isMusic && steadyState) forceSeek = trackChanged
+    if (!allowPlay && normalized.state === 'playing' && !playerState.isPlaying) {
+      playbackBlocked = true
+    }
 
     if (!isMusic && steadyState && drift.kind === 'seek' && !trackChanged) {
       syncState.largeDriftSamples += 1
@@ -225,7 +230,9 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
       if (needsApply) {
         await adapter.applyState({
           forceSeek,
-          isPlaying: normalized.state === 'playing',
+          isPlaying: allowPlay
+            ? normalized.state === 'playing'
+            : normalized.state === 'playing' && playerState.isPlaying,
           playbackRate: temporaryRate,
           time: targetPosition,
           track: playerTrack || playerState.track,
@@ -281,7 +288,8 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
       }
 
       if (normalized.state === 'playing' && !playerState.isPlaying) {
-        await adapter.play()
+        if (allowPlay) await adapter.play()
+        else playbackBlocked = true
       } else if (normalized.state === 'paused' && playerState.isPlaying) {
         adapter.pause()
       }
@@ -297,6 +305,7 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
       targetPosition,
       trackChanged,
       version: normalized.version,
+      playbackBlocked,
     }
   } catch (error) {
     if (scheduledTimer !== null && syncState.rateTimer === scheduledTimer) {

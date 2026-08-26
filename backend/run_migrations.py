@@ -43,6 +43,7 @@ REQUIRED_MANAGED_SCHEMA = {
     "video_sessions": {"room_id", "current_item_id"},
     "game_replay_frames": {"room_id", "version", "state_hash"},
     "books": {"slug", "title", "reader_path"},
+    "sync_rooms": {"is_locked"},
 }
 
 

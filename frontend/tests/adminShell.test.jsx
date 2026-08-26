@@ -25,7 +25,6 @@ describe('responsive administrator shell', () => {
     const expectedLinks = [
       ['总览', '/admin'],
       ['用户', '/admin/users'],
-      ['房间', '/admin/rooms'],
       ['文件', '/admin/files'],
       ['直播', '/admin/live'],
       ['曲库账户', '/admin/music'],
@@ -34,6 +33,7 @@ describe('responsive administrator shell', () => {
     for (const [name, href] of expectedLinks) {
       expect(within(navigation).getByRole('link', { name })).toHaveAttribute('href', href)
     }
+    expect(within(navigation).queryByRole('link', { name: '房间' })).not.toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: '文件' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getAllByRole('link', { name: '返回首页' })[0]).toHaveAttribute('href', '/')
     expect(screen.getByRole('heading', { name: 'File workspace' })).toBeInTheDocument()

@@ -272,6 +272,10 @@ describe('Mineradio room embed', () => {
     expect(bridge).not.toContain('点歌提示')
     expect(bridge).toContain('blue-room-search-mode-other')
     expect(bridge).toContain('data-room-sync-ready')
+    expect(bridge).not.toContain('Mineradio 同步听歌')
+    expect(bridge).not.toContain('用户编号')
+    expect(bridge).not.toMatch(/房间号|room\.room_code/)
+    expect(bridge).toContain('event.target === document.activeElement')
     expect(search).toContain("(roomMode ? '' : '<button class=\"add-btn\"")
   })
 

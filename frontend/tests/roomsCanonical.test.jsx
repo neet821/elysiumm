@@ -8,6 +8,9 @@ describe('rooms hub', () => {
   it('exposes the canonical music and watch room entry points', () => {
     render(<MemoryRouter><RoomsPage /></MemoryRouter>)
 
+    const links = screen.getAllByRole('link')
+    expect(links.findIndex((link) => link.getAttribute('href') === '/rooms/watch'))
+      .toBeLessThan(links.findIndex((link) => link.getAttribute('href') === '/rooms/music'))
     expect(screen.getByRole('link', { name: /进入听歌房/ })).toHaveAttribute('href', '/rooms/music')
     expect(screen.getByRole('link', { name: /进入观影房/ })).toHaveAttribute('href', '/rooms/watch')
     expect(screen.queryByText('房间')).not.toBeInTheDocument()

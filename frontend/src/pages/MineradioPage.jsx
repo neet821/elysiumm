@@ -546,6 +546,7 @@ export default function MineradioPage() {
     queue,
     room,
     rooms,
+    history,
     syncStatus,
     userId,
   }

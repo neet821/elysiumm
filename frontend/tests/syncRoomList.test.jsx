@@ -1,17 +1,19 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  auth: { user: { id: 1, username: 'host' }, isAdmin: false },
 }))
 
 vi.mock('../src/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, username: 'host' } }),
+  useAuth: () => mocks.auth,
 }))
 vi.mock('../src/utils/request', () => ({ default: mocks.api }))
 
 import SyncRoomList from '../src/pages/SyncRoomList.jsx'
+import { API_ENDPOINTS } from '../src/config.js'
 
 const styles = {
   accentClass: 'text-blue-600',
@@ -23,7 +25,17 @@ const styles = {
 }
 
 describe('同步房间列表', () => {
+  it('uses a complete share link instead of exposing a room number', async () => {
+    mocks.api.get.mockResolvedValue({ data: [{ id: 42, room_name: '分享房', room_code: 'SECRET42', mode: 'url', members: [] }] })
+    render(<MemoryRouter><SyncRoomList isDark={false} roomMode="video" styles={styles} /></MemoryRouter>)
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByText('分享房')).toBeInTheDocument()
+    expect(screen.queryByText(/房间号|SECRET42/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '复制分享链接' })).toBeInTheDocument()
+  })
   beforeEach(() => {
+    mocks.auth.isAdmin = false
+    mocks.auth.user = { id: 1, username: 'host' }
     vi.useFakeTimers()
     vi.setSystemTime(Date.parse('2026-08-15T00:01:30Z'))
     mocks.api.get.mockResolvedValue({
@@ -71,6 +83,7 @@ describe('同步房间列表', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
     vi.clearAllMocks()
   })
 
@@ -142,6 +155,157 @@ describe('同步房间列表', () => {
     })
 
     expect(screen.getByTitle('删除房间')).toHaveClass('relative', 'z-10')
+  })
+
+  it('向所有人显示锁定状态，但只给管理员提供切换按钮', async () => {
+    mocks.api.get.mockResolvedValue({
+      data: [{
+        id: 4,
+        room_name: '长期保留房间',
+        room_code: 'KEEP01',
+        host: { id: 2, username: 'member-host' },
+        member_count: 0,
+        last_activity_at: '2026-08-15T00:01:30Z',
+        is_playing: false,
+        is_locked: true,
+        type: 'video',
+        mode: 'url',
+      }],
+    })
+
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getAllByTitle('已锁定，不自动删除').length).toBeGreaterThan(0)
+    expect(screen.queryByTitle('解除锁定')).not.toBeInTheDocument()
+
+    mocks.auth.isAdmin = true
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const unlockButton = screen.getAllByTitle('解除锁定')[0]
+    expect(unlockButton).toBeInTheDocument()
+    mocks.api.put.mockResolvedValue({ data: { is_locked: false } })
+    fireEvent.click(unlockButton)
+    await act(async () => await Promise.resolve())
+    expect(mocks.api.put).toHaveBeenCalledWith(
+      API_ENDPOINTS.ADMIN_ROOM_LOCK(4),
+      { is_locked: false },
+    )
+  })
+
+  it('始终用文字显示房间是否会自动删除', async () => {
+    mocks.api.get.mockResolvedValue({
+      data: [{
+        id: 5,
+        room_name: '在线普通房间',
+        room_code: 'OPEN01',
+        host: { id: 2, username: 'member-host' },
+        member_count: 1,
+        is_playing: false,
+        is_locked: false,
+        type: 'video',
+        mode: 'url',
+      }],
+    })
+
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('未锁定 · 空房间会自动删除')).toBeInTheDocument()
+  })
+
+  it('管理员可以在普通房间列表删除其他人的房间', async () => {
+    mocks.auth.isAdmin = true
+    mocks.api.get.mockResolvedValue({
+      data: [{
+        id: 6,
+        room_name: '他人的房间',
+        room_code: 'OTHER1',
+        host: { id: 2, username: 'other-host' },
+        member_count: 0,
+        is_playing: false,
+        is_locked: true,
+        type: 'video',
+        mode: 'url',
+      }],
+    })
+    mocks.api.delete.mockResolvedValue({ data: { message: '房间已删除' } })
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    fireEvent.click(screen.getByTitle('删除房间'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(mocks.api.delete).toHaveBeenCalledWith(`${API_ENDPOINTS.ADMIN_ROOMS}/6`)
+  })
+
+  it('普通房主看不到锁定房间的删除按钮', async () => {
+    mocks.auth.user = { id: 2, username: 'member-host' }
+    mocks.api.get.mockResolvedValue({
+      data: [{
+        id: 7,
+        room_name: '不可删除的房间',
+        room_code: 'KEEP02',
+        host: { id: 2, username: 'member-host' },
+        member_count: 0,
+        is_playing: false,
+        is_locked: true,
+        type: 'video',
+        mode: 'url',
+      }],
+    })
+
+    render(
+      <MemoryRouter>
+        <SyncRoomList styles={styles} isDark={false} embedded />
+      </MemoryRouter>,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getAllByText('已锁定 · 不自动删除').length).toBeGreaterThan(0)
+    expect(screen.queryByTitle('删除房间')).not.toBeInTheDocument()
   })
 
   it('为听歌房和观影房使用统一的返回房间按钮', () => {

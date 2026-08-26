@@ -48,6 +48,7 @@ export const API_ENDPOINTS = {
   ADMIN_FILE_DOWNLOAD: (id) => `${API_BASE_URL}/api/admin/files/${id}/download`,
   ADMIN_FILE: (id) => `${API_BASE_URL}/api/admin/files/${id}`,
   ADMIN_ROOMS: `${API_BASE_URL}/api/admin/sync-rooms`,
+  ADMIN_ROOM_LOCK: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/lock`,
   ADMIN_INSPECT_ROOM: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/inspect`,
   AGENT_CONSOLE_STATUS: `${API_BASE_URL}/api/admin/agent-console/status`,
   ADMIN_BACKUPS: `${API_BASE_URL}/api/admin/backups`,

@@ -6,6 +6,7 @@ import {
   Film,
   Users,
   Lock,
+  Unlock,
   Clock,
   Play,
   Pause,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
   User,
   Gamepad2,
+  Copy,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import apiClient from "../utils/request";
@@ -21,6 +23,7 @@ import {
   formatEmptyRoomCountdown,
   getOnlineMemberCount,
 } from "./syncRoomListUtils.js";
+import { buildRoomShareUrl, copyText } from './roomShareUtils.js'
 
 const buildRoomPayload = (roomName, isMusicRoom) => {
   const payload = { room_name: roomName };
@@ -36,7 +39,7 @@ const buildRoomPayload = (roomName, isMusicRoom) => {
 
 const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const isMusicRoom = roomMode === "music";
   const pageTitle = isMusicRoom ? "同步听歌室管理" : "同步观影室管理";
   const pageDescription = isMusicRoom
@@ -51,6 +54,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const [copiedRoomId, setCopiedRoomId] = useState(null)
 
   useEffect(() => {
     fetchRooms();
@@ -119,7 +123,10 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
     if (!confirm("确定要删除这个房间吗？")) return;
 
     try {
-      await apiClient.delete(`${API_ENDPOINTS.SYNC_ROOMS}/${roomId}`);
+      const endpoint = isAdmin
+        ? `${API_ENDPOINTS.ADMIN_ROOMS}/${roomId}`
+        : `${API_ENDPOINTS.SYNC_ROOMS}/${roomId}`;
+      await apiClient.delete(endpoint);
       fetchRooms();
     } catch (error) {
       console.error("删除房间失败:", error);
@@ -127,13 +134,37 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
     }
   };
 
+  const handleToggleRoomLock = async (room) => {
+    try {
+      await apiClient.put(API_ENDPOINTS.ADMIN_ROOM_LOCK(room.id), {
+        is_locked: !room.is_locked,
+      });
+      await fetchRooms();
+    } catch (error) {
+      console.error("设置房间锁定状态失败:", error);
+      alert(error.response?.data?.detail || "设置失败，请重试");
+    }
+  };
+
   const resetForm = () => {
     setRoomName("");
   };
 
+  const handleCopyShare = async (event, roomId) => {
+    event.stopPropagation()
+    try {
+      await copyText(buildRoomShareUrl({ ...window.location, pathname: `${isMusicRoom ? '/rooms/music' : '/rooms/watch'}/${roomId}`, search: '', hash: '' }))
+      setCopiedRoomId(roomId)
+      window.setTimeout(() => setCopiedRoomId((value) => value === roomId ? null : value), 1800)
+    } catch {
+      alert('复制失败，请手动复制当前地址')
+    }
+  }
+
   const RoomCard = ({ room, showDelete = false }) => {
     const onlineMemberCount = getOnlineMemberCount(room);
     const isEmpty = onlineMemberCount === 0;
+    const canDelete = isAdmin || (showDelete && !room.is_locked);
 
     return (
     <div
@@ -166,6 +197,11 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
             {room.control_mode === "host_only" && (
               <Lock size={14} className={styles.textMuted} />
             )}
+            {room.is_locked ? (
+              <Lock size={14} className="text-amber-500" title="已锁定，不自动删除" />
+            ) : (
+              <Unlock size={14} className={styles.textMuted} title="空房间会自动删除" />
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-xs sm:text-sm mb-2">
@@ -176,7 +212,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
           </div>
         </div>
 
-        {showDelete && (
+        {canDelete && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -186,6 +222,20 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
             title="删除房间"
           >
             <Trash2 size={16} />
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleRoomLock(room);
+            }}
+            className={`relative z-10 p-2 rounded ${room.is_locked ? "text-amber-500 hover:text-amber-600" : `${styles.textMuted} hover:${styles.text}`} transition-colors`}
+            title={room.is_locked ? "解除锁定" : "锁定房间，不自动删除"}
+            aria-label={room.is_locked ? `解除 ${room.room_name} 的锁定` : `锁定 ${room.room_name}，不自动删除`}
+            aria-pressed={room.is_locked}
+          >
+            {room.is_locked ? <Lock size={16} /> : <Unlock size={16} />}
           </button>
         )}
       </div>
@@ -216,21 +266,29 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
           <span className="flex items-center gap-1">
             {room.type === 'game' ? <Gamepad2 size={12} /> : <Film size={12} />}
             {isMusicRoom
-              ? "同步听歌"
+              ? "听歌房"
               : room.type === 'game'
                 ? '桌游房间'
                 : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
             }
           </span>
-          <span>房间号: {room.room_code}</span>
+          <button type="button" onClick={(event) => handleCopyShare(event, room.id)} className="room-share-button" aria-label="复制分享链接">
+            <Copy size={12} /> {copiedRoomId === room.id ? '已复制' : '复制分享链接'}
+          </button>
         </div>
 
-        {isEmpty && (
-          <div className={`text-xs ${styles.textMuted} flex items-center gap-1`} role="status">
-            <Clock size={12} />
-            {formatEmptyRoomCountdown(room.last_activity_at, now)}
-          </div>
-        )}
+        <div className={`text-xs ${styles.textMuted} flex items-center justify-between gap-2`} role="status">
+          <span className="flex items-center gap-1">
+            {room.is_locked ? <Lock size={12} className="text-amber-500" /> : <Unlock size={12} />}
+            {room.is_locked ? "已锁定 · 不自动删除" : "未锁定 · 空房间会自动删除"}
+          </span>
+          {isEmpty && !room.is_locked && (
+            <span className="flex items-center gap-1">
+              <Clock size={12} />
+              {formatEmptyRoomCountdown(room.last_activity_at, now)}
+            </span>
+          )}
+        </div>
       </div>
 
       <button
@@ -306,7 +364,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
         ) : (
           <>
             {/* 我创建的房间 */}
-            {myRooms.length > 0 && (
+            {!isAdmin && myRooms.length > 0 && (
               <div className="mb-8 md:mb-12">
                 <h3 className={`text-lg sm:text-xl font-bold ${styles.text} mb-4 flex items-center gap-2`}>
                   <User size={20} />
@@ -338,7 +396,7 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-fade-in">
                   {rooms.map((room) => (
-                    <RoomCard key={room.id} room={room} showDelete={false} />
+                    <RoomCard key={room.id} room={room} showDelete={isAdmin} />
                   ))}
                 </div>
               )}

@@ -40,6 +40,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const [snapshotRecord, setSnapshotRecord] = useState(null)
   const [syncStatus, setSyncStatus] = useState('connecting')
   const [notice, setNotice] = useState('')
+  const [needsUserGesture, setNeedsUserGesture] = useState(false)
   const [buffers, setBuffers] = useState({})
   const [localReady, setLocalReady] = useState({})
   const [localUrls, setLocalUrls] = useState({})
@@ -211,6 +212,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     if (!adapter || !record?.snapshot || !adapterTrack) return
     let active = true
     applyVideoSnapshot(adapter, record.snapshot, adapterTrack, {
+      allowPlay: false,
       beginRemoteApply,
       receivedAtMs: record.receivedAtMs,
       syncState: syncStateRef.current,
@@ -218,6 +220,12 @@ export function useVideoRoom({ navigate, roomId, user }) {
       if (!active) return
       if (!result.applied && result.reason === 'track-unavailable') {
         setNotice('当前视频没有可用的播放地址')
+      }
+      if (result.playbackBlocked) {
+        setNeedsUserGesture(true)
+        setNotice('房间正在播放，请点击播放按钮开始')
+      } else if (record.snapshot.state === 'paused') {
+        setNeedsUserGesture(false)
       }
     }).catch((error) => {
       if (!active) return
@@ -445,7 +453,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     const state = latestSnapshotRef.current?.snapshot?.state
     const adapter = adapterRef.current
     const time = adapter?.snapshot().currentTime || 0
-    if (state === 'playing') {
+    if (state === 'playing' && !needsUserGesture) {
       adapter?.pause()
       emitControl('pause', { time })
       return
@@ -454,11 +462,15 @@ export function useVideoRoom({ navigate, roomId, user }) {
     // Start in the click handler so browsers treat this as a user-initiated
     // playback. Waiting for the socket round-trip loses that permission.
     const localPlay = adapter?.play()
-    Promise.resolve(localPlay).catch(() => {
-      setNotice('浏览器阻止了自动播放，请再次点击播放按钮')
+    Promise.resolve(localPlay).then(() => {
+      setNeedsUserGesture(false)
+      setNotice((current) => current === '房间正在播放，请点击播放按钮开始' ? '' : current)
+    }).catch(() => {
+      setNeedsUserGesture(true)
+      setNotice('浏览器阻止了播放，请再次点击播放按钮')
     })
     emitControl('play', { time })
-  }, [emitControl, setNotice])
+  }, [emitControl, needsUserGesture])
 
   const seek = useCallback((time) => {
     emitControl('seek', { time: Math.max(0, Number(time) || 0) })
@@ -479,11 +491,13 @@ export function useVideoRoom({ navigate, roomId, user }) {
     const currentTime = adapter?.snapshot().currentTime || 0
 
     if (!canControl) {
+      if (action === 'play' && needsUserGesture) {
+        setNeedsUserGesture(false)
+        return
+      }
       setNotice('当前房间仅房主可以控制播放')
       if (action === 'play') runPlaybackCorrection(() => adapter?.pause())
-      if (action === 'pause' && snapshot?.state === 'playing') {
-        runPlaybackCorrection(() => adapter?.play())
-      }
+      if (action === 'pause' && snapshot?.state === 'playing') setNeedsUserGesture(true)
       if (action === 'seek') runPlaybackCorrection(() => adapter?.seek(snapshot?.position || 0))
       if (action === 'rate') runPlaybackCorrection(() => adapter?.setPlaybackRate(snapshot?.playback_rate || 1))
       requestSnapshot()
@@ -497,7 +511,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
       setNotice('实时连接暂不可用，正在重新同步')
       requestSnapshot()
     }
-  }, [canControl, emitControl, isRemotePlaybackEvent, requestSnapshot, runPlaybackCorrection])
+  }, [canControl, emitControl, isRemotePlaybackEvent, needsUserGesture, requestSnapshot, runPlaybackCorrection])
 
   const reportBuffering = useCallback((buffering) => {
     if (!currentItem || !socketRef.current || bufferReportedRef.current === buffering) return
@@ -756,6 +770,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     loading,
     members,
     messages,
+    needsUserGesture,
     notice,
     onVideoEvent,
     refreshVideoDetail,

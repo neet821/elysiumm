@@ -20,7 +20,7 @@ vi.mock('../src/pages/PostDetailPage.jsx', () => ({ default: () => <div>Post det
 vi.mock('../src/pages/PostEditorPage.jsx', () => ({ default: () => <div>Post editor</div> }))
 vi.mock('../src/pages/AdminUsersPage.jsx', () => ({ default: () => <div>Admin users</div> }))
 vi.mock('../src/pages/AdminHomepagePage.jsx', () => ({ default: () => <div>Admin homepage</div> }))
-vi.mock('../src/pages/AdminRoomsPage.jsx', () => ({ default: () => <div>Admin rooms</div> }))
+vi.mock('../src/pages/SyncRoomList.jsx', () => ({ default: () => <div>Shared room list</div> }))
 vi.mock('../src/pages/AdminFilesPage.jsx', () => ({ default: () => <div>Admin files</div> }))
 vi.mock('../src/pages/AgentConsolePage.jsx', () => ({ default: () => <div>Server status</div> }))
 vi.mock('../src/pages/PhotoManagePage.jsx', () => ({ default: () => <div>Admin photos</div> }))
@@ -117,7 +117,7 @@ describe('stable public routes', () => {
   it.each([
     ['/account/admin/homepage', '/account/admin/content/homepage'],
     ['/admin/users', '/account/admin/users'],
-    ['/admin/rooms', '/account/admin/rooms'],
+    ['/admin/rooms', '/rooms/watch'],
     ['/admin/photos', '/account/admin/content/photos'],
     ['/admin/files', '/account/admin/files'],
     ['/admin/agent-console', '/account/admin/services'],

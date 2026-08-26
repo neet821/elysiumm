@@ -461,6 +461,11 @@ def can_perform_room_action(
     if not room or room.is_deleted:
         return False
 
+    # A locked room is protected from owner/member deletion. Administrators
+    # retain the explicit console delete capability regardless of ownership.
+    if action == "delete_room" and room.is_locked and getattr(user, "role", None) != "admin":
+        return False
+
     role = get_room_role(db, room, user)
     if role in {"owner", "admin"}:
         return True
@@ -577,12 +582,25 @@ def get_all_rooms_admin(db: Session, skip: int = 0, limit: int = 100):
             'total_members': total_members,
             'online_members': online_members,
             'is_playing': room.is_playing,
+            'is_locked': room.is_locked,
             'last_activity_at': room.last_activity_at.isoformat() if room.last_activity_at else None,
             'created_at': to_beijing_time(room.created_at).isoformat() if room.created_at else None,
             'updated_at': room.updated_at.isoformat() if room.updated_at else None
         })
 
     return result
+
+def set_room_lock(db: Session, room_id: int, is_locked: bool) -> models.SyncRoom | None:
+    """Set the administrator-controlled automatic cleanup lock."""
+    room = get_room_by_id(db, room_id)
+    if not room:
+        return None
+
+    room.is_locked = is_locked
+    room.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(room)
+    return room
 
 def delete_room_admin(db: Session, room_id: int) -> bool:
     """管理员删除房间"""
@@ -635,6 +653,9 @@ def cleanup_empty_rooms(db: Session, minutes: int = 10, delete_after_minutes: in
     changed_count = 0
 
     for room in rooms:
+        if room.is_locked:
+            continue
+
         # 检查房间是否有在线成员
         online_members = db.query(models.SyncRoomMember).filter(
             models.SyncRoomMember.room_id == room.id,

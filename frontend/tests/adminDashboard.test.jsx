@@ -53,7 +53,7 @@ describe('administrator overview and security evidence', () => {
     for (const text of ['12 位用户', '3 个活跃房间', '5 个受管文件', '2 台同步设备']) {
       expect(screen.getAllByText(text).length).toBeGreaterThan(0)
     }
-    for (const [name, href] of [['用户', '/admin/users'], ['房间', '/admin/rooms'], ['文件', '/admin/files'], ['服务器状态', '/admin/services'], ['曲库账户', '/admin/music'], ['直播', '/admin/live']]) {
+    for (const [name, href] of [['用户', '/admin/users'], ['房间', '/rooms/watch'], ['文件', '/admin/files'], ['服务器状态', '/admin/services'], ['曲库账户', '/admin/music'], ['直播', '/admin/live']]) {
       expect(screen.getByRole('link', { name: new RegExp(name) })).toHaveAttribute('href', href)
     }
     expect(screen.getByText('上传被拒绝')).toBeInTheDocument()

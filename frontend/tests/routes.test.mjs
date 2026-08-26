@@ -24,7 +24,6 @@ for (const path of ["content/homepage", "content/collection", "content/books", "
 for (const [legacyPath, destination] of [
   ["/account/admin/homepage", "/account/admin/content/homepage"],
   ["/admin/users", "/account/admin/users"],
-  ["/admin/rooms", "/account/admin/rooms"],
   ["/admin/photos", "/account/admin/content/photos"],
   ["/admin/files", "/account/admin/files"],
   ["/admin/agent-console", "/account/admin/services"],
@@ -34,6 +33,7 @@ for (const [legacyPath, destination] of [
 ]) {
   assert.match(routesSource, new RegExp(`path="${legacyPath.replaceAll('/', '\\/')}"[\\s\\S]*?LegacyRedirect to="${destination.replaceAll('/', '\\/')}" preserveSearch`), `legacy administrator route ${legacyPath} should preserve search while redirecting to ${destination}`);
 }
+assert.match(routesSource, /path="rooms" element=\{<SharedRoomListRedirect \/>\}/, "the old administrator room path should open the shared room list");
 assert.match(routesSource, /path="\/posts" element=\{<LegacyRedirect to="\/archive\?type=writing" \/>\}/, "legacy posts should redirect to Archive writings");
 assert.match(routesSource, /path="\/photos" element=\{<LegacyRedirect to="\/archive\?type=photo" \/>\}/, "legacy photos should redirect to Archive photos");
 assert.match(routesSource, /path="\/messages" element=\{<LegacyRedirect to="\/" hash="messages" \/>\}/, "legacy messages should redirect to the home message anchor");

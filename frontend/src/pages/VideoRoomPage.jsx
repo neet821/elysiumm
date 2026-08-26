@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext.jsx'
 import VideoRoomSidebar from '../features/video/VideoRoomSidebar.jsx'
+import VideoRoomCommunity from '../features/video/VideoRoomCommunity.jsx'
 import VideoStage from '../features/video/VideoStage.jsx'
 import { useVideoRoom } from '../features/video/useVideoRoom.js'
+import { buildRoomShareUrl, copyText } from './roomShareUtils.js'
 
 
 const STATUS_LABELS = {
@@ -21,6 +23,13 @@ export default function VideoRoomPage({ isDark = false }) {
   const { user, loading: authLoading } = useAuth()
   const roomState = useVideoRoom({ navigate, roomId: id, user })
   const { leave, loading, members, notice, requestSnapshot, room, syncStatus } = roomState
+  const copyShareLink = async () => {
+    try {
+      await copyText(buildRoomShareUrl({ ...window.location, pathname: `/rooms/watch/${id}`, search: '', hash: '' }))
+    } catch {
+      // Clipboard access is optional; the URL remains visible in the browser.
+    }
+  }
 
   if (authLoading || loading || !room) {
     return (
@@ -38,8 +47,7 @@ export default function VideoRoomPage({ isDark = false }) {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold">{room.room_name}</h1>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <span>房间号 {room.room_code}</span>
-              <button type="button" aria-label="复制房间号" onClick={() => navigator.clipboard?.writeText(room.room_code)}><Copy size={13} /></button>
+              <button type="button" className="rounded-md border border-sky-700 bg-sky-600 px-2 py-1 font-semibold text-white shadow-sm hover:bg-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-700" aria-label="复制分享链接" onClick={copyShareLink}><Copy size={13} />复制分享链接</button>
               <span>{room.control_mode === 'host_only' ? '房主控制' : '全员控制'}</span>
             </div>
           </div>
@@ -58,8 +66,15 @@ export default function VideoRoomPage({ isDark = false }) {
       )}
 
       <div className="mx-auto grid max-w-[1600px] gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <VideoStage roomState={roomState} />
-        <VideoRoomSidebar roomState={roomState} />
+        <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+          <VideoStage roomState={roomState} />
+        </div>
+        <div data-testid="video-room-community" className="order-2 min-w-0 xl:col-span-2 xl:col-start-1 xl:row-start-2">
+          <VideoRoomCommunity roomState={roomState} />
+        </div>
+        <div className="order-3 min-w-0 xl:col-start-2 xl:row-start-1">
+          <VideoRoomSidebar roomState={roomState} />
+        </div>
       </div>
     </main>
   )

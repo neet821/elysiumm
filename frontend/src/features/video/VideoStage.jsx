@@ -12,6 +12,7 @@ export default function VideoStage({ roomState }) {
     buffers,
     canControl,
     currentItem,
+    needsUserGesture,
     onVideoEvent,
     selectSubtitle,
     session,
@@ -41,7 +42,7 @@ export default function VideoStage({ roomState }) {
     (subtitle) => subtitle.id === session.selected_subtitle_id,
   )
   const bufferingCount = Object.values(buffers).filter(Boolean).length
-  const playing = snapshot?.state === 'playing'
+  const playing = snapshot?.state === 'playing' && !needsUserGesture
 
   return (
     <section className="min-w-0 space-y-3" aria-label="同步视频播放器">
@@ -90,7 +91,7 @@ export default function VideoStage({ roomState }) {
           <button
             type="button"
             onClick={togglePlayback}
-            disabled={!canControl || !currentItem}
+            disabled={(!canControl && !needsUserGesture) || !currentItem}
             aria-label={`${playing ? '暂停' : '播放'} ${currentItem?.title || '视频'}`}
             className="rounded-full bg-sky-600 p-3 text-white disabled:cursor-not-allowed disabled:opacity-40"
           >

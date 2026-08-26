@@ -948,6 +948,9 @@ class SyncRoomUpdate(BaseModel):
     is_active: Optional[bool] = None
     auto_delete_file: Optional[bool] = None  # 管理员可控制是否删除文件
 
+class SyncRoomLockUpdate(BaseModel):
+    is_locked: bool
+
 class SyncRoom(BaseModel):
     id: int
     room_code: str
@@ -963,6 +966,7 @@ class SyncRoom(BaseModel):
     game_type: Optional[str] = None
     game_state: Optional[str] = None
     is_active: bool
+    is_locked: bool = False
     has_password: bool = False # 返回给前端是否加密
     expires_at: Optional[datetime]
     last_activity_at: Optional[datetime]
@@ -1002,6 +1006,7 @@ class SyncRoomInfo(BaseModel):
     expires_at: Optional[datetime]
     last_activity_at: Optional[datetime]
     deleted_at: Optional[datetime] = None
+    is_locked: bool = False
     auto_delete_file: bool = True
     created_at: datetime
     updated_at: Optional[datetime]

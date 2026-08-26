@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
@@ -14,7 +14,6 @@ const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage'))
 const AdminHomepagePage = lazy(() => import('./pages/AdminHomepagePage'))
 const MusicProvidersAdminPage = lazy(() => import('./pages/MusicProvidersAdminPage'))
-const AdminRoomsPage = lazy(() => import('./pages/AdminRoomsPage'))
 const AdminFilesPage = lazy(() => import('./pages/AdminFilesPage'))
 const AgentConsolePage = lazy(() => import('./pages/AgentConsolePage'))
 const SyncRoomList = lazy(() => import('./pages/SyncRoomList'))
@@ -36,6 +35,11 @@ const withAuth = (children, requireAdmin = false) => <ProtectedRoute requireAdmi
 function LegacyRoomRedirect({ mode }) {
   const { id } = useParams()
   return <Navigate replace to={`${mode === 'music' ? '/rooms/music' : '/rooms/watch'}${id ? `/${id}` : ''}`} />
+}
+
+function SharedRoomListRedirect() {
+  const location = useLocation()
+  return <Navigate replace to={{ pathname: '/rooms/watch', search: location.search }} />
 }
 
 const AppRoutes = () => (
@@ -60,7 +64,7 @@ const AppRoutes = () => (
         <Route index element={<AdminOverviewPage />} />
         <Route path="homepage" element={<AdminHomepagePage />} />
         <Route path="users" element={<AdminUsersPage />} />
-        <Route path="rooms" element={withUserProps(AdminRoomsPage)} />
+        <Route path="rooms" element={<SharedRoomListRedirect />} />
         <Route path="files" element={<AdminFilesPage />} />
         <Route path="live" element={<AdminLivePage />} />
         <Route path="music" element={<MusicProvidersAdminPage />} />

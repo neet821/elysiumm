@@ -1946,6 +1946,7 @@ async def admin_inspect_room(
             "current_time": room.current_time,
             "is_playing": room.is_playing,
             "is_active": room.is_active,
+            "is_locked": room.is_locked,
             "has_password": bool(room.password_hash),
             "created_at": room.created_at.isoformat() if room.created_at else None,
             "last_activity_at": room.last_activity_at.isoformat() if room.last_activity_at else None
@@ -2001,6 +2002,7 @@ def admin_get_room_detail(
         "current_time": room.current_time,
         "is_playing": room.is_playing,
         "is_active": room.is_active,
+        "is_locked": room.is_locked,
         "created_at": room.created_at.isoformat() if room.created_at else None,
         "updated_at": room.updated_at.isoformat() if room.updated_at else None,
         "members": members
@@ -2031,6 +2033,27 @@ def admin_update_room(
             "room_name": updated_room.room_name,
             "control_mode": updated_room.control_mode
         }
+    }
+
+@app.put("/api/admin/sync-rooms/{room_id}/lock")
+def admin_set_room_lock(
+    room_id: int,
+    lock_update: schemas.SyncRoomLockUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """管理员控制房间是否参与自动清理。"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+
+    room = sync_room_crud.set_room_lock(db, room_id, lock_update.is_locked)
+    if not room:
+        raise HTTPException(status_code=404, detail="房间不存在")
+
+    return {
+        "message": "房间已锁定，不会自动删除" if room.is_locked else "房间已解除锁定",
+        "room_id": room.id,
+        "is_locked": room.is_locked,
     }
 
 @app.delete("/api/admin/sync-rooms/{room_id}")

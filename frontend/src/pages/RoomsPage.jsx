@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom'
 import './roomsHub.css'
 
 const rooms = [
-  { title: '听歌房', description: '和朋友一起排队、播放并同步聆听。', to: '/rooms/music', icon: Headphones, tone: 'blue', action: '进入听歌房' },
   { title: '观影房', description: '同步播放视频，保留原有房间与字幕能力。', to: '/rooms/watch', icon: Film, tone: 'violet', action: '进入观影房' },
+  { title: '听歌房', description: '和朋友一起排队、播放并同步聆听。', to: '/rooms/music', icon: Headphones, tone: 'blue', action: '进入听歌房' },
   { title: '桌游房', description: '新的桌游体验正在重做。', to: '/rooms/games', icon: Gamepad2, tone: 'muted', action: '待重做' },
 ]
 
