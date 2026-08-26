@@ -745,7 +745,14 @@ var mobileFxArchiveLoadPromise = null;
 var mobileFxArchiveLoadFailed = false;
 var MOBILE_FX_ARCHIVE_SERVER_URL = 'mobile-default-user-fx-archive.json';
 function isMobileFxDevice() {
-  return !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+  var nav = typeof navigator !== 'undefined' ? navigator : {};
+  var ua = String(nav.userAgent || '');
+  var platform = String(nav.platform || '');
+  var touchPoints = Number(nav.maxTouchPoints || 0);
+  var iPadDesktopUa = /Macintosh/i.test(ua) && touchPoints > 1;
+  var iPadUa = /iPad/i.test(ua) || /iPad/i.test(platform);
+  if (iPadDesktopUa || iPadUa) return false;
+  return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(ua);
 }
 function applyMobileFxArchiveSnapshot(snapshot) {
   if (typeof deactivateHomeWallpaperPreview === 'function') deactivateHomeWallpaperPreview(true);
@@ -793,7 +800,10 @@ function loadMobileFxArchiveFromServer() {
 }
 function applyMobileFxArchiveForDevice() {
   var mobile = isMobileFxDevice();
-  if (document.body) document.body.classList.toggle('mobile-device', mobile);
+  if (document.body) {
+    document.body.classList.toggle('mobile-device', mobile);
+    document.body.classList.toggle('desktop-player', !mobile);
+  }
   if (!mobile) {
     mobileFxArchiveAutoApplied = false;
     return false;

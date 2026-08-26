@@ -18,6 +18,31 @@ function applyLyricVerticalEdgeFade(ctx, W, H, strength, activeLine, lineCount) 
   ctx.restore();
 }
 
+var MOBILE_LYRIC_MAX_LINES = 3;
+function mobileLyricWrapActive() {
+  if (typeof isMobileFxDevice === 'function') return isMobileFxDevice();
+  return !!(document.body && document.body.classList.contains('mobile-device'));
+}
+function wrapMobileLyricEntries(entries, activeLine, ctx, maxWidth, fontSize) {
+  if (!mobileLyricWrapActive() || !Array.isArray(entries) || entries.length !== 1) {
+    return { entries: entries, activeLine: activeLine };
+  }
+  var entry = entries[0] || {};
+  var text = String(entry.text || '').trim();
+  if (text.length < 12 || /\n/.test(text)) return { entries: entries, activeLine: activeLine };
+  ctx.save();
+  ctx.font = lyricFontCss(fontSize, lyricEntryWeight(entry));
+  var wrapped = wrapLyricText(ctx, text, maxWidth, MOBILE_LYRIC_MAX_LINES, fontSize);
+  ctx.restore();
+  if (!wrapped || wrapped.length < 2) return { entries: entries, activeLine: activeLine };
+  return {
+    entries: wrapped.map(function (line) {
+      return Object.assign({}, entry, { text: line });
+    }),
+    activeLine: 0
+  };
+}
+
 function beginLyricMaskLayoutBuild(input, layoutOverride) {
   layoutOverride = layoutOverride || {};
   var payload = normalizeStageLyricPayload(input);
@@ -26,14 +51,16 @@ function beginLyricMaskLayoutBuild(input, layoutOverride) {
   var rendererMaxTexture = renderer && renderer.capabilities && renderer.capabilities.maxTextureSize ? renderer.capabilities.maxTextureSize : 4096;
   var maxCanvasW = Math.max(baseCanvasW, Math.min(6144, rendererMaxTexture || 4096));
   var entries = payload && payload.entries && payload.entries.length ? payload.entries : [{ text: '', role: 'current', alpha: 1, scale: 1 }];
-  var desiredLines = Math.max(1, entries.length);
-  var H = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 608 : (desiredLines > 2 ? 512 : 384)))))));
   var measureCanvas = document.createElement('canvas');
   var ctx = measureCanvas.getContext('2d');
+  var mobileWrapped = wrapMobileLyricEntries(entries, payload.activeLine, ctx, Math.round(baseCanvasW * 0.68), 128);
+  entries = mobileWrapped.entries;
+  var desiredLines = Math.max(1, entries.length);
+  var H = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 608 : (desiredLines > 2 ? 512 : 384)))))));
   var maxLines = Math.max(STAGE_LYRIC_MAX_LINES, entries.length);
   var lockedFontSize = Number(layoutOverride.fontSize);
   var lines = entries.map(function (entry) { return entry.text; });
-  var activeLine = Math.max(0, Math.min(lines.length - 1, payload.activeLine || 0));
+  var activeLine = Math.max(0, Math.min(lines.length - 1, mobileWrapped.activeLine || 0));
   var fitMeasureIndexes = [];
   for (var fi = 0; fi < entries.length; fi++) {
     var fitAlpha = entries[fi] && entries[fi].alpha == null ? 1 : Number(entries[fi] && entries[fi].alpha);

@@ -18019,3 +18019,52 @@ body.mobile-device #play-btn {
   width: 42px;
   height: 42px;
 }
+
+/* The desktop profile is stable across window sizes, including iPad split view. */
+body.desktop-player:not(.immersive-mode) #fx-fab,
+body.desktop-player:not(.immersive-mode) #fx-fab-hide-btn {
+  display: flex !important;
+  pointer-events: auto !important;
+}
+
+body.desktop-player:not(.immersive-mode) .control-track,
+body.desktop-player:not(.immersive-mode) #quality-control,
+body.desktop-player:not(.immersive-mode) #heart-btn,
+body.desktop-player:not(.immersive-mode) #collect-btn,
+body.desktop-player:not(.immersive-mode) #play-mode-btn,
+body.desktop-player:not(.immersive-mode) #prev-btn,
+body.desktop-player:not(.immersive-mode) #play-btn,
+body.desktop-player:not(.immersive-mode) #next-btn,
+body.desktop-player:not(.immersive-mode) #mini-queue-btn,
+body.desktop-player:not(.immersive-mode) .lyrics-toggle-btn,
+body.desktop-player:not(.immersive-mode) #volume-control,
+body.desktop-player:not(.immersive-mode) #controls-hide-btn,
+body.desktop-player:not(.immersive-mode) #immersive-btn,
+body.desktop-player:not(.immersive-mode) .fullscreen-toggle-btn,
+body.desktop-player:not(.immersive-mode) #time-display {
+  display: flex !important;
+}
+
+@media (max-width: 620px) {
+  body.desktop-player:not(.immersive-mode) #controls {
+    grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr) !important;
+  }
+
+  body.desktop-player:not(.immersive-mode) .control-cluster {
+    grid-column: auto !important;
+    order: initial !important;
+    width: auto !important;
+  }
+
+  body.desktop-player:not(.immersive-mode) .control-cluster.actions {
+    justify-content: flex-start;
+  }
+
+  body.desktop-player:not(.immersive-mode) .control-cluster.transport {
+    justify-content: center;
+  }
+
+  body.desktop-player:not(.immersive-mode) .control-cluster.modes {
+    justify-content: flex-end;
+  }
+}

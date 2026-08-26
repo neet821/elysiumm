@@ -311,6 +311,11 @@ export default function MineradioPage() {
     socket.on('connect_error', () => {
       if (active) setSyncStatus('error')
     })
+    const presenceTimer = window.setInterval(() => {
+      if (socket.connected) {
+        socket.emit('presence_heartbeat', { room_id: Number(roomId) })
+      }
+    }, 10_000)
     socket.on('join_success', (data) => {
       if (data.room) setRoom((previous) => ({ ...previous, ...data.room }))
       setMembers(data.members || [])
@@ -386,6 +391,7 @@ export default function MineradioPage() {
       cancelRoomSync(playerAdapterRef.current, syncState)
       remoteSyncRef.current = 0
       remoteSyncUntilRef.current = 0
+      window.clearInterval(presenceTimer)
       socket.disconnect()
       socketRef.current = null
     }

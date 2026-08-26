@@ -9,6 +9,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 const html = read('mineradio/public/index.html')
 const css = read('mineradio/public/css/index.css')
 const archive = read('mineradio/public/js/modules/07-fx/00-preset-archive-data.js')
+const lyricMask = read('mineradio/public/js/modules/02-visual/10-lyrics-mask-textures.js')
 const startup = read('mineradio/public/js/modules/10-shell/05-startup-bindings.js')
 const bridge = read('mineradio/public/blue-album-room-bridge.js')
 const volume = read('mineradio/public/js/modules/05-playback/08-audio-graph-controls.js')
@@ -23,6 +24,28 @@ test('mobile profile is frozen and delivered by the server', () => {
   assert.match(archive, /mobile-default-user-fx-archive\.json/)
   assert.match(archive, /fetch\(MOBILE_FX_ARCHIVE_SERVER_URL/)
   assert.match(archive, /decodeUserFxArchiveShareCode/)
+})
+
+test('player mode is device-based and keeps iPad in the desktop profile', () => {
+  assert.match(archive, /userAgent/)
+  assert.match(archive, /maxTouchPoints/)
+  assert.match(archive, /iPadDesktopUa/)
+  assert.match(archive, /desktop-player/)
+  assert.doesNotMatch(archive, /matchMedia\('\\(max-width: 720px\\)'\)/)
+})
+
+test('desktop player keeps the complete transport controls at every viewport size', () => {
+  for (const id of ['play-mode-btn', 'prev-btn', 'play-btn', 'next-btn', 'mini-queue-btn']) {
+    assert.match(css, new RegExp(`body\\.desktop-player[^}]*#${id}[^}]*display\\s*:\\s*(?:flex|inline-flex)`, 's'))
+  }
+  assert.match(css, /body\.desktop-player[^}]*#controls-hide-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
+  assert.match(css, /body\.desktop-player[^}]*\.lyrics-toggle-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
+})
+
+test('mobile lyrics wrap an overlong current line into visual rows', () => {
+  assert.match(lyricMask, /function wrapMobileLyricEntries\s*\(/)
+  assert.match(lyricMask, /wrapLyricText\(/)
+  assert.match(lyricMask, /MOBILE_LYRIC_MAX_LINES\s*=\s*3/)
 })
 
 test('mobile Mineradio applies the named archive and hides visual controls', () => {
@@ -70,4 +93,9 @@ test('iPad-safe room transport prefers polling and acknowledges autoplay-blocked
   assert.match(page, /transports:\s*\['polling', 'websocket'\]/)
   assert.match(bridge, /autoplay_blocked/)
   assert.match(bridge, /sync-applied/)
+})
+
+test('music room keeps its membership alive with a presence heartbeat', () => {
+  assert.match(page, /presence_heartbeat/)
+  assert.match(page, /setInterval\(.*presence_heartbeat/s)
 })
