@@ -298,7 +298,7 @@ export default function MineradioPage() {
     const socket = io(WS_BASE_URL, {
       auth: { token: localStorage.getItem('token') },
       path: '/ws/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
     })
     socketRef.current = socket
     socket.on('connect', () => {

@@ -740,19 +740,69 @@ var userFxArchiveEditing = -1;
 var userFxArchiveShareDraft = '';
 var MOBILE_FX_ARCHIVE_NAME = '移动端';
 var mobileFxArchiveAutoApplied = false;
+var mobileFxArchiveServerSnapshot = null;
+var mobileFxArchiveLoadPromise = null;
+var mobileFxArchiveLoadFailed = false;
+var MOBILE_FX_ARCHIVE_SERVER_URL = 'mobile-default-user-fx-archive.json';
 function isMobileFxDevice() {
   return !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+}
+function applyMobileFxArchiveSnapshot(snapshot) {
+  if (typeof deactivateHomeWallpaperPreview === 'function') deactivateHomeWallpaperPreview(true);
+  if (!snapshot || !applyFxArchiveSnapshot(snapshot)) return false;
+  mobileFxArchiveAutoApplied = true;
+  if (typeof startupVisualPreviewActive !== 'undefined') startupVisualPreviewActive = false;
+  return true;
+}
+function applyLocalMobileFxArchive() {
+  var slot = userFxArchives.find(function (item) {
+    return item && item.name === MOBILE_FX_ARCHIVE_NAME && item.snapshot;
+  });
+  return slot && applyMobileFxArchiveSnapshot(slot.snapshot);
+}
+function loadMobileFxArchiveFromServer() {
+  if (mobileFxArchiveLoadPromise) return mobileFxArchiveLoadPromise;
+  mobileFxArchiveLoadPromise = fetch(MOBILE_FX_ARCHIVE_SERVER_URL, { cache: 'no-store' })
+    .then(function (response) {
+      if (!response.ok) throw new Error('MOBILE_FX_ARCHIVE_SERVER_UNAVAILABLE');
+      return response.json();
+    })
+    .then(function (payload) {
+      if (!payload || payload.type !== 'mineradio-mobile-fx-default' || payload.name !== MOBILE_FX_ARCHIVE_NAME || !payload.snapshot) {
+        throw new Error('MOBILE_FX_ARCHIVE_SERVER_INVALID');
+      }
+      mobileFxArchiveServerSnapshot = payload.snapshot;
+      return mobileFxArchiveServerSnapshot;
+    })
+    .catch(function () {
+      mobileFxArchiveLoadFailed = true;
+      return null;
+    })
+    .then(function (snapshot) {
+      if (isMobileFxDevice() && !mobileFxArchiveAutoApplied) {
+        var applied = snapshot && applyMobileFxArchiveSnapshot(snapshot);
+        if (!applied) applied = applyLocalMobileFxArchive();
+        if (!applied) {
+          mobileFxArchiveAutoApplied = true;
+          if (typeof applyStartupStarfieldPreset === 'function') applyStartupStarfieldPreset();
+        }
+      }
+      return mobileFxArchiveAutoApplied;
+    });
+  return mobileFxArchiveLoadPromise;
 }
 function applyMobileFxArchiveForDevice() {
   var mobile = isMobileFxDevice();
   if (document.body) document.body.classList.toggle('mobile-device', mobile);
-  if (!mobile || mobileFxArchiveAutoApplied) return false;
-  var slot = userFxArchives.find(function (item) {
-    return item && item.name === MOBILE_FX_ARCHIVE_NAME && item.snapshot;
-  });
-  if (!slot || !applyFxArchiveSnapshot(slot.snapshot)) return false;
-  mobileFxArchiveAutoApplied = true;
-  return true;
+  if (!mobile) {
+    mobileFxArchiveAutoApplied = false;
+    return false;
+  }
+  if (mobileFxArchiveAutoApplied) return true;
+  if (mobileFxArchiveServerSnapshot) return applyMobileFxArchiveSnapshot(mobileFxArchiveServerSnapshot);
+  if (mobileFxArchiveLoadFailed && applyLocalMobileFxArchive()) return true;
+  loadMobileFxArchiveFromServer();
+  return false;
 }
 function renderUserFxArchives() {
   var grid = document.getElementById('user-archive-grid');

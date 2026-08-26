@@ -41,6 +41,7 @@ function shouldForceEmptyHomeAfterSplash() {
 }
 function shouldUseIdleWallpaperPreview(ignoreSplash) {
   if (!ignoreSplash && document.body.classList.contains('splash-active')) return false;
+  if (typeof isMobileFxDevice === 'function' && isMobileFxDevice()) return false;
   if (immersiveMode || playing || (audio && !audio.paused)) return false;
   if (hasRestoredPlaybackCandidate() && !shouldShowHomeForPausedStartupRestore()) return false;
   if (shelfPinnedOpen) return false;
@@ -120,6 +121,8 @@ function switchPlaybackVisualToEmily() {
 }
 function applyStartupStarfieldPreset() {
   if (playing || currentIdx >= 0 || hasRestoredPlaybackCandidate()) return;
+  if (typeof isMobileFxDevice === 'function' && isMobileFxDevice()
+    && typeof mobileFxArchiveAutoApplied !== 'undefined' && !mobileFxArchiveAutoApplied) return;
   startupVisualPreviewActive = true;
   if (typeof setPreset === 'function' && fx.preset !== 5) {
     setPreset(5, { silent: true, preserveCamera: false, skipTransition: true, noSave: true });
@@ -133,7 +136,10 @@ function updateEmptyHomeVisibility(opts) {
   emptyHomeActive = show;
   document.body.classList.toggle('empty-home-active', show);
   if (!show) setHomeControlsLocked(false);
-  if (show) activateHomeWallpaperPreview();
+  if (show) {
+    if (typeof isMobileFxDevice === 'function' && isMobileFxDevice()) deactivateHomeWallpaperPreview(false);
+    else activateHomeWallpaperPreview();
+  }
   else deactivateHomeWallpaperPreview(false);
   if (show) {
     setPeek(document.getElementById('search-area'), true, 'search');
