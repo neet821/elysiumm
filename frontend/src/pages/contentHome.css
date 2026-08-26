@@ -797,6 +797,31 @@
   overflow-wrap: anywhere;
 }
 .legacy-old-home--flat .article-card-preview-body > :first-child { margin-top: 0; }
+
+/* A soft edge marks where the article stream ends without adding another label
+   or a hard divider before the photo area. */
+.legacy-old-home--flat .articles-section {
+  position: relative;
+}
+.legacy-old-home--flat .articles-section__end-mask {
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0%), rgb(255 255 255 / .86) 72%, #fff);
+  height: 3rem;
+  margin-top: -3rem;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+.legacy-old-home--flat .home-pagination {
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 800px) {
+  .legacy-old-home--flat .articles-section__end-mask {
+    height: 2.25rem;
+    margin-top: -2.25rem;
+  }
+}
 .legacy-old-home--flat .article-card-preview-body > :last-child { margin-bottom: 0; }
 .legacy-old-home--flat .article-card-preview-body h1,
 .legacy-old-home--flat .article-card-preview-body h2,

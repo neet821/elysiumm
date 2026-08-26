@@ -148,6 +148,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered', 'article-card-cover--compact')
     expect(container.querySelector('.article-card-preview')).toHaveTextContent('文章预览')
     expect(container.querySelector('.article-card-preview-time')).toHaveTextContent('August 24, 2026')
+    expect(container.querySelector('.articles-section__end-mask')).toHaveAttribute('aria-hidden', 'true')
     expect(container.querySelector('.article-card > .card-time')).toBeNull()
     expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
     expect(container.querySelector('.essay-card > .card-time')).toHaveTextContent('2026/08/23')
