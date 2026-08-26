@@ -9,6 +9,7 @@ vi.mock('../src/contexts/AuthContext.jsx', () => ({
 }))
 
 import LoginCard from '../src/components/auth/LoginCard.jsx'
+import RegisterPage from '../src/pages/RegisterPage.jsx'
 
 describe('authentication form layout', () => {
   it('reserves a dedicated leading-icon gutter in both login fields', () => {
@@ -27,5 +28,20 @@ describe('authentication form layout', () => {
     expect(css).toMatch(/\.service-shell:has\(\.auth-page\)\s*\{[^}]*height:\s*100dvh;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.service-shell:has\(\.auth-page\) \.app-shell__main\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.auth-page\s*\{[^}]*box-sizing:\s*border-box;[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s)
+  })
+
+  it('requires at least twelve characters in both registration password fields', () => {
+    render(
+      <MemoryRouter>
+        <RegisterPage
+          styles={{ bgSecondary: '', bg: '', border: '', text: '', textMuted: '', accentClass: '' }}
+          isDark={false}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByLabelText('密码')).toHaveAttribute('minLength', '12')
+    expect(screen.getByLabelText('密码')).toHaveAttribute('placeholder', '输入密码（至少12个字符）')
+    expect(screen.getByLabelText('确认密码')).toHaveAttribute('minLength', '12')
   })
 })

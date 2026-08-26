@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { User, Mail, Lock } from "lucide-react";
 
+const MIN_PASSWORD_LENGTH = 12;
+
 const RegisterPage = ({ styles, isDark }) => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -21,8 +23,8 @@ const RegisterPage = ({ styles, isDark }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setError("密码长度至少为6个字符");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`密码长度至少为${MIN_PASSWORD_LENGTH}个字符`);
       return;
     }
 
@@ -103,6 +105,7 @@ const RegisterPage = ({ styles, isDark }) => {
             <input
               id="register-password"
               type="password"
+              minLength={MIN_PASSWORD_LENGTH}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={`w-full px-4 py-3 border ${styles.border} rounded-lg ${
@@ -110,7 +113,7 @@ const RegisterPage = ({ styles, isDark }) => {
               } ${styles.text} focus:outline-none focus:ring-2 ${
                 isDark ? "focus:ring-orange-500" : "focus:ring-[#189BCC]"
               }`}
-              placeholder="输入密码（至少6个字符）"
+              placeholder="输入密码（至少12个字符）"
               required
             />
           </div>
@@ -123,6 +126,7 @@ const RegisterPage = ({ styles, isDark }) => {
             <input
               id="register-password-confirmation"
               type="password"
+              minLength={MIN_PASSWORD_LENGTH}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className={`w-full px-4 py-3 border ${styles.border} rounded-lg ${
