@@ -37,5 +37,5 @@ test('volume button uses the shared mute toggle and restores the last audible le
 
 test('mobile room button owns a fixed viewport hit area', () => {
   assert.match(bridge, /@media\(max-width:720px\)\{.*#blue-room-btn\{position:fixed;/s)
-  assert.match(bridge, /#blue-room-btn\{position:fixed;top:24px;right:24px;/)
+  assert.match(bridge, /#blue-room-btn\{position:fixed;top:24px;right:24px;[^}]*z-index:50;/)
 })
