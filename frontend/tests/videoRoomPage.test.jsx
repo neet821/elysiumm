@@ -341,6 +341,23 @@ describe('video room page', () => {
     expect(await screen.findByText('操作与房间新状态冲突，已重新同步')).toHaveAttribute('role', 'status')
   })
 
+  it('automatically clears the conflict notice after resync completes', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    vi.useFakeTimers()
+    try {
+      act(() => mocks.handlers.get('playback_conflict')({
+        snapshot: snapshot({ position: 20, version: 7 }),
+      }))
+      expect(screen.getByText('操作与房间新状态冲突，已重新同步')).toHaveAttribute('role', 'status')
+
+      act(() => vi.advanceTimersByTime(4_000))
+      expect(screen.queryByText('操作与房间新状态冲突，已重新同步')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('sends presence heartbeats only while the room page is visible', async () => {
     renderRoom()
     await screen.findByRole('heading', { name: 'Video room' })

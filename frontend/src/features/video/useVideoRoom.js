@@ -15,6 +15,7 @@ import { fingerprintLocalVideo, localFileMatches } from './localVideo.js'
 const REMOTE_MEDIA_EVENT_GRACE_MS = 350
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
 const PLAYBACK_RECOVERY_COOLDOWN_MS = 1_500
+const TRANSIENT_NOTICE_TIMEOUT_MS = 4_000
 
 function sameUserId(left, right) {
   return left != null && right != null && String(left) === String(right)
@@ -62,6 +63,18 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const presenceJoinedRef = useRef(false)
   const playbackUnlockedRef = useRef(false)
   const lastPlaybackRecoveryRef = useRef(0)
+  const transientNoticeTimerRef = useRef(null)
+
+  const showTransientNotice = useCallback((message) => {
+    if (transientNoticeTimerRef.current !== null) {
+      window.clearTimeout(transientNoticeTimerRef.current)
+    }
+    setNotice(message)
+    transientNoticeTimerRef.current = window.setTimeout(() => {
+      setNotice((current) => current === message ? '' : current)
+      transientNoticeTimerRef.current = null
+    }, TRANSIENT_NOTICE_TIMEOUT_MS)
+  }, [])
 
   const beginRemoteApply = useCallback(() => {
     remoteApplyRef.current += 1
@@ -122,9 +135,9 @@ export function useVideoRoom({ navigate, roomId, user }) {
       playback_version: version,
     } : previous)
     setSyncStatus('synced')
-    if (conflict) setNotice('操作与房间新状态冲突，已重新同步')
+    if (conflict) showTransientNotice('操作与房间新状态冲突，已重新同步')
     return true
-  }, [numericRoomId])
+  }, [numericRoomId, showTransientNotice])
 
   const applyVideoDetail = useCallback((data) => {
     if (!data) return
@@ -328,7 +341,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     socket.on('playback_conflict', (data) => {
       if (!active) return
       if (data?.snapshot) acceptSnapshot(data.snapshot, { conflict: true })
-      else setNotice('房间状态发生冲突，正在重新同步')
+      else showTransientNotice('房间状态发生冲突，正在重新同步')
     })
     socket.on('video_session_updated', () => {
       if (active) refreshVideoDetail({ quiet: true })
@@ -390,6 +403,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     navigate,
     numericRoomId,
     refreshVideoDetail,
+    showTransientNotice,
     startPresenceHeartbeat,
     stopPresenceHeartbeat,
     user?.id,
@@ -397,6 +411,12 @@ export function useVideoRoom({ navigate, roomId, user }) {
 
   useEffect(() => () => {
     Object.values(localFilesRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
+  }, [])
+
+  useEffect(() => () => {
+    if (transientNoticeTimerRef.current !== null) {
+      window.clearTimeout(transientNoticeTimerRef.current)
+    }
   }, [])
 
   useEffect(() => {
