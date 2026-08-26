@@ -243,6 +243,9 @@ export default function AdminLivePage() {
       </section>
 
       <div className="admin-live__below-preview">
+        <section className="admin-live__card admin-live__admin-messages" aria-label="管理员直播留言">
+          <LiveMessageBoard liveSessionId={preview.liveSessionId} readOnly />
+        </section>
         <section className="admin-live__card admin-live__audience-card" aria-label="在线人数">
           <header>
             <Users aria-hidden="true" />
@@ -276,9 +279,6 @@ export default function AdminLivePage() {
               </p>
             </div>
           )}
-        </section>
-        <section className="admin-live__card admin-live__admin-messages" aria-label="管理员直播留言">
-          <LiveMessageBoard liveSessionId={preview.liveSessionId} readOnly />
         </section>
       </div>
 

@@ -200,7 +200,10 @@ describe('live administrator workspace', () => {
     render(<AdminLivePage />)
 
     const preview = await screen.findByLabelText('直播预览')
-    expect(preview.nextElementSibling).toHaveClass('admin-live__below-preview')
+    const belowPreview = preview.nextElementSibling
+    expect(belowPreview).toHaveClass('admin-live__below-preview')
+    expect(belowPreview.firstElementChild).toHaveClass('admin-live__admin-messages')
+    expect(belowPreview.lastElementChild).toHaveClass('admin-live__audience-card')
     expect(screen.getByTestId('admin-live-messages')).toBeInTheDocument()
     expect(screen.queryByText('当前状态')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '留言' })).not.toBeInTheDocument()
