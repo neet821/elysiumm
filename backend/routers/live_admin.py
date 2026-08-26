@@ -488,10 +488,19 @@ def list_audience_history(
     db: Session = Depends(get_db),
     _admin: models.User = Depends(active_administrator),
 ):
+    active = (
+        db.query(models.LiveSession)
+        .filter(models.LiveSession.status == "live")
+        .order_by(models.LiveSession.started_at.desc())
+        .first()
+    )
+    if active is None or (session_id is not None and session_id != active.id):
+        return []
     query = (
         db.query(models.LiveViewerSession)
         .outerjoin(models.User, models.User.id == models.LiveViewerSession.user_id)
         .filter(
+            models.LiveViewerSession.live_session_id == active.id,
             or_(
                 models.LiveViewerSession.user_id.is_(None),
                 models.User.role != "admin",

@@ -215,7 +215,10 @@ export default function AdminLivePage() {
     setHistoryLoading(true)
     try {
       const response = await apiClient.get(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY, {
-        params: { limit: 200 },
+        params: {
+          limit: 200,
+          session_id: data.status?.session?.id || undefined,
+        },
       })
       setData((current) => ({ ...current, audienceHistory: response.data }))
     } catch {
@@ -241,46 +244,6 @@ export default function AdminLivePage() {
           <div className="admin-live__preview-empty">未开播</div>
         )}
       </section>
-
-      <div className="admin-live__below-preview">
-        <section className="admin-live__card admin-live__admin-messages" aria-label="管理员直播留言">
-          <LiveMessageBoard liveSessionId={preview.liveSessionId} readOnly />
-        </section>
-        <section className="admin-live__card admin-live__audience-card" aria-label="在线人数">
-          <header>
-            <Users aria-hidden="true" />
-            <div><h2>在线人数</h2><p>当前 {data.status?.active_viewers ?? 0} 人</p></div>
-          </header>
-          <button
-            type="button"
-            className="admin-live__secondary-trigger"
-            aria-expanded={audienceExpanded}
-            aria-label={`观看人数：${data.status?.active_viewers ?? 0}`}
-            onClick={() => setAudienceExpanded((open) => !open)}
-          >
-            <span>观看人数</span>
-            <strong>{data.status?.active_viewers ?? 0}</strong>
-          </button>
-          {audienceExpanded && (
-            <div className="admin-live__audience-menu">
-              <div className="admin-live__audience-tabs" role="tablist" aria-label="观看数据">
-                <button type="button" role="tab" aria-selected={audienceView === 'current'} onClick={() => setAudienceView('current')}>当前在线</button>
-                <button type="button" role="tab" aria-selected={audienceView === 'history'} onClick={openAudienceHistory}>历史观看</button>
-              </div>
-              {historyLoading ? <p className="admin-live__empty">加载中…</p> : (
-                <AdminLiveAudience
-                  audience={audienceView === 'history' ? data.audienceHistory : data.audience}
-                  history={audienceView === 'history'}
-                  refreshedAt={audienceRefreshedAt}
-                />
-              )}
-              <p className="admin-live__attribution">
-                <a href="https://db-ip.com" target="_blank" rel="noreferrer">地区数据由 DB-IP 提供</a>
-              </p>
-            </div>
-          )}
-        </section>
-      </div>
 
       <div className="admin-live__grid">
         <section className="admin-live__card admin-live__card--settings">
@@ -418,6 +381,46 @@ export default function AdminLivePage() {
             {!data.sessions.length && <li className="admin-live__empty">还没有历史场次。</li>}
           </ul>
         </details>
+      </div>
+
+      <div className="admin-live__below-preview">
+        <section className="admin-live__card admin-live__admin-messages" aria-label="管理员直播留言">
+          <LiveMessageBoard liveSessionId={preview.liveSessionId} readOnly />
+        </section>
+        <section className="admin-live__card admin-live__audience-card" aria-label="在线人数">
+          <header>
+            <Users aria-hidden="true" />
+            <div><h2>在线人数</h2><p>当前 {data.status?.active_viewers ?? 0} 人</p></div>
+          </header>
+          <button
+            type="button"
+            className="admin-live__secondary-trigger"
+            aria-expanded={audienceExpanded}
+            aria-label={`观看人数：${data.status?.active_viewers ?? 0}`}
+            onClick={() => setAudienceExpanded((open) => !open)}
+          >
+            <span>观看人数</span>
+            <strong>{data.status?.active_viewers ?? 0}</strong>
+          </button>
+          {audienceExpanded && (
+            <div className="admin-live__audience-menu">
+              <div className="admin-live__audience-tabs" role="tablist" aria-label="观看数据">
+                <button type="button" role="tab" aria-selected={audienceView === 'current'} onClick={() => setAudienceView('current')}>当前在线</button>
+                <button type="button" role="tab" aria-selected={audienceView === 'history'} onClick={openAudienceHistory}>历史观看</button>
+              </div>
+              {historyLoading ? <p className="admin-live__empty">加载中…</p> : (
+                <AdminLiveAudience
+                  audience={audienceView === 'history' ? data.audienceHistory : data.audience}
+                  history={audienceView === 'history'}
+                  refreshedAt={audienceRefreshedAt}
+                />
+              )}
+              <p className="admin-live__attribution">
+                <a href="https://db-ip.com" target="_blank" rel="noreferrer">地区数据由 DB-IP 提供</a>
+              </p>
+            </div>
+          )}
+        </section>
       </div>
 
       <Dialog

@@ -186,7 +186,7 @@ describe('live administrator workspace', () => {
     expect(await screen.findByText(/2026[/-]7[/-]27/)).toBeInTheDocument()
     expect(apiClient.get).toHaveBeenCalledWith(
       API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY,
-      { params: { limit: 200 } },
+      { params: { limit: 200, session_id: 9 } },
     )
   })
 
@@ -196,14 +196,16 @@ describe('live administrator workspace', () => {
     expect(await screen.findByLabelText('直播名称')).toHaveValue('今晚直播')
   })
 
-  it('places read-only audience and message panels below the preview', async () => {
+  it('places settings before the read-only audience and message panels', async () => {
     render(<AdminLivePage />)
 
     const preview = await screen.findByLabelText('直播预览')
-    const belowPreview = preview.nextElementSibling
+    const settings = await screen.findByRole('heading', { name: '开播设置' })
+    const belowPreview = settings.closest('.admin-live__grid').nextElementSibling
     expect(belowPreview).toHaveClass('admin-live__below-preview')
     expect(belowPreview.firstElementChild).toHaveClass('admin-live__admin-messages')
     expect(belowPreview.lastElementChild).toHaveClass('admin-live__audience-card')
+    expect(preview.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByTestId('admin-live-messages')).toBeInTheDocument()
     expect(screen.queryByText('当前状态')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '留言' })).not.toBeInTheDocument()

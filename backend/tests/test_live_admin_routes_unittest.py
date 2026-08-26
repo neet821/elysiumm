@@ -436,7 +436,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
         self.assertIn("live_audience_history_delete", actions)
         self.assertNotIn("token", (actions["live_kick_publisher"] or "").lower())
 
-    def test_audience_history_returns_ended_visits_for_multiple_live_sessions(self):
+    def test_audience_history_is_scoped_to_the_current_live_session(self):
         ended_session = models.LiveSession(
             title="上一场直播",
             description="",
@@ -447,7 +447,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
         )
         self.db.add(ended_session)
         self.db.flush()
-        viewer = models.LiveViewerSession(
+        ended_viewer = models.LiveViewerSession(
             live_session_id=ended_session.id,
             user_id=self.member.id,
             ip_address="203.0.113.8",
@@ -456,7 +456,16 @@ class LiveAdminRoutesTest(unittest.TestCase):
             watched_seconds=600,
             ended_at=datetime.utcnow() - timedelta(days=1),
         )
-        self.db.add(viewer)
+        current_viewer = models.LiveViewerSession(
+            live_session_id=self.session.id,
+            user_id=self.member.id,
+            ip_address="203.0.113.9",
+            first_seen_at=datetime.utcnow() - timedelta(minutes=10),
+            last_seen_at=datetime.utcnow(),
+            watched_seconds=300,
+            ended_at=datetime.utcnow(),
+        )
+        self.db.add_all([ended_viewer, current_viewer])
         self.db.commit()
 
         response = self.client.get(
@@ -466,7 +475,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]["live_session_id"], ended_session.id)
+        self.assertEqual(response.json()[0]["live_session_id"], self.session.id)
 
     def test_recording_routes_hide_storage_path_and_reject_processing_delete(self):
         recording = models.LiveRecording(
