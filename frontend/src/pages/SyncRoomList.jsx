@@ -305,12 +305,6 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
         </span>
       </button>
 
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none absolute right-0 top-0 w-20 h-20 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-150 ${
-          isDark ? "bg-orange-500/10" : "bg-[#189BCC]/5"
-        }`}
-      ></div>
     </div>
     );
   };

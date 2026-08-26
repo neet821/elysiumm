@@ -32,6 +32,7 @@ describe('同步房间列表', () => {
     expect(screen.getByText('分享房')).toBeInTheDocument()
     expect(screen.queryByText(/房间号|SECRET42/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '复制分享链接' })).toBeInTheDocument()
+    expect(document.querySelector('.room-card-corner-decoration')).not.toBeInTheDocument()
   })
   beforeEach(() => {
     mocks.auth.isAdmin = false
