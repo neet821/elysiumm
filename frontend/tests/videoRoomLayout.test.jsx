@@ -57,4 +57,25 @@ describe('video room community layout', () => {
     expect(screen.getByRole('heading', { name: '在线成员' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '聊天' })).toBeInTheDocument()
   })
+
+  it('keeps room actions in an aligned body toolbar instead of a sticky header', () => {
+    render(
+      <MemoryRouter initialEntries={['/rooms/watch/9']}>
+        <Routes>
+          <Route path="/rooms/watch/:id" element={<VideoRoomPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const toolbar = screen.getByRole('toolbar', { name: '观影房工具栏' })
+    const video = screen.getByTestId('video-stage')
+
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: '退出房间' }))
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: '复制分享链接' }))
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: '重新同步' }))
+    expect(toolbar).toContainElement(screen.getByText('已与服务器同步'))
+    expect(toolbar.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(toolbar).toHaveClass('max-w-[1600px]')
+  })
 })

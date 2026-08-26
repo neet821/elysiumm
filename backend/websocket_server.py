@@ -1391,11 +1391,13 @@ async def video_buffer_status(sid, data):
         if not room or not _is_video_room(room):
             await sio.emit('error', {'message': '视频房不存在'}, room=sid)
             return
-        if (
-            not sync_room_crud.is_room_member(db, room_id, user_id)
-            or not is_sid_connected(room_id, user_id, sid)
-        ):
+        if not sync_room_crud.is_room_member(db, room_id, user_id):
             await sio.emit('error', {'message': '请先加入视频房'}, room=sid)
+            return
+        if not is_sid_connected(room_id, user_id, sid):
+            # Buffer telemetry can arrive while Socket.IO is replacing a SID.
+            # It is ephemeral and must not turn a recoverable reconnect race
+            # into a user-visible room error.
             return
         current = video_service.current_video_snapshot(db, room)
         if current.media_id != item_id:

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     destroy: vi.fn(),
     pause: vi.fn(),
     play: vi.fn(() => Promise.resolve()),
+    recover: vi.fn(() => Promise.resolve()),
     seek: vi.fn(),
     setPlaybackRate: vi.fn(),
     setVolume: vi.fn(),
@@ -210,8 +211,9 @@ describe('video room page', () => {
     expect(screen.getByText('1920 × 1080')).toBeInTheDocument()
     expect(screen.queryByText(/井字棋|游戏棋盘/)).not.toBeInTheDocument()
     expect(mocks.api.get).toHaveBeenCalledWith(expect.stringMatching(/\/api\/video\/rooms\/9$/))
-    expect(screen.getByRole('main')).toHaveClass('pt-[4.5rem]')
-    expect(document.querySelector('main > header')).toHaveClass('top-[4.25rem]')
+    expect(screen.getByRole('main')).not.toHaveClass('pt-[4.5rem]')
+    expect(screen.getByRole('toolbar', { name: '观影房工具栏' })).toBeInTheDocument()
+    expect(document.querySelector('main > header')).not.toBeInTheDocument()
   })
 
   it('keeps host video controls when the saved user id is a string', async () => {
@@ -423,6 +425,22 @@ describe('video room page', () => {
 
     fireEvent.error(video)
     expect(screen.getByText('当前视频无法播放，请检查来源或稍后重试')).toHaveAttribute('role', 'status')
+  })
+
+  it('automatically refreshes and recovers an unlocked player after buffering', async () => {
+    renderRoom()
+    const play = await screen.findByRole('button', { name: /播放 Shared film/ })
+    fireEvent.click(play)
+    await waitFor(() => expect(mocks.adapter.play).toHaveBeenCalledTimes(1))
+    act(() => mocks.handlers.get('room_snapshot')(snapshot({ state: 'playing', version: 6 })))
+    await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalled())
+
+    mocks.socket.emit.mockClear()
+    mocks.adapter.recover.mockClear()
+    fireEvent.waiting(screen.getByTestId('video-room-media'))
+
+    expect(mocks.socket.emit).toHaveBeenCalledWith('request_snapshot', { room_id: 9 })
+    expect(mocks.adapter.recover).toHaveBeenCalledTimes(1)
   })
 
   it('rejects native mobile playback when the member cannot control the room', async () => {

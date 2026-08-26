@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import Hls from 'hls.js'
 
 import {
   applyVideoSnapshot,
@@ -100,6 +101,9 @@ describe('VideoPlayerAdapter', () => {
       attachMedia: vi.fn(),
       destroy: vi.fn(),
       loadSource: vi.fn(),
+      on: vi.fn(),
+      recoverMediaError: vi.fn(),
+      startLoad: vi.fn(),
     }
     const createHls = vi.fn(() => hls)
     const adapter = createVideoPlayerAdapter(video, {
@@ -122,6 +126,48 @@ describe('VideoPlayerAdapter', () => {
     adapter.load(videoItemToAdapterTrack(item({ id: 8, playback_kind: 'file' })))
     expect(hls.destroy).toHaveBeenCalledTimes(1)
     expect(video.getAttribute('src')).toBe('/api/video/items/7/stream?access=signed')
+  })
+
+  it('recovers fatal HLS network and media errors without requiring a manual seek', () => {
+    const video = document.createElement('video')
+    Object.defineProperty(video, 'canPlayType', { configurable: true, value: vi.fn(() => '') })
+    const hls = {
+      attachMedia: vi.fn(),
+      destroy: vi.fn(),
+      loadSource: vi.fn(),
+      on: vi.fn(),
+      recoverMediaError: vi.fn(),
+      startLoad: vi.fn(),
+    }
+    const adapter = createVideoPlayerAdapter(video, {
+      createHls: () => hls,
+      isHlsSupported: () => true,
+    })
+
+    adapter.load(videoItemToAdapterTrack(item({ playback_kind: 'hls' })))
+    const handler = hls.on.mock.calls.find(([event]) => event === Hls.Events.ERROR)?.[1]
+    expect(handler).toEqual(expect.any(Function))
+
+    handler(Hls.Events.ERROR, { fatal: true, type: Hls.ErrorTypes.NETWORK_ERROR })
+    handler(Hls.Events.ERROR, { fatal: true, type: Hls.ErrorTypes.MEDIA_ERROR })
+
+    expect(hls.startLoad).toHaveBeenCalledTimes(1)
+    expect(hls.recoverMediaError).toHaveBeenCalledTimes(1)
+    expect(adapter.snapshot().track.id).toContain('video:7')
+  })
+
+  it('re-seeks to the current position and resumes a stalled video', async () => {
+    const video = document.createElement('video')
+    Object.defineProperty(video, 'duration', { configurable: true, value: 120 })
+    const adapter = createVideoPlayerAdapter(video)
+    adapter.load(videoItemToAdapterTrack(item()))
+    video.currentTime = 42.5
+    video.play.mockClear()
+
+    await adapter.recover()
+
+    expect(video.currentTime).toBe(42.5)
+    expect(video.play).toHaveBeenCalledTimes(1)
   })
 
   it('controls time, rate, volume, play and pause through one media element', async () => {

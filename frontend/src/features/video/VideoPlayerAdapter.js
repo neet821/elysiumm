@@ -76,9 +76,15 @@ export function createVideoPlayerAdapter(element, options = {}) {
         if (!isHlsSupported()) {
           throw new Error('当前浏览器无法播放 HLS 视频')
         }
-        hls = createHls()
-        hls.loadSource(track.playbackUrl)
-        hls.attachMedia(element)
+        const nextHls = createHls()
+        hls = nextHls
+        nextHls.on?.(Hls.Events.ERROR, (_event, data) => {
+          if (hls !== nextHls || !data?.fatal) return
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) nextHls.startLoad?.()
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) nextHls.recoverMediaError?.()
+        })
+        nextHls.loadSource(track.playbackUrl)
+        nextHls.attachMedia(element)
       } else {
         element.setAttribute('src', track.playbackUrl)
       }
@@ -97,6 +103,16 @@ export function createVideoPlayerAdapter(element, options = {}) {
       return adapter.snapshot()
     },
     async play() {
+      return element.play()
+    },
+    recover() {
+      const currentTime = Math.max(0, Number(element.currentTime) || 0)
+      try {
+        const duration = Number(element.duration)
+        element.currentTime = Number.isFinite(duration) ? Math.min(currentTime, duration) : currentTime
+      } catch {
+        // The media element can reject a seek while it is replacing a source.
+      }
       return element.play()
     },
     pause() {

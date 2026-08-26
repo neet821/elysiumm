@@ -14,6 +14,7 @@ import { fingerprintLocalVideo, localFileMatches } from './localVideo.js'
 
 const REMOTE_MEDIA_EVENT_GRACE_MS = 350
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
+const PLAYBACK_RECOVERY_COOLDOWN_MS = 1_500
 
 function sameUserId(left, right) {
   return left != null && right != null && String(left) === String(right)
@@ -59,6 +60,8 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const metadataKeyRef = useRef(null)
   const presenceTimerRef = useRef(null)
   const presenceJoinedRef = useRef(false)
+  const playbackUnlockedRef = useRef(false)
+  const lastPlaybackRecoveryRef = useRef(0)
 
   const beginRemoteApply = useCallback(() => {
     remoteApplyRef.current += 1
@@ -212,7 +215,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     if (!adapter || !record?.snapshot || !adapterTrack) return
     let active = true
     applyVideoSnapshot(adapter, record.snapshot, adapterTrack, {
-      allowPlay: false,
+      allowPlay: playbackUnlockedRef.current,
       beginRemoteApply,
       receivedAtMs: record.receivedAtMs,
       syncState: syncStateRef.current,
@@ -463,6 +466,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     // playback. Waiting for the socket round-trip loses that permission.
     const localPlay = adapter?.play()
     Promise.resolve(localPlay).then(() => {
+      playbackUnlockedRef.current = true
       setNeedsUserGesture(false)
       setNotice((current) => current === '房间正在播放，请点击播放按钮开始' ? '' : current)
     }).catch(() => {
@@ -523,6 +527,27 @@ export function useVideoRoom({ navigate, roomId, user }) {
     })
   }, [currentItem, numericRoomId])
 
+  const recoverPlayback = useCallback(() => {
+    const snapshot = latestSnapshotRef.current?.snapshot
+    if (!currentItem) return false
+    reportBuffering(true)
+    if (snapshot?.state !== 'playing') return true
+    const now = Date.now()
+    if (now - lastPlaybackRecoveryRef.current < PLAYBACK_RECOVERY_COOLDOWN_MS) return false
+    lastPlaybackRecoveryRef.current = now
+    requestSnapshot()
+    if (!playbackUnlockedRef.current) return true
+    const adapter = adapterRef.current
+    const recovery = adapter?.recover ? adapter.recover() : adapter?.play()
+    Promise.resolve(recovery).then(() => {
+      setNeedsUserGesture(false)
+    }).catch(() => {
+      setNeedsUserGesture(true)
+      setNotice('视频暂时无法继续播放，请点击播放按钮重试')
+    })
+    return true
+  }, [currentItem, numericRoomId, reportBuffering, requestSnapshot])
+
   const onVideoEvent = useMemo(() => ({
     onCanPlay: () => reportBuffering(false),
     onPause: () => handleNativePlaybackControl('pause'),
@@ -566,10 +591,13 @@ export function useVideoRoom({ navigate, roomId, user }) {
         width,
       }).catch(() => setNotice('视频信息暂时无法保存'))
     },
-    onPlaying: () => reportBuffering(false),
-    onStalled: () => reportBuffering(true),
-    onWaiting: () => reportBuffering(true),
-  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, reportBuffering])
+    onPlaying: () => {
+      playbackUnlockedRef.current = true
+      reportBuffering(false)
+    },
+    onStalled: recoverPlayback,
+    onWaiting: recoverPlayback,
+  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, recoverPlayback, reportBuffering])
 
   const runMutation = useCallback(async (operation, fallback) => {
     setBusy(true)

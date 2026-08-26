@@ -411,6 +411,24 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.assertFalse(self.events("video_buffer_status"))
         self.assertNotIn(self.room.id, websocket_server.video_buffer_states)
 
+    def test_buffer_status_during_socket_reconnect_is_ignored(self):
+        self.sessions["sid-member"] = self.trusted_session(self.member)
+
+        asyncio.run(
+            websocket_server.video_buffer_status(
+                "sid-member",
+                {
+                    "room_id": self.room.id,
+                    "item_id": self.first.id,
+                    "buffering": True,
+                },
+            )
+        )
+
+        self.assertFalse(self.events("video_buffer_status"))
+        self.assertFalse(self.events("error"))
+        self.assertNotIn(self.room.id, websocket_server.video_buffer_states)
+
     def test_buffer_state_aggregates_tabs_and_disconnect_cleans_only_that_tab(self):
         self.join("sid-a", self.member)
         self.join("sid-b", self.member)
