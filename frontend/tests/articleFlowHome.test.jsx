@@ -30,6 +30,12 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home \.reader-header h1\s*\{[^}]*font-size:\s*clamp\(24px,\s*3\.2vw,\s*36px\);/s)
   })
 
+  it('gives the homepage a wider but bounded desktop canvas', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat\s*\{[\s\S]*?max-width:\s*1560px;/s)
+    expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) minmax\(280px, 340px\);/s)
+  })
+
   it('renders homepage navigation inside the page instead of a global header', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -279,8 +285,9 @@ describe('ArticleFlowHome', () => {
     expect(screen.getByText('加粗内容').tagName).toBe('STRONG')
 
     render(<MemoryRouter initialEntries={['/article/article']}><LegacyArticlePage /></MemoryRouter>)
-    await waitFor(() => expect(screen.getByRole('heading', { name: '文章正文' })).toBeInTheDocument())
-    expect(screen.getByRole('listitem')).toHaveTextContent('第一项')
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Markdown 文章' })).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: '文章正文' })).not.toBeInTheDocument()
+    expect(screen.queryByText('第一项')).not.toBeInTheDocument()
   })
 
   it('collapses long essays behind an arrow toggle', async () => {
@@ -493,7 +500,7 @@ describe('ArticleFlowHome', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' })
   })
 
-  it('loads the old article detail URL and renders its HTML body', async () => {
+  it('loads the old article detail URL as a title-only page', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ article: { slug: 'hello', title: '详情文章', markdown: '## 旧正文\n\n兼容 Markdown' } }),
@@ -502,8 +509,10 @@ describe('ArticleFlowHome', () => {
     render(<MemoryRouter initialEntries={['/article/hello']}><LegacyArticlePage /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '详情文章' })).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: '旧正文' })).toBeInTheDocument()
-    expect(screen.getByText('兼容 Markdown')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '旧正文' })).not.toBeInTheDocument()
+    expect(screen.queryByText('兼容 Markdown')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByText('article')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')
     expect(screen.queryByText('返回文章列表')).not.toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/articles/hello')

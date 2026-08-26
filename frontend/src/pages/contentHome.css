@@ -724,6 +724,25 @@
   .legacy-old-home--flat .photo-strip--bottom .photo-strip-grid { column-count: 2; }
 }
 
+/* On very wide screens, use the available canvas for the article stream while
+   keeping the reading media and the supporting rail deliberately bounded. */
+@media (min-width: 1400px) {
+  .legacy-old-home--flat {
+    max-width: 1560px;
+    width: min(calc(100% - 64px), 1560px);
+  }
+  .legacy-old-home--flat .home-layout {
+    gap: clamp(2.5rem, 4vw, 5rem);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  }
+  .legacy-old-home--flat .articles-section .article-card-info {
+    width: min(100%, 1080px);
+  }
+  .legacy-old-home--flat .article-card--featured h2 {
+    max-width: 1080px;
+  }
+}
+
 .legacy-old-home--flat .home-pagination {
   align-items: center;
   gap: .35rem;
@@ -1175,4 +1194,16 @@
   .legacy-old-home--flat .home-nav__label { display: none; }
   .legacy-old-home--flat .home-nav__actions { width: 100%; }
   .legacy-old-home--flat .home-nav__action:first-child { margin-right: auto; }
+}
+
+/* Legacy article URLs are intentionally title-only landing pages. */
+.legacy-old-home:not(.legacy-old-home--flat) .reader--title-only .reader-header {
+  border-bottom: 0;
+  max-width: none;
+  padding-bottom: 0;
+}
+.legacy-old-home:not(.legacy-old-home--flat) .reader--title-only .reader-header h1 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }

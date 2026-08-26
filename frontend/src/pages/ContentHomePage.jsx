@@ -89,23 +89,6 @@ async function enrichArticle(article) {
   }
 }
 
-function metadataDetails(article) {
-  const metadata = article.metadata
-  if (!metadata) return null
-  const fields = [
-    metadata.year && <div key="year"><dt>年份</dt><dd>{metadata.year}</dd></div>,
-    metadata.subtitle && <div key="subtitle"><dt>作者 / 艺术家</dt><dd>{metadata.subtitle}</dd></div>,
-    metadata.rating && <div key="rating"><dt>评分</dt><dd>{metadata.rating}</dd></div>,
-    metadata.genres?.length && <div key="genres"><dt>类型</dt><dd>{metadata.genres.join(' · ')}</dd></div>,
-  ].filter(Boolean)
-  return fields.length ? <dl className="metadata-details">{fields}</dl> : null
-}
-
-function collectionTitle(article) {
-  const title = article.metadata?.title
-  return title && title !== article.title ? <p className="metadata-title">资料名称：{title}</p> : null
-}
-
 function MarkdownContent({ markdown, html, fallback, className, id }) {
   return (
     <div className={className} id={id}>
@@ -515,20 +498,13 @@ export function LegacyArticlePage() {
   if (error) return <section className="state"><h1>暂时无法打开</h1><p>{error}</p><Link to="/">返回首页</Link></section>
   if (!article) return <section className="state" aria-busy="true"><p>正在读取文章……</p></section>
 
-  const cover = article.cover ? <img className="reader-cover" src={coverUrl(article)} alt={article.title} /> : null
   return (
     <div className="legacy-old-home">
-      <article className="reader">
+      <article className="reader reader--title-only">
         <Link className="back-link" to="/" aria-label="返回首页" title="返回首页">←</Link>
         <header className="reader-header">
-          <div className="article-meta">{formatDate(article.createdAt || article.date || article.updatedAt)}{article.category ? ` · ${article.category}` : ''}</div>
-          {cover}
           <h1>{article.title}</h1>
-          {collectionTitle(article)}
-          {metadataDetails(article)}
-          {article.excerpt && <p className="reader-excerpt">{article.excerpt}</p>}
         </header>
-        <MarkdownContent markdown={article.markdown} html={article.html} className="reader-body" />
       </article>
     </div>
   )
