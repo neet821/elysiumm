@@ -18031,11 +18031,6 @@ body.desktop-player:not(.immersive-mode) .control-track,
 body.desktop-player:not(.immersive-mode) #quality-control,
 body.desktop-player:not(.immersive-mode) #heart-btn,
 body.desktop-player:not(.immersive-mode) #collect-btn,
-body.desktop-player:not(.immersive-mode) #play-mode-btn,
-body.desktop-player:not(.immersive-mode) #prev-btn,
-body.desktop-player:not(.immersive-mode) #play-btn,
-body.desktop-player:not(.immersive-mode) #next-btn,
-body.desktop-player:not(.immersive-mode) #mini-queue-btn,
 body.desktop-player:not(.immersive-mode) .lyrics-toggle-btn,
 body.desktop-player:not(.immersive-mode) #volume-control,
 body.desktop-player:not(.immersive-mode) #controls-hide-btn,
@@ -18064,7 +18059,28 @@ body.desktop-player:not(.immersive-mode) #time-display {
     justify-content: center;
   }
 
-  body.desktop-player:not(.immersive-mode) .control-cluster.modes {
+body.desktop-player:not(.immersive-mode) .control-cluster.modes {
     justify-content: flex-end;
   }
+}
+
+/* The center transport cluster is intentionally removed from every player mode. */
+#controls > .control-cluster.transport {
+  display: none !important;
+}
+
+#controls {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+#controls > .control-cluster.actions {
+  grid-column: 1 !important;
+  order: 0 !important;
+  width: auto !important;
+}
+
+#controls > .control-cluster.modes {
+  grid-column: 2 !important;
+  order: 0 !important;
+  width: auto !important;
 }

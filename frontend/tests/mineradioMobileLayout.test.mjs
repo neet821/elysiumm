@@ -34,12 +34,11 @@ test('player mode is device-based and keeps iPad in the desktop profile', () => 
   assert.doesNotMatch(archive, /matchMedia\('\\(max-width: 720px\\)'\)/)
 })
 
-test('desktop player keeps the complete transport controls at every viewport size', () => {
-  for (const id of ['play-mode-btn', 'prev-btn', 'play-btn', 'next-btn', 'mini-queue-btn']) {
-    assert.match(css, new RegExp(`body\\.desktop-player[^}]*#${id}[^}]*display\\s*:\\s*(?:flex|inline-flex)`, 's'))
-  }
-  assert.match(css, /body\.desktop-player[^}]*#controls-hide-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
-  assert.match(css, /body\.desktop-player[^}]*\.lyrics-toggle-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
+test('player never renders the center transport controls', () => {
+  assert.match(html, /class="control-cluster transport"/)
+  assert.match(css, /#controls\s*>\s*\.control-cluster\.transport[^}]*display:\s*none\s*!important/s)
+  assert.match(css, /#controls[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)\s*!important/s)
+  assert.doesNotMatch(css, /body\.desktop-player[^}]*#play-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
 })
 
 test('mobile lyrics wrap an overlong current line into visual rows', () => {
