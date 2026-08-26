@@ -501,11 +501,16 @@ export function LegacyArticlePage() {
 
   return (
     <div className="legacy-old-home">
-      <article className="reader reader--title-only">
+      <article className="reader reader--article">
         <Link className="back-link" to="/" aria-label="返回首页" title="返回首页">←</Link>
         <header className="reader-header">
           <h1>{article.title}</h1>
         </header>
+        <MarkdownContent
+          markdown={article.markdown}
+          html={article.html}
+          className="reader-body"
+        />
       </article>
     </div>
   )

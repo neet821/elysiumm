@@ -66,7 +66,7 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '可调字号文章' })).toBeInTheDocument())
-    expect(container.querySelector('.legacy-old-home')).toHaveStyle('--home-article-title-scale: 0.75')
+    await waitFor(() => expect(container.querySelector('.legacy-old-home')).toHaveStyle('--home-article-title-scale: 0.75'))
   })
 
   it('keeps metadata enrichment available for non-feed records', async () => {
@@ -287,8 +287,8 @@ describe('ArticleFlowHome', () => {
 
     render(<MemoryRouter initialEntries={['/article/article']}><LegacyArticlePage /></MemoryRouter>)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Markdown 文章' })).toBeInTheDocument())
-    expect(screen.queryByRole('heading', { name: '文章正文' })).not.toBeInTheDocument()
-    expect(screen.queryByText('第一项')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '文章正文' })).toBeInTheDocument()
+    expect(screen.getByRole('listitem')).toHaveTextContent('第一项')
   })
 
   it('collapses long essays behind an arrow toggle', async () => {
@@ -501,7 +501,7 @@ describe('ArticleFlowHome', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' })
   })
 
-  it('loads the old article detail URL as a title-only page', async () => {
+  it('loads the old article detail URL with its article body', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ article: { slug: 'hello', title: '详情文章', markdown: '## 旧正文\n\n兼容 Markdown' } }),
@@ -510,8 +510,8 @@ describe('ArticleFlowHome', () => {
     render(<MemoryRouter initialEntries={['/article/hello']}><LegacyArticlePage /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '详情文章' })).toBeInTheDocument())
-    expect(screen.queryByRole('heading', { name: '旧正文' })).not.toBeInTheDocument()
-    expect(screen.queryByText('兼容 Markdown')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '旧正文' })).toBeInTheDocument()
+    expect(screen.getByText('兼容 Markdown')).toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
     expect(screen.queryByText('article')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveTextContent('←')

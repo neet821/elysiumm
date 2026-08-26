@@ -1221,13 +1221,8 @@
   .legacy-old-home--flat .home-nav__action:first-child { margin-right: auto; }
 }
 
-/* Legacy article URLs are intentionally title-only landing pages. */
-.legacy-old-home:not(.legacy-old-home--flat) .reader--title-only .reader-header {
-  border-bottom: 0;
-  max-width: none;
-  padding-bottom: 0;
-}
-.legacy-old-home:not(.legacy-old-home--flat) .reader--title-only .reader-header h1 {
+/* Legacy article URLs keep the clean reader shell and render the article body. */
+.legacy-old-home:not(.legacy-old-home--flat) .reader--article .reader-header h1 {
   max-width: 100%;
   overflow-wrap: anywhere;
   white-space: normal;
