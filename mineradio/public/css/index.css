@@ -17952,6 +17952,7 @@ body.mobile-device .control-cluster {
 body.mobile-device .control-cluster.actions {
   min-width: 0;
   grid-column: 1 !important;
+  order: 0;
   width: auto;
   justify-content: flex-start;
 }
@@ -17982,6 +17983,7 @@ body.mobile-device #collect-btn {
 
 body.mobile-device .control-cluster.transport {
   grid-column: 2 !important;
+  order: 0;
   width: max-content;
   gap: 5px;
   justify-content: center;
@@ -17989,6 +17991,7 @@ body.mobile-device .control-cluster.transport {
 
 body.mobile-device .control-cluster.modes {
   grid-column: 3 !important;
+  order: 0;
   width: max-content;
   gap: 6px;
   justify-content: flex-end;
