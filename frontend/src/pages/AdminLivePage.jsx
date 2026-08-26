@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  ArrowLeft,
   Copy,
   Link2,
   Radio,
@@ -36,6 +37,7 @@ export default function AdminLivePage() {
   const [data, setData] = useState({
     allowedUsers: [],
     audience: [],
+    audienceHistory: [],
     invites: [],
     sessions: [],
     settings: null,
@@ -53,7 +55,8 @@ export default function AdminLivePage() {
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const [audienceRefreshedAt, setAudienceRefreshedAt] = useState(null)
   const [audienceExpanded, setAudienceExpanded] = useState(false)
-  const [messagesExpanded, setMessagesExpanded] = useState(false)
+  const [audienceView, setAudienceView] = useState('current')
+  const [historyLoading, setHistoryLoading] = useState(false)
   const preview = useLiveSession()
 
   const load = useCallback(async () => {
@@ -207,6 +210,21 @@ export default function AdminLivePage() {
     await navigator.clipboard?.writeText(oneTimeSecret.value)
   }
 
+  const openAudienceHistory = async () => {
+    setAudienceView('history')
+    setHistoryLoading(true)
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY, {
+        params: { limit: 200 },
+      })
+      setData((current) => ({ ...current, audienceHistory: response.data }))
+    } catch {
+      setError('历史观看加载失败。')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   const activeInvite = data.invites.find((invite) => invite.status === 'active')
 
   return (
@@ -214,6 +232,9 @@ export default function AdminLivePage() {
       {error && <p className="admin-live__error" role="alert">{error}</p>}
 
       <section className="admin-live__preview" aria-label="直播预览">
+        <a className="admin-live__preview-back" href="/" aria-label="返回首页" title="返回首页">
+          <ArrowLeft aria-hidden="true" />
+        </a>
         {preview.state === 'live' && preview.mediaUrl ? (
           <LivePlayer mediaUrl={preview.mediaUrl} minimal onRefresh={preview.retry} />
         ) : (
@@ -221,60 +242,60 @@ export default function AdminLivePage() {
         )}
       </section>
 
-      <section className="admin-live__status">
-        <div>
-          <span className={`admin-live__dot${data.status?.is_live ? ' admin-live__dot--online' : ''}`} />
-          <div>
-            <p>当前状态</p>
-            <strong>{data.status?.is_live ? '正在直播' : '尚未开播'}</strong>
-          </div>
-        </div>
-        <dl>
-          <div>
-            <button
-              type="button"
-              className="admin-live__viewer-toggle"
-              aria-expanded={audienceExpanded}
-              aria-label={`观看人数：${data.status?.active_viewers ?? 0}`}
-              onClick={() => setAudienceExpanded((open) => !open)}
-            >
-              <dt>观看人数</dt>
-              <dd>{data.status?.active_viewers ?? 0}</dd>
-            </button>
-          </div>
-        </dl>
-      </section>
+      <div className="admin-live__below-preview">
+        <section className="admin-live__card admin-live__audience-card" aria-label="在线人数">
+          <header>
+            <Users aria-hidden="true" />
+            <div><h2>在线人数</h2><p>当前 {data.status?.active_viewers ?? 0} 人</p></div>
+          </header>
+          <button
+            type="button"
+            className="admin-live__secondary-trigger"
+            aria-expanded={audienceExpanded}
+            aria-label={`观看人数：${data.status?.active_viewers ?? 0}`}
+            onClick={() => setAudienceExpanded((open) => !open)}
+          >
+            <span>观看人数</span>
+            <strong>{data.status?.active_viewers ?? 0}</strong>
+          </button>
+          {audienceExpanded && (
+            <div className="admin-live__audience-menu">
+              <div className="admin-live__audience-tabs" role="tablist" aria-label="观看数据">
+                <button type="button" role="tab" aria-selected={audienceView === 'current'} onClick={() => setAudienceView('current')}>当前在线</button>
+                <button type="button" role="tab" aria-selected={audienceView === 'history'} onClick={openAudienceHistory}>历史观看</button>
+              </div>
+              {historyLoading ? <p className="admin-live__empty">加载中…</p> : (
+                <AdminLiveAudience
+                  audience={audienceView === 'history' ? data.audienceHistory : data.audience}
+                  history={audienceView === 'history'}
+                  refreshedAt={audienceRefreshedAt}
+                />
+              )}
+              <p className="admin-live__attribution">
+                <a href="https://db-ip.com" target="_blank" rel="noreferrer">地区数据由 DB-IP 提供</a>
+              </p>
+            </div>
+          )}
+        </section>
+        <section className="admin-live__card admin-live__admin-messages" aria-label="管理员直播留言">
+          <LiveMessageBoard liveSessionId={preview.liveSessionId} readOnly />
+        </section>
+      </div>
 
       <div className="admin-live__grid">
-        <section className="admin-live__card admin-live__card--wide admin-live__messages-control">
-          <Button
-            type="button"
-            aria-expanded={messagesExpanded}
-            aria-pressed={messagesExpanded}
-            onClick={() => setMessagesExpanded((open) => !open)}
-          >
-            留言
-          </Button>
-          {messagesExpanded && <LiveMessageBoard />}
-        </section>
-        {audienceExpanded && (
-          <section className="admin-live__card admin-live__card--wide" aria-label="当前在线观众">
-            <header>
-              <Users aria-hidden="true" />
-              <div><h2>当前在线观众</h2><p>实时查看正在观看的用户信息。</p></div>
-            </header>
-            <AdminLiveAudience audience={data.audience} refreshedAt={audienceRefreshedAt} />
-            <p className="admin-live__attribution">
-              <a href="https://db-ip.com" target="_blank" rel="noreferrer">
-                地区数据由 DB-IP 提供
-              </a>
-            </p>
-          </section>
-        )}
         <section className="admin-live__card admin-live__card--settings">
           <header><Save aria-hidden="true" /><div><h2>开播设置</h2><p>保存后下一位访客立即按新规则进入。</p></div></header>
           {form && (
             <form onSubmit={saveSettings}>
+              <div className="admin-live__title-editor">
+                <label className="admin-live__field" htmlFor="admin-live-title">
+                  <span>直播名称</span>
+                  <input id="admin-live-title" value={form.title || ''} maxLength={160} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+                </label>
+                <Button type="button" variant="secondary" onClick={() => document.getElementById('admin-live-title')?.focus()}>
+                  自定义直播名称
+                </Button>
+              </div>
               <label className="admin-live__field">
                 <span>推流画质</span>
                 <select value={form.stream_quality || 'balanced'} onChange={(event) => setForm({ ...form, stream_quality: event.target.value })}>

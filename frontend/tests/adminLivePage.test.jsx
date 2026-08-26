@@ -105,6 +105,15 @@ const responses = {
   [API_ENDPOINTS.ADMIN_LIVE_ALLOWED_USERS]: [],
   [API_ENDPOINTS.ADMIN_LIVE_INVITES]: [],
   [API_ENDPOINTS.ADMIN_LIVE_AUDIENCE]: audience,
+  [API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY]: [
+    {
+      ...audience[0],
+      live_session_id: 8,
+      id: 'viewer-history-1',
+      first_seen_at: '2026-07-27T08:00:00Z',
+      ended_at: '2026-07-27T08:20:00Z',
+    },
+  ],
   [API_ENDPOINTS.ADMIN_LIVE_SESSIONS]: [],
   [API_ENDPOINTS.ADMIN_LIVE_RECORDINGS]: [{
     id: 3,
@@ -156,16 +165,45 @@ describe('live administrator workspace', () => {
     expect(screen.queryByRole('button', { name: '清除记录' })).not.toBeInTheDocument()
   })
 
-  it('places the status bar below the preview and can open the live message board', async () => {
+  it('puts the back control in the player and keeps read-only panels directly below it', async () => {
+    render(<AdminLivePage />)
+
+    expect(await screen.findByTestId('admin-live-preview')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回首页' })).toBeInTheDocument()
+    expect(screen.queryByText('当前状态')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '留言' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('管理员直播留言')).toBeInTheDocument()
+    expect(screen.getByText('在线人数')).toBeInTheDocument()
+  })
+
+  it('opens historical viewing records from the audience secondary menu', async () => {
     const user = userEvent.setup()
     render(<AdminLivePage />)
 
+    await user.click(await screen.findByRole('button', { name: /观看人数：1/ }))
+    expect(await screen.findByText('历史观看')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: '历史观看' }))
+    expect(await screen.findByText(/2026[/-]7[/-]27/)).toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledWith(
+      API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY,
+      { params: { limit: 200 } },
+    )
+  })
+
+  it('exposes a custom live title field in the start settings', async () => {
+    render(<AdminLivePage />)
+
+    expect(await screen.findByLabelText('直播名称')).toHaveValue('今晚直播')
+  })
+
+  it('places read-only audience and message panels below the preview', async () => {
+    render(<AdminLivePage />)
+
     const preview = await screen.findByLabelText('直播预览')
-    const status = screen.getByText('当前状态').closest('section')
-    expect(preview.nextElementSibling).toBe(status)
-    expect(screen.queryByTestId('admin-live-messages')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '留言' }))
+    expect(preview.nextElementSibling).toHaveClass('admin-live__below-preview')
     expect(screen.getByTestId('admin-live-messages')).toBeInTheDocument()
+    expect(screen.queryByText('当前状态')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '留言' })).not.toBeInTheDocument()
   })
 
   it('places live sessions beside opening settings on desktop', async () => {

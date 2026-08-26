@@ -1,4 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -32,6 +34,8 @@ import { API_ENDPOINTS } from '../src/config.js'
 import LivePage from '../src/pages/LivePage.jsx'
 import apiClient from '../src/utils/request.js'
 
+const liveCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+
 
 const liveStatus = {
   status: 'live',
@@ -46,6 +50,7 @@ describe('public live page', () => {
   beforeEach(() => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
+    window.localStorage.clear()
     optionalAuthState.isAdmin = false
     optionalAuthState.loading = false
     window.history.replaceState({}, '', '/live')
@@ -168,6 +173,7 @@ describe('public live page', () => {
     expect(screen.getByLabelText('直播播放控件')).toBeInTheDocument()
     expect(screen.getByLabelText('直播留言')).toBeInTheDocument()
     expect(screen.getByLabelText('直播留言').querySelector('ul').nextElementSibling.tagName).toBe('FORM')
+    expect(screen.queryByText('起个昵称，发一条弹幕。')).not.toBeInTheDocument()
     getItem.mockRestore()
   })
 
@@ -230,6 +236,7 @@ describe('public live page', () => {
       .mockResolvedValueOnce({
         data: {
           viewer_session_id: 'viewer-1',
+          live_session_id: 3,
           media_url: '/live-media/live/stream/index.m3u8',
           expires_in: 120,
         },
@@ -260,5 +267,12 @@ describe('public live page', () => {
       },
       { skipAuthRedirect: true },
     )
+    expect(screen.getByLabelText('昵称')).toBeDisabled()
+    expect(window.localStorage.getItem('blue_live_nickname:3')).toBe('小蓝')
+  })
+
+  it('keeps the live page white and does not add a message-board mask', () => {
+    expect(liveCss).toMatch(/\.live-watch-page\s*\{[^}]*background:\s*#fff/s)
+    expect(liveCss).not.toMatch(/\.live-message-board(?:::after|::before)/)
   })
 })

@@ -59,7 +59,7 @@ export function AppShell({ children }) {
           <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
             <a className="skip-link" href="#main-content">跳到主要内容</a>
             {header}
-            {(isAccount || isRoomsHub || isLive) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
+            {(isAccount || isRoomsHub) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
             <main className="app-shell__main" id="main-content" tabIndex={-1}>
               {children}
             </main>

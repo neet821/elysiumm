@@ -26,6 +26,7 @@ const removeInviteFromAddress = () => {
 export default function useLiveSession() {
   const [state, setState] = useState('loading')
   const [status, setStatus] = useState(null)
+  const [liveSessionId, setLiveSessionId] = useState(null)
   const [mediaUrl, setMediaUrl] = useState('')
   const [attempt, setAttempt] = useState(0)
   const mountedRef = useRef(false)
@@ -49,6 +50,7 @@ export default function useLiveSession() {
         setStatus(statusResponse.data)
         if (statusResponse.data.status !== 'live') {
           setMediaUrl('')
+          setLiveSessionId(null)
           setState(statusResponse.data.status === 'ended' ? 'ended' : 'waiting')
           if (statusResponse.data.status !== 'ended') {
             waitingTimer = window.setTimeout(connect, 10_000)
@@ -66,6 +68,7 @@ export default function useLiveSession() {
         if (cancelled) return
         if (inviteToken) removeInviteFromAddress()
         sessionActiveRef.current = true
+        setLiveSessionId(sessionResponse.data.live_session_id ?? null)
         setMediaUrl(sessionResponse.data.media_url)
         setState('live')
       } catch (error) {
@@ -96,6 +99,7 @@ export default function useLiveSession() {
         if (nextState === 'service_unavailable') return
         sessionActiveRef.current = false
         setMediaUrl('')
+        setLiveSessionId(null)
         setState(nextState)
       }
     }
@@ -119,6 +123,7 @@ export default function useLiveSession() {
 
   return {
     mediaUrl,
+    liveSessionId,
     retry,
     state,
     status,

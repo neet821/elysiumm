@@ -195,6 +195,7 @@ class LiveSessionCreateRequest(BaseModel):
 
 class LiveViewerSessionResponse(BaseModel):
     viewer_session_id: str
+    live_session_id: int
     media_url: str
     expires_in: int
 

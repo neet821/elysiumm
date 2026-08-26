@@ -22,16 +22,17 @@ const formatLocation = (viewer) => (
   [viewer.country, viewer.region, viewer.city].filter(Boolean).join(' · ') || '未知'
 )
 
-export default function AdminLiveAudience({ audience, refreshedAt }) {
+export default function AdminLiveAudience({ audience, refreshedAt, history = false }) {
   return (
     <div className="admin-live__table-wrap">
       <div className="admin-live__summary" aria-live="polite">
-        <strong>当前在线：{audience.length} 人</strong>
+        <strong>{history ? `历史观看：${audience.length} 条` : `当前在线：${audience.length} 人`}</strong>
         <span>最近刷新：{refreshedAt ? formatTime(refreshedAt) : '等待刷新'}</span>
       </div>
       <table className="admin-live__table">
         <thead>
           <tr>
+            {history && <th>场次</th>}
             <th>身份</th>
             <th>IP 与地区</th>
             <th>访问环境</th>
@@ -39,8 +40,16 @@ export default function AdminLiveAudience({ audience, refreshedAt }) {
           </tr>
         </thead>
         <tbody>
-          {audience.map((viewer) => (
+            {audience.map((viewer) => (
             <tr key={viewer.id}>
+              {history && (
+                <td data-label="场次">
+                  <div className="admin-live__cell-stack">
+                    <strong>{viewer.session_title || `场次 #${viewer.live_session_id}`}</strong>
+                    <span>{viewer.session_status === 'live' ? '直播中' : '已结束'}</span>
+                  </div>
+                </td>
+              )}
               <td data-label="身份">
                 <div className="admin-live__cell-stack">
                   <strong>{viewer.user_id ? (viewer.username || `用户 #${viewer.user_id}`) : '未登录访客'}</strong>
@@ -68,7 +77,7 @@ export default function AdminLiveAudience({ audience, refreshedAt }) {
           ))}
         </tbody>
       </table>
-      {!audience.length && <p className="admin-live__empty">当前没有人观看直播。</p>}
+      {!audience.length && <p className="admin-live__empty">{history ? '还没有历史观看记录。' : '当前没有人观看直播。'}</p>}
     </div>
   )
 }

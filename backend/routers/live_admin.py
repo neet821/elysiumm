@@ -476,27 +476,39 @@ def list_audience(
         .all()
     )
     return [
-        {
-            "id": viewer.id,
-            "live_session_id": viewer.live_session_id,
-            "user_id": viewer.user_id,
-            "username": viewer.user.username if viewer.user else None,
-            "email": viewer.user.email if viewer.user else None,
-            "invite_id": viewer.invite_id,
-            "ip_address": viewer.ip_address,
-            "country": viewer.country,
-            "region": viewer.region,
-            "city": viewer.city,
-            "device_type": viewer.device_type,
-            "operating_system": viewer.operating_system,
-            "browser": viewer.browser,
-            "first_seen_at": viewer.first_seen_at,
-            "last_seen_at": viewer.last_seen_at,
-            "watched_seconds": viewer.watched_seconds,
-            "ended_at": viewer.ended_at,
-        }
+        _viewer_payload(viewer)
         for viewer in viewers
     ]
+
+
+@router.get("/audience/history")
+def list_audience_history(
+    session_id: int | None = None,
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    _admin: models.User = Depends(active_administrator),
+):
+    query = (
+        db.query(models.LiveViewerSession)
+        .outerjoin(models.User, models.User.id == models.LiveViewerSession.user_id)
+        .filter(
+            or_(
+                models.LiveViewerSession.user_id.is_(None),
+                models.User.role != "admin",
+            )
+        )
+    )
+    if session_id is not None:
+        query = query.filter(models.LiveViewerSession.live_session_id == session_id)
+    viewers = (
+        query.order_by(
+            models.LiveViewerSession.first_seen_at.desc(),
+            models.LiveViewerSession.id.desc(),
+        )
+        .limit(limit)
+        .all()
+    )
+    return [_viewer_payload(viewer) for viewer in viewers]
 
 
 @router.delete("/audience/history")
@@ -526,6 +538,30 @@ def delete_audience_history(
     )
     db.commit()
     return {"deleted": removed}
+
+
+def _viewer_payload(viewer: models.LiveViewerSession) -> dict:
+    return {
+        "id": viewer.id,
+        "live_session_id": viewer.live_session_id,
+        "session_title": viewer.session.title if viewer.session else None,
+        "session_status": viewer.session.status if viewer.session else None,
+        "user_id": viewer.user_id,
+        "username": viewer.user.username if viewer.user else None,
+        "email": viewer.user.email if viewer.user else None,
+        "invite_id": viewer.invite_id,
+        "ip_address": viewer.ip_address,
+        "country": viewer.country,
+        "region": viewer.region,
+        "city": viewer.city,
+        "device_type": viewer.device_type,
+        "operating_system": viewer.operating_system,
+        "browser": viewer.browser,
+        "first_seen_at": viewer.first_seen_at,
+        "last_seen_at": viewer.last_seen_at,
+        "watched_seconds": viewer.watched_seconds,
+        "ended_at": viewer.ended_at,
+    }
 
 
 def _session_payload(session: models.LiveSession) -> dict:

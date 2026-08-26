@@ -65,7 +65,7 @@ function StatePanel({ state, retry }) {
 }
 
 
-function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, showMessages, state, status }) {
+function MinimalWatchPage({ isLoading, isLive, liveSessionId, mediaUrl, retry, showMessages, state, status }) {
   if (isLoading) {
     return <main className="live-watch-page"><div className="live-watch-page__status" role="status">正在连接直播间…</div></main>
   }
@@ -77,15 +77,17 @@ function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, showMessages, st
   if (isLive) {
     return (
       <main className="live-watch-page">
+        <a className="live-watch-page__back" href="/" aria-label="返回首页" title="返回首页">←</a>
         {status?.title && <h1 className="live-watch-page__title">{status.title}</h1>}
         <LivePlayer mediaUrl={mediaUrl} minimal onRefresh={retry} />
-        {showMessages && <LiveMessageBoard />}
+        {showMessages && <LiveMessageBoard liveSessionId={liveSessionId} />}
       </main>
     )
   }
 
   return (
     <main className="live-watch-page">
+      <a className="live-watch-page__back" href="/" aria-label="返回首页" title="返回首页">←</a>
       <p className="live-watch-page__empty-prompt" role="status">未开播</p>
       <LivePlayer mediaUrl="" minimal onRefresh={retry} />
     </main>
@@ -93,10 +95,10 @@ function MinimalWatchPage({ isLoading, isLive, mediaUrl, retry, showMessages, st
 }
 
 function PublicLivePage({ showMessages = true }) {
-  const { mediaUrl, retry, state, status } = useLiveSession()
+  const { liveSessionId, mediaUrl, retry, state, status } = useLiveSession()
   const isLoading = state === 'loading' || state === 'authorizing'
   const isLive = state === 'live' && mediaUrl
-  return <MinimalWatchPage isLoading={isLoading} isLive={isLive} mediaUrl={mediaUrl} retry={retry} showMessages={showMessages} state={state} status={status} />
+  return <MinimalWatchPage isLoading={isLoading} isLive={isLive} liveSessionId={liveSessionId} mediaUrl={mediaUrl} retry={retry} showMessages={showMessages} state={state} status={status} />
 }
 
 export default function LivePage() {

@@ -309,6 +309,7 @@ def create_live_viewer_session(
     _set_live_cookie(response, viewer)
     return {
         "viewer_session_id": viewer.id,
+        "live_session_id": viewer.live_session_id,
         "media_url": MEDIA_URL,
         "expires_in": config.LIVE_SESSION_TTL_SECONDS,
     }
