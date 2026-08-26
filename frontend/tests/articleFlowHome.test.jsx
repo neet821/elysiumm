@@ -36,6 +36,14 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) minmax\(280px, 340px\);/s)
   })
 
+  it('keeps the reader comfortable on mobile and gives the article stream a structural base', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader-body\s*\{[\s\S]*?max-width:\s*none;/s)
+    expect(css).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.legacy-old-home:not\(\.legacy-old-home--flat\)\s*\{[\s\S]*?width:\s*min\(calc\(100% - 0\.5rem\), 960px\);/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.articles-section__end-cap\s*\{[\s\S]*?background:\s*#f5f6f7;[\s\S]*?border-block:\s*1px solid #e1e4e8;/s)
+    expect(css).not.toContain('articles-section__end-mask')
+  })
+
   it('renders homepage navigation inside the page instead of a global header', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
