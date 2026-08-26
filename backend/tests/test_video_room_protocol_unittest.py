@@ -429,6 +429,42 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.assertFalse(self.events("error"))
         self.assertNotIn(self.room.id, websocket_server.video_buffer_states)
 
+    def test_ephemeral_member_events_during_socket_reconnect_are_ignored(self):
+        self.sessions["sid-member"] = self.trusted_session(self.member)
+
+        asyncio.run(
+            websocket_server.presence_heartbeat(
+                "sid-member",
+                {"room_id": self.room.id},
+            )
+        )
+
+        local_item = video_service.create_playlist_item(
+            self.db,
+            self.room,
+            created_by=self.host.id,
+            source_type="legacy_local",
+            title="Local video",
+            original_filename="movie.mp4",
+            file_size=1024,
+            local_fingerprint="ab" * 32,
+            owned_file=False,
+        )
+        self.db.commit()
+        asyncio.run(
+            websocket_server.video_local_ready(
+                "sid-member",
+                {
+                    "item_id": local_item.id,
+                    "ready": False,
+                    "room_id": self.room.id,
+                },
+            )
+        )
+
+        self.assertFalse(self.events("error"))
+        self.assertEqual(websocket_server.video_local_ready_states, {})
+
     def test_buffer_state_aggregates_tabs_and_disconnect_cleans_only_that_tab(self):
         self.join("sid-a", self.member)
         self.join("sid-b", self.member)

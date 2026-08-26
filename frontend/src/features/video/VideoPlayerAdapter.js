@@ -81,7 +81,10 @@ export function createVideoPlayerAdapter(element, options = {}) {
         nextHls.on?.(Hls.Events.ERROR, (_event, data) => {
           if (hls !== nextHls || !data?.fatal) return
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) nextHls.startLoad?.()
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) nextHls.recoverMediaError?.()
+          else {
+            nextHls.recoverMediaError?.()
+            nextHls.startLoad?.()
+          }
         })
         nextHls.loadSource(track.playbackUrl)
         nextHls.attachMedia(element)

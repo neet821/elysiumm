@@ -538,15 +538,24 @@ export function useVideoRoom({ navigate, roomId, user }) {
     requestSnapshot()
     if (!playbackUnlockedRef.current) return true
     const adapter = adapterRef.current
-    const recovery = adapter?.recover ? adapter.recover() : adapter?.play()
+    const releaseRemoteApply = beginRemoteApply()
+    let recovery
+    try {
+      recovery = adapter?.recover ? adapter.recover() : adapter?.play()
+    } catch {
+      releaseRemoteApply()
+      setNeedsUserGesture(true)
+      setNotice('视频暂时无法继续播放，请点击播放按钮重试')
+      return false
+    }
     Promise.resolve(recovery).then(() => {
       setNeedsUserGesture(false)
     }).catch(() => {
       setNeedsUserGesture(true)
       setNotice('视频暂时无法继续播放，请点击播放按钮重试')
-    })
+    }).finally(releaseRemoteApply)
     return true
-  }, [currentItem, numericRoomId, reportBuffering, requestSnapshot])
+  }, [beginRemoteApply, currentItem, reportBuffering, requestSnapshot])
 
   const onVideoEvent = useMemo(() => ({
     onCanPlay: () => reportBuffering(false),

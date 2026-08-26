@@ -150,9 +150,10 @@ describe('VideoPlayerAdapter', () => {
 
     handler(Hls.Events.ERROR, { fatal: true, type: Hls.ErrorTypes.NETWORK_ERROR })
     handler(Hls.Events.ERROR, { fatal: true, type: Hls.ErrorTypes.MEDIA_ERROR })
+    handler(Hls.Events.ERROR, { fatal: true, type: 'otherError' })
 
-    expect(hls.startLoad).toHaveBeenCalledTimes(1)
-    expect(hls.recoverMediaError).toHaveBeenCalledTimes(1)
+    expect(hls.startLoad).toHaveBeenCalledTimes(3)
+    expect(hls.recoverMediaError).toHaveBeenCalledTimes(2)
     expect(adapter.snapshot().track.id).toContain('video:7')
   })
 

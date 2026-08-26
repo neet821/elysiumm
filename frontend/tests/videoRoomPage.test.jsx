@@ -437,10 +437,14 @@ describe('video room page', () => {
 
     mocks.socket.emit.mockClear()
     mocks.adapter.recover.mockClear()
-    fireEvent.waiting(screen.getByTestId('video-room-media'))
+    const video = screen.getByTestId('video-room-media')
+    fireEvent.waiting(video)
+    fireEvent.play(video)
+    fireEvent.seeking(video)
 
     expect(mocks.socket.emit).toHaveBeenCalledWith('request_snapshot', { room_id: 9 })
     expect(mocks.adapter.recover).toHaveBeenCalledTimes(1)
+    expect(mocks.socket.emit).not.toHaveBeenCalledWith('playback_control', expect.anything())
   })
 
   it('rejects native mobile playback when the member cannot control the room', async () => {

@@ -1079,7 +1079,9 @@ async def presence_heartbeat(sid, data):
             await sio.emit('error', {'message': '您不是该房间成员'}, room=sid)
             return
         if not is_sid_connected(room_id, actor['user_id'], sid):
-            await sio.emit('error', {'message': '实时连接尚未加入房间'}, room=sid)
+            # Heartbeats can race with Socket.IO replacing a stale SID.
+            # Presence is ephemeral, so discard this report without surfacing
+            # a false room error; the replacement SID will report again.
             return
 
         sync_room_crud.mark_stale_members_offline(db, room_id)
@@ -1457,9 +1459,12 @@ async def video_local_ready(sid, data):
             not room or not _is_video_room(room) or not item
             or item.source_type != 'legacy_local'
             or not sync_room_crud.is_room_member(db, room_id, user_id)
-            or not is_sid_connected(room_id, user_id, sid)
         ):
             await sio.emit('error', {'message': '本地视频准备状态无法应用'}, room=sid)
+            return
+        if not is_sid_connected(room_id, user_id, sid):
+            # Local readiness is ephemeral and may arrive from a stale SID
+            # while the browser is reconnecting. The replacement SID retries.
             return
         if ready and fingerprint != item.local_fingerprint:
             await sio.emit('error', {'message': '所选文件与房间要求的本地视频不一致'}, room=sid)
