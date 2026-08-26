@@ -28,6 +28,10 @@ test('mobile controls keep track information and only volume plus immersive acti
   assert.match(css, /body\.mobile-device #controls-hide-btn[^}]*display:\s*none\s*!important/)
   assert.match(css, /body\.mobile-device \.fullscreen-toggle-btn[^}]*display:\s*none\s*!important/)
   assert.match(css, /body\.mobile-device \.control-track[^}]*display:\s*flex\s*!important/)
+  assert.match(css, /body\.mobile-device \.control-cover[^}]*display:\s*block\s*!important/)
+  assert.match(css, /body\.mobile-device \.control-cluster\.actions[^}]*grid-column:\s*1\s*!important/)
+  assert.match(css, /body\.mobile-device \.control-cluster\.transport[^}]*grid-column:\s*2\s*!important/)
+  assert.match(css, /body\.mobile-device \.control-cluster\.modes[^}]*grid-column:\s*3\s*!important/)
 })
 
 test('volume button uses the shared mute toggle and restores the last audible level', () => {

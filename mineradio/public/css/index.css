@@ -17951,6 +17951,9 @@ body.mobile-device .control-cluster {
 
 body.mobile-device .control-cluster.actions {
   min-width: 0;
+  grid-column: 1 !important;
+  width: auto;
+  justify-content: flex-start;
 }
 
 body.mobile-device .control-track {
@@ -17960,7 +17963,11 @@ body.mobile-device .control-track {
 }
 
 body.mobile-device .control-cover {
-  display: none !important;
+  display: block !important;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 10px;
 }
 
 body.mobile-device .control-meta {
@@ -17974,13 +17981,17 @@ body.mobile-device #collect-btn {
 }
 
 body.mobile-device .control-cluster.transport {
+  grid-column: 2 !important;
   width: max-content;
   gap: 5px;
+  justify-content: center;
 }
 
 body.mobile-device .control-cluster.modes {
+  grid-column: 3 !important;
   width: max-content;
   gap: 6px;
+  justify-content: flex-end;
 }
 
 body.mobile-device .control-cluster.modes #lyric-timing-control,
