@@ -215,6 +215,27 @@
     return lines;
   }
   function lyricEndpoint(song) { return '/api/lyric?id=' + encodeURIComponent(songId(song)); }
+  function positionMobileLyrics() {
+    var surface = byId('mobile-runtime-lyrics');
+    if (!surface || !state.lyrics.length) return;
+    var track = surface.querySelector('.mobile-runtime-lyric-track');
+    if (!track) return;
+    var activeIndex = state.lyricIndex >= 0 ? state.lyricIndex : 0;
+    var current = track.children[activeIndex];
+    if (!current) return;
+    var lyricShift = Math.round(surface.clientHeight / 2 - (current.offsetTop + current.offsetHeight / 2));
+    track.style.transform = 'translate3d(0,' + lyricShift + 'px,0)';
+  }
+  function updateMobileLyricPresentation() {
+    var surface = byId('mobile-runtime-lyrics');
+    if (!surface) return;
+    var lines = surface.querySelectorAll('.mobile-runtime-lyric-line');
+    for (var i = 0; i < lines.length; i++) {
+      lines[i].classList.toggle('is-current', i === state.lyricIndex);
+      lines[i].classList.toggle('is-near', Math.abs(i - state.lyricIndex) === 1);
+    }
+    positionMobileLyrics();
+  }
   function renderMobileLyrics() {
     var surface = byId('mobile-runtime-lyrics');
     if (!surface) return;
@@ -226,21 +247,24 @@
       surface.appendChild(empty);
       return;
     }
-    var start = Math.max(0, state.lyricIndex - 4);
-    var end = Math.min(state.lyrics.length, start + 9);
-    for (var i = start; i < end; i++) {
+    var track = document.createElement('div');
+    track.className = 'mobile-runtime-lyric-track';
+    for (var i = 0; i < state.lyrics.length; i++) {
       var lyric = state.lyrics[i];
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'mobile-runtime-lyric-line';
+      button.setAttribute('data-lyric-index', String(i));
       if (i === state.lyricIndex) button.classList.add('is-current');
       if (Math.abs(i - state.lyricIndex) === 1) button.classList.add('is-near');
       button.textContent = lyric.text + (lyric.translation ? '\n' + lyric.translation : '');
       button.addEventListener('click', (function (time) {
         return function () { state.audio.currentTime = Math.max(0, time); updateLyricCursor(true); };
       })(lyric.time));
-      surface.appendChild(button);
+      track.appendChild(button);
     }
+    surface.appendChild(track);
+    positionMobileLyrics();
   }
   function updateLyricCursor(force) {
     var time = Number(state.audio.currentTime || 0);
@@ -251,7 +275,7 @@
     }
     if (!force && next === state.lyricIndex) return;
     state.lyricIndex = next;
-    renderMobileLyrics();
+    updateMobileLyricPresentation();
   }
   function setLyrics(lines, generation) {
     if (generation !== state.trackGeneration) return;
@@ -493,6 +517,7 @@
     tools.appendChild(settings);
     stage.appendChild(surface);
     stage.appendChild(tools);
+    window.addEventListener('resize', positionMobileLyrics, { passive: true });
     legacyButton.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); settings.hidden = !settings.hidden; });
     applyLyricSettings();
   }

@@ -275,12 +275,24 @@ body.mobile-runtime-active #mobile-2d-stage {
 
 .mobile-runtime-lyrics {
   width: min(100%, 760px);
+  height: 100%;
   max-height: 100%;
+  position: relative;
   overflow: hidden;
-  padding: 30px 0 36px;
   box-sizing: border-box;
   text-align: center;
   contain: layout paint;
+}
+
+.mobile-runtime-lyric-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 30px 0 36px;
+  box-sizing: border-box;
+  transition: transform .30s cubic-bezier(.22, .72, .26, 1);
+  will-change: transform;
 }
 
 .mobile-runtime-lyric-line {

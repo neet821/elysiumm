@@ -149,6 +149,13 @@ test('standalone mobile runtime preserves room, cover, progress, and volume inte
   assert.match(mobileRuntimeCss, /#volume-control\.is-open \.volume-popover[^}]*display:\s*grid/s)
 })
 
+test('standalone mobile lyrics move the active line with playback', () => {
+  assert.match(mobileRuntime, /function positionMobileLyrics\s*\(/)
+  assert.match(mobileRuntime, /mobile-runtime-lyric-track/)
+  assert.match(mobileRuntime, /translate3d\(0,.*lyricShift/)
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyric-track[^}]*transition:\s*transform/s)
+})
+
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
   assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
   assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)
