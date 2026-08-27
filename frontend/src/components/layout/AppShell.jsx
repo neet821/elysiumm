@@ -19,6 +19,8 @@ export function AppShell({ children }) {
     || location.pathname === '/music'
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
+  const isImmersiveRoom = location.pathname.startsWith('/rooms/music/')
+    || location.pathname.startsWith('/rooms/watch/')
   const isLive = location.pathname === '/live'
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const auth = useAuth()
@@ -29,6 +31,16 @@ export function AppShell({ children }) {
   useEffect(() => {
     setHomeSidebarOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!isImmersiveRoom) return undefined
+    document.documentElement.classList.add('app-immersive-locked')
+    document.body.classList.add('app-immersive-locked')
+    return () => {
+      document.documentElement.classList.remove('app-immersive-locked')
+      document.body.classList.remove('app-immersive-locked')
+    }
+  }, [isImmersiveRoom])
 
   useEffect(() => {
     if (!isHome || !homeSidebarOpen) return undefined
@@ -56,7 +68,7 @@ export function AppShell({ children }) {
     <ToastProvider>
       <HomeNavigationContext.Provider value={auth}>
         <HomeSidebarContext.Provider value={sidebarContext}>
-          <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
+          <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}${isImmersiveRoom ? ' app-shell--immersive' : ''}`}>
             <a className="skip-link" href="#main-content">跳到主要内容</a>
             {header}
             {(isAccount || isRoomsHub) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}

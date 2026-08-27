@@ -111,6 +111,25 @@ describe('Elysium plain service shell', () => {
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
   })
 
+  it('locks the top-level viewport while a music room is mounted', () => {
+    const style = document.createElement('style')
+    style.dataset.testStyle = 'immersive-room-lock'
+    style.textContent = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
+    document.head.appendChild(style)
+
+    const { unmount } = renderShell({ initialPath: '/rooms/music/9' })
+    expect(document.querySelector('.app-shell')).toHaveClass('app-shell--immersive')
+    expect(document.documentElement).toHaveClass('app-immersive-locked')
+    expect(document.body).toHaveClass('app-immersive-locked')
+    expect(getComputedStyle(document.body).position).toBe('fixed')
+    expect(getComputedStyle(document.body).overflow).toBe('hidden')
+    expect(getComputedStyle(document.documentElement).overflow).toBe('hidden')
+
+    unmount()
+    expect(document.documentElement).not.toHaveClass('app-immersive-locked')
+    expect(document.body).not.toHaveClass('app-immersive-locked')
+  })
+
   it('keeps login and registration pages free of the global top bar', () => {
     const { unmount } = renderShell({ initialPath: '/login' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()

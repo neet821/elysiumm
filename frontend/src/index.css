@@ -359,6 +359,20 @@
 .app-shell--toolbox { height: 100dvh; overflow: hidden; }
 .app-shell--toolbox .app-shell__main { min-height: 0; overflow: hidden; }
 .app-shell--immersive, .app-shell--immersive .app-shell__main { height: 100svh; min-height: 0; overflow: hidden; }
+html.app-immersive-locked,
+body.app-immersive-locked,
+body.app-immersive-locked #root {
+  background: #080a0d;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body.app-immersive-locked {
+  inset: 0;
+  position: fixed;
+  width: 100%;
+}
 
 @media (max-width: 960px) {
   .toolbox-triptych { grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); }
