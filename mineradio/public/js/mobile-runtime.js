@@ -41,7 +41,7 @@
     if (window.visualViewport) window.visualViewport.addEventListener('resize', syncMobileRuntimeViewport, { passive: true });
     document.addEventListener('touchmove', function (event) {
       var target = event.target;
-      if (target && typeof target.closest === 'function' && target.closest('button, a, input, textarea, select, #search-results')) return;
+      if (target && typeof target.closest === 'function' && target.closest('button, a, input, textarea, select, #search-results, #blue-room-panel, .br-body')) return;
       event.preventDefault();
     }, { passive: false });
   }

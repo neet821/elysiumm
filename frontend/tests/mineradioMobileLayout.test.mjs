@@ -118,8 +118,8 @@ test('mobile boot selects a standalone runtime before desktop vendor scripts', (
   assert.match(html, /function isMobileDeviceForBoot\s*\(/)
   assert.match(html, /mobile-runtime\.css/)
   assert.match(html, /mobile-runtime\.js/)
-  assert.match(html, /mobile-runtime\.css\?v=20260827-mobile-runtime-3/)
-  assert.match(html, /mobile-runtime\.js\?v=20260827-mobile-runtime-3/)
+  assert.match(html, /mobile-runtime\.css\?v=20260827-mobile-runtime-4/)
+  assert.match(html, /mobile-runtime\.js\?v=20260827-mobile-runtime-4/)
   assert.match(html, /blue-album-room-bridge\.js\?v=20260827-room-history-2/)
   assert.match(html, /loadDesktopRuntime\s*\(/)
   assert.doesNotMatch(html, /<script[^>]+(?:three\.r128|music-tempo|gsap|index-loader)/)
@@ -194,7 +194,7 @@ test('mobile runtime syncs changing viewport height and blocks page touch scroll
   assert.match(mobileRuntime, /--mobile-runtime-viewport-height/)
   assert.match(mobileRuntime, /window\.visualViewport\.addEventListener\('resize'/)
   assert.match(mobileRuntime, /document\.addEventListener\('touchmove'[\s\S]*?passive:\s*false/s)
-  assert.match(mobileRuntime, /closest\(['"]button, a, input, textarea, select, #search-results['"]\)/)
+  assert.match(mobileRuntime, /closest\(['"]button, a, input, textarea, select, #search-results, #blue-room-panel, \.br-body['"]\)/)
 })
 
 test('standalone mobile runtime preserves room, cover, progress, and volume interactions', () => {
