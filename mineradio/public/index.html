@@ -6,14 +6,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mineradio</title>
   <meta name="referrer" content="no-referrer">
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap"
-    rel="stylesheet">
-  <script src="vendor/three.r128.min.js"></script>
-  <script src="vendor/music-tempo.min.js"></script>
-  <script src="vendor/gsap.min.js"></script>
-  <script src="js/preload-mode.js"></script>
-  <link rel="stylesheet" href="css/index.css?v=20260827-mobile-2d-ui-1">
+  <script>
+    // Keep the mobile path independent from the desktop visual player. The
+    // decision happens before any desktop stylesheet or vendor script can be
+    // requested, including iPadOS desktop-mode user agents.
+    function isMobileDeviceForBoot() {
+      var ua = navigator.userAgent || ''
+      var iPadUa = /iPad/i.test(ua)
+      var iPadDesktopUa = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1
+      var mobileUa = /Android|iPhone|iPod|Windows Phone/i.test(ua)
+      return iPadUa || iPadDesktopUa || mobileUa
+    }
+    function appendBootCss(href) {
+      var link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      document.head.appendChild(link)
+    }
+    function appendBootScript(src) {
+      return new Promise(function (resolve, reject) {
+        var script = document.createElement('script')
+        script.src = src
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+    function loadDesktopRuntime() {
+      appendBootCss('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap')
+      appendBootCss('css/index.css?v=20260827-desktop-runtime-1')
+      return appendBootScript('vendor/three.r128.min.js')
+        .then(function () { return appendBootScript('vendor/music-tempo.min.js') })
+        .then(function () { return appendBootScript('vendor/gsap.min.js') })
+        .then(function () { return appendBootScript('js/preload-mode.js') })
+        .then(function () { return appendBootScript('js/index-loader.js?v=20260827-desktop-runtime-1') })
+        .then(function () { return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-1') })
+    }
+    function loadMobileRuntime() {
+      appendBootCss('css/mobile-runtime.css?v=20260827-mobile-runtime-1')
+      return appendBootScript('js/mobile-runtime.js?v=20260827-mobile-runtime-1')
+        .then(function () {
+          if (new URLSearchParams(location.search).get('blue-room')) {
+            return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-1')
+          }
+          return null
+        })
+    }
+    function bootMineradioRuntime() {
+      var loader = isMobileDeviceForBoot() ? loadMobileRuntime : loadDesktopRuntime
+      loader().catch(function (error) {
+        console.error('[Mineradio boot]', error)
+        var message = document.createElement('div')
+        message.textContent = '播放器加载失败，请刷新后重试'
+        message.style.cssText = 'position:fixed;z-index:999;left:16px;right:16px;bottom:24px;padding:13px 16px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:#211d24;color:#fff;text-align:center;font:14px/1.4 sans-serif'
+        document.body.appendChild(message)
+      })
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootMineradioRuntime, { once: true })
+    else bootMineradioRuntime()
+  </script>
 </head>
 
 <body>
@@ -1916,8 +1967,6 @@
       }
     } catch (_) {}
   </script>
-  <script src="js/index-loader.js?v=20260827-mobile-2d-ui-1"></script>
-  <script src="blue-album-room-bridge.js?v=20260827-room-history-1"></script>
 </body>
 
 </html>
