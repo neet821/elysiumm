@@ -4,6 +4,10 @@
   --mobile-runtime-muted: rgba(255, 255, 255, .52);
   --mobile-runtime-panel: rgba(20, 18, 24, .92);
   --mobile-runtime-line: rgba(255, 255, 255, .10);
+  --mobile-runtime-bg-primary: rgb(24, 20, 28);
+  --mobile-runtime-bg-secondary: rgb(13, 13, 18);
+  --mobile-runtime-bg-base: rgb(5, 6, 10);
+  --mobile-runtime-bg-glow: rgb(87, 62, 80);
 }
 
 html,
@@ -27,9 +31,10 @@ body.mobile-runtime-active #desktop-window-shell {
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 82% 18%, rgba(91, 59, 44, .24), transparent 38%),
-    radial-gradient(circle at 12% 82%, rgba(57, 38, 42, .24), transparent 44%),
-    #09090b;
+    radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--mobile-runtime-bg-glow) 44%, transparent), transparent 40%),
+    radial-gradient(circle at 16% 82%, color-mix(in srgb, var(--mobile-runtime-bg-primary) 34%, transparent), transparent 48%),
+    linear-gradient(145deg, var(--mobile-runtime-bg-primary) 0%, var(--mobile-runtime-bg-secondary) 54%, var(--mobile-runtime-bg-base) 100%);
+  transition: background 700ms ease;
 }
 
 body.mobile-runtime-active #desktop-window-shell > *:not(#search-area):not(#top-right):not(#mobile-2d-stage):not(#bottom-bar):not(#mobile-runtime-status) {
@@ -303,7 +308,7 @@ body.mobile-runtime-active #mobile-2d-stage {
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, .27);
-  font-size: var(--mobile-runtime-lyric-size, 25px);
+  font-size: clamp(18px, calc(var(--mobile-runtime-lyric-size, 25px) * var(--mobile-runtime-line-scale, 1)), 34px);
   font-weight: 700;
   line-height: var(--mobile-runtime-lyric-line-height, 1.45);
   letter-spacing: .012em;
@@ -313,13 +318,29 @@ body.mobile-runtime-active #mobile-2d-stage {
   word-break: break-word;
   text-shadow: 0 2px 16px rgba(0, 0, 0, .32);
   transition: color .16s ease, opacity .16s ease;
-  cursor: pointer;
+  cursor: default;
 }
 
 .mobile-runtime-lyric-line.is-current {
   color: #fff;
-  font-size: calc(var(--mobile-runtime-lyric-size, 25px) * 1.12);
+  font-size: clamp(18px, calc(var(--mobile-runtime-lyric-size, 25px) * var(--mobile-runtime-line-scale, 1) * 1.12), 36px);
   text-shadow: 0 3px 22px rgba(155, 232, 193, .24);
+}
+
+.mobile-runtime-lyric-original,
+.mobile-runtime-lyric-translation {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mobile-runtime-lyric-translation {
+  margin-top: .34em;
+  color: rgba(194, 255, 236, .64);
+  font-size: .58em;
+  font-weight: 560;
+  line-height: 1.3;
 }
 
 .mobile-runtime-lyric-line.is-near {
@@ -425,6 +446,57 @@ body.mobile-runtime-active #mobile-2d-stage {
 .mobile-runtime-status.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #search-area,
+body.mobile-runtime-active.mobile-runtime-immersive #top-right,
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls .control-cluster.actions {
+  opacity: 0;
+  pointer-events: none !important;
+  transform: translateY(-12px);
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #mobile-2d-stage {
+  padding-top: calc(30px + env(safe-area-inset-top));
+  padding-bottom: calc(118px + env(safe-area-inset-bottom));
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls {
+  left: 50% !important;
+  right: auto !important;
+  bottom: max(14px, env(safe-area-inset-bottom)) !important;
+  width: auto !important;
+  min-width: 164px;
+  height: 68px !important;
+  padding: 8px 14px !important;
+  border-color: rgba(255, 255, 255, .08);
+  background: rgba(12, 12, 16, .34);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .20);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls #progress-bar {
+  top: 4px;
+  left: 14%;
+  right: 14%;
+  opacity: .72;
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls #controls {
+  display: flex !important;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls .control-cluster.transport {
+  display: flex !important;
+  grid-column: auto;
+  gap: 10px;
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-controls #immersive-btn {
+  color: var(--mobile-runtime-accent);
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls {

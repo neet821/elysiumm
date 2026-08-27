@@ -15,6 +15,8 @@
     settings: { size: 25, lineHeight: 1.45 },
     previousVolume: 0.8,
     statusTimer: 0,
+    backgroundRevision: 0,
+    immersive: false,
     roomBridgeRequested: false,
     trackController: null,
     lyricController: null
@@ -95,6 +97,85 @@
     if (!url) return '';
     return /^https?:\/\//i.test(url) ? mobileApiUrl('/api/cover?url=' + encodeURIComponent(url)) : url;
   }
+  function mobileRuntimeRgbCss(rgb) {
+    return 'rgb(' + rgb.map(function (value) { return Math.round(value); }).join(', ') + ')';
+  }
+  function mobileRuntimeMixRgb(first, second, amount) {
+    return first.map(function (value, index) { return value * (1 - amount) + second[index] * amount; });
+  }
+  function setMobileRuntimeBackground(primary, secondary, base, glow) {
+    var root = document.documentElement;
+    if (!root) return;
+    root.style.setProperty('--mobile-runtime-bg-primary', mobileRuntimeRgbCss(primary));
+    root.style.setProperty('--mobile-runtime-bg-secondary', mobileRuntimeRgbCss(secondary));
+    root.style.setProperty('--mobile-runtime-bg-base', mobileRuntimeRgbCss(base));
+    root.style.setProperty('--mobile-runtime-bg-glow', mobileRuntimeRgbCss(glow));
+  }
+  function resetMobileRuntimeBackground() {
+    setMobileRuntimeBackground([24, 20, 28], [13, 13, 18], [5, 6, 10], [87, 62, 80]);
+  }
+  function updateMobileRuntimeBackground(url) {
+    var revision = ++state.backgroundRevision;
+    resetMobileRuntimeBackground();
+    if (!url || typeof Image !== 'function') return;
+    var image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = function () {
+      if (revision !== state.backgroundRevision) return;
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        var context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) return;
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        var pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        var average = [0, 0, 0];
+        var vivid = [0, 0, 0];
+        var totalCount = 0;
+        var vividCount = 0;
+        for (var i = 0; i < pixels.length; i += 16) {
+          var red = pixels[i];
+          var green = pixels[i + 1];
+          var blue = pixels[i + 2];
+          var max = Math.max(red, green, blue);
+          var min = Math.min(red, green, blue);
+          var saturation = max ? (max - min) / max : 0;
+          var luminance = (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255;
+          average[0] += red; average[1] += green; average[2] += blue; totalCount += 1;
+          if (saturation > 0.12 && luminance > 0.08) {
+            vivid[0] += red; vivid[1] += green; vivid[2] += blue; vividCount += 1;
+          }
+        }
+        if (!totalCount) return;
+        average = average.map(function (value) { return value / totalCount; });
+        var primary = (vividCount ? vivid.map(function (value) { return value / vividCount; }) : average);
+        var secondary = mobileRuntimeMixRgb(primary, average, 0.42);
+        var base = mobileRuntimeMixRgb(primary, [5, 6, 10], 0.78);
+        var glow = mobileRuntimeMixRgb(primary, [255, 255, 255], 0.34);
+        setMobileRuntimeBackground(primary, secondary, base, glow);
+      } catch (_) {}
+    };
+    image.src = url;
+  }
+  function mobileLyricMeasure(value) {
+    return Array.from(text(value)).reduce(function (total, character) {
+      return total + (/[^\x00-\xff]/.test(character) ? 1 : 0.56);
+    }, 0);
+  }
+  function fitMobileLyricTypography() {
+    var surface = byId('mobile-runtime-lyrics');
+    if (!surface) return;
+    var width = Math.max(220, surface.clientWidth - 24);
+    var baseSize = Math.max(18, Number(state.settings.size) || 25);
+    surface.querySelectorAll('.mobile-runtime-lyric-line').forEach(function (line) {
+      var original = line.querySelector('.mobile-runtime-lyric-original');
+      var units = mobileLyricMeasure(original && original.textContent);
+      var estimatedWidth = units * baseSize;
+      var scale = estimatedWidth > width * 1.55 ? (width * 1.55) / estimatedWidth : 1;
+      line.style.setProperty('--mobile-runtime-line-scale', String(Math.max(0.72, Math.min(1, scale))));
+    });
+  }
   function updateTrackUi(song) {
     var title = byId('control-title-text');
     var artist = byId('control-artist');
@@ -105,6 +186,7 @@
       var url = coverTarget(song);
       cover.style.backgroundImage = url ? 'url("' + url.replace(/"/g, '%22') + '")' : '';
       cover.classList.toggle('cover-empty', !url);
+      updateMobileRuntimeBackground(url);
     }
   }
   function syncGlobals() {
@@ -251,19 +333,25 @@
     track.className = 'mobile-runtime-lyric-track';
     for (var i = 0; i < state.lyrics.length; i++) {
       var lyric = state.lyrics[i];
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'mobile-runtime-lyric-line';
-      button.setAttribute('data-lyric-index', String(i));
-      if (i === state.lyricIndex) button.classList.add('is-current');
-      if (Math.abs(i - state.lyricIndex) === 1) button.classList.add('is-near');
-      button.textContent = lyric.text + (lyric.translation ? '\n' + lyric.translation : '');
-      button.addEventListener('click', (function (time) {
-        return function () { state.audio.currentTime = Math.max(0, time); updateLyricCursor(true); };
-      })(lyric.time));
-      track.appendChild(button);
+      var line = document.createElement('div');
+      line.className = 'mobile-runtime-lyric-line';
+      line.setAttribute('data-lyric-index', String(i));
+      if (i === state.lyricIndex) line.classList.add('is-current');
+      if (Math.abs(i - state.lyricIndex) === 1) line.classList.add('is-near');
+      var original = document.createElement('span');
+      original.className = 'mobile-runtime-lyric-original';
+      original.textContent = lyric.text;
+      line.appendChild(original);
+      if (lyric.translation) {
+        var translated = document.createElement('span');
+        translated.className = 'mobile-runtime-lyric-translation';
+        translated.textContent = lyric.translation;
+        line.appendChild(translated);
+      }
+      track.appendChild(line);
     }
     surface.appendChild(track);
+    fitMobileLyricTypography();
     positionMobileLyrics();
   }
   function updateLyricCursor(force) {
@@ -516,7 +604,7 @@
     tools.appendChild(settings);
     stage.appendChild(surface);
     stage.appendChild(tools);
-    window.addEventListener('resize', positionMobileLyrics, { passive: true });
+    window.addEventListener('resize', function () { fitMobileLyricTypography(); positionMobileLyrics(); }, { passive: true });
     legacyButton.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); settings.hidden = !settings.hidden; });
     applyLyricSettings();
   }
@@ -525,6 +613,17 @@
     if (!surface) return;
     surface.style.setProperty('--mobile-runtime-lyric-size', state.settings.size + 'px');
     surface.style.setProperty('--mobile-runtime-lyric-line-height', String(state.settings.lineHeight));
+    fitMobileLyricTypography();
+    positionMobileLyrics();
+  }
+  function setMobileRuntimeImmersive(value) {
+    state.immersive = !!value;
+    document.body.classList.toggle('mobile-runtime-immersive', state.immersive);
+    var button = byId('immersive-btn');
+    if (!button) return;
+    button.setAttribute('aria-pressed', state.immersive ? 'true' : 'false');
+    button.setAttribute('aria-label', state.immersive ? '退出沉浸式' : '沉浸式');
+    button.title = state.immersive ? '退出沉浸式' : '沉浸式';
   }
   function installControls() {
     var bottom = byId('bottom-bar');
@@ -552,7 +651,15 @@
       document.addEventListener('click', function () { volumeControl.classList.remove('is-open'); });
     }
     var immersive = byId('immersive-btn');
-    if (immersive) { immersive.removeAttribute('onclick'); immersive.addEventListener('click', function () { document.body.classList.toggle('mobile-runtime-immersive'); }); }
+    if (immersive) {
+      immersive.removeAttribute('onclick');
+      immersive.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setMobileRuntimeImmersive(!state.immersive);
+      });
+      setMobileRuntimeImmersive(false);
+    }
     var slider = byId('volume-slider');
     if (slider) slider.addEventListener('input', function () { setVolume(slider.value); });
     var transport = bottom.querySelector('.control-cluster.transport');

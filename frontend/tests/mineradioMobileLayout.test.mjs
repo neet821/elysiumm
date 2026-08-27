@@ -172,6 +172,28 @@ test('standalone mobile lyrics align after async loading and progress stays disp
   assert.doesNotMatch(mobileRuntime, /if \(progress\) progress\.addEventListener\('click'/)
 })
 
+test('mobile lyrics keep original and translation in separate rows with automatic sizing', () => {
+  assert.match(mobileRuntime, /mobile-runtime-lyric-original/)
+  assert.match(mobileRuntime, /mobile-runtime-lyric-translation/)
+  assert.doesNotMatch(mobileRuntime, /lyric\.text \+ \(lyric\.translation \? '\\n' \+ lyric\.translation : ''\)/)
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyric-original[^}]*display:\s*block/s)
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyric-translation[^}]*display:\s*block/s)
+  assert.match(mobileRuntimeCss, /--mobile-runtime-lyric-size/s)
+  assert.match(mobileRuntimeCss, /clamp\(/)
+  assert.doesNotMatch(mobileRuntime, /lyric\.time/)
+})
+
+test('mobile runtime derives a cover-colored background and makes immersive mode functional', () => {
+  assert.match(mobileRuntime, /function updateMobileRuntimeBackground\s*\(/)
+  assert.match(mobileRuntime, /canvas|getContext\(['"]2d['"]\)/)
+  assert.match(mobileRuntime, /mobile-runtime-bg-primary/)
+  assert.match(mobileRuntime, /mobile-runtime-immersive/)
+  assert.match(mobileRuntime, /aria-pressed/)
+  assert.match(mobileRuntimeCss, /mobile-runtime-immersive[^}]*#search-area/s)
+  assert.match(mobileRuntimeCss, /mobile-runtime-immersive[^}]*#bottom-bar/s)
+  assert.match(mobileRuntimeCss, /mobile-runtime-immersive[^}]*#mobile-2d-stage/s)
+})
+
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
   assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
   assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)
