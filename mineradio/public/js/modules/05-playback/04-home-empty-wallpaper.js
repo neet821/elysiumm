@@ -104,10 +104,23 @@ function deactivateHomeWallpaperPreview(playback) {
     setPreset(nextPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true });
   }
 }
+var playbackVisualPresetFallbackActive = false;
 function hasCustomPlaybackVisualBackground() {
   if (!fx) return false;
   if (fx.backgroundAlbumCover === true) return true;
   if (fx.backgroundColorCustom === true || fx.backgroundColorMode === 'custom') return true;
+  var backgroundOpacity = Number(fx.backgroundOpacity);
+  var defaultBackgroundOpacity = Number(fxDefaults && fxDefaults.backgroundOpacity);
+  if (isFinite(backgroundOpacity) && isFinite(defaultBackgroundOpacity)
+    && Math.abs(backgroundOpacity - defaultBackgroundOpacity) > 0.001) return true;
+  var windowBackgroundOpacity = Number(fx.windowBackgroundOpacity);
+  var defaultWindowBackgroundOpacity = Number(fxDefaults && fxDefaults.windowBackgroundOpacity);
+  if (isFinite(windowBackgroundOpacity) && isFinite(defaultWindowBackgroundOpacity)
+    && Math.abs(windowBackgroundOpacity - defaultWindowBackgroundOpacity) > 0.001) return true;
+  var backgroundGlassOpacity = Number(fx.backgroundGlassOpacity);
+  var defaultBackgroundGlassOpacity = Number(fxDefaults && fxDefaults.backgroundGlassOpacity);
+  if (isFinite(backgroundGlassOpacity) && isFinite(defaultBackgroundGlassOpacity)
+    && Math.abs(backgroundGlassOpacity - defaultBackgroundGlassOpacity) > 0.001) return true;
   if (String(fx.backgroundImage || '').trim()) return true;
   return !!(fx.backgroundMedia && typeof fx.backgroundMedia === 'object');
 }
@@ -122,8 +135,10 @@ function switchPlaybackVisualToEmily() {
     deactivateHomeWallpaperPreview(true);
   }
   document.body.classList.remove('home-wallpaper-preview');
-  var targetPreset = typeof playbackVisualPreset === 'number' ? playbackVisualPreset : fxDefaults.preset;
+  var savedPlaybackVisualPreset = typeof playbackVisualPreset === 'number' ? playbackVisualPreset : fxDefaults.preset;
+  var targetPreset = savedPlaybackVisualPreset;
   targetPreset = resolvePlaybackVisualPresetForPlayback(targetPreset);
+  playbackVisualPresetFallbackActive = savedPlaybackVisualPreset === 3 && targetPreset !== savedPlaybackVisualPreset;
   startupVisualPreviewActive = false;
   if (typeof setPreset === 'function' && fx.preset !== targetPreset) {
     setPreset(targetPreset, { silent: true, preserveCamera: false, noSave: true });
