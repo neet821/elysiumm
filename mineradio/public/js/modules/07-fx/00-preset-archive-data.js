@@ -754,9 +754,54 @@ function isMobileFxDevice() {
   if (iPadDesktopUa || iPadUa) return true;
   return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(ua);
 }
+function normalizeMobileFxForPerformance(snapshot) {
+  var data = Object.assign({}, snapshot || {});
+  // Keep lyric raster quality high while cutting the per-frame and GPU-heavy
+  // parts of the packaged mobile visual preset.
+  data.performanceQuality = 'eco';
+  data.performanceBackground = 'auto';
+  data.foregroundFpsMode = 'vsync';
+  data.coverResolution = 1;
+  data.lyricTextureClarity = 4;
+  data.particleLyrics = false;
+  data.lyricGlowParticles = false;
+  data.lyricGlowBeat = false;
+  data.sonicAudioMonitorEnabled = false;
+  data.sonicAudioAutoTrack = false;
+  data.sonicGroundFloatingEnabled = false;
+  data.sonicGroundFloatingCount = 0;
+  data.floatLayer = false;
+  data.backgroundStarRiver = false;
+  return data;
+}
+function applyMobileFxPerformanceBudget() {
+  fx.performanceQuality = 'eco';
+  fx.performanceBackground = 'auto';
+  fx.liveBackgroundKeep = false;
+  fx.foregroundFpsMode = 'vsync';
+  fx.coverResolution = 1;
+  fx.lyricTextureClarity = 4;
+  fx.particleLyrics = false;
+  fx.lyricGlowParticles = false;
+  fx.lyricGlowBeat = false;
+  fx.sonicAudioMonitorEnabled = false;
+  fx.sonicAudioAutoTrack = false;
+  fx.sonicGroundFloatingEnabled = false;
+  fx.sonicGroundFloatingCount = 0;
+  fx.floatLayer = false;
+  fx.backgroundStarRiver = false;
+  applyCoverParticleResolution(fx.coverResolution, { reload: true });
+  destroyFloatLayer();
+  setParticleLyricsSilently(false);
+  if (typeof refreshSonicAudioMonitorUi === 'function') refreshSonicAudioMonitorUi();
+  updateFxInputs();
+  updateRenderPowerClasses();
+  applyRendererPowerMode();
+}
 function applyMobileFxArchiveSnapshot(snapshot) {
   if (typeof deactivateHomeWallpaperPreview === 'function') deactivateHomeWallpaperPreview(true);
-  if (!snapshot || !applyFxArchiveSnapshot(snapshot)) return false;
+  if (!snapshot || !applyFxArchiveSnapshot(normalizeMobileFxForPerformance(snapshot))) return false;
+  applyMobileFxPerformanceBudget();
   mobileFxArchiveAutoApplied = true;
   if (typeof startupVisualPreviewActive !== 'undefined') startupVisualPreviewActive = false;
   return true;

@@ -9,6 +9,8 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 const html = read('mineradio/public/index.html')
 const css = read('mineradio/public/css/index.css')
 const archive = read('mineradio/public/js/modules/07-fx/00-preset-archive-data.js')
+const bindings = read('mineradio/public/js/modules/07-fx/07-bindings-shelf-immersive.js')
+const peekPanels = read('mineradio/public/js/modules/10-shell/02-peek-panels-upload.js')
 const lyricMask = read('mineradio/public/js/modules/02-visual/10-lyrics-mask-textures.js')
 const startup = read('mineradio/public/js/modules/10-shell/05-startup-bindings.js')
 const bridge = read('mineradio/public/blue-album-room-bridge.js')
@@ -46,6 +48,32 @@ test('mobile lyrics wrap an overlong current line into visual rows', () => {
   assert.match(lyricMask, /function wrapMobileLyricEntries\s*\(/)
   assert.match(lyricMask, /wrapLyricText\(/)
   assert.match(lyricMask, /MOBILE_LYRIC_MAX_LINES\s*=\s*3/)
+})
+
+test('multiline lyric textures reserve a full top ascent safety area', () => {
+  assert.match(lyricMask, /LYRIC_MASK_TOP_PADDING_RATIO/)
+  assert.match(lyricMask, /blockTop\s*=\s*y0\s*-\s*fontSize\s*\*\s*LYRIC_MASK_TOP_PADDING_RATIO/)
+  assert.match(lyricMask, /padY\s*=\s*Math\.max\(/)
+})
+
+test('mobile exposes a dedicated lyrics typography entry without restoring the full visual console', () => {
+  assert.match(html, /id="mobile-lyric-settings-btn"/)
+  assert.match(html, /onclick="openMobileLyricSettings\(event\)"/)
+  assert.match(css, /body\.mobile-device #mobile-lyric-settings-btn[^}]*display:\s*(?:flex|inline-flex)\s*!important/s)
+  assert.match(bindings, /function openMobileLyricSettings\s*\(/)
+  assert.match(bindings, /setFxPanelTab\('lyrics'\)/)
+  assert.match(peekPanels, /key === 'fx' && !\(document\.body && document\.body\.classList\.contains\('mobile-device'\)\)/)
+  assert.match(css, /body\.mobile-device #fx-fab[^}]*display:\s*none\s*!important/s)
+})
+
+test('mobile preset keeps lyrics sharp while disabling high-cost visual work', () => {
+  assert.match(archive, /function normalizeMobileFxForPerformance\s*\(/)
+  assert.match(archive, /performanceQuality\s*=\s*'eco'/)
+  assert.match(archive, /lyricTextureClarity\s*=\s*4/)
+  assert.match(archive, /particleLyrics\s*=\s*false/)
+  assert.match(archive, /sonicAudioMonitorEnabled\s*=\s*false/)
+  assert.match(archive, /sonicGroundFloatingCount\s*=\s*0/)
+  assert.match(archive, /coverResolution\s*=\s*1/)
 })
 
 test('mobile Mineradio applies the named archive and hides visual controls', () => {

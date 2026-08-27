@@ -71,7 +71,7 @@ function shouldAnimatePlaylistPanelOpen(panel) {
 function setPeek(el, on, key) {
   if (!el) return;
   if (immersiveMode && on && (key === 'search' || key === 'fx')) return;
-  if (on && !diyPlayerMode && key === 'fx') return;
+  if (on && !diyPlayerMode && key === 'fx' && !(document.body && document.body.classList.contains('mobile-device'))) return;
   if (!on && key === 'search' && emptyHomeActive && !immersiveMode) return;
   if (!on && key === 'pl' && playlistPanelPinned) return;
   if (on && key === 'fx') document.body.classList.remove('fullscreen-diy-peek');

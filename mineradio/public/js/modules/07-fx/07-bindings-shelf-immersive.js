@@ -471,7 +471,7 @@ function toggleFx(key) {
 function toggleFxPanel(force) {
   var el = document.getElementById('fx-panel');
   if (!el) return;
-  if (!diyPlayerMode && force !== false) {
+  if (!diyPlayerMode && force !== false && force !== 'mobile-lyrics') {
     showToast('开启 DIY 玩家模式后可打开视觉控制台');
     return;
   }
@@ -488,6 +488,32 @@ function toggleFxPanel(force) {
   }
   el.classList.remove('show', 'closing');
   setPeek(el, true, 'fx');
+}
+function openMobileLyricSettings(event) {
+  if (event && event.preventDefault) event.preventDefault();
+  if (event && event.stopPropagation) event.stopPropagation();
+  if (typeof isMobileFxDevice !== 'function' || !isMobileFxDevice()) return;
+  var panel = document.getElementById('fx-panel');
+  if (!panel) return;
+  var isOpen = panel.classList.contains('show') || panel.classList.contains('peek');
+  if (isOpen) {
+    toggleFxPanel(false);
+    return;
+  }
+  if (typeof organizeFxConsoleWorkspace === 'function') organizeFxConsoleWorkspace();
+  if (typeof setFxPanelTab === 'function') setFxPanelTab('lyrics');
+  var group = typeof fxConsoleGroups !== 'undefined' ? fxConsoleGroups['lyrics:type'] : null;
+  if (group) {
+    group.classList.add('open');
+    var head = group.querySelector('.fx-console-group-head');
+    if (head) head.setAttribute('aria-expanded', 'true');
+  }
+  toggleFxPanel('mobile-lyrics');
+  requestAnimationFrame(function () {
+    if (typeof setFxPanelTab === 'function') setFxPanelTab('lyrics');
+    var typeGroup = typeof fxConsoleGroups !== 'undefined' ? fxConsoleGroups['lyrics:type'] : null;
+    if (typeGroup) typeGroup.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
 }
 function resetFx() {
   var savedCam = fx.cam;

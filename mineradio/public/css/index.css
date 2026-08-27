@@ -17918,6 +17918,10 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
 }
 
 /* Mobile profile: keep the player readable and leave only the two useful right-side actions. */
+#mobile-lyric-settings-btn {
+  display: none !important;
+}
+
 @media (max-width:720px) {
   #fx-fab,
   #fx-fab-hide-btn {
@@ -17930,6 +17934,42 @@ body.mobile-device #fx-fab,
 body.mobile-device #fx-fab-hide-btn {
   display: none !important;
   pointer-events: none !important;
+}
+
+body.mobile-device #mobile-lyric-settings-btn {
+  display: flex !important;
+  pointer-events: auto !important;
+}
+
+body.mobile-device #fx-panel {
+  left: 12px;
+  right: -460px;
+  bottom: 76px;
+  width: auto;
+  max-height: calc(100dvh - 96px);
+  padding: 14px 12px 24px;
+}
+
+body.mobile-device #fx-panel.show,
+body.mobile-device #fx-panel.peek {
+  right: 12px;
+}
+
+body.mobile-device #fx-panel .fx-console-search-row,
+body.mobile-device #fx-panel #fx-console-search-results,
+body.mobile-device #fx-panel #fx-console-history,
+body.mobile-device #fx-panel .fx-panel-tabs button:not(#fx-console-tab-lyrics),
+body.mobile-device #fx-panel [data-fx-console-tab="lyrics"]:not([data-fx-console-group="type"]) {
+  display: none !important;
+}
+
+body.mobile-device #fx-panel .fx-panel-tabs {
+  display: block;
+}
+
+body.mobile-device #fx-panel #fx-console-tab-lyrics {
+  display: block !important;
+  width: 100%;
 }
 
 body.mobile-device #bottom-bar,

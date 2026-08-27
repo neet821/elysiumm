@@ -19,6 +19,17 @@ function applyLyricVerticalEdgeFade(ctx, W, H, strength, activeLine, lineCount) 
 }
 
 var MOBILE_LYRIC_MAX_LINES = 3;
+// Keep the glyph ascent below the edge fade and outside the canvas crop. The
+// old fixed 22px margin was smaller than the mobile multiline raster's fade
+// band, especially when the user selected a large line height.
+var LYRIC_MASK_TOP_PADDING_RATIO = 1.04;
+var LYRIC_MASK_BOTTOM_PADDING_RATIO = 0.34;
+function lyricMaskTopPadding(fontSize) {
+  return Math.max(32, (Number(fontSize) || 128) * LYRIC_MASK_TOP_PADDING_RATIO);
+}
+function lyricMaskBottomPadding(fontSize) {
+  return Math.max(24, (Number(fontSize) || 128) * LYRIC_MASK_BOTTOM_PADDING_RATIO);
+}
 function mobileLyricWrapActive() {
   if (typeof isMobileFxDevice === 'function') return isMobileFxDevice();
   return !!(document.body && document.body.classList.contains('mobile-device'));
@@ -56,7 +67,15 @@ function beginLyricMaskLayoutBuild(input, layoutOverride) {
   var mobileWrapped = wrapMobileLyricEntries(entries, payload.activeLine, ctx, Math.round(baseCanvasW * 0.68), 128);
   entries = mobileWrapped.entries;
   var desiredLines = Math.max(1, entries.length);
-  var H = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 608 : (desiredLines > 2 ? 512 : 384)))))));
+  var layoutFontSize = isFinite(Number(layoutOverride.fontSize)) && Number(layoutOverride.fontSize) > 0
+    ? clampRange(Number(layoutOverride.fontSize), 42, 160)
+    : 128;
+  var layoutLineHeight = isFinite(Number(layoutOverride.lineHeight)) && Number(layoutOverride.lineHeight) > 0
+    ? Number(layoutOverride.lineHeight)
+    : layoutFontSize * (desiredLines > 1 ? 0.98 : 1.0) * lyricLineHeightFactor() * (desiredLines > 1 ? lyricContextSpreadValue() : 1);
+  var mappedHeight = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 608 : (desiredLines > 2 ? 512 : 384)))))));
+  var minimumHeight = Math.ceil(layoutFontSize + Math.max(0, desiredLines - 1) * layoutLineHeight + lyricMaskTopPadding(layoutFontSize) + lyricMaskBottomPadding(layoutFontSize));
+  var H = Math.max(mappedHeight, minimumHeight);
   var maxLines = Math.max(STAGE_LYRIC_MAX_LINES, entries.length);
   var lockedFontSize = Number(layoutOverride.fontSize);
   var lines = entries.map(function (entry) { return entry.text; });
@@ -147,9 +166,9 @@ function finalizeLyricMaskLayoutBuild(state) {
     return measured;
   }
   function lyricMaskLayoutFits(size, measuredWidth) {
-    var testLineHeight = size * (lines.length > 1 ? 0.98 : 1.0) * lyricLineHeightFactor();
+    var testLineHeight = size * (lines.length > 1 ? 0.98 : 1.0) * lyricLineHeightFactor() * (lines.length > 1 ? lyricContextSpreadValue() : 1);
     var testBlockH = size + (lines.length - 1) * testLineHeight;
-    return measuredWidth <= maxWidth && testBlockH <= H - 76;
+    return measuredWidth <= maxWidth && testBlockH <= H - lyricMaskTopPadding(size) - lyricMaskBottomPadding(size);
   }
   if (!isFinite(state.lockedFontSize) || state.lockedFontSize <= 0) {
     var minFont = state.maxLines > 2 ? 46 : 42;
@@ -208,11 +227,12 @@ function finalizeLyricMaskLayoutBuild(state) {
   var blockH = fontSize + (lines.length - 1) * lineHeight;
   var activeBaseline = H / 2 + fontSize * 0.36;
   var y0 = activeBaseline - activeLine * lineHeight;
-  var blockTop = y0 - fontSize * 0.84;
-  var blockBottom = y0 + (lines.length - 1) * lineHeight + fontSize * 0.24;
-  var padY = 22;
+  var blockTop = y0 - fontSize * LYRIC_MASK_TOP_PADDING_RATIO;
+  var blockBottom = y0 + (lines.length - 1) * lineHeight + fontSize * LYRIC_MASK_BOTTOM_PADDING_RATIO;
+  var padY = Math.max(32, lyricMaskTopPadding(fontSize));
+  var bottomPadY = lyricMaskBottomPadding(fontSize);
   if (blockTop < padY) y0 += padY - blockTop;
-  if (blockBottom > H - padY) y0 -= blockBottom - (H - padY);
+  if (blockBottom > H - bottomPadY) y0 -= blockBottom - (H - bottomPadY);
   state.result = {
     payload: payload,
     entries: entries,
