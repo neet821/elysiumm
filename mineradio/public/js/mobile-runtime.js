@@ -73,6 +73,7 @@
   function setVolume(value) {
     var next = Math.max(0, Math.min(1, Number(value) || 0));
     state.audio.volume = next;
+    state.audio.muted = next <= 0.01;
     if (next > 0.01) state.previousVolume = next;
     var slider = byId('volume-slider');
     if (slider) slider.value = String(next);
@@ -685,7 +686,10 @@
       setMobileRuntimeImmersive(false);
     }
     var slider = byId('volume-slider');
-    if (slider) slider.addEventListener('input', function () { setVolume(slider.value); });
+    if (slider) {
+      slider.addEventListener('input', function () { setVolume(slider.value); });
+      slider.addEventListener('change', function () { setVolume(slider.value); });
+    }
     var transport = bottom.querySelector('.control-cluster.transport');
     if (transport && volumeControl) transport.appendChild(volumeControl);
     if (transport && immersive) transport.appendChild(immersive);

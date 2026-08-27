@@ -153,11 +153,32 @@ test('standalone mobile runtime renders lyrics and owns fixed top slots without 
 test('iPad mobile chrome keeps top controls on one 46px baseline with a fixed 8px gap', () => {
   assert.match(mobileRuntimeCss, /--mobile-runtime-top-control-size:\s*46px;/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #top-right\s*\{[^}]*width:\s*var\(--mobile-runtime-top-control-size\) !important;/)
-  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #search-area\s*\{[^}]*left:\s*calc\(14px \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;[^}]*right:\s*calc\(14px \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #search-area\s*\{[^}]*left:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;[^}]*right:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #home-btn,[\s\S]*?height:\s*var\(--mobile-runtime-top-control-size\);/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #search-box\s*\{[^}]*height:\s*46px !important;/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #bottom-bar\.mobile-runtime-controls #progress-fill\s*\{[^}]*background:\s*#fff;/)
   assert.match(mobileRuntimeCss, /\.mobile-runtime-setting-row input\s*\{[^}]*accent-color:\s*#fff;/)
+})
+
+test('mobile ranges use a custom white track and volume input reaches the audio element', () => {
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active [^{]+input\[type="range"\][^{]*\{[^}]*-webkit-appearance:\s*none;[^}]*appearance:\s*none;/)
+  assert.match(mobileRuntimeCss, /input\[type="range"\]::-webkit-slider-runnable-track\s*\{[^}]*background:\s*rgba\(255, 255, 255, \.48\);/)
+  assert.match(mobileRuntimeCss, /input\[type="range"\]::-webkit-slider-thumb\s*\{[^}]*background:\s*#fff;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #bottom-bar\.mobile-runtime-controls #volume-control #volume-slider\s*\{[^}]*accent-color:\s*#fff;/)
+  assert.match(mobileRuntime, /state\.audio\.volume\s*=\s*next;/)
+  assert.match(mobileRuntime, /state\.audio\.muted\s*=\s*next\s*<=\s*0\.01;/)
+  assert.match(mobileRuntime, /slider\.addEventListener\('change'/)
+})
+
+test('mobile runtime locks the document to the dynamic viewport and shares symmetric top anchors', () => {
+  assert.match(mobileRuntimeCss, /--mobile-runtime-top-control-side:\s*14px;/)
+  assert.match(mobileRuntimeCss, /html,[\s\S]*body\s*\{[^}]*height:\s*100%;[^}]*overscroll-behavior:\s*none;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*100dvh;/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #desktop-window-shell\s*\{[^}]*height:\s*100dvh;/s)
+  assert.match(mobileRuntimeCss, /left:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
+  assert.match(mobileRuntimeCss, /right:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #home-btn\s*\{[^}]*left:\s*var\(--mobile-runtime-top-control-side\);/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #mobile-room-btn\s*\{[^}]*right:\s*var\(--mobile-runtime-top-control-side\);/)
 })
 
 test('standalone mobile runtime preserves room, cover, progress, and volume interactions', () => {

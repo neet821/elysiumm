@@ -2,6 +2,7 @@
   --mobile-runtime-accent: #9be8c1;
   --mobile-runtime-top-control-size: 46px;
   --mobile-runtime-top-control-gap: 8px;
+  --mobile-runtime-top-control-side: 14px;
   --mobile-runtime-text: rgba(255, 255, 255, .92);
   --mobile-runtime-muted: rgba(255, 255, 255, .52);
   --mobile-runtime-panel: rgba(20, 18, 24, .92);
@@ -19,13 +20,21 @@
 html,
 body {
   width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background: #09090b;
 }
 
 body.mobile-runtime-active {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
   color: var(--mobile-runtime-text);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -35,6 +44,9 @@ body.mobile-runtime-active {
 body.mobile-runtime-active #desktop-window-shell {
   position: fixed;
   inset: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   background:
     radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--mobile-runtime-bg-glow) 44%, transparent), transparent 40%),
@@ -51,8 +63,8 @@ body.mobile-runtime-active #search-area {
   position: fixed !important;
   z-index: 40;
   top: max(14px, env(safe-area-inset-top)) !important;
-  left: calc(14px + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
-  right: calc(14px + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
+  left: calc(var(--mobile-runtime-top-control-side) + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
+  right: calc(var(--mobile-runtime-top-control-side) + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
   width: auto !important;
   height: 46px !important;
   margin: 0 !important;
@@ -210,7 +222,7 @@ body.mobile-runtime-active #top-right {
   position: fixed !important;
   z-index: 50;
   top: max(14px, env(safe-area-inset-top)) !important;
-  right: 14px !important;
+  right: var(--mobile-runtime-top-control-side) !important;
   display: block !important;
   width: var(--mobile-runtime-top-control-size) !important;
   height: var(--mobile-runtime-top-control-size) !important;
@@ -242,16 +254,16 @@ body.mobile-runtime-active #blue-room-btn {
 }
 
 body.mobile-runtime-active #home-btn {
-  left: 14px;
+  left: var(--mobile-runtime-top-control-side);
 }
 
 body.mobile-runtime-active #mobile-room-btn {
-  right: 14px;
+  right: var(--mobile-runtime-top-control-side);
 }
 
 body.mobile-runtime-active #blue-room-btn {
   top: max(14px, env(safe-area-inset-top)) !important;
-  right: 14px !important;
+  right: var(--mobile-runtime-top-control-side) !important;
   width: 46px !important;
   height: 46px !important;
   margin: 0 !important;
@@ -425,23 +437,55 @@ body.mobile-runtime-active #mobile-2d-stage {
   accent-color: #fff;
 }
 
-body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-webkit-slider-runnable-track {
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"],
+body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #volume-control #volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+body.mobile-runtime-active input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, .48);
 }
 
-body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-webkit-slider-thumb {
+body.mobile-runtime-active input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border: 0;
+  border-radius: 50%;
   background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .24);
 }
 
-body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-track {
+body.mobile-runtime-active input[type="range"]::-moz-range-track {
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
   background: rgba(255, 255, 255, .48);
 }
 
-body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-progress {
+body.mobile-runtime-active input[type="range"]::-moz-range-progress {
   background: #fff;
 }
 
-body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-thumb {
+body.mobile-runtime-active input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
   background: #fff;
 }
 
@@ -705,7 +749,7 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #volume-control .
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #volume-control #volume-slider {
   width: 128px;
-  accent-color: var(--mobile-runtime-accent);
+  accent-color: #fff;
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #volume-control .fade-control-row {
