@@ -104,12 +104,26 @@ function deactivateHomeWallpaperPreview(playback) {
     setPreset(nextPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true });
   }
 }
+function hasCustomPlaybackVisualBackground() {
+  if (!fx) return false;
+  if (fx.backgroundAlbumCover === true) return true;
+  if (fx.backgroundColorCustom === true || fx.backgroundColorMode === 'custom') return true;
+  if (String(fx.backgroundImage || '').trim()) return true;
+  return !!(fx.backgroundMedia && typeof fx.backgroundMedia === 'object');
+}
+function resolvePlaybackVisualPresetForPlayback(targetPreset) {
+  if (targetPreset !== 3) return targetPreset;
+  if (typeof isMobileFxDevice === 'function' && isMobileFxDevice()) return targetPreset;
+  if (hasCustomPlaybackVisualBackground()) return targetPreset;
+  return fxDefaults.preset;
+}
 function switchPlaybackVisualToEmily() {
   if (homeVisualPresetActive) {
     deactivateHomeWallpaperPreview(true);
   }
   document.body.classList.remove('home-wallpaper-preview');
   var targetPreset = typeof playbackVisualPreset === 'number' ? playbackVisualPreset : fxDefaults.preset;
+  targetPreset = resolvePlaybackVisualPresetForPlayback(targetPreset);
   startupVisualPreviewActive = false;
   if (typeof setPreset === 'function' && fx.preset !== targetPreset) {
     setPreset(targetPreset, { silent: true, preserveCamera: false, noSave: true });

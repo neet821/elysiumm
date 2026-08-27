@@ -22,6 +22,7 @@ const mobileRuntime = read('mineradio/public/js/mobile-runtime.js')
 const mobileRuntimeCss = read('mineradio/public/css/mobile-runtime.css')
 const desktopSplash = read('mineradio/public/js/modules/10-shell/03-splash.js')
 const sonicMonitor = read('mineradio/public/js/modules/03-beat/06-sonic-audio-monitor.js')
+const homeWallpaper = read('mineradio/public/js/modules/05-playback/04-home-empty-wallpaper.js')
 const bridge = read('mineradio/public/blue-album-room-bridge.js')
 const volume = read('mineradio/public/js/modules/05-playback/08-audio-graph-controls.js')
 const page = read('frontend/src/pages/MineradioPage.jsx')
@@ -131,6 +132,17 @@ test('desktop runtime binds late-loaded splash and beat controls after DOMConten
   assert.match(desktopSplash, /function bindMineradioSplashInteractions\s*\(/)
   assert.match(desktopSplash, /if \(document\.readyState === 'loading'\)[\s\S]*else\s*{\s*bindMineradioSplashInteractions\(\)/)
   assert.match(sonicMonitor, /if \(document\.readyState === 'loading'\)[\s\S]*else\s*{\s*bindSonicAudioMonitorControls\(\)/)
+})
+
+test('desktop playback does not restore an empty void preset without a custom background', () => {
+  assert.match(homeWallpaper, /function resolvePlaybackVisualPresetForPlayback\s*\(/)
+  assert.match(homeWallpaper, /typeof isMobileFxDevice === 'function' && isMobileFxDevice\(\)/)
+  assert.match(homeWallpaper, /targetPreset !== 3/)
+  assert.match(homeWallpaper, /isMobileFxDevice\(\)\) return targetPreset/)
+  assert.match(homeWallpaper, /hasCustomPlaybackVisualBackground\(\)\) return targetPreset/)
+  assert.match(homeWallpaper, /backgroundAlbumCover|backgroundImage|backgroundMedia/)
+  assert.match(homeWallpaper, /return fxDefaults\.preset/)
+  assert.match(homeWallpaper, /resolvePlaybackVisualPresetForPlayback\(targetPreset\)/)
 })
 
 test('standalone mobile runtime renders lyrics and owns fixed top slots without desktop overlap', () => {
