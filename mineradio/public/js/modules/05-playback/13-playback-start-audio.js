@@ -1292,7 +1292,13 @@ async function playQueueAt(idx, opts) {
         cancelBeatAnalysisTimer();
         beatMapToken++;
         var bmTok = beatMapToken;
-        if (podcastDjMode) {
+        if (typeof isMobileFxDevice === 'function' && isMobileFxDevice()) {
+          // 移动端 2D 播放器不启动离线节奏分析，避免分析链路阻塞首屏。
+          cancelDjBeatAnalysisTimer();
+          djBeatMapToken++;
+          resetDjBeatMapState();
+          hideBeatChip();
+        } else if (podcastDjMode) {
           // 播客走独立 DJ 离线锁拍系统, 不写入普通歌曲 beatMap.
           djBeatMapToken++;
           cancelDjBeatAnalysisTimer();

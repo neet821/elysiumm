@@ -194,6 +194,13 @@ async function analyzeMusicTempoInWorker(buffer, token) {
 
 function scheduleBeatAnalysis(songId, audioUrl, token, song) {
   if (!songId || !audioUrl) return;
+  if ((typeof isMobile2dUi === 'function' && isMobile2dUi()) ||
+      (typeof isMobileFxDevice === 'function' && isMobileFxDevice())) {
+    cancelBeatAnalysisTimer();
+    beatAnalysisStartedAt = 0;
+    hideBeatChip();
+    return;
+  }
   if (djMode.active) {
     cancelBeatAnalysisTimer();
     beatAnalysisStartedAt = 0;

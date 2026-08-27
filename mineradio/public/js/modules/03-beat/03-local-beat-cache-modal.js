@@ -1,4 +1,8 @@
 function showBeatChip(text) {
+  if (typeof isMobile2dUi === 'function' && isMobile2dUi()) {
+    hideBeatChip();
+    return;
+  }
   document.getElementById('beat-text').textContent = text || '分析节奏…';
   document.getElementById('beat-chip').classList.add('show');
   if (localBeatAnalysis && localBeatAnalysis.active) setLocalBeatStatus(text || '分析中...', 'warn');
@@ -361,4 +365,3 @@ async function startLocalBeatAnalysis(mode) {
     showToast('本地节奏分析失败');
   }
 }
-

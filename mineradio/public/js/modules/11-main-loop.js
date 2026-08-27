@@ -353,8 +353,9 @@ function animate() {
   // 真正的 mid 乐器/和声: 3000-6000Hz → bin 140-280
   // treble: 6000Hz+ → bin 280+
   var audioPerfStart = performance.now();
+  var mobile2d = isMobile2dUi();
   beatOnsetFlag = false;
-  var audioStepDt = consumeFrameGate(mainFrameGates.audio, now, dt, targetMainAudioFps(now), false, 'audio-analysis');
+  var audioStepDt = mobile2d ? 0 : consumeFrameGate(mainFrameGates.audio, now, dt, targetMainAudioFps(now), false, 'audio-analysis');
   var sonicAudioFrame = fx && fx.sonicAudioMonitorEnabled !== false && typeof getSonicAudioMonitorSnapshot === 'function'
     ? getSonicAudioMonitorSnapshot().frame
     : null;
@@ -533,6 +534,11 @@ function animate() {
   }
   }
   if (perfProbe && perfProbe.markSince) perfProbe.markSince('audio.analysis', audioPerfStart);
+  if (mobile2d) {
+    updateMobile2dLyrics(dt);
+    if (typeof updatePlaybackProgressUi === 'function') updatePlaybackProgressUi();
+    return;
+  }
   audioEnergy = Math.max(smoothEnergy, beatPulse * 0.30);
   bass = Math.min(0.90, smoothBass * 1.05 + beatPulse * 0.18) * fx.intensity;
   mid = Math.min(0.72, smoothMid * 1.12) * fx.intensity;

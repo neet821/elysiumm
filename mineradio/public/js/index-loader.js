@@ -35,6 +35,7 @@
     'js/modules/02-visual/12-lyrics-row-layers.js',
     'js/modules/02-visual/13-lyrics-mesh-build.js',
     'js/modules/02-visual/14-stage-lyrics-rendering.js',
+    'js/modules/02-visual/15-mobile-2d-lyrics.js',
     'js/modules/02-visual/15-ripples-cover-depth.js',
     'sonic-topography-preset.js',
     'sonic-workshop-preset.js',

@@ -847,6 +847,7 @@ function applyMobileFxArchiveForDevice() {
   var mobile = isMobileFxDevice();
   if (document.body) {
     document.body.classList.toggle('mobile-device', mobile);
+    document.body.classList.toggle('mobile-2d-ui', mobile);
     document.body.classList.toggle('desktop-player', !mobile);
   }
   if (!mobile) {

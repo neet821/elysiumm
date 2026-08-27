@@ -18124,3 +18124,235 @@ body.desktop-player:not(.immersive-mode) .control-cluster.modes {
   order: 0 !important;
   width: auto !important;
 }
+
+/* ============================================================ */
+/*  Mobile 2D player                                             */
+/*  A device profile, not a viewport breakpoint: iPad stays here. */
+/* ============================================================ */
+#mobile-2d-stage {
+  display: none;
+}
+
+body.mobile-2d-ui {
+  --mobile-2d-top: calc(env(safe-area-inset-top, 0px) + 16px);
+  --mobile-2d-side: max(16px, env(safe-area-inset-left, 0px));
+  background:
+    radial-gradient(circle at 82% 16%, rgba(94, 58, 43, .30), transparent 34%),
+    radial-gradient(circle at 18% 72%, rgba(52, 29, 41, .36), transparent 42%),
+    linear-gradient(145deg, #0b0c13 0%, #171014 46%, #090b0c 100%) !important;
+  overflow: hidden;
+}
+
+body.mobile-2d-ui #canvas-container,
+body.mobile-2d-ui #idle-guide-canvas,
+body.mobile-2d-ui #hand-canvas,
+body.mobile-2d-ui #login-guide-canvas,
+body.mobile-2d-ui .gesture-hud,
+body.mobile-2d-ui #beat-chip,
+body.mobile-2d-ui #ai-depth-chip {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body.mobile-2d-ui #stage-lyrics {
+  display: none !important;
+}
+
+body.mobile-2d-ui #search-area,
+body.mobile-2d-ui #search-area.peek,
+body.mobile-2d-ui #search-area.stage-mode.peek {
+  top: var(--mobile-2d-top) !important;
+  left: 68px !important;
+  right: 132px !important;
+  width: auto !important;
+  transform: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+body.mobile-2d-ui #search-stack {
+  width: 100% !important;
+}
+
+body.mobile-2d-ui #search-box {
+  height: 56px;
+  padding: 0 18px;
+  border-radius: 28px;
+  background: rgba(30, 31, 38, .58) !important;
+  border-color: rgba(255, 255, 255, .14) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .09) !important;
+}
+
+body.mobile-2d-ui #search-area .search-mode-tabs {
+  display: none !important;
+}
+
+body.mobile-2d-ui #top-right {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  top: 0 !important;
+  right: 0 !important;
+  display: block;
+  pointer-events: none;
+  z-index: 30;
+}
+
+body.mobile-2d-ui #top-right > .user-capsule-hide-btn {
+  display: none !important;
+}
+
+body.mobile-2d-ui #top-right > #home-btn,
+body.mobile-2d-ui #top-right > #mobile-lyric-settings-btn,
+body.mobile-2d-ui #top-right > #user-btn {
+  position: fixed;
+  top: var(--mobile-2d-top);
+  z-index: 31;
+  pointer-events: auto;
+}
+
+body.mobile-2d-ui #top-right > #home-btn {
+  left: var(--mobile-2d-side);
+}
+
+body.mobile-2d-ui #top-right > #mobile-lyric-settings-btn {
+  right: 72px;
+}
+
+body.mobile-2d-ui #top-right > #user-btn {
+  right: max(16px, env(safe-area-inset-right, 0px));
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  background: rgba(255, 255, 255, .075) !important;
+  border: 1px solid rgba(255, 255, 255, .20) !important;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .14) !important;
+}
+
+body.mobile-2d-ui #top-right > #user-btn.multi-account.external-account-pills {
+  max-width: 48px !important;
+  max-height: 48px !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+
+body.mobile-2d-ui #user-btn .top-account-pill:not(:first-child) {
+  display: none !important;
+}
+
+body.mobile-2d-ui #user-btn .top-account-pill:first-child {
+  display: flex !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+}
+
+body.mobile-2d-ui #user-btn .top-account-pill:first-child .top-account-name,
+body.mobile-2d-ui #user-btn .top-account-pill:first-child .user-vip-tag {
+  display: none !important;
+}
+
+body.mobile-2d-ui #user-btn .top-account-pill:first-child img {
+  width: 34px !important;
+  height: 34px !important;
+  margin: 0 !important;
+}
+
+body.mobile-2d-ui #mobile-2d-stage {
+  position: fixed;
+  z-index: 4;
+  inset: calc(var(--mobile-2d-top) + 76px) 0 148px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px clamp(20px, 7vw, 52px);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+body.mobile-2d-ui #mobile-2d-lyrics {
+  width: min(100%, 760px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, .92);
+  font-family: var(--font-sans);
+  font-size: clamp(24px, 5.8vw, 42px);
+  font-weight: var(--mobile-2d-lyric-weight, 720);
+  line-height: var(--mobile-2d-lyric-line-height, 1.18);
+  letter-spacing: .015em;
+  text-align: center;
+  text-wrap: balance;
+  transform: scale(var(--mobile-2d-lyric-scale, 1));
+  transform-origin: center;
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-row {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  transition: opacity .22s, transform .22s, filter .22s;
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-row.previous,
+body.mobile-2d-ui .mobile-2d-lyric-row.next {
+  font-size: .52em;
+  font-weight: 620;
+  color: rgba(255, 255, 255, .30);
+  filter: blur(.3px);
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-row.previous {
+  order: 1;
+  transform: translateY(-2px);
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-row.current {
+  order: 2;
+  color: rgba(255, 255, 255, .96);
+  text-shadow: 0 10px 34px rgba(0, 0, 0, .42), 0 0 26px rgba(161, 240, 220, .12);
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-row.next {
+  order: 3;
+  transform: translateY(2px);
+}
+
+body.mobile-2d-ui .mobile-2d-lyric-translation {
+  display: block;
+  margin-top: 8px;
+  font-size: .42em;
+  font-weight: 560;
+  line-height: 1.3;
+  color: rgba(194, 255, 236, .62);
+}
+
+body.mobile-2d-ui #mobile-2d-empty {
+  display: block;
+  color: rgba(255, 255, 255, .28);
+  font-size: 13px;
+  letter-spacing: .08em;
+}
+
+body.mobile-2d-ui #mobile-2d-stage.has-lyrics #mobile-2d-empty {
+  display: none;
+}
+
+body.mobile-2d-ui #bottom-bar {
+  z-index: 20;
+}

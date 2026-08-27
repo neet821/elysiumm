@@ -13,7 +13,7 @@
   <script src="vendor/music-tempo.min.js"></script>
   <script src="vendor/gsap.min.js"></script>
   <script src="js/preload-mode.js"></script>
-  <link rel="stylesheet" href="css/index.css?v=20260827-mobile-lyrics-performance-1">
+  <link rel="stylesheet" href="css/index.css?v=20260827-mobile-2d-ui-1">
 </head>
 
 <body>
@@ -1145,6 +1145,12 @@
       <div class="mini-spin"></div><span id="beat-text">分析节奏…</span>
     </div>
 
+    <!-- 移动端 2D 歌词舞台：不依赖 WebGL 歌词网格 -->
+    <div id="mobile-2d-stage" aria-live="polite" aria-label="移动端歌词">
+      <div id="mobile-2d-lyrics" class="mobile-2d-lyrics" aria-hidden="true"></div>
+      <div id="mobile-2d-empty" class="mobile-2d-empty">搜索一首歌开始播放</div>
+    </div>
+
     <!-- 舞台歌词 (大字 3D, 由 JS 动态填充) -->
     <div id="stage-lyrics"></div>
 
@@ -1910,7 +1916,7 @@
       }
     } catch (_) {}
   </script>
-  <script src="js/index-loader.js"></script>
+  <script src="js/index-loader.js?v=20260827-mobile-2d-ui-1"></script>
   <script src="blue-album-room-bridge.js?v=20260827-room-history-1"></script>
 </body>
 

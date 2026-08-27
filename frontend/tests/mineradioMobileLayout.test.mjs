@@ -12,7 +12,12 @@ const archive = read('mineradio/public/js/modules/07-fx/00-preset-archive-data.j
 const bindings = read('mineradio/public/js/modules/07-fx/07-bindings-shelf-immersive.js')
 const peekPanels = read('mineradio/public/js/modules/10-shell/02-peek-panels-upload.js')
 const lyricMask = read('mineradio/public/js/modules/02-visual/10-lyrics-mask-textures.js')
+const mobile2dLyrics = read('mineradio/public/js/modules/02-visual/15-mobile-2d-lyrics.js')
 const startup = read('mineradio/public/js/modules/10-shell/05-startup-bindings.js')
+const mainLoop = read('mineradio/public/js/modules/11-main-loop.js')
+const playbackStart = read('mineradio/public/js/modules/05-playback/13-playback-start-audio.js')
+const beatChip = read('mineradio/public/js/modules/03-beat/03-local-beat-cache-modal.js')
+const loader = read('mineradio/public/js/index-loader.js')
 const bridge = read('mineradio/public/blue-album-room-bridge.js')
 const volume = read('mineradio/public/js/modules/05-playback/08-audio-graph-controls.js')
 const page = read('frontend/src/pages/MineradioPage.jsx')
@@ -83,6 +88,35 @@ test('mobile Mineradio applies the named archive and hides visual controls', () 
   assert.match(startup, /applyMobileFxArchiveForDevice\(\)/)
   assert.match(css, /body\.mobile-device #fx-fab[^}]*display:\s*none\s*!important/)
   assert.match(css, /body\.mobile-device #fx-fab-hide-btn[^}]*display:\s*none\s*!important/)
+})
+
+test('mobile 2D mode has a dedicated DOM lyric surface and bypasses 3D lyric work', () => {
+  assert.match(html, /id="mobile-2d-stage"/)
+  assert.match(html, /id="mobile-2d-lyrics"/)
+  assert.match(loader, /02-visual\/15-mobile-2d-lyrics\.js/)
+  assert.match(mobile2dLyrics, /function updateMobile2dLyrics\s*\(/)
+  assert.match(mobile2dLyrics, /textContent/)
+  assert.match(css, /body\.mobile-2d-ui #mobile-2d-stage[^}]*display:\s*flex/s)
+  assert.match(css, /body\.mobile-2d-ui #canvas-container[^}]*display:\s*none\s*!important/s)
+  assert.match(mainLoop, /isMobile2dUi\(\)/)
+  assert.match(mainLoop, /updateMobile2dLyrics\(/)
+})
+
+test('mobile 2D mode never starts beat analysis or leaves the beat chip visible', () => {
+  assert.match(playbackStart, /isMobileFxDevice\(\)/)
+  assert.match(playbackStart, /else if \(podcastDjMode\)/)
+  assert.match(beatChip, /isMobile2dUi\(\)/)
+  assert.match(beatChip, /hideBeatChip\(\)/)
+  assert.match(mainLoop, /var mobile2d = isMobile2dUi\(\)/)
+})
+
+test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
+  assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
+  assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)
+  assert.match(css, /body\.mobile-2d-ui #top-right > #mobile-lyric-settings-btn[^}]*right:\s*72px/s)
+  assert.match(css, /body\.mobile-2d-ui #top-right > #user-btn[^}]*right:\s*max\(16px/s)
+  assert.match(css, /body\.mobile-2d-ui #top-right > #user-btn\.multi-account\.external-account-pills[^}]*overflow:\s*hidden/s)
+  assert.match(css, /body\.mobile-2d-ui #user-btn \.top-account-pill:not\(:first-child\)[^}]*display:\s*none\s*!important/s)
 })
 
 test('mobile controls keep track information and only volume plus immersive actions', () => {
