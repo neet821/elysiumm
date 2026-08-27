@@ -36,7 +36,7 @@
   function songArtist(song) { return text(firstValue(song && song.artist, song && song.singer, '未知音乐人')); }
   function songId(song) { return text(firstValue(song && song.id, song && song.mid, song && song.songmid, song && song.programId)); }
   function songCover(song) {
-    return text(firstValue(song && song.picUrl, song && song.cover, song && song.albumPic, song && song.album && song.album.picUrl));
+    return text(firstValue(song && song.picUrl, song && song.cover, song && song.artwork_url, song && song.albumPic, song && song.album && song.album.picUrl));
   }
   function isRoomMode() { return !!new URLSearchParams(location.search).get('blue-room'); }
   function routeRoomSearchSelection(song) {
@@ -283,6 +283,7 @@
     state.lyricRevision += 1;
     state.lyricIndex = -1;
     renderMobileLyrics();
+    updateLyricCursor(true);
   }
   function loadLyrics(song, generation) {
     if (!songId(song)) { setLyrics([], generation); return; }
@@ -300,10 +301,8 @@
     var current = Number(state.audio.currentTime || 0);
     var ratio = duration > 0 ? Math.max(0, Math.min(1, current / duration)) : 0;
     var fill = byId('progress-fill');
-    var thumb = byId('progress-thumb');
     var time = byId('time-display');
     if (fill) fill.style.width = (ratio * 100) + '%';
-    if (thumb) thumb.style.left = (ratio * 100) + '%';
     if (time) time.textContent = formatTime(current) + ' / ' + formatTime(duration);
     updateLyricCursor(false);
   }
@@ -556,11 +555,6 @@
     if (immersive) { immersive.removeAttribute('onclick'); immersive.addEventListener('click', function () { document.body.classList.toggle('mobile-runtime-immersive'); }); }
     var slider = byId('volume-slider');
     if (slider) slider.addEventListener('input', function () { setVolume(slider.value); });
-    var progress = byId('progress-bar');
-    if (progress) progress.addEventListener('click', function (event) {
-      var rect = progress.getBoundingClientRect();
-      if (state.audio.duration > 0) state.audio.currentTime = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * state.audio.duration;
-    });
     var transport = bottom.querySelector('.control-cluster.transport');
     if (transport && volumeControl) transport.appendChild(volumeControl);
     if (transport && immersive) transport.appendChild(immersive);

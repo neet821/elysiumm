@@ -156,6 +156,14 @@ test('standalone mobile lyrics move the active line with playback', () => {
   assert.match(mobileRuntimeCss, /\.mobile-runtime-lyric-track[^}]*transition:\s*transform/s)
 })
 
+test('standalone mobile lyrics align after async loading and progress stays display-only', () => {
+  assert.match(mobileRuntime, /state\.lyricIndex = -1;\s*renderMobileLyrics\(\);\s*updateLyricCursor\(true\)/s)
+  assert.match(mobileRuntimeCss, /\.control-cover[^}]*background-size:\s*cover/s)
+  assert.match(mobileRuntimeCss, /#progress-thumb[^}]*display:\s*none\s*!important/s)
+  assert.match(mobileRuntimeCss, /#progress-bar[^}]*pointer-events:\s*none/s)
+  assert.doesNotMatch(mobileRuntime, /if \(progress\) progress\.addEventListener\('click'/)
+})
+
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
   assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
   assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)

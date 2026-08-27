@@ -452,6 +452,8 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-bar {
   height: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, .16);
+  pointer-events: none;
+  cursor: default;
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-fill {
@@ -466,15 +468,7 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-fill {
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-thumb {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
-  transform: translate(-50%, -50%);
+  display: none !important;
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #controls {
@@ -505,6 +499,9 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls .control-cover {
   flex: 0 0 54px;
   border-radius: 13px;
   background: rgba(255, 255, 255, .08);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls .control-meta,
