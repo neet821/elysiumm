@@ -173,12 +173,28 @@ test('mobile ranges use a custom white track and volume input reaches the audio 
 test('mobile runtime locks the document to the dynamic viewport and shares symmetric top anchors', () => {
   assert.match(mobileRuntimeCss, /--mobile-runtime-top-control-side:\s*14px;/)
   assert.match(mobileRuntimeCss, /html,[\s\S]*body\s*\{[^}]*height:\s*100%;[^}]*overscroll-behavior:\s*none;/)
-  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*100dvh;/s)
-  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #desktop-window-shell\s*\{[^}]*height:\s*100dvh;/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*var\(--mobile-runtime-viewport-height, 100dvh\);/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #desktop-window-shell\s*\{[^}]*height:\s*var\(--mobile-runtime-viewport-height, 100dvh\);/s)
   assert.match(mobileRuntimeCss, /left:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
   assert.match(mobileRuntimeCss, /right:\s*calc\(var\(--mobile-runtime-top-control-side\) \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #home-btn\s*\{[^}]*left:\s*var\(--mobile-runtime-top-control-side\);/)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #mobile-room-btn\s*\{[^}]*right:\s*var\(--mobile-runtime-top-control-side\);/)
+})
+
+test('mobile translation color follows the cover-derived runtime palette', () => {
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyric-translation\s*\{[^}]*color:\s*rgba\(255, 255, 255, \.72\);[^}]*color:\s*color-mix\(in srgb, var\(--mobile-runtime-bg-glow\) 28%, white 72%\);/s)
+  assert.doesNotMatch(mobileRuntimeCss, /\.mobile-runtime-lyric-translation\s*\{[^}]*rgba\(194, 255, 236, \.64\)/s)
+})
+
+test('mobile runtime syncs changing viewport height and blocks page touch scrolling', () => {
+  assert.match(mobileRuntimeCss, /--mobile-runtime-viewport-height:\s*100dvh;/)
+  assert.match(mobileRuntimeCss, /height:\s*var\(--mobile-runtime-viewport-height, 100dvh\);/)
+  assert.match(mobileRuntimeCss, /background:\s*var\(--mobile-runtime-bg-base, #09090b\);/)
+  assert.match(mobileRuntime, /function syncMobileRuntimeViewport\s*\(/)
+  assert.match(mobileRuntime, /--mobile-runtime-viewport-height/)
+  assert.match(mobileRuntime, /window\.visualViewport\.addEventListener\('resize'/)
+  assert.match(mobileRuntime, /document\.addEventListener\('touchmove'[\s\S]*?passive:\s*false/s)
+  assert.match(mobileRuntime, /closest\(['"]button, a, input, textarea, select, #search-results['"]\)/)
 })
 
 test('standalone mobile runtime preserves room, cover, progress, and volume interactions', () => {

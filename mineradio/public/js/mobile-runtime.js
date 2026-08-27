@@ -28,6 +28,23 @@
 
   function byId(id) { return document.getElementById(id); }
   function text(value) { return value == null ? '' : String(value); }
+  function syncMobileRuntimeViewport() {
+    var root = document.documentElement;
+    if (!root) return;
+    var visualHeight = window.visualViewport && window.visualViewport.height;
+    var height = Math.round(window.innerHeight || visualHeight || 0);
+    if (height > 0) root.style.setProperty('--mobile-runtime-viewport-height', height + 'px');
+  }
+  function installViewportLock() {
+    syncMobileRuntimeViewport();
+    window.addEventListener('resize', syncMobileRuntimeViewport, { passive: true });
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', syncMobileRuntimeViewport, { passive: true });
+    document.addEventListener('touchmove', function (event) {
+      var target = event.target;
+      if (target && typeof target.closest === 'function' && target.closest('button, a, input, textarea, select, #search-results')) return;
+      event.preventDefault();
+    }, { passive: false });
+  }
   function firstValue() {
     for (var i = 0; i < arguments.length; i++) {
       if (arguments[i] !== undefined && arguments[i] !== null && String(arguments[i]).trim()) return arguments[i];
@@ -734,6 +751,7 @@
   }
   function boot() {
     document.body.classList.add('mobile-runtime-active', 'mobile-device', 'mobile-2d-ui');
+    installViewportLock();
     var legacyStage = byId('mobile-2d-stage');
     if (legacyStage) {
       legacyStage.setAttribute('aria-label', '移动端歌词');

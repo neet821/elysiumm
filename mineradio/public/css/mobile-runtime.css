@@ -3,6 +3,7 @@
   --mobile-runtime-top-control-size: 46px;
   --mobile-runtime-top-control-gap: 8px;
   --mobile-runtime-top-control-side: 14px;
+  --mobile-runtime-viewport-height: 100dvh;
   --mobile-runtime-text: rgba(255, 255, 255, .92);
   --mobile-runtime-muted: rgba(255, 255, 255, .52);
   --mobile-runtime-panel: rgba(20, 18, 24, .92);
@@ -25,14 +26,15 @@ body {
   min-height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #09090b;
+  background: var(--mobile-runtime-bg-base, #09090b);
 }
 
 body.mobile-runtime-active {
   position: fixed;
   inset: 0;
-  height: 100dvh;
-  min-height: 100dvh;
+  height: var(--mobile-runtime-viewport-height, 100dvh);
+  min-height: var(--mobile-runtime-viewport-height, 100dvh);
+  max-height: var(--mobile-runtime-viewport-height, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
   color: var(--mobile-runtime-text);
@@ -44,9 +46,9 @@ body.mobile-runtime-active {
 body.mobile-runtime-active #desktop-window-shell {
   position: fixed;
   inset: 0;
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: var(--mobile-runtime-viewport-height, 100dvh);
+  min-height: var(--mobile-runtime-viewport-height, 100dvh);
+  max-height: var(--mobile-runtime-viewport-height, 100dvh);
   overflow: hidden;
   background:
     radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--mobile-runtime-bg-glow) 44%, transparent), transparent 40%),
@@ -355,7 +357,9 @@ body.mobile-runtime-active #mobile-2d-stage {
 
 .mobile-runtime-lyric-translation {
   margin-top: .34em;
-  color: rgba(194, 255, 236, .64);
+  color: rgba(255, 255, 255, .72);
+  color: color-mix(in srgb, var(--mobile-runtime-bg-glow) 28%, white 72%);
+  opacity: .72;
   font-size: .58em;
   font-weight: 560;
   line-height: 1.3;
