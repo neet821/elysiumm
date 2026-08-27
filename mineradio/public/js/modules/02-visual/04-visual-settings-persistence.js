@@ -709,9 +709,7 @@ function saveLyricLayout(opts) {
       lyricLayoutSaveTimer = null;
       lyricLayoutSaveOpts = null;
     }
-    var presetForSave = typeof playbackVisualPresetFallbackActive !== 'undefined' && playbackVisualPresetFallbackActive
-      ? playbackVisualPreset
-      : startupVisualPreviewActive && !playing && currentIdx < 0
+    var presetForSave = startupVisualPreviewActive && !playing && currentIdx < 0
       ? playbackVisualPreset
       : clampRange(Number(fx.preset) || 0, 0, presetMeta.length - 1);
     var autosavePayload = {
