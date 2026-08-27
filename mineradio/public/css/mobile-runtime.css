@@ -1,5 +1,7 @@
 :root {
   --mobile-runtime-accent: #9be8c1;
+  --mobile-runtime-top-control-size: 46px;
+  --mobile-runtime-top-control-gap: 8px;
   --mobile-runtime-text: rgba(255, 255, 255, .92);
   --mobile-runtime-muted: rgba(255, 255, 255, .52);
   --mobile-runtime-panel: rgba(20, 18, 24, .92);
@@ -49,8 +51,8 @@ body.mobile-runtime-active #search-area {
   position: fixed !important;
   z-index: 40;
   top: max(14px, env(safe-area-inset-top)) !important;
-  left: 68px !important;
-  right: 68px !important;
+  left: calc(14px + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
+  right: calc(14px + var(--mobile-runtime-top-control-size) + var(--mobile-runtime-top-control-gap)) !important;
   width: auto !important;
   height: 46px !important;
   margin: 0 !important;
@@ -210,8 +212,8 @@ body.mobile-runtime-active #top-right {
   top: max(14px, env(safe-area-inset-top)) !important;
   right: 14px !important;
   display: block !important;
-  width: 40px !important;
-  height: 46px !important;
+  width: var(--mobile-runtime-top-control-size) !important;
+  height: var(--mobile-runtime-top-control-size) !important;
   margin: 0 !important;
   pointer-events: none;
   transform: none !important;
@@ -226,8 +228,8 @@ body.mobile-runtime-active #mobile-room-btn,
 body.mobile-runtime-active #blue-room-btn {
   position: fixed;
   top: max(14px, env(safe-area-inset-top));
-  width: 46px;
-  height: 46px;
+  width: var(--mobile-runtime-top-control-size);
+  height: var(--mobile-runtime-top-control-size);
   box-sizing: border-box;
   display: grid;
   place-items: center;
@@ -420,7 +422,27 @@ body.mobile-runtime-active #mobile-2d-stage {
 
 .mobile-runtime-setting-row input {
   width: 100%;
-  accent-color: var(--mobile-runtime-accent);
+  accent-color: #fff;
+}
+
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(255, 255, 255, .48);
+}
+
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-webkit-slider-thumb {
+  background: #fff;
+}
+
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-track {
+  background: rgba(255, 255, 255, .48);
+}
+
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-progress {
+  background: #fff;
+}
+
+body.mobile-runtime-active .mobile-runtime-setting-row input[type="range"]::-moz-range-thumb {
+  background: #fff;
 }
 
 .mobile-runtime-setting-value {
@@ -540,7 +562,8 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-fill {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--mobile-runtime-accent);
+  background: #fff;
+  box-shadow: none;
 }
 
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls #progress-thumb {

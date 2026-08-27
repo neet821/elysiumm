@@ -150,6 +150,16 @@ test('standalone mobile runtime renders lyrics and owns fixed top slots without 
   assert.match(mobileRuntimeCss, /transport[^}]*#volume-control/s)
 })
 
+test('iPad mobile chrome keeps top controls on one 46px baseline with a fixed 8px gap', () => {
+  assert.match(mobileRuntimeCss, /--mobile-runtime-top-control-size:\s*46px;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #top-right\s*\{[^}]*width:\s*var\(--mobile-runtime-top-control-size\) !important;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #search-area\s*\{[^}]*left:\s*calc\(14px \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;[^}]*right:\s*calc\(14px \+ var\(--mobile-runtime-top-control-size\) \+ var\(--mobile-runtime-top-control-gap\)\) !important;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #home-btn,[\s\S]*?height:\s*var\(--mobile-runtime-top-control-size\);/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #search-box\s*\{[^}]*height:\s*46px !important;/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #bottom-bar\.mobile-runtime-controls #progress-fill\s*\{[^}]*background:\s*#fff;/)
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-setting-row input\s*\{[^}]*accent-color:\s*#fff;/)
+})
+
 test('standalone mobile runtime preserves room, cover, progress, and volume interactions', () => {
   assert.match(mobileRuntime, /mobileApiUrl\([^)]*\/api\/cover/)
   assert.match(mobileRuntime, /volumeControl\.classList\.toggle\('is-open'/)
