@@ -139,6 +139,16 @@ test('standalone mobile runtime renders lyrics and owns fixed top slots without 
   assert.match(mobileRuntimeCss, /transport[^}]*#volume-control/s)
 })
 
+test('standalone mobile runtime preserves room, cover, progress, and volume interactions', () => {
+  assert.match(mobileRuntime, /mobileApiUrl\([^)]*\/api\/cover/)
+  assert.match(mobileRuntime, /volumeControl\.classList\.toggle\('is-open'/)
+  assert.match(mobileRuntime, /classList\.toggle\('is-muted'/)
+  assert.match(mobileRuntime, /setAttribute\('aria-pressed'/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #blue-room-btn[^}]*pointer-events:\s*auto/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #bottom-bar\.mobile-runtime-controls #progress-fill[^}]*height:\s*100%/s)
+  assert.match(mobileRuntimeCss, /#volume-control\.is-open \.volume-popover[^}]*display:\s*grid/s)
+})
+
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
   assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
   assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)

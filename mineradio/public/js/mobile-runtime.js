@@ -76,12 +76,24 @@
     if (slider) slider.value = String(next);
     var valueLabel = byId('volume-value');
     if (valueLabel) valueLabel.textContent = Math.round(next * 100) + '%';
+    var volume = byId('volume-btn');
+    if (volume) {
+      var muted = next <= 0.01;
+      volume.classList.toggle('is-muted', muted);
+      volume.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      volume.setAttribute('aria-label', muted ? '取消静音' : '音量 / 静音');
+      volume.title = muted ? '取消静音' : '音量 / 静音';
+      var icon = byId('volume-icon');
+      if (icon) icon.innerHTML = muted
+        ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="m15 9 6 6m0-6-6 6"></path>'
+        : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15 9.5a4 4 0 0 1 0 5"></path>';
+    }
   }
   function toggleMute() { setVolume(state.audio.volume > 0.01 ? 0 : (state.previousVolume || 0.8)); }
   function coverTarget(song) {
     var url = songCover(song);
     if (!url) return '';
-    return /^https?:\/\//i.test(url) ? '/api/cover?url=' + encodeURIComponent(url) : url;
+    return /^https?:\/\//i.test(url) ? mobileApiUrl('/api/cover?url=' + encodeURIComponent(url)) : url;
   }
   function updateTrackUi(song) {
     var title = byId('control-title-text');
@@ -501,7 +513,20 @@
       button.addEventListener('click', function (event) { event.preventDefault(); entry[1](true); });
     });
     var volume = byId('volume-btn');
-    if (volume) { volume.removeAttribute('onclick'); volume.addEventListener('click', function (event) { event.preventDefault(); toggleMute(); }); }
+    var volumeControl = byId('volume-control');
+    if (volume) {
+      volume.removeAttribute('onclick');
+      volume.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleMute();
+        if (volumeControl) volumeControl.classList.toggle('is-open');
+      });
+    }
+    if (volumeControl) {
+      volumeControl.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { volumeControl.classList.remove('is-open'); });
+    }
     var immersive = byId('immersive-btn');
     if (immersive) { immersive.removeAttribute('onclick'); immersive.addEventListener('click', function () { document.body.classList.toggle('mobile-runtime-immersive'); }); }
     var slider = byId('volume-slider');
@@ -512,7 +537,6 @@
       if (state.audio.duration > 0) state.audio.currentTime = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * state.audio.duration;
     });
     var transport = bottom.querySelector('.control-cluster.transport');
-    var volumeControl = byId('volume-control');
     if (transport && volumeControl) transport.appendChild(volumeControl);
     if (transport && immersive) transport.appendChild(immersive);
     ['control-cover', 'control-title', 'control-artist'].forEach(function (id) {
