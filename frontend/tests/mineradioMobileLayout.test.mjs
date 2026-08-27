@@ -20,6 +20,8 @@ const beatChip = read('mineradio/public/js/modules/03-beat/03-local-beat-cache-m
 const loader = read('mineradio/public/js/index-loader.js')
 const mobileRuntime = read('mineradio/public/js/mobile-runtime.js')
 const mobileRuntimeCss = read('mineradio/public/css/mobile-runtime.css')
+const desktopSplash = read('mineradio/public/js/modules/10-shell/03-splash.js')
+const sonicMonitor = read('mineradio/public/js/modules/03-beat/06-sonic-audio-monitor.js')
 const bridge = read('mineradio/public/blue-album-room-bridge.js')
 const volume = read('mineradio/public/js/modules/05-playback/08-audio-graph-controls.js')
 const page = read('frontend/src/pages/MineradioPage.jsx')
@@ -123,6 +125,12 @@ test('mobile boot selects a standalone runtime before desktop vendor scripts', (
   assert.match(mobileRuntime, /function mobileApiUrl\s*\(/)
   assert.match(mobileRuntime, /\/mineradio-api\//)
   assert.doesNotMatch(mobileRuntime, /THREE|OfflineAudioContext|analyzeAudioBeats|analyzePodcastDjBeats/)
+})
+
+test('desktop runtime binds late-loaded splash and beat controls after DOMContentLoaded', () => {
+  assert.match(desktopSplash, /function bindMineradioSplashInteractions\s*\(/)
+  assert.match(desktopSplash, /if \(document\.readyState === 'loading'\)[\s\S]*else\s*{\s*bindMineradioSplashInteractions\(\)/)
+  assert.match(sonicMonitor, /if \(document\.readyState === 'loading'\)[\s\S]*else\s*{\s*bindSonicAudioMonitorControls\(\)/)
 })
 
 test('standalone mobile runtime renders lyrics and owns fixed top slots without desktop overlap', () => {

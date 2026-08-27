@@ -652,7 +652,7 @@ function markSplashReadyToEnter() {
   s.setAttribute('aria-label', '点击进入 Mineradio');
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+function bindMineradioSplashInteractions() {
   var s = document.getElementById('splash');
   if (!s) return;
   markAppPerf('dom-content-loaded');
@@ -681,4 +681,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   playMineradioIntroSound();
   splashTimer = setTimeout(markSplashReadyToEnter, 1500);
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindMineradioSplashInteractions, { once: true });
+} else {
+  bindMineradioSplashInteractions();
+}

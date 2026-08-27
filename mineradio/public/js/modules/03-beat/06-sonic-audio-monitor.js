@@ -732,5 +732,9 @@ if (typeof window !== 'undefined') {
   window.getSonicAudioMonitorSnapshot = getSonicAudioMonitorSnapshot;
   window.toggleSonicAudioMonitorPanel = toggleSonicAudioMonitorPanel;
   window.refreshSonicAudioMonitorUi = refreshSonicAudioMonitorUi;
-  document.addEventListener('DOMContentLoaded', bindSonicAudioMonitorControls);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindSonicAudioMonitorControls, { once: true });
+  } else {
+    bindSonicAudioMonitorControls();
+  }
 }
