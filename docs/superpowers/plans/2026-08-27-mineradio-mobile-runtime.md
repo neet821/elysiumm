@@ -113,7 +113,7 @@
 - Consumes: completed mobile runtime and production host `/home/elysiumm/app/mineradio/public`.
 - Produces: committed/pushed release, timestamped recoverable production backup, and public verification evidence.
 
-- [ ] Run a real mobile/iPad UA browser smoke test and inspect network requests for desktop resource absence.
-- [ ] Back up `/home/elysiumm/app/mineradio/public` under `/home/elysiumm/backups/releases/` before deployment.
-- [ ] Deploy with preserved relative paths, restart `elysiumm-mineradio.service`, test Nginx, and verify `/api/health` plus public assets.
-- [ ] Run final verification, commit, push `main`, and report the commit, backup, tests, and known unrelated baseline failures.
+- [x] Run a real mobile/iPad UA browser smoke test and inspect network requests for desktop resource absence.
+- [x] Back up `/home/elysiumm/app/mineradio/public` under `/home/elysiumm/backups/releases/` before deployment.
+- [x] Deploy with preserved relative paths, restart `elysiumm-mineradio.service`, test Nginx, and verify `/api/health` plus public assets.
+- [x] Run final verification, commit, push `main`, and report the commit, backup, tests, and known unrelated baseline failures.
