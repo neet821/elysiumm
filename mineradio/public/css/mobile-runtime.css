@@ -801,8 +801,10 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls {
 }
 
 body.mobile-runtime-active #blue-room-leave.player-return-control {
-  width: 44px !important;
-  height: 44px !important;
+  top: max(14px, env(safe-area-inset-top)) !important;
+  left: var(--mobile-runtime-top-control-side) !important;
+  width: var(--mobile-runtime-top-control-size) !important;
+  height: var(--mobile-runtime-top-control-size) !important;
   border-radius: 50% !important;
   color: rgba(255, 255, 255, .78) !important;
 }

@@ -118,7 +118,7 @@ test('mobile boot selects a standalone runtime before desktop vendor scripts', (
   assert.match(html, /function isMobileDeviceForBoot\s*\(/)
   assert.match(html, /mobile-runtime\.css/)
   assert.match(html, /mobile-runtime\.js/)
-  assert.match(html, /mobile-runtime\.css\?v=20260827-mobile-runtime-4/)
+  assert.match(html, /mobile-runtime\.css\?v=20260827-mobile-runtime-5/)
   assert.match(html, /mobile-runtime\.js\?v=20260827-mobile-runtime-4/)
   assert.match(html, /blue-album-room-bridge\.js\?v=20260827-room-history-2/)
   assert.match(html, /loadDesktopRuntime\s*\(/)
@@ -323,6 +323,7 @@ test('mobile room header keeps back and room controls on both sides of a compact
   assert.match(bridge, /@media\(max-width:720px\)\{.*#blue-room-panel\{left:12px;right:12px!important;top:68px;/s)
   assert.match(bridge, /#blue-room-btn\{position:fixed;top:12px;right:12px;/)
   assert.match(bridge, /body\.blue-album-room-mode #search-area\{top:12px!important;left:68px!important;right:68px!important;width:auto!important;height:44px!important;transform:none!important\}/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #blue-room-leave\.player-return-control\s*\{[^}]*top:\s*max\(14px, env\(safe-area-inset-top\)\) !important;[^}]*left:\s*var\(--mobile-runtime-top-control-side\) !important;[^}]*width:\s*var\(--mobile-runtime-top-control-size\) !important;[^}]*height:\s*var\(--mobile-runtime-top-control-size\) !important;/s)
 })
 
 test('iPad-safe room transport prefers polling and acknowledges autoplay-blocked state', () => {
