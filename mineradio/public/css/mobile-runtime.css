@@ -710,6 +710,7 @@ body.mobile-runtime-active #search-box,
 body.mobile-runtime-active #home-btn,
 body.mobile-runtime-active #mobile-room-btn,
 body.mobile-runtime-active #blue-room-btn,
+body.mobile-runtime-active #blue-room-leave.player-return-control,
 body.mobile-runtime-active .mobile-runtime-lyric-tools > button,
 body.mobile-runtime-active .mobile-runtime-search-add,
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls {
@@ -726,6 +727,27 @@ body.mobile-runtime-active #bottom-bar.mobile-runtime-controls {
 body.mobile-runtime-active #search-box,
 body.mobile-runtime-active #bottom-bar.mobile-runtime-controls {
   border-radius: 24px !important;
+}
+
+body.mobile-runtime-active #blue-room-leave.player-return-control {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, .78) !important;
+}
+
+body.mobile-runtime-active #blue-room-leave.player-return-control:hover {
+  border-color: var(--mobile-runtime-glass-highlight) !important;
+  background:
+    linear-gradient(145deg, var(--mobile-runtime-glass-highlight), transparent 42%),
+    color-mix(in srgb, var(--mobile-runtime-bg-primary) 34%, var(--mobile-runtime-glass-fill)) !important;
+  color: rgba(255, 255, 255, .94) !important;
+  box-shadow: var(--mobile-runtime-glass-shadow);
+  transform: scale(1.04);
+}
+
+body.mobile-runtime-active #blue-room-leave.player-return-control:active {
+  transform: scale(.97);
 }
 
 body.mobile-runtime-active #search-box:focus-within,
@@ -763,4 +785,48 @@ body.mobile-runtime-active.mobile-runtime-immersive #bottom-bar.mobile-runtime-c
 
 body.mobile-runtime-active.mobile-runtime-immersive #mobile-2d-stage {
   pointer-events: auto;
+}
+
+/* Keep the immersive exit affordance where its original control lived. */
+body.mobile-runtime-active #mobile-runtime-immersive-exit {
+  position: fixed;
+  z-index: 36;
+  right: 28px;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 29px);
+  width: 34px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: rgba(255, 255, 255, .72);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, color 140ms ease, transform 140ms cubic-bezier(.23, 1, .32, 1);
+}
+
+body.mobile-runtime-active.mobile-runtime-immersive #mobile-runtime-immersive-exit {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  color: var(--mobile-runtime-accent);
+}
+
+body.mobile-runtime-active:not(.mobile-runtime-immersive) #mobile-runtime-immersive-exit {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.mobile-runtime-active #mobile-runtime-immersive-exit:hover {
+  background: rgba(255, 255, 255, .045);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+body.mobile-runtime-active #mobile-runtime-immersive-exit:active {
+  transform: scale(.97);
 }

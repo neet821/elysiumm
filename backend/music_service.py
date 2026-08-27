@@ -138,27 +138,28 @@ def _stage_track_transition(
         commit=False,
         base_snapshot=base_snapshot,
     )
-    record_room_event(
-        db,
-        room,
-        "track_changed",
-        actor_user_id=actor_user_id,
-        playback_version=snapshot.version,
-        summary={
-            "album": item.album if item else None,
-            "artist": item.artist if item else None,
-            "artwork_url": item.artwork_url if item else None,
-            "duration_seconds": item.duration_seconds if item else None,
-            "media_id": item.id if item else None,
-            "media_mid": item.source_url if item and item.provider == "qq" else None,
-            "provider": item.provider if item else None,
-            "provider_track_id": item.provider_track_id if item else None,
-            "reason": reason,
-            "title": item.title if item else None,
-            "track_id": item.canonical_track_id if item else None,
-        },
-        commit=False,
-    )
+    if item is not None:
+        record_room_event(
+            db,
+            room,
+            "track_changed",
+            actor_user_id=actor_user_id,
+            playback_version=snapshot.version,
+            summary={
+                "album": item.album,
+                "artist": item.artist,
+                "artwork_url": item.artwork_url,
+                "duration_seconds": item.duration_seconds,
+                "media_id": item.id,
+                "media_mid": item.source_url if item.provider == "qq" else None,
+                "provider": item.provider,
+                "provider_track_id": item.provider_track_id,
+                "reason": reason,
+                "title": item.title,
+                "track_id": item.canonical_track_id,
+            },
+            commit=False,
+        )
     return snapshot
 
 

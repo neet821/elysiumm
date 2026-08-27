@@ -118,6 +118,9 @@ test('mobile boot selects a standalone runtime before desktop vendor scripts', (
   assert.match(html, /function isMobileDeviceForBoot\s*\(/)
   assert.match(html, /mobile-runtime\.css/)
   assert.match(html, /mobile-runtime\.js/)
+  assert.match(html, /mobile-runtime\.css\?v=20260827-mobile-runtime-3/)
+  assert.match(html, /mobile-runtime\.js\?v=20260827-mobile-runtime-3/)
+  assert.match(html, /blue-album-room-bridge\.js\?v=20260827-room-history-2/)
   assert.match(html, /loadDesktopRuntime\s*\(/)
   assert.doesNotMatch(html, /<script[^>]+(?:three\.r128|music-tempo|gsap|index-loader)/)
   assert.doesNotMatch(html, /<link[^>]+css\/index\.css/)
@@ -215,6 +218,23 @@ test('immersive mode hides search, lyric tools, and the control bar with a tap-t
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #bottom-bar\.mobile-runtime-controls[^}]*pointer-events:\s*none/s)
   assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #mobile-2d-stage[^}]*pointer-events:\s*auto/s)
   assert.match(mobileRuntime, /stage\.addEventListener\('click'/)
+})
+
+test('immersive mode keeps a mirrored exit button at the original control position', () => {
+  assert.match(mobileRuntime, /function createImmersiveExitButton\s*\(/)
+  assert.match(mobileRuntime, /immersive\.cloneNode\(true\)/)
+  assert.match(mobileRuntime, /mobile-runtime-immersive-exit/)
+  assert.match(mobileRuntime, /exitButton\.addEventListener\('click'/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #mobile-runtime-immersive-exit[^}]*visibility:\s*visible/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active:not\(.mobile-runtime-immersive\) #mobile-runtime-immersive-exit[^}]*visibility:\s*hidden/s)
+})
+
+test('the listening-room return button shares the desktop and mobile glass control treatment', () => {
+  assert.match(bridge, /leaveButton\.className\s*=\s*'icon-btn player-return-control'/)
+  assert.match(css, /#blue-room-leave\.player-return-control[^}]*var\(--saved-button-glass-bg\)/s)
+  assert.match(css, /#blue-room-leave\.player-return-control:hover[^}]*var\(--saved-button-glass-hover-bg\)/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #blue-room-leave\.player-return-control[^}]*var\(--mobile-runtime-glass-fill\)/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active #blue-room-leave\.player-return-control:hover[^}]*var\(--mobile-runtime-glass-highlight\)/s)
 })
 
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {

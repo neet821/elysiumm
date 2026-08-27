@@ -397,6 +397,7 @@
 
     var leaveButton = document.createElement('button');
     leaveButton.id = 'blue-room-leave';
+    leaveButton.className = 'icon-btn player-return-control';
     leaveButton.title = '退出房间';
     leaveButton.setAttribute('aria-label', '退出房间');
     leaveButton.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/><path d="M9 12h12"/></svg>';

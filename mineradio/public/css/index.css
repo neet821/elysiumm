@@ -18356,3 +18356,34 @@ body.mobile-2d-ui #mobile-2d-stage.has-lyrics #mobile-2d-empty {
 body.mobile-2d-ui #bottom-bar {
   z-index: 20;
 }
+
+/* Listening-room navigation uses the same glass control language as the player chrome. */
+#blue-room-leave.player-return-control {
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  border: 1px solid transparent !important;
+  border-radius: 50%;
+  background: var(--saved-button-glass-bg) !important;
+  color: rgba(var(--fc-accent-rgb), .82) !important;
+  box-shadow: var(--saved-button-glass-shadow) !important;
+  backdrop-filter: var(--saved-button-glass-filter) !important;
+  -webkit-backdrop-filter: var(--saved-button-glass-filter) !important;
+  transition: transform 160ms cubic-bezier(.23, 1, .32, 1), color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+#blue-room-leave.player-return-control:hover {
+  background: var(--saved-button-glass-hover-bg) !important;
+  color: rgba(var(--fc-accent-rgb), 1) !important;
+  box-shadow: var(--saved-button-glass-hover-shadow) !important;
+  transform: scale(1.04);
+}
+
+#blue-room-leave.player-return-control:active {
+  transform: scale(.97);
+}
+
+#blue-room-leave.player-return-control:focus-visible {
+  outline: 2px solid rgba(var(--fc-accent-rgb), .7);
+  outline-offset: 3px;
+}

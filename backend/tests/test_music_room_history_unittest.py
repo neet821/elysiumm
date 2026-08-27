@@ -198,7 +198,10 @@ class MusicRoomHistoryTest(unittest.TestCase):
             room_id=self.room.id,
             event_type="track_changed",
         ).order_by(models.MusicRoomEvent.id).all()
-        self.assertEqual([event.playback_version for event in track_events], [1, 2, 3])
+        self.assertEqual([event.playback_version for event in track_events], [1, 2])
+        history = music_service.room_history(self.db, self.room.id)
+        history_tracks = [item for item in history["items"] if item["event_type"] == "track_changed"]
+        self.assertEqual([item["summary"]["title"] for item in history_tracks], ["Second", "First"])
 
     def test_history_route_is_member_only_bounded_newest_first_and_redacted(self):
         for index in range(3):

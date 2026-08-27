@@ -40,14 +40,14 @@
         .then(function () { return appendBootScript('vendor/gsap.min.js') })
         .then(function () { return appendBootScript('js/preload-mode.js') })
         .then(function () { return appendBootScript('js/index-loader.js?v=20260827-desktop-runtime-1') })
-        .then(function () { return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-1') })
+        .then(function () { return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-2') })
     }
     function loadMobileRuntime() {
-      appendBootCss('css/mobile-runtime.css?v=20260827-mobile-runtime-2')
-      return appendBootScript('js/mobile-runtime.js?v=20260827-mobile-runtime-2')
+      appendBootCss('css/mobile-runtime.css?v=20260827-mobile-runtime-3')
+      return appendBootScript('js/mobile-runtime.js?v=20260827-mobile-runtime-3')
         .then(function () {
           if (new URLSearchParams(location.search).get('blue-room')) {
-            return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-1')
+            return appendBootScript('blue-album-room-bridge.js?v=20260827-room-history-2')
           }
           return null
         })

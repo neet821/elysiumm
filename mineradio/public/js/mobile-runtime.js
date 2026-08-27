@@ -622,14 +622,31 @@
     fitMobileLyricTypography();
     positionMobileLyrics();
   }
+  function updateImmersiveButton(button, active) {
+    if (!button) return;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    button.setAttribute('aria-label', active ? '退出沉浸式' : '沉浸式');
+    button.title = active ? '退出沉浸式' : '沉浸式';
+  }
+  function createImmersiveExitButton(immersive) {
+    if (!immersive || byId('mobile-runtime-immersive-exit')) return;
+    var exitButton = immersive.cloneNode(true);
+    exitButton.id = 'mobile-runtime-immersive-exit';
+    exitButton.classList.add('mobile-runtime-immersive-exit');
+    exitButton.removeAttribute('onclick');
+    exitButton.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      setMobileRuntimeImmersive(!state.immersive);
+    });
+    document.body.appendChild(exitButton);
+  }
   function setMobileRuntimeImmersive(value) {
     state.immersive = !!value;
     document.body.classList.toggle('mobile-runtime-immersive', state.immersive);
-    var button = byId('immersive-btn');
-    if (!button) return;
-    button.setAttribute('aria-pressed', state.immersive ? 'true' : 'false');
-    button.setAttribute('aria-label', state.immersive ? '退出沉浸式' : '沉浸式');
-    button.title = state.immersive ? '退出沉浸式' : '沉浸式';
+    updateImmersiveButton(byId('immersive-btn'), state.immersive);
+    updateImmersiveButton(byId('mobile-runtime-immersive-exit'), state.immersive);
   }
   function installControls() {
     var bottom = byId('bottom-bar');
@@ -664,6 +681,7 @@
         event.stopPropagation();
         setMobileRuntimeImmersive(!state.immersive);
       });
+      createImmersiveExitButton(immersive);
       setMobileRuntimeImmersive(false);
     }
     var slider = byId('volume-slider');
