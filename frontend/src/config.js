@@ -169,6 +169,7 @@ export const API_ENDPOINTS = {
   MUSIC_ROOM_SETTINGS: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/settings`,
   MUSIC_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/snapshot`,
   MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
+  MUSIC_HISTORY_REQUEUE: (roomId, eventId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history/${eventId}/queue`,
   MUSIC_QUEUE_ITEM: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}`,
   MUSIC_PROPOSE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals`,
   MUSIC_PROPOSAL_VOTE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals/${itemId}/vote`,

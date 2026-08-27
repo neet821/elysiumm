@@ -248,6 +248,55 @@ class MusicRoomHistoryTest(unittest.TestCase):
             422,
         )
 
+    def test_history_track_can_be_requeued_by_a_room_member(self):
+        original = models.MusicQueueItem(
+            room_id=self.room.id,
+            added_by=self.host.id,
+            canonical_track_id=self.canonical.id,
+            provider="netease",
+            provider_track_id="history-track",
+            title="History song",
+            artist="Alice",
+            album="Room album",
+            artwork_url="https://images.example/history.jpg",
+            stream_url="/expired/history",
+            duration_seconds=180,
+            source_url="history-mid",
+            status="played",
+            position=0,
+        )
+        self.db.add(original)
+        self.db.flush()
+        self.db.add(models.MusicRoomEvent(
+            room_id=self.room.id,
+            actor_user_id=self.host.id,
+            event_type="track_changed",
+            playback_version=1,
+            summary_json=json.dumps({"media_id": original.id, "title": original.title}),
+        ))
+        self.db.commit()
+
+        async def validated(_payload, _db):
+            return self.track("history-track", "History song") | {
+                "stream_url": "/fresh/history",
+            }
+
+        original_validator = music_router._validated_room_track
+        music_router._validated_room_track = validated
+        try:
+            response = self.client.post(
+                f"/api/music/rooms/{self.room.id}/history/{self.db.query(models.MusicRoomEvent).first().id}/queue",
+                headers=self.headers(self.member),
+            )
+        finally:
+            music_router._validated_room_track = original_validator
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["queue"][0]["title"], "History song")
+        self.assertEqual(
+            self.db.query(models.MusicQueueItem).filter_by(title="History song", status="playing").count(),
+            1,
+        )
+
     def test_private_chat_history_is_visible_only_to_sender_target_or_admin(self):
         public = sync_room_crud.create_message(
             self.db, self.room.id, self.host.id, "public message"

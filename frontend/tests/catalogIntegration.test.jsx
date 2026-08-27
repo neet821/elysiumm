@@ -227,6 +227,22 @@ describe('unified room catalog integration', () => {
     expect(screen.queryByText(/private|token|https?:\/\//i)).not.toBeInTheDocument()
   })
 
+  it('routes a history click back to the room re-queue endpoint', async () => {
+    renderRoom()
+    const { frame, postMessage } = await readyMineradio()
+
+    await waitFor(() => {
+      expect(latestRoomState(postMessage)).toEqual(expect.objectContaining({
+        history: expect.arrayContaining([expect.objectContaining({ id: 7 })]),
+      }))
+    })
+    roomAction(frame, 'readd-history', { eventId: 7 })
+
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/music\/rooms\/9\/history\/7\/queue$/),
+    ))
+  })
+
   it('contains no direct Mineradio catalog request in the room page source', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
     expect(source).not.toContain('/mineradio-api')

@@ -99,3 +99,21 @@ test('music room keeps its membership alive with a presence heartbeat', () => {
   assert.match(page, /presence_heartbeat/)
   assert.match(page, /setInterval\(.*presence_heartbeat/s)
 })
+
+test('music room history is collapsed, re-queueable, and rendered last', () => {
+  assert.match(bridge, /class="br-history-fold"/)
+  assert.match(bridge, /data-action="readd-history"/)
+  assert.match(bridge, /data-history-id=/)
+  assert.match(bridge, /historySection\s*\+\s*adminSection|adminSection\s*\+\s*historySection/)
+  assert.match(page, /action === 'readd-history'/)
+  assert.match(page, /MUSIC_HISTORY_REQUEUE/)
+})
+
+test('music room exposes controls to administrators and removes both favorite buttons', () => {
+  assert.match(page, /const isAdmin = Boolean\(user && user\.role === 'admin'\)/)
+  assert.match(page, /isHost \|\| isAdmin/)
+  assert.match(bridge, /var isAdmin = !!roomState\.isAdmin/)
+  assert.match(bridge, /isHost \|\| isAdmin/)
+  assert.doesNotMatch(html, /id="heart-btn"/)
+  assert.doesNotMatch(html, /id="collect-btn"/)
+})

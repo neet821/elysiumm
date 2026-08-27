@@ -60,6 +60,7 @@ export default function MineradioPage() {
     room.host_user_id === user.id || room.control_mode === 'all_members' || user.role === 'admin'
   ))
   const isHost = Boolean(room && user && room.host_user_id === user.id)
+  const isAdmin = Boolean(user && user.role === 'admin')
 
   useEffect(() => {
     let active = true
@@ -507,6 +508,17 @@ export default function MineradioPage() {
     }
   }
 
+  const requeueHistoryTrack = async (eventId) => {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.MUSIC_HISTORY_REQUEUE(roomId, eventId))
+      setQueue(response.data.queue || [])
+      await loadHistory({ quiet: true })
+      setNotice('已重新加入听歌房歌单')
+    } catch (error) {
+      setNotice(error.response?.data?.detail || '历史歌曲暂时无法加入歌单')
+    }
+  }
+
   const updateRoomSettings = async (percent) => {
     try {
       const response = await apiClient.patch(API_ENDPOINTS.MUSIC_ROOM_SETTINGS(roomId), {
@@ -533,11 +545,12 @@ export default function MineradioPage() {
     else if (action === 'vote') await voteForTrack(payload.itemId)
     else if (action === 'like') await likeTrack(payload.itemId)
     else if (action === 'vote-skip') await voteSkip()
-    else if (action === 'force-skip' && isHost) await playNext()
+    else if (action === 'force-skip' && (isHost || isAdmin)) await playNext()
     else if (action === 'skip') await (isHost ? playNext() : voteSkip())
     else if (action === 'resync') requestSnapshot()
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'propose-native-search') await proposeNativeSearchTrack(payload.track)
+    else if (action === 'readd-history') await requeueHistoryTrack(payload.eventId)
     else if (action === 'chat') sendChatMessage(payload.message)
   }
 
@@ -553,6 +566,7 @@ export default function MineradioPage() {
     room,
     rooms,
     history,
+    isAdmin,
     syncStatus,
     userId,
   }

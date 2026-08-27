@@ -21,7 +21,19 @@ ROOM_EVENT_SUMMARY_KEYS = {
     "proposal_voted": {"approved", "media_id", "required", "votes"},
     "queue_liked": {"likes", "media_id"},
     "skip_voted": {"media_id", "required", "skipped", "votes"},
-    "track_changed": {"artist", "media_id", "reason", "title", "track_id"},
+    "track_changed": {
+        "album",
+        "artist",
+        "artwork_url",
+        "duration_seconds",
+        "media_id",
+        "media_mid",
+        "provider",
+        "provider_track_id",
+        "reason",
+        "title",
+        "track_id",
+    },
 }
 
 
@@ -133,8 +145,14 @@ def _stage_track_transition(
         actor_user_id=actor_user_id,
         playback_version=snapshot.version,
         summary={
+            "album": item.album if item else None,
             "artist": item.artist if item else None,
+            "artwork_url": item.artwork_url if item else None,
+            "duration_seconds": item.duration_seconds if item else None,
             "media_id": item.id if item else None,
+            "media_mid": item.source_url if item and item.provider == "qq" else None,
+            "provider": item.provider if item else None,
+            "provider_track_id": item.provider_track_id if item else None,
             "reason": reason,
             "title": item.title if item else None,
             "track_id": item.canonical_track_id if item else None,
