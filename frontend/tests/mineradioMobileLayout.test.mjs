@@ -194,6 +194,29 @@ test('mobile runtime derives a cover-colored background and makes immersive mode
   assert.match(mobileRuntimeCss, /mobile-runtime-immersive[^}]*#mobile-2d-stage/s)
 })
 
+test('mobile runtime uses one refined liquid-glass language for chrome and controls', () => {
+  assert.match(mobileRuntimeCss, /--mobile-runtime-glass-/)
+  assert.match(mobileRuntimeCss, /#search-box[^}]*backdrop-filter:\s*blur/s)
+  assert.match(mobileRuntimeCss, /#home-btn[^}]*backdrop-filter:\s*blur/s)
+  assert.match(mobileRuntimeCss, /#bottom-bar\.mobile-runtime-controls[^}]*backdrop-filter:\s*blur/s)
+  assert.match(mobileRuntimeCss, /-webkit-backdrop-filter:\s*blur/)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\s*:is\([^}]+\):active[^}]*transform:\s*scale\(\.97\)/s)
+})
+
+test('mobile lyrics are not paint-clipped by upper and lower chrome', () => {
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyrics[^}]*overflow:\s*visible/s)
+  assert.match(mobileRuntimeCss, /\.mobile-runtime-lyrics[^}]*contain:\s*layout\s*;/s)
+  assert.doesNotMatch(mobileRuntimeCss, /\.mobile-runtime-lyrics[^}]*contain:\s*layout\s+paint/s)
+})
+
+test('immersive mode hides search, lyric tools, and the control bar with a tap-to-exit surface', () => {
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive \.mobile-runtime-lyric-tools[^}]*visibility:\s*hidden/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #bottom-bar\.mobile-runtime-controls[^}]*opacity:\s*0/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #bottom-bar\.mobile-runtime-controls[^}]*pointer-events:\s*none/s)
+  assert.match(mobileRuntimeCss, /body\.mobile-runtime-active\.mobile-runtime-immersive #mobile-2d-stage[^}]*pointer-events:\s*auto/s)
+  assert.match(mobileRuntime, /stage\.addEventListener\('click'/)
+})
+
 test('mobile 2D top actions use fixed, non-overlapping slots and collapse account pills', () => {
   assert.match(css, /body\.mobile-2d-ui #top-right[^}]*pointer-events:\s*none/s)
   assert.match(css, /body\.mobile-2d-ui #top-right > #home-btn[^}]*left:\s*var\(--mobile-2d-side\)/s)

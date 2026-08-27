@@ -604,6 +604,12 @@
     tools.appendChild(settings);
     stage.appendChild(surface);
     stage.appendChild(tools);
+    stage.addEventListener('click', function () {
+      if (state.immersive) setMobileRuntimeImmersive(false);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (state.immersive && event.key === 'Escape') setMobileRuntimeImmersive(false);
+    });
     window.addEventListener('resize', function () { fitMobileLyricTypography(); positionMobileLyrics(); }, { passive: true });
     legacyButton.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); settings.hidden = !settings.hidden; });
     applyLyricSettings();
