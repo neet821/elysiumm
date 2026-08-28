@@ -5,7 +5,19 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ArticleFlowHome, LegacyArticlePage } from '../src/pages/ContentHomePage.jsx'
-import { HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
+import { HomeNavigationContext, HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
+
+vi.mock('../src/pages/SyncRoomList.jsx', () => ({
+  default: () => <div data-testid="watch-page">观影房页面</div>,
+}))
+
+vi.mock('../src/pages/MusicLobbyPage.jsx', () => ({
+  default: () => <div data-testid="music-page">听歌房页面</div>,
+}))
+
+vi.mock('../src/pages/LivePage.jsx', () => ({
+  default: () => <div data-testid="live-page">直播页面</div>,
+}))
 
 describe('ArticleFlowHome', () => {
   beforeEach(() => {
@@ -55,7 +67,8 @@ describe('ArticleFlowHome', () => {
     const navigation = await screen.findByRole('navigation', { name: '首页导航' })
     expect(navigation.closest('.legacy-old-home')).toBe(container.querySelector('.legacy-old-home'))
     expect(navigation.closest('header')).toBeNull()
-    expect(within(navigation).getByRole('link', { name: '房间' })).toHaveAttribute('href', '/rooms')
+    expect(within(navigation).getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
+    expect(within(navigation).getByRole('link', { name: '听歌房' })).toHaveAttribute('href', '/rooms/music')
     expect(within(navigation).getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
     expect(container.querySelector('.home-header-portal')).toBeNull()
   })
@@ -493,6 +506,64 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat\s*\{[^}]*margin-left:\s*var\(--home-nav-rail-width\);/s)
     expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*inline-flex\s*!important;/s)
     expect(css).toMatch(/\.home-nav__action-label\s*\{/s)
+  })
+
+  it('keeps the compact navigation without a home action and hides the drawer trigger at medium widths', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none\s*!important;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
+  })
+
+  it('gives the wide rail a centered identity block and separates admin at the bottom', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity\s*\{[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s)
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity-name\s*\{[^}]*display:\s*block;/s)
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__admin-action\s*\{[^}]*margin-top:\s*auto;[^}]*border-top:/s)
+    expect(css).toMatch(/\.home-nav__account\s*\{[^}]*display:\s*none;/s)
+  })
+
+  it('switches watch, music and live inside the wide homepage without navigating', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn((query) => ({
+        matches: query === '(min-width: 1101px)',
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{ slug: 'article', title: '首页文章', type: 'article', createdAt: '2026-08-25' }] }),
+    })
+
+    render(
+      <HomeNavigationContext.Provider value={{ isAdmin: true, isAuthenticated: true, user: { username: 'neet821', avatar: '/avatar.png' } }}>
+        <MemoryRouter initialEntries={['/']}><ArticleFlowHome /></MemoryRouter>
+      </HomeNavigationContext.Provider>,
+    )
+
+    const navigation = await screen.findByRole('navigation', { name: '首页导航' })
+    expect(screen.getByTestId('home-identity')).toHaveTextContent('neet821')
+    expect(screen.queryByText('账户')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
+
+    const initialUrl = window.location.href
+    await userEvent.click(within(navigation).getByRole('link', { name: '观影房' }))
+    expect(window.location.href).toBe(initialUrl)
+    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'watch')
+    expect(await screen.findByTestId('watch-page')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '首页文章' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
+
+    await userEvent.click(within(navigation).getByRole('link', { name: '听歌房' }))
+    expect(window.location.href).toBe(initialUrl)
+    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'music')
+    expect(await screen.findByTestId('music-page')).toBeInTheDocument()
+
+    await userEvent.click(within(navigation).getByRole('link', { name: '直播' }))
+    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'live')
+    expect(await screen.findByTestId('live-page')).toBeInTheDocument()
   })
 
   it('returns to the top after changing article pages', async () => {

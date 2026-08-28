@@ -37,12 +37,12 @@ export default function ToolsPage({ isDark, styles }) {
   return (
     <section className="route-shell toolbox-page">
       <header className="route-shell__intro">
-        <p className="route-shell__eyebrow">三个核心空间 · 登录后使用</p>
+        <p className="route-shell__eyebrow">两个核心空间 · 登录后使用</p>
         <h1>工具箱</h1>
-        <p>一起观看、一起聆听，或者开一局。</p>
+        <p>一起观看，一起聆听。</p>
       </header>
 
-      <section className="toolbox-triptych" aria-label="三个核心空间">
+      <section className="toolbox-triptych" aria-label="两个核心空间">
         {TOOL_ENTRIES.map((entry) => <ToolCard enabled={isAuthenticated} entry={entry} key={entry.to} onLogin={() => setLoginOpen(true)} />)}
       </section>
 
@@ -80,7 +80,7 @@ export default function ToolsPage({ isDark, styles }) {
             isDark={isDark}
             onSuccess={() => setLoginOpen(false)}
             styles={styles}
-            subtitle="登录后可进入同步观影、同步听歌和桌游"
+            subtitle="登录后可进入同步观影和同步听歌"
           />
         </div>
       </Dialog>

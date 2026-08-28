@@ -52,13 +52,10 @@ run_step 5 "听歌房多客户端关键验收" \
 run_step 6 "视频房多客户端关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase8-video-multiclient-smoke.mjs"
 
-run_step 7 "桌游多客户端关键验收" \
-  "${NODE}" "${ROOT_DIR}/scripts/phase9-game-multiclient-smoke.mjs"
-
-run_step 8 "Books、Files 与管理员关键验收" \
+run_step 7 "Books、Files 与管理员关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase10-books-admin-browser-smoke.mjs"
 
-run_step 9 "单直播间关键验收" \
+run_step 8 "单直播间关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/live-stream-smoke.mjs"
 
 CURRENT_STEP="最终补丁格式检查"

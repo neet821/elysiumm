@@ -10,7 +10,6 @@ Elysium 是正式域名 `elysiumm.top` 的首页。首页路径 `/` 使用当前
 | 工具箱 | `/tools` |
 | 收藏 | `/collection` |
 | 书籍 | `/books` |
-| 桌游 | `/games` |
 | 账户 | `/account` |
 
 部署时必须保留原 Blue Album 后端服务、数据库、WebSocket 和 `/api/` 反代。新首页只替换静态首页资源，不删除原有后端或数据。

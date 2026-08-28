@@ -10,7 +10,6 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import sync_room_crud
-import game_service
 import models
 import transfer_service
 import logging
@@ -108,14 +107,11 @@ async def run_cleanup_task():
         try:
             db = SessionLocal()
             deleted_count = cleanup_inactive_rooms(db)
-            game_count = game_service.cleanup_rooms(db)
             transfer_service.cleanup_expired(db)
             db.close()
 
             if deleted_count > 0:
                 logger.info(f"✅ 本次清理了 {deleted_count} 个房间")
-            if game_count > 0:
-                logger.info(f"✅ 本次更新了 {game_count} 个桌游房间")
 
         except Exception as e:
             logger.error(f"❌ 清理任务出错: {e}")

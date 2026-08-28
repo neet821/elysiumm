@@ -1383,7 +1383,12 @@
   }
 
   .legacy-old-home--flat .home-nav__sidebar-toggle { display: none !important; }
-  .legacy-old-home--flat .home-nav__admin-action { margin-right: 0; }
+  .legacy-old-home--flat .home-nav__admin-action {
+    margin-top: auto;
+    border-top: 1px solid #ddd;
+    margin-right: 0;
+    padding-top: 1rem;
+  }
   .legacy-old-home--flat .home-nav__account { margin-top: auto; }
 }
 
@@ -1391,6 +1396,102 @@
 @media (max-width: 1100px) {
   .legacy-old-home--flat .home-nav__sidebar-toggle { display: inline-flex !important; }
   .legacy-old-home--flat .home-nav__action-label { display: none; }
+}
+
+/* The compact views keep the sidebar controls contextual and omit a redundant home action. */
+.legacy-old-home--flat .home-nav__identity { display: none; }
+
+@media (max-width: 800px) {
+  .legacy-old-home--flat .home-nav__action--home { display: none !important; }
+}
+
+@media (min-width: 801px) and (max-width: 1100px) {
+  .legacy-old-home--flat .home-nav__sidebar-toggle { display: none !important; }
+  .legacy-old-home--flat .home-nav__action--home { display: none !important; }
+}
+
+/* Wide mode turns the rail into a small identity-led application switcher. */
+@media (min-width: 1101px) {
+  .legacy-old-home--flat .home-nav__label { display: none; }
+
+  .legacy-old-home--flat .home-nav__identity {
+    align-items: center;
+    color: #111;
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+    justify-content: center;
+    margin: 0 auto;
+    max-width: 100%;
+    padding: .25rem .5rem;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .legacy-old-home--flat .home-nav__identity:hover,
+  .legacy-old-home--flat .home-nav__identity:focus-visible {
+    color: #111;
+    text-decoration: underline;
+    text-underline-offset: .2em;
+  }
+
+  .legacy-old-home--flat .home-nav__identity-avatar,
+  .legacy-old-home--flat .home-nav__identity-avatar .ui-avatar__image,
+  .legacy-old-home--flat .home-nav__identity-avatar .ui-avatar__fallback {
+    border-radius: 50%;
+    height: clamp(3.5rem, 7vw, 5.5rem);
+    width: clamp(3.5rem, 7vw, 5.5rem);
+  }
+
+  .legacy-old-home--flat .home-nav__identity-icon {
+    border: 1px solid #bbb;
+    border-radius: 50%;
+    padding: .75rem;
+  }
+
+  .legacy-old-home--flat .home-nav__identity-name {
+    display: block;
+    font-size: .95rem;
+    font-weight: 700;
+    line-height: 1.25;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .legacy-old-home--flat .home-nav__actions {
+    margin-top: clamp(2.25rem, 7vh, 4rem);
+  }
+
+  .legacy-old-home--flat .home-nav__action--active,
+  .legacy-old-home--flat .home-nav__action--active:hover,
+  .legacy-old-home--flat .home-nav__action--active:focus-visible {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+  }
+
+  .legacy-old-home--flat .home-nav__action--live-active,
+  .legacy-old-home--flat .home-nav__action--live-active:hover,
+  .legacy-old-home--flat .home-nav__action--live-active:focus-visible {
+    color: var(--accent-blue);
+  }
+
+  .legacy-old-home--flat .home-nav__action--live-active.home-nav__action--active {
+    color: var(--accent-blue);
+  }
+
+  .legacy-old-home--flat .home-nav__account { display: none; }
+  .legacy-old-home--flat .home-nav__admin-action {
+    border-top: 1px solid #ddd;
+    margin-right: 0;
+    margin-top: auto;
+    padding-top: 1rem;
+  }
+
+  .legacy-old-home--flat .home-wide-view {
+    min-height: calc(100dvh - 4rem);
+    padding: 1rem 0 4rem;
+  }
 }
 
 @media (max-width: 600px) {

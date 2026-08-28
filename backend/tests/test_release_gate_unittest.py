@@ -47,7 +47,6 @@ class ReleaseGateTest(unittest.TestCase):
             "phase11-accessibility-compat-smoke.mjs": "accessibility",
             "phase7-multiclient-smoke.mjs": "music",
             "phase8-video-multiclient-smoke.mjs": "video",
-            "phase9-game-multiclient-smoke.mjs": "games",
             "phase10-books-admin-browser-smoke.mjs": "books-admin",
             "live-stream-smoke.mjs": "live",
         }
@@ -76,7 +75,7 @@ class ReleaseGateTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(log.read_text(encoding="utf-8").splitlines(), [
                 "release-config", "repository", "recovery", "accessibility",
-                "music", "video", "games", "books-admin", "live",
+                "music", "video", "books-admin", "live",
             ])
 
     def test_gate_stops_at_the_first_failed_step(self):

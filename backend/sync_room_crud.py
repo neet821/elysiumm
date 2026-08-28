@@ -50,7 +50,6 @@ def create_room(db: Session, room: schemas.SyncRoomCreate, user_id: int) -> mode
         mode=room.mode,
         video_source=room.video_source,
         type=room.type,
-        game_type=room.game_type,
         lifecycle_status="active",
         playback_version=0,
         current_time=0,

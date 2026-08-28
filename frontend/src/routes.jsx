@@ -23,8 +23,6 @@ const MineradioPage = lazy(() => import('./pages/MineradioPage'))
 const MusicLobbyPage = lazy(() => import('./pages/MusicLobbyPage'))
 const LivePage = lazy(() => import('./pages/LivePage'))
 const AdminLivePage = lazy(() => import('./pages/AdminLivePage'))
-const RoomsPage = lazy(() => import('./pages/RoomsPage'))
-const RoomsGamesPage = lazy(() => import('./pages/RoomsGamesPage'))
 const TransferPage = lazy(() => import('./pages/TransferPage'))
 
 export const RouteLoadingFallback = () => <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true"><span className="route-loading__spinner" aria-hidden="true" /><span>正在载入页面…</span></div>
@@ -50,8 +48,6 @@ const AppRoutes = () => (
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
       <Route path="/register" element={withUserProps(RegisterPage)} />
-      <Route path="/rooms" element={<RoomsPage />} />
-      <Route path="/rooms/games" element={<RoomsGamesPage />} />
       <Route path="/rooms/music" element={withAuth(<MusicLobbyPage />)} />
       <Route path="/rooms/music/:roomId" element={withAuth(<MineradioPage />)} />
       <Route path="/rooms/watch" element={withAuth(withUserProps(SyncRoomList))} />

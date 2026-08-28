@@ -9,7 +9,6 @@ from config import config
 MAX_OVERVIEW_FAILURES = 10
 MAX_SECURITY_ROWS = 100
 ACTIVE_MEDIA_ROOM_STATES = ("active", "idle")
-ACTIVE_GAME_ROOM_STATES = ("waiting", "playing")
 
 
 def _count(db, model, *criteria) -> int:
@@ -118,12 +117,6 @@ def overview_payload(db, *, now: datetime | None = None) -> dict:
                 db,
                 models.SyncRoom,
                 models.SyncRoom.lifecycle_status.in_(ACTIVE_MEDIA_ROOM_STATES),
-            ),
-            "game_active": _count(
-                db,
-                models.GameRoom,
-                models.GameRoom.deleted_at.is_(None),
-                models.GameRoom.status.in_(ACTIVE_GAME_ROOM_STATES),
             ),
         },
         "files": {

@@ -12,7 +12,7 @@ Passwords are hashed with bcrypt using 12 rounds after enforcing a byte-length p
 
 ## Authorization
 
-Authorization is enforced server-side at both route and service boundaries. Normal users may access only their own private Collection data and rooms they joined. Hosts and room members receive different controls. Spectators cannot occupy a game seat or act. Administrator APIs require an active user with the administrator role; disabling an account immediately blocks new protected HTTP and Socket.IO activity.
+Authorization is enforced server-side at both route and service boundaries. Normal users may access only their own private Collection data and rooms they joined. Hosts and room members receive different controls. Administrator APIs require an active user with the administrator role; disabling an account immediately blocks new protected HTTP and Socket.IO activity.
 
 Admin files use authenticated numeric download routes backed by private UUID storage names. Managed video and subtitle streams require room membership or a short-lived media access token. Public `/uploads` is reserved for intentionally public assets and is not the administrator/private storage root.
 
@@ -22,7 +22,7 @@ CORS is explicit in release configuration and production preflight rejects `*`. 
 
 ## Socket.IO and state integrity
 
-The supported deployment is one backend worker. Each mutation uses the authenticated connection identity, membership and role. Playback and game actions carry bounded payloads and expected versions; stale versions fail with a conflict instead of overwriting current state. Reconnect obtains an authoritative snapshot. Private game views are personalized before serialization, and replay frames form a validated hash chain.
+The supported deployment is one backend worker. Each mutation uses the authenticated connection identity, membership and role. Playback actions carry bounded payloads and expected versions; stale versions fail with a conflict instead of overwriting current state. Reconnect obtains an authoritative snapshot.
 
 ## File upload and path safety
 
@@ -42,7 +42,7 @@ Release and rollback bundles are mode-restricted and contain sensitive configura
 
 ## Privacy
 
-Public serializers omit ownership-only descriptions, credential digests, storage paths, provider cookies and internal errors. Books exposes only published entries and credential-free reader links. Public Sync returns a device secret only at creation or rotation. Room histories and game views are bounded and filtered for the current viewer. Administrators can see operational metadata but not secrets or private content through the overview/security evidence endpoints.
+Public serializers omit ownership-only descriptions, credential digests, storage paths, provider cookies and internal errors. Books exposes only published entries and credential-free reader links. Public Sync returns a device secret only at creation or rotation. Room histories are bounded and filtered for the current viewer. Administrators can see operational metadata but not secrets or private content through the overview/security evidence endpoints.
 
 Live viewing uses a short-lived HttpOnly cookie after server-side authorization. Public, signed-in allowlist and anonymous invite access share the same media gate, so revoking an invite also blocks later HLS requests. Raw stream keys and invite tokens are returned only once and stored as digests. Live visitor records contain IP address, locally resolved region, device, operating system, browser and watch duration; they are administrator-only and expire after 90 days. Region lookup does not send IP addresses to an external service. Recording routes resolve every file beneath the configured recording root and never return the absolute storage path.
 

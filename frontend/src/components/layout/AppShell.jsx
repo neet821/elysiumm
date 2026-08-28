@@ -13,9 +13,7 @@ export function AppShell({ children }) {
   const isArticleReader = location.pathname.startsWith('/article/')
   const isAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
   const isAccount = location.pathname === '/account'
-  const isRoomsHub = location.pathname === '/rooms'
-  const isRoom = location.pathname === '/rooms'
-    || location.pathname.startsWith('/rooms/')
+  const isRoom = location.pathname.startsWith('/rooms/')
     || location.pathname === '/music'
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
@@ -71,7 +69,7 @@ export function AppShell({ children }) {
           <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}${isImmersiveRoom ? ' app-shell--immersive' : ''}`}>
             <a className="skip-link" href="#main-content">跳到主要内容</a>
             {header}
-            {(isAccount || isRoomsHub) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
+            {isAccount && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页">←</Link>}
             <main className="app-shell__main" id="main-content" tabIndex={-1}>
               {children}
             </main>

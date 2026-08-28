@@ -11,7 +11,6 @@ import { API_ENDPOINTS } from "../config";
 const AdminRoomsPage = ({ styles, isDark }) => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
-  const [gameRoomCount, setGameRoomCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -28,11 +27,7 @@ const AdminRoomsPage = ({ styles, isDark }) => {
   const fetchRooms = async () => {
     try {
       setError(null);
-      const [response, overviewResponse] = await Promise.all([
-        apiClient.get(API_ENDPOINTS.ADMIN_ROOMS),
-        apiClient.get(API_ENDPOINTS.ADMIN_OVERVIEW).catch(() => null),
-      ]);
-      setGameRoomCount(overviewResponse?.data?.rooms?.game_active ?? null);
+      const response = await apiClient.get(API_ENDPOINTS.ADMIN_ROOMS);
       console.log("Rooms data:", response.data);
 
       // 后端返回 {rooms: [...], total: number} 格式
@@ -131,8 +126,7 @@ const AdminRoomsPage = ({ styles, isDark }) => {
 
         <div className={`${styles.bgSecondary} border ${styles.border} p-4 mb-8`} aria-label="房间汇总">
           <p className={`text-sm ${styles.textMuted}`}>
-            {gameRoomCount === null ? '游戏房汇总暂不可用' : `${gameRoomCount} 个活跃游戏房`}
-            {' · '}{videoRooms.length + musicRooms.length} 个活跃媒体房
+            {videoRooms.length + musicRooms.length} 个活跃媒体房
           </p>
         </div>
 

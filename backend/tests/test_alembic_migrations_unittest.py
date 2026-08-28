@@ -166,7 +166,6 @@ class AlembicMigrationsTest(unittest.TestCase):
                     "video_sessions",
                     "video_playlist_items",
                     "video_subtitles",
-                    "game_replay_frames",
                 }.issubset(tables)
             )
             room_columns = {
@@ -236,26 +235,25 @@ class AlembicMigrationsTest(unittest.TestCase):
             self.assertTrue(restore_columns["backup_file_id"]["nullable"])
             engine.dispose()
 
-            self.run_alembic(
-                database_url,
-                "downgrade",
-                "0004_phase4_collection",
-            )
-            engine = create_engine(database_url)
-            tables = set(inspect(engine).get_table_names())
-            self.assertIn("search_engines", tables)
-            self.assertNotIn("canonical_tracks", tables)
-            self.assertNotIn("track_provider_mappings", tables)
-            self.assertNotIn("track_audio_sources", tables)
-            self.assertNotIn("track_lyrics", tables)
-            engine.dispose()
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.run_alembic(
+                    database_url,
+                    "downgrade",
+                    "0004_phase4_collection",
+                )
 
-            self.run_alembic(database_url, "downgrade", "base")
             engine = create_engine(database_url)
-            self.assertEqual(
-                set(inspect(engine).get_table_names()),
-                {"alembic_version"},
-            )
+            inspector = inspect(engine)
+            self.assertNotIn("games", inspector.get_table_names())
+            self.assertNotIn("game_rooms", inspector.get_table_names())
+            self.assertNotIn("game_events", inspector.get_table_names())
+            with engine.connect() as connection:
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT version_num FROM alembic_version")
+                    ).scalar_one(),
+                    self.current_head(),
+                )
             engine.dispose()
 
     def test_legacy_upgrade_preserves_restore_rows_and_backfills_operation_id(self):

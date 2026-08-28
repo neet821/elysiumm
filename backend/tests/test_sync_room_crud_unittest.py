@@ -36,20 +36,6 @@ class SyncRoomCrudTest(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
-    def test_create_room_preserves_game_fields(self):
-        payload = schemas.SyncRoomCreate(
-            room_name="五子棋",
-            mode="game",
-            type="game",
-            game_type="gomoku",
-        )
-
-        room = sync_room_crud.create_room(self.db, payload, self.user.id)
-
-        self.assertEqual(room.type, "game")
-        self.assertEqual(room.mode, "game")
-        self.assertEqual(room.game_type, "gomoku")
-
     def test_create_room_adds_host_as_online_member(self):
         payload = schemas.SyncRoomCreate(room_name="电影房", mode="url")
 

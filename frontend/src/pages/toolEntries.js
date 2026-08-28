@@ -1,4 +1,4 @@
-import { Film, Gamepad2, Music2 } from 'lucide-react'
+import { Film, Music2 } from 'lucide-react'
 
 export const TOOL_ENTRIES = [
   {
@@ -16,13 +16,5 @@ export const TOOL_ENTRIES = [
     to: '/rooms/music',
     description: '进入音乐大厅，创建听歌房并打开 Mineradio 播放器。',
     icon: Music2,
-  },
-  {
-    id: 'game',
-    number: '03',
-    title: '桌游',
-    to: '/games',
-    description: '进入桌游大厅，创建房间、加入对局或观看回放。',
-    icon: Gamepad2,
   },
 ]

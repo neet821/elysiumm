@@ -12,7 +12,7 @@ assert.match(
   "routes should load the not-found page on demand",
 );
 
-assert.match(routesSource, /path="\/games\/rooms\/:roomId"/, "game room route should exist");
+assert.doesNotMatch(routesSource, /GameRoomPage|GameDetailPage|GamesPage|RoomsGamesPage|path=['"]\/(?:games|rooms\/games)/, "game routes and pages must be removed");
 for (const path of ["/archive", "/collection", "/books", "/tools", "/music"]) {
   assert.match(routesSource, new RegExp(`path="${path}"`), `stable public route ${path} should exist`);
 }
@@ -46,31 +46,6 @@ assert.match(routesSource, /path="\/collection"[\s\S]*?withAuth\(withUserProps\(
 assert.match(routesSource, /path="\/books"[\s\S]*?withAuth\(<BooksPage \/>, true\)/, "books should require an administrator");
 assert.match(routesSource, /path="\/music"[\s\S]*?withAuth\(<MusicLobbyPage \/>\)/, "music should open the authenticated room lobby");
 assert.doesNotMatch(routesSource, /path="\/music"[^\n]*StandalonePlayerPage/, "the local demo must not occupy the music route");
-const gameRoomSource = readFileSync(new URL("../src/pages/GameRoomPage.jsx", import.meta.url), "utf8");
-const gameControllerSource = readFileSync(new URL("../src/features/games/useGameRoom.js", import.meta.url), "utf8");
-assert.match(gameRoomSource, /useGameRoom\(roomId, user\)/, "game room page must use the shared controller");
-assert.match(gameControllerSource, /path:\s*['"]\/ws\/socket\.io['"]/, "game room must use the mounted Socket.IO path");
-assert.match(
-  gameControllerSource,
-  /auth:\s*\{\s*token:\s*localStorage\.getItem\(['"]token['"]\)\s*\}/,
-  "game room Socket.IO connection must authenticate with the access token",
-);
-assert.doesNotMatch(
-  gameControllerSource,
-  /join_game_room[^\n]*user_id/,
-  "game room join must not send a client-claimed user id",
-);
-
-const gameBoardSource = readFileSync(new URL("../src/components/GameBoard.jsx", import.meta.url), "utf8");
-assert.doesNotMatch(
-  gameBoardSource,
-  /game_state|currentPlayer|cursor-not-allowed relative/,
-  "game board must render the safe server view instead of the disabled local board",
-);
-
-assert.match(gameControllerSource, /request_game_snapshot/, "game room restore must request a fresh personalized snapshot");
-assert.doesNotMatch(gameControllerSource, /setInterval\([^)]*loadRoom|2000/, "game room must not use polling as its authority");
-
 assert.match(
   routesSource,
   /<Route path="\*" element=\{withUserProps\(NotFoundPage\)\} \/>/,

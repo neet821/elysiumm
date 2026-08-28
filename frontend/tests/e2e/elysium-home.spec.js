@@ -42,7 +42,6 @@ test.describe('Elysium 首页', () => {
     await expect(dialog.getByRole('link', { name: '工具箱' })).toHaveAttribute('href', '/tools')
     await expect(dialog.getByRole('link', { name: '收藏' })).toHaveAttribute('href', '/collection')
     await expect(dialog.getByRole('link', { name: '书籍' })).toHaveAttribute('href', '/books')
-    await expect(dialog.getByRole('link', { name: '桌游' })).toHaveAttribute('href', '/games')
     await expect(dialog.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
   })
 })

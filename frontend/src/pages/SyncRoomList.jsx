@@ -13,7 +13,6 @@ import {
   Trash2,
   ExternalLink,
   User,
-  Gamepad2,
   Copy,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -189,11 +188,6 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
             >
               {room.room_name}
             </h4>
-            {room.type === 'game' && (
-              <span className={`px-1.5 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300`}>
-                {room.game_type === 'gomoku' ? '五子棋' : room.game_type}
-              </span>
-            )}
             {room.control_mode === "host_only" && (
               <Lock size={14} className={styles.textMuted} />
             )}
@@ -264,12 +258,10 @@ const SyncRoomList = ({ styles, isDark, embedded = false, roomMode = "video" }) 
 
         <div className={`text-xs ${styles.textMuted} flex items-center justify-between`}>
           <span className="flex items-center gap-1">
-            {room.type === 'game' ? <Gamepad2 size={12} /> : <Film size={12} />}
+            <Film size={12} />
             {isMusicRoom
               ? "听歌房"
-              : room.type === 'game'
-                ? '桌游房间'
-                : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
+              : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
             }
           </span>
           <button type="button" onClick={(event) => handleCopyShare(event, room.id)} className="room-share-button" aria-label="复制分享链接">

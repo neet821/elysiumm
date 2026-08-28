@@ -268,7 +268,7 @@ async function main() {
       text: document.body.innerText,
     }))()`)
     assert.deepEqual(visitor.links, ['首页', '归档', '工具箱', '登录'])
-    for (const label of ['我的收藏', '同步观影', '同步听歌', '书籍', '桌游', '登录后继续']) assert(visitor.text.includes(label))
+    for (const label of ['我的收藏', '同步观影', '同步听歌', '书籍', '登录后继续']) assert(visitor.text.includes(label))
     assert(!page.requests.some((url) => /\/api\/(bookmarks|sync-rooms|users\/me)/.test(url)), 'public toolbox requested private data')
     const visitorShot = await page.capture('visitor-tools.png')
 
@@ -295,7 +295,6 @@ async function main() {
       { label: '打开同步观影', href: '/tools/sync-room' },
       { label: '打开同步听歌', href: '/music' },
       { label: '打开书籍', href: '/books' },
-      { label: '打开桌游', href: '/games' },
     ])
     assert(!reader.text.includes('管理员控制台'))
     await sleep(1000)

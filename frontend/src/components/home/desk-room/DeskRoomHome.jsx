@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Bookmark, Gamepad2, Headphones, Radio, UserRound, Wrench, X } from 'lucide-react'
+import { BookOpen, Bookmark, Headphones, Radio, UserRound, Wrench, X } from 'lucide-react'
 import { getInitialTimePreset } from './deskRoomEnvironment.js'
 import './deskRoom.css'
 
@@ -30,7 +30,6 @@ const COMPUTER_LINKS = [
   { label: '工具箱', to: '/tools', description: '打开站内公共工具', Icon: Wrench },
   { label: '收藏', to: '/collection', description: '查看个人收藏', Icon: Bookmark },
   { label: '书籍', to: '/books', description: '打开书架', Icon: BookOpen },
-  { label: '桌游', to: '/games', description: '进入桌游大厅', Icon: Gamepad2 },
   { label: '账户', to: '/account', description: '管理账户和权限', Icon: UserRound },
 ]
 

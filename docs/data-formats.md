@@ -12,7 +12,7 @@ Pagination uses bounded `skip`/`limit` or route-specific `page` values. Response
 
 ## Version conflict contract
 
-Mutable rooms, playback state, books, lists and games use integer revisions or versions. A client sends the last version it observed. The server changes state and increments the relevant version exactly once in the same transaction. A stale request returns `409` and, where the route supports it, the latest safe state so the client can recover. Retrying an old action without reconciling is not valid.
+Mutable rooms, playback state, books and lists use integer revisions or versions. A client sends the last version it observed. The server changes state and increments the relevant version exactly once in the same transaction. A stale request returns `409` and, where the route supports it, the latest safe state so the client can recover. Retrying an old action without reconciling is not valid.
 
 ## Snapshot format
 

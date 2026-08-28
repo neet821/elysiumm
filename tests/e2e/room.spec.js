@@ -55,7 +55,6 @@ test('new Elysium homepage keeps the existing site feature routes reachable', as
     ['工具箱', '/tools'],
     ['收藏', '/collection'],
     ['书籍', '/books'],
-    ['桌游', '/games'],
     ['账户', '/account'],
   ])
 })

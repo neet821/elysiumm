@@ -38,7 +38,7 @@ npm run test:backend
 
 正式功能入口保持不变：
 
-`/archive` · `/live` · `/music` · `/tools` · `/collection` · `/books` · `/games` · `/account`
+`/archive` · `/live` · `/music` · `/tools` · `/collection` · `/books` · `/account`
 
 ## 发布资料
 

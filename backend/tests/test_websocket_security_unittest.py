@@ -14,7 +14,6 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-import game_service  # noqa: E402
 import models  # noqa: E402
 import schemas  # noqa: E402
 import security  # noqa: E402
@@ -80,7 +79,6 @@ class WebsocketSecurityTest(unittest.TestCase):
         websocket_server.sio.emit = fake_emit
         websocket_server.sio.enter_room = fake_enter_room
         websocket_server.room_connections.clear()
-        websocket_server.game_room_connections.clear()
         websocket_server.last_music_time_persisted.clear()
         websocket_server.socket_event_limiter.clear()
 
@@ -91,7 +89,6 @@ class WebsocketSecurityTest(unittest.TestCase):
         websocket_server.sio.emit = self.original_emit
         websocket_server.sio.enter_room = self.original_enter_room
         websocket_server.room_connections.clear()
-        websocket_server.game_room_connections.clear()
         websocket_server.last_music_time_persisted.clear()
         websocket_server.socket_event_limiter.clear()
         self.db.close()
@@ -329,55 +326,6 @@ class WebsocketSecurityTest(unittest.TestCase):
         self.assertIs(
             video_router._video_room(self.db, room.id, self.member, controller=True),
             room,
-        )
-
-    def test_non_member_cannot_enter_game_room_by_spoofing_owner_id(self):
-        room_payload = game_service.create_room(self.db, self.host, "secure game")
-        room_id = room_payload["id"]
-        self.sessions["sid-attacker"] = self.trusted_session(self.attacker)
-
-        asyncio.run(
-            websocket_server.join_game_room(
-                "sid-attacker",
-                {"room_id": room_id, "user_id": self.host.id},
-            )
-        )
-
-        self.assertNotIn(
-            ("sid-attacker", f"game_room_{room_id}"),
-            self.entered_rooms,
-        )
-        self.assertTrue(
-            any(
-                event["event"] == "game_error" and event["room"] == "sid-attacker"
-                for event in self.emitted
-            )
-        )
-
-    def test_legacy_game_action_cannot_modify_room_state(self):
-        room = sync_room_crud.create_room(
-            self.db,
-            schemas.SyncRoomCreate(room_name="legacy game", mode="url"),
-            self.host.id,
-        )
-        room.game_state = '{"safe": true}'
-        self.db.commit()
-        self.sessions["sid-host"] = self.trusted_session(self.host)
-
-        asyncio.run(
-            websocket_server.game_action(
-                "sid-host",
-                {"room_id": room.id, "game_state": '{"owned": true}'},
-            )
-        )
-
-        self.db.refresh(room)
-        self.assertEqual(room.game_state, '{"safe": true}')
-        self.assertTrue(
-            any(
-                event["event"] == "game_error" and event["room"] == "sid-host"
-                for event in self.emitted
-            )
         )
 
     def test_socket_cors_matches_stripped_configured_origins_without_wildcard(self):

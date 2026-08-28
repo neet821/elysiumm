@@ -41,7 +41,6 @@ REQUIRED_MANAGED_SCHEMA = {
     "canonical_tracks": {"normalized_title", "normalized_artist", "duration_seconds"},
     "music_room_events": {"room_id", "event_type", "playback_version"},
     "video_sessions": {"room_id", "current_item_id"},
-    "game_replay_frames": {"room_id", "version", "state_hash"},
     "books": {"slug", "title", "reader_path"},
     "sync_rooms": {"is_locked"},
 }

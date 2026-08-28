@@ -12,8 +12,6 @@ import security
 import sync_room_crud, models
 import room_core
 import room_snapshot as snapshot_domain
-import game_core
-import game_service
 import music_service
 import video_service
 from config import config
@@ -41,7 +39,6 @@ sio = socketio.AsyncServer(
 # 存储房间和用户的连接映射
 # room_connections: {room_id: {user_id: {sid, ...}, ...}}
 room_connections: Dict[int, Dict[int, Set[str]]] = {}
-game_room_connections: Dict[int, Dict[int, Set[str]]] = {}
 last_music_time_persisted: Dict[int, float] = {}
 # room_id -> user_id -> sid -> current buffering report. This state is
 # deliberately process-local and never contributes to a playback version.
@@ -51,7 +48,6 @@ video_local_ready_states: Dict[int, Dict[int, dict]] = {}
 socket_event_limiter = SlidingWindowRateLimiter()
 SOCKET_EVENT_LIMITS = {
     'join_room': (10, 10),
-    'join_game_room': (10, 10),
     'leave_room_event': (10, 10),
     'playback_control': (12, 10),
     'send_message': (8, 10),
@@ -64,9 +60,6 @@ SOCKET_EVENT_LIMITS = {
     'video_buffer_status': (20, 10),
     'video_local_ready': (12, 10),
     'presence_heartbeat': (12, 30),
-    'game_action': (5, 10),
-    'game_chat': (8, 10),
-    'request_game_snapshot': (10, 10),
 }
 
 
@@ -229,61 +222,6 @@ def remove_room_connection(room_id: int, user_id: int, sid: str):
     return False
 
 
-def add_game_room_connection(room_id: int, user_id: int, sid: str):
-    game_room_connections.setdefault(room_id, {}).setdefault(user_id, set()).add(sid)
-
-
-def is_game_sid_connected(room_id: int, user_id: int, sid: str) -> bool:
-    return sid in game_room_connections.get(room_id, {}).get(user_id, set())
-
-
-def remove_game_room_connection(room_id: int, user_id: int, sid: str):
-    sids = game_room_connections.get(room_id, {}).get(user_id)
-    if not sids or sid not in sids:
-        return None
-    sids.remove(sid)
-    if sids:
-        return True
-    del game_room_connections[room_id][user_id]
-    if not game_room_connections[room_id]:
-        del game_room_connections[room_id]
-    return False
-
-
-async def emit_game_room_updates(db, room_id: int) -> None:
-    room = game_service.active_room(db, room_id)
-    for user_id, sids in list(game_room_connections.get(room_id, {}).items()):
-        member = db.query(models.GameRoomMember).filter_by(
-            room_id=room_id,
-            user_id=user_id,
-            left_at=None,
-        ).first()
-        if member is None:
-            for target_sid in list(sids):
-                await sio.leave_room(target_sid, f'game_room_{room_id}')
-                await sio.emit(
-                    'game_error',
-                    {'code': 'membership_ended', 'message': '已离开游戏房间'},
-                    room=target_sid,
-                )
-                remove_game_room_connection(room_id, user_id, target_sid)
-            continue
-        payload = game_service.room_payload(db, room, user_id)
-        for target_sid in list(sids):
-            await sio.emit('game_room_update', payload, room=target_sid)
-
-
-async def emit_game_replay_available(room_id: int, version: int, *, complete: bool) -> None:
-    await sio.emit(
-        'game_replay_available',
-        {
-            'room_id': room_id,
-            'last_version': version,
-            'complete': complete,
-        },
-        room=f'game_room_{room_id}',
-    )
-
 def get_db():
     """获取数据库会话 - 注意:调用者负责关闭连接"""
     return SessionLocal()
@@ -369,8 +307,6 @@ async def disconnect(sid):
         for room_id in list(room_connections):
             _drop_video_buffer_report(room_id, user_id, sid)
             remove_room_connection(room_id, user_id, sid)
-        for room_id in list(game_room_connections):
-            remove_game_room_connection(room_id, user_id, sid)
         return
 
     db = get_db()
@@ -437,26 +373,6 @@ async def disconnect(sid):
                     room_id,
                 )
 
-        for room_id in list(game_room_connections):
-            if not is_game_sid_connected(room_id, user_id, sid):
-                continue
-            await sio.leave_room(sid, f'game_room_{room_id}')
-            still_connected = remove_game_room_connection(room_id, user_id, sid)
-            if still_connected:
-                continue
-            member = db.query(models.GameRoomMember).filter_by(
-                room_id=room_id,
-                user_id=user_id,
-                left_at=None,
-            ).first()
-            if member is not None:
-                member.is_online = False
-                member.last_seen_at = datetime.utcnow()
-                db.commit()
-                try:
-                    await emit_game_room_updates(db, room_id)
-                except ValueError:
-                    pass
     except Exception as e:
         logger.error("Error in disconnect: %s", e)
     finally:
@@ -555,55 +471,6 @@ async def join_room(sid, data):
     finally:
         if db:
             db.close()
-
-@sio.event
-async def join_game_room(sid, data):
-    actor = await get_socket_actor(sid, error_event='game_error')
-    if actor is None:
-        return
-    if not await ensure_realtime_available(sid, error_event='game_error'):
-        return
-
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get('room_id')
-    if type(room_id) is not int:
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': '房间参数无效'}, room=sid)
-        return
-    if not await ensure_socket_rate_limit(
-        sid,
-        actor,
-        'join_game_room',
-        room_id=room_id,
-        error_event='game_error',
-    ):
-        return
-    db = get_db()
-    try:
-        user_id = actor['user_id']
-        room = game_service.active_room(db, room_id)
-        member = db.query(models.GameRoomMember).filter_by(
-            room_id=room.id,
-            user_id=user_id,
-            left_at=None,
-        ).first()
-        if not member:
-            await sio.emit('game_error', {'code': 'forbidden', 'message': '尚未加入游戏房间'}, room=sid)
-            return
-        await sio.enter_room(sid, f"game_room_{room_id}")
-        add_game_room_connection(room_id, user_id, sid)
-        member.is_online = True
-        member.last_seen_at = datetime.utcnow()
-        db.commit()
-        payload = game_service.room_payload(db, room, user_id)
-        await sio.emit('game_joined', {'room_id': room_id, 'viewer': payload['viewer']}, room=sid)
-        await sio.emit("game_room_update", payload, room=sid)
-    except (PermissionError, ValueError) as exc:
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': str(exc)}, room=sid)
-    except Exception:
-        logger.exception('Failed to join game room')
-        await sio.emit('game_error', {'code': 'server_error', 'message': '游戏房间暂时无法连接'}, room=sid)
-    finally:
-        db.close()
 
 @sio.event
 async def leave_room_event(sid, data):
@@ -1586,208 +1453,6 @@ async def request_sync(sid, data):
     finally:
         if db:
             db.close()
-
-@sio.event
-async def game_action(sid, data):
-    """Apply one authenticated, versioned action; client state is ignored."""
-    actor = await get_socket_actor(sid, error_event='game_error')
-    if actor is None:
-        return
-    if not await ensure_realtime_available(sid, error_event='game_error'):
-        return
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get('room_id')
-    expected_version = data.get('expected_version')
-    action = data.get('action')
-    if (
-        type(room_id) is not int
-        or type(expected_version) is not int
-        or not isinstance(action, dict)
-    ):
-        await sio.emit(
-            'game_error',
-            {'code': 'invalid_request', 'message': '游戏操作参数无效'},
-            room=sid,
-        )
-        return
-    if not await ensure_socket_rate_limit(
-        sid,
-        actor,
-        'game_action',
-        room_id=room_id,
-        error_event='game_error',
-    ):
-        return
-    user_id = actor['user_id']
-    if not is_game_sid_connected(room_id, user_id, sid):
-        await sio.emit(
-            'game_error',
-            {'code': 'forbidden', 'message': '请先连接游戏房间'},
-            room=sid,
-        )
-        return
-    db = get_db()
-    try:
-        user = db.query(models.User).filter(
-            models.User.id == user_id,
-            models.User.is_active.is_(True),
-        ).first()
-        if user is None:
-            raise PermissionError('用户已失效')
-        result = game_service.perform_game_action(
-            db,
-            room_id,
-            user,
-            action,
-            expected_version,
-        )
-        await sio.emit(
-            'game_action_applied',
-            {
-                'room_id': room_id,
-                'version': result['version'],
-                'action_type': action.get('type'),
-            },
-            room=sid,
-        )
-        await emit_game_room_updates(db, room_id)
-        if result['status'] == 'finished':
-            await emit_game_replay_available(
-                room_id,
-                result['version'],
-                complete=True,
-            )
-    except game_core.GameVersionConflict as exc:
-        payload = {
-            'code': 'stale_version',
-            'message': '棋局已经更新，请使用最新状态',
-            'current_version': exc.current_version,
-        }
-        try:
-            room = game_service.active_room(db, room_id)
-            payload['latest'] = game_service.room_payload(db, room, user_id)
-        except ValueError:
-            pass
-        await sio.emit('game_error', payload, room=sid)
-    except PermissionError as exc:
-        await sio.emit(
-            'game_error',
-            {'code': 'forbidden', 'message': str(exc)},
-            room=sid,
-        )
-    except ValueError as exc:
-        await sio.emit(
-            'game_error',
-            {'code': 'invalid_action', 'message': str(exc)},
-            room=sid,
-        )
-    except Exception:
-        logger.exception('Failed to apply game action')
-        await sio.emit(
-            'game_error',
-            {'code': 'server_error', 'message': '游戏操作暂时无法完成'},
-            room=sid,
-        )
-    finally:
-        db.close()
-
-
-@sio.event
-async def request_game_snapshot(sid, data):
-    actor = await get_socket_actor(sid, error_event='game_error')
-    if actor is None:
-        return
-    if not await ensure_realtime_available(sid, error_event='game_error'):
-        return
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get('room_id')
-    if type(room_id) is not int:
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': '房间参数无效'}, room=sid)
-        return
-    if not await ensure_socket_rate_limit(
-        sid,
-        actor,
-        'request_game_snapshot',
-        room_id=room_id,
-        error_event='game_error',
-    ):
-        return
-    user_id = actor['user_id']
-    if not is_game_sid_connected(room_id, user_id, sid):
-        await sio.emit('game_error', {'code': 'forbidden', 'message': '请先连接游戏房间'}, room=sid)
-        return
-    db = get_db()
-    try:
-        room = game_service.active_room(db, room_id)
-        await sio.emit(
-            'game_room_update',
-            game_service.room_payload(db, room, user_id),
-            room=sid,
-        )
-    except ValueError as exc:
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': str(exc)}, room=sid)
-    except Exception:
-        logger.exception('Failed to send game snapshot')
-        await sio.emit('game_error', {'code': 'server_error', 'message': '棋局状态暂时无法同步'}, room=sid)
-    finally:
-        db.close()
-
-
-@sio.on('game_chat')
-async def game_chat(sid, data):
-    actor = await get_socket_actor(sid, error_event='game_error')
-    if actor is None:
-        return
-    if not await ensure_realtime_available(sid, error_event='game_error'):
-        return
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get('room_id')
-    message = data.get('message')
-    if type(room_id) is not int or not isinstance(message, str):
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': '聊天参数无效'}, room=sid)
-        return
-    if not await ensure_socket_rate_limit(
-        sid,
-        actor,
-        'game_chat',
-        room_id=room_id,
-        error_event='game_error',
-    ):
-        return
-    user_id = actor['user_id']
-    if not is_game_sid_connected(room_id, user_id, sid):
-        await sio.emit('game_error', {'code': 'forbidden', 'message': '请先连接游戏房间'}, room=sid)
-        return
-    db = get_db()
-    try:
-        user = db.query(models.User).filter(
-            models.User.id == user_id,
-            models.User.is_active.is_(True),
-        ).first()
-        if user is None:
-            raise PermissionError('用户已失效')
-        event = game_service.post_chat(db, room_id, user, message)
-        await sio.emit(
-            'game_chat',
-            {
-                'id': event.id,
-                'room_id': room_id,
-                'user_id': user_id,
-                'username': actor['username'],
-                'message': message.strip(),
-                'created_at': event.created_at.isoformat(),
-            },
-            room=f'game_room_{room_id}',
-        )
-    except PermissionError as exc:
-        await sio.emit('game_error', {'code': 'forbidden', 'message': str(exc)}, room=sid)
-    except ValueError as exc:
-        await sio.emit('game_error', {'code': 'invalid_request', 'message': str(exc)}, room=sid)
-    except Exception:
-        logger.exception('Failed to send game chat')
-        await sio.emit('game_error', {'code': 'server_error', 'message': '消息发送失败'}, room=sid)
-    finally:
-        db.close()
 
 # 创建 ASGI 应用
 # 关键修复：当mount到/ws时，socketio_path应该是'/'，这样完整路径才是 /ws/socket.io/

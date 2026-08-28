@@ -8,7 +8,7 @@ import apiClient from '../utils/request'
 const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : '时间未知'
 const outcomeLabel = (value) => ({ success: '成功', failed: '失败', rate_limited: '已限速', denied: '已拒绝' }[value] || value)
 const auditActionLabel = (value) => ({ device_rotate: '更新设备凭据', sync_device_create: '创建设备', sync_device_pause: '暂停设备', sync_device_resume: '恢复设备', sync_device_revoke: '撤销设备', sync_device_rotate: '更新设备凭据', sync_device_scan: '扫描设备' }[value] || '管理员操作')
-const realtimeEventLabel = (value) => ({ join_game_room: '加入桌游房', join_room: '加入房间', playback_control: '播放控制', send_message: '发送消息', video_local_ready: '本地视频就绪' }[value] || '实时连接操作')
+const realtimeEventLabel = (value) => ({ join_room: '加入房间', playback_control: '播放控制', send_message: '发送消息', video_local_ready: '本地视频就绪' }[value] || '实时连接操作')
 const resourceLabel = (value) => ({ room: '房间', sync_device: '同步设备', user: '用户' }[value] || '管理资源')
 
 function EvidenceList({ items, type }) {

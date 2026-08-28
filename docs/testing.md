@@ -75,7 +75,6 @@ node scripts/phase5-browser-smoke.mjs
 node scripts/phase6-browser-smoke.mjs
 node scripts/phase7-multiclient-smoke.mjs
 node scripts/phase8-video-multiclient-smoke.mjs
-node scripts/phase9-game-multiclient-smoke.mjs
 node scripts/phase10-books-admin-browser-smoke.mjs
 ```
 

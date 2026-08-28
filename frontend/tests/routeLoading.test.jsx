@@ -26,14 +26,14 @@ describe('route-level loading', () => {
     expect(screen.getByRole('status', { name: '正在载入页面' })).toBeInTheDocument()
   })
 
-  it('loads public, account, editor, room, game and administrator pages on demand', () => {
+  it('loads public, account, editor, room and administrator pages on demand', () => {
     const source = readFileSync(
       path.join(process.cwd(), 'src/routes.jsx'),
       'utf8',
     )
     for (const page of (
-      ['ArchivePage', 'BooksPage', 'PrivateCollectionPage', 'PostEditorPage',
-        'MineradioPage', 'GameRoomPage', 'AdminFilesPage']
+      ['AccountPage', 'AdminUsersPage', 'AdminOverviewPage', 'MusicLobbyPage',
+        'MineradioPage', 'AdminFilesPage']
     )) {
       expect(source).toMatch(new RegExp(`lazy\\(\\(\\) => import\\(["']\\./pages/${page}`))
       expect(source).not.toMatch(new RegExp(`import ${page} from`))

@@ -122,7 +122,7 @@ async def startup_event():
     start_live_reconcile_task()
     print("✅ Background cleanup task started")
 
-from routers import admin_dashboard, admin_files, agent_console, archive, bookmarks, books, file_sync, frp_admin, games, links, live, live_admin, media, music, public_sync, transfers, video
+from routers import admin_dashboard, admin_files, agent_console, archive, bookmarks, books, file_sync, frp_admin, links, live, live_admin, media, music, public_sync, transfers, video
 from music_test_catalog import asset_dir as music_test_asset_dir
 app.include_router(admin_dashboard.router)
 app.include_router(admin_files.router)
@@ -138,7 +138,6 @@ app.include_router(live.router)
 app.include_router(live_admin.router)
 app.include_router(media.router)
 app.include_router(public_sync.router)
-app.include_router(games.router)
 app.include_router(music.router)
 app.include_router(video.router)
 

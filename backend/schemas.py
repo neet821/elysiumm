@@ -103,7 +103,6 @@ class AdminOverviewUsers(BaseModel):
 
 class AdminOverviewRooms(BaseModel):
     media_active: int
-    game_active: int
 
 
 class AdminOverviewFiles(BaseModel):
@@ -933,8 +932,7 @@ class SyncRoomBase(BaseModel):
     video_source: Optional[str] = None
     control_mode: str = "host_only"
     password: Optional[str] = None # 接收明文密码
-    type: str = "video" # 'video' or 'game'
-    game_type: Optional[str] = None # e.g. 'gomoku'
+    type: str = "video"
 
 class SyncRoomCreate(SyncRoomBase):
     pass
@@ -963,8 +961,6 @@ class SyncRoom(BaseModel):
     video_filename: Optional[str] = None
     video_size: Optional[int] = None
     type: str = "video"
-    game_type: Optional[str] = None
-    game_state: Optional[str] = None
     is_active: bool
     is_locked: bool = False
     has_password: bool = False # 返回给前端是否加密
@@ -991,8 +987,6 @@ class SyncRoomInfo(BaseModel):
     video_size: Optional[int] = None
     video_hash: Optional[str] = None
     type: str = "video"
-    game_type: Optional[str] = None
-    game_state: Optional[str] = None
     current_time: float = 0
     is_playing: bool = False
     playback_version: int = 0
@@ -1203,56 +1197,6 @@ class KickMemberRequest(BaseModel):
     """踢出成员请求"""
     target_user_id: int
 
-
-class GameRoomSettings(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    turn_timeout_seconds: int = Field(default=90, ge=15, le=300)
-
-
-class GameRoomCreate(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    name: str = Field(default="井字棋房间", min_length=1, max_length=80)
-    game_slug: str = Field(default="tic-tac-toe", min_length=1, max_length=80)
-    visibility: Literal["public", "private"] = "public"
-    password: Optional[str] = Field(default=None, min_length=4, max_length=72)
-    allow_spectators: bool = True
-    settings: GameRoomSettings = Field(default_factory=GameRoomSettings)
-
-
-class GameRoomJoin(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    role: Literal["player", "spectator"] = "player"
-    password: Optional[str] = Field(default=None, max_length=72)
-    invite_token: Optional[str] = Field(default=None, max_length=64)
-
-
-class GameRoomReady(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    ready: bool
-    expected_room_version: int = Field(ge=0)
-
-
-class GameRoomRevision(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    expected_room_version: int = Field(ge=0)
-
-
-class GameRoomInviteCreate(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    ttl_minutes: int = Field(default=60, ge=1, le=1440)
-
-
-class GameActionRequest(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    expected_version: int = Field(ge=0)
-    action: dict[str, Any]
 
 class MessageBoardBase(BaseModel):
     content: str = Field(min_length=1, max_length=500)

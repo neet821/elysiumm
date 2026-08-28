@@ -45,11 +45,11 @@ export default function AdminOverviewPage() {
     )
   }
 
-  const activeRooms = (overview?.rooms?.media_active ?? 0) + (overview?.rooms?.game_active ?? 0)
+  const activeRooms = overview?.rooms?.media_active ?? 0
   const managedFiles = (overview?.files?.manual_count ?? 0) + (overview?.files?.synced_count ?? 0)
   const cards = [
     { label: '用户', value: `${overview?.users?.total ?? 0} 位用户`, detail: '查看与管理普通用户', icon: Users, to: '/admin/users' },
-    { label: '房间', value: `${activeRooms} 个活跃房间`, detail: '听歌、观影和桌游状态', icon: Video, to: '/rooms/watch' },
+    { label: '房间', value: `${activeRooms} 个活跃房间`, detail: '听歌和观影状态', icon: Video, to: '/rooms/watch' },
     { label: '文件', value: `${managedFiles} 个受管文件`, detail: '文件同步与文件中转', icon: Files, to: '/admin/files' },
     { label: '服务器状态', value: overview?.health?.status || '未知', detail: `数据库：${overview?.health?.database === 'connected' ? '已连接' : overview?.health?.database || '未知'}`, icon: Server, to: '/admin/services' },
     { label: '曲库账户', value: provider?.service_available ? '服务在线' : '待检查', detail: `网易云 ${provider?.providers?.netease?.configured ? '已配置' : '未配置'}`, icon: Music2, to: '/admin/music' },
