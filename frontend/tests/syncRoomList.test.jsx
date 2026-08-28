@@ -34,6 +34,17 @@ describe('同步房间列表', () => {
     expect(screen.getByRole('button', { name: '复制分享链接' })).toBeInTheDocument()
     expect(document.querySelector('.room-card-corner-decoration')).not.toBeInTheDocument()
   })
+
+  it('can render the watch lobby without route-provided style props', async () => {
+    render(<MemoryRouter><SyncRoomList roomMode="video" /></MemoryRouter>)
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('有人房间')).toBeInTheDocument()
+  })
   beforeEach(() => {
     mocks.auth.isAdmin = false
     mocks.auth.user = { id: 1, username: 'host' }
@@ -309,14 +320,14 @@ describe('同步房间列表', () => {
     expect(screen.queryByTitle('删除房间')).not.toBeInTheDocument()
   })
 
-  it('为听歌房和观影房使用统一的返回房间按钮', () => {
+  it('观影房和听歌房不再显示指向已删除聚合页的返回按钮', () => {
     const { rerender } = render(
       <MemoryRouter>
         <SyncRoomList styles={styles} isDark={false} />
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: '返回房间' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '返回房间' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '返回工具页' })).not.toBeInTheDocument()
 
     rerender(
@@ -324,6 +335,6 @@ describe('同步房间列表', () => {
         <SyncRoomList styles={styles} isDark={false} roomMode="music" />
       </MemoryRouter>,
     )
-    expect(screen.getByRole('button', { name: '返回房间' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '返回房间' })).not.toBeInTheDocument()
   })
 })
