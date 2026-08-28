@@ -20,6 +20,16 @@ vi.mock('../src/features/live/LivePlayer.jsx', () => ({
   ),
 }))
 
+vi.mock('../src/pages/AdminLivePage.jsx', () => ({
+  default: () => <div data-testid="inline-admin-live" />,
+}))
+
+const optionalAuthState = vi.hoisted(() => ({ isAdmin: true, loading: false }))
+
+vi.mock('../src/contexts/AuthContext', () => ({
+  useOptionalAuth: () => optionalAuthState,
+}))
+
 import { API_ENDPOINTS } from '../src/config.js'
 import LivePage from '../src/pages/LivePage.jsx'
 import apiClient from '../src/utils/request.js'
@@ -41,6 +51,8 @@ describe('public live page', () => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
     window.localStorage.clear()
+    optionalAuthState.isAdmin = false
+    optionalAuthState.loading = false
     window.history.replaceState({}, '', '/live')
     Object.defineProperty(navigator, 'sendBeacon', {
       configurable: true,
@@ -175,13 +187,14 @@ describe('public live page', () => {
     getItem.mockRestore()
   })
 
-  it('keeps administrators on the public live page instead of opening a deleted administrator workspace', async () => {
+  it('opens the administrator workspace on the live page without starting a viewer session', async () => {
     apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'waiting', access_mode: 'public' } })
+    optionalAuthState.isAdmin = true
     render(<LivePage />)
 
-    expect(await screen.findByText('未开播')).toBeInTheDocument()
-    expect(screen.queryByTestId('inline-admin-live')).not.toBeInTheDocument()
-    expect(apiClient.get).toHaveBeenCalled()
+    expect(await screen.findByTestId('inline-admin-live')).toBeInTheDocument()
+    expect(screen.queryByText('未开播')).not.toBeInTheDocument()
+    expect(apiClient.get).not.toHaveBeenCalled()
   })
 
   it('opens the public minimal watch page for an administrator watch link', async () => {

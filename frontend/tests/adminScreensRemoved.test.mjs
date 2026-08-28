@@ -5,13 +5,10 @@ import assert from 'node:assert/strict'
 
 const sourceRoot = path.join(process.cwd(), 'src')
 
-test('removed administrator overview and live UI modules are not shipped', () => {
-  for (const file of [
-    'pages/AdminOverviewPage.jsx',
-    'pages/AdminLivePage.jsx',
-    'features/live/AdminLiveAudience.jsx',
-    'features/live/AdminLiveRecordings.jsx',
-  ]) {
-    assert.equal(fs.existsSync(path.join(sourceRoot, file)), false, `${file} should be deleted`)
-  }
+test('removed administrator overview and admin live route are not shipped', () => {
+  assert.equal(fs.existsSync(path.join(sourceRoot, 'pages/AdminOverviewPage.jsx')), false, 'AdminOverviewPage.jsx should be deleted')
+
+  const routes = fs.readFileSync(path.join(sourceRoot, 'routes.jsx'), 'utf8')
+  assert.doesNotMatch(routes, /path=["']live["'][^>]*AdminLivePage/)
+  assert.doesNotMatch(routes, /label: ['"]直播['"]/)
 })
