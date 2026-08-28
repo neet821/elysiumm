@@ -35,8 +35,6 @@ class AdminDashboardTest(unittest.TestCase):
             models.AdminAuditLog,
             models.RealtimeEventAuditLog,
             models.AdminFile,
-            models.BackupFile,
-            models.BackupJob,
             models.User,
         ):
             self.db.query(model).delete()
@@ -163,19 +161,6 @@ class AdminDashboardTest(unittest.TestCase):
                 temp_path="/private/never-return-this",
                 expires_at=now + timedelta(hours=1),
             ),
-            models.BackupJob(
-                type="database",
-                status="completed",
-                created_by=self.admin.id,
-                created_at=now - timedelta(hours=1),
-            ),
-            models.BackupJob(
-                type="database",
-                status="failed",
-                created_by=self.admin.id,
-                created_at=now,
-                error_message="private backup exception",
-            ),
         ])
         for index in range(15):
             self.db.add(models.AdminAuditLog(
@@ -209,8 +194,7 @@ class AdminDashboardTest(unittest.TestCase):
         self.assertEqual(payload["sync"]["paused"], 1)
         self.assertEqual(payload["sync"]["revoked"], 1)
         self.assertEqual(payload["sync"]["expired"], 1)
-        self.assertEqual(payload["backups"]["jobs"], 2)
-        self.assertEqual(payload["backups"]["latest_status"], "failed")
+        self.assertNotIn("backups", payload)
         self.assertEqual(len(payload["recent_failures"]), 10)
         self.assertNotIn("secret-token", response.text)
         self.assertNotIn("/private/", response.text)

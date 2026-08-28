@@ -93,12 +93,6 @@ def overview_payload(db, *, now: datetime | None = None) -> dict:
         models.SyncFile.file_size,
         models.SyncFile.sync_status != "deleted",
     )
-    latest_backup = (
-        db.query(models.BackupJob)
-        .order_by(models.BackupJob.created_at.desc(), models.BackupJob.id.desc())
-        .first()
-    )
-
     return {
         "generated_at": generated_at,
         "health": {
@@ -150,11 +144,6 @@ def overview_payload(db, *, now: datetime | None = None) -> dict:
             "total": _count(db, models.Book),
             "published": _count(db, models.Book, models.Book.is_public.is_(True)),
             "lists": _count(db, models.BookList),
-        },
-        "backups": {
-            "jobs": _count(db, models.BackupJob),
-            "latest_status": latest_backup.status if latest_backup else None,
-            "latest_created_at": latest_backup.created_at if latest_backup else None,
         },
         "recent_failures": _admin_audit_rows(
             db,

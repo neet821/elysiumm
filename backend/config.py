@@ -191,7 +191,6 @@ class PlatformConfig:
         "AUDIUS_API_BASE_URL",
         "https://api.audius.co/v1",
     ).rstrip("/")
-    KAVITA_PUBLIC_BASE_URL = os.getenv("KAVITA_PUBLIC_BASE_URL", "").strip().rstrip("/")
     RAINDROP_PUBLIC_URL = os.getenv("RAINDROP_PUBLIC_URL", "").strip()
     EXTERNAL_MEDIA_DOH_URL = os.getenv(
         "EXTERNAL_MEDIA_DOH_URL",

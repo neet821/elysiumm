@@ -127,12 +127,6 @@ class AdminOverviewBooks(BaseModel):
     lists: int
 
 
-class AdminOverviewBackups(BaseModel):
-    jobs: int
-    latest_status: Optional[str] = None
-    latest_created_at: Optional[datetime] = None
-
-
 class AdminOverviewResponse(BaseModel):
     generated_at: datetime
     health: AdminOverviewHealth
@@ -141,7 +135,6 @@ class AdminOverviewResponse(BaseModel):
     files: AdminOverviewFiles
     sync: AdminOverviewSync
     books: AdminOverviewBooks
-    backups: AdminOverviewBackups
     recent_failures: List[AdminAuditEvidence]
 
 
@@ -401,55 +394,6 @@ class AgentConsoleStatus(BaseModel):
     server: dict
     backend: dict
     permissions: dict
-
-class BackupFileInfo(BaseModel):
-    id: int
-    job_id: int
-    type: str
-    filename: str
-    file_size: int
-    sha256: str
-    created_at: datetime
-
-class BackupJobInfo(BaseModel):
-    id: int
-    type: str
-    status: str
-    created_by: Optional[int] = None
-    created_at: datetime
-    finished_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    summary: dict[str, Any] = {}
-    files: List[BackupFileInfo] = []
-
-class RestoreJobInfo(BaseModel):
-    id: int
-    backup_file_id: Optional[int] = None
-    operation_id: str
-    source_filename: Optional[str] = None
-    status: str
-    rollback_status: str = "not_attempted"
-    created_by: Optional[int] = None
-    created_at: datetime
-    finished_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-
-class FrpConfigUpdate(BaseModel):
-    content: str
-
-class FrpConfigRestoreRequest(BaseModel):
-    backup_name: str
-
-class FrpOperationInfo(BaseModel):
-    id: int
-    action: str
-    status: str
-    message: Optional[str] = None
-    created_by: Optional[int] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 # Link Category Schemas
 class LinkCategoryBase(BaseModel):

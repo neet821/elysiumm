@@ -35,62 +35,6 @@ class User(Base):
 
     posts = relationship("Post", back_populates="author")
 
-class BackupJob(Base):
-    __tablename__ = "backup_jobs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    type = Column(String(50), nullable=False, default="database")
-    status = Column(String(20), nullable=False, default="running")
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    finished_at = Column(DateTime, nullable=True)
-    error_message = Column(Text, nullable=True)
-    summary_json = Column(Text, nullable=True)
-
-    creator = relationship("User")
-    files = relationship("BackupFile", back_populates="job", cascade="all, delete-orphan")
-
-class BackupFile(Base):
-    __tablename__ = "backup_files"
-
-    id = Column(Integer, primary_key=True, index=True)
-    job_id = Column(Integer, ForeignKey("backup_jobs.id"), nullable=False)
-    type = Column(String(50), nullable=False, default="database")
-    file_path = Column(Text, nullable=False)
-    file_size = Column(Integer, nullable=False, default=0)
-    sha256 = Column(String(64), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    job = relationship("BackupJob", back_populates="files")
-
-class RestoreJob(Base):
-    __tablename__ = "restore_jobs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    operation_id = Column(
-        String(36),
-        unique=True,
-        index=True,
-        nullable=False,
-        default=lambda: str(uuid.uuid4()),
-    )
-    backup_file_id = Column(
-        Integer,
-        ForeignKey("backup_files.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    source_filename = Column(String(255), nullable=True)
-    source_sha256 = Column(String(64), nullable=True)
-    status = Column(String(20), nullable=False, default="pending")
-    rollback_status = Column(String(20), nullable=False, default="not_attempted")
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    finished_at = Column(DateTime, nullable=True)
-    error_message = Column(Text, nullable=True)
-
-    backup_file = relationship("BackupFile")
-    creator = relationship("User")
-
 class AdminFile(Base):
     __tablename__ = "admin_files"
 
@@ -178,19 +122,6 @@ class RealtimeEventAuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     actor = relationship("User")
-
-class FrpOperationLog(Base):
-    __tablename__ = "frp_operation_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    action = Column(String(50), nullable=False)
-    status = Column(String(20), nullable=False, default="completed")
-    message = Column(Text, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    creator = relationship("User")
-
 
 class LiveSetting(Base):
     __tablename__ = "live_settings"

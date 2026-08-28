@@ -1,17 +1,16 @@
 from fastapi import Depends, FastAPI, HTTPException, status, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import List, Optional
 import os
 import shutil
 from pathlib import Path
 import uuid
-import json
 import logging
 from logging.handlers import RotatingFileHandler
 import asyncio
@@ -22,9 +21,9 @@ import room_core
 import video_service
 from admin_audit import add_admin_audit
 from api_rate_limit import enforce_user_rate_limit, high_risk_rate_limiter
-from database import SessionLocal, engine, get_db
+from database import engine, get_db
 from dependencies import get_current_user
-from maintenance import MaintenanceAlreadyActive, maintenance_controller
+from maintenance import maintenance_controller
 from rate_limit import SlidingWindowRateLimiter
 from websocket_server import socket_app, sio  # 导入 WebSocket 应用和 sio 实例
 from room_cleanup_task import run_cleanup_task
@@ -80,56 +79,21 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI()
 
-def recover_stale_restore_jobs() -> int:
-    """Close restore jobs left running by a previous process."""
-    db = SessionLocal()
-    try:
-        stale_jobs = db.query(models.RestoreJob).filter(
-            models.RestoreJob.status == "running"
-        ).all()
-        now = datetime.utcnow()
-        for job in stale_jobs:
-            job.status = "failed"
-            job.finished_at = now
-            job.error_message = "interrupted by process restart"
-            if hasattr(job, "rollback_status"):
-                job.rollback_status = "unknown"
-            add_admin_audit(
-                db,
-                actor_id=job.created_by,
-                action="database_restore_interrupted",
-                resource_type="restore_job",
-                resource_id=job.operation_id,
-                outcome="failed",
-                detail="启动时已将遗留的运行中恢复任务标记为中断",
-            )
-        if stale_jobs:
-            db.commit()
-        return len(stale_jobs)
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to recover stale restore jobs")
-        return 0
-    finally:
-        db.close()
-
 # 启动后台清理任务
 @app.on_event("startup")
 async def startup_event():
-    recover_stale_restore_jobs()
     asyncio.create_task(run_cleanup_task())
     asyncio.create_task(run_music_reconcile_task())
     start_live_reconcile_task()
     print("✅ Background cleanup task started")
 
-from routers import admin_dashboard, admin_files, agent_console, archive, bookmarks, books, file_sync, frp_admin, links, live, live_admin, media, music, public_sync, transfers, video
+from routers import admin_dashboard, admin_files, agent_console, archive, bookmarks, books, file_sync, links, live, live_admin, media, music, public_sync, transfers, video
 from music_test_catalog import asset_dir as music_test_asset_dir
 app.include_router(admin_dashboard.router)
 app.include_router(admin_files.router)
 app.include_router(file_sync.router)
 app.include_router(transfers.router)
 app.include_router(agent_console.router)
-app.include_router(frp_admin.router)
 app.include_router(archive.router)
 app.include_router(bookmarks.router, prefix="/api", tags=["bookmarks"])
 app.include_router(books.router)
@@ -233,445 +197,6 @@ def get_current_admin(current_user: models.User = Depends(get_current_user)):
             detail="需要管理员权限",
         )
     return current_user
-
-# --- API 路由 ---
-
-def serialize_backup_job(job: models.BackupJob) -> dict:
-    try:
-        summary = json.loads(job.summary_json) if job.summary_json else {}
-    except json.JSONDecodeError:
-        summary = {}
-
-    return {
-        "id": job.id,
-        "type": job.type,
-        "status": job.status,
-        "created_by": job.created_by,
-        "created_at": job.created_at,
-        "finished_at": job.finished_at,
-        "error_message": job.error_message,
-        "summary": summary,
-        "files": [
-            {
-                "id": backup_file.id,
-                "job_id": backup_file.job_id,
-                "type": backup_file.type,
-                "filename": Path(backup_file.file_path).name,
-                "file_size": backup_file.file_size,
-                "sha256": backup_file.sha256,
-                "created_at": backup_file.created_at,
-            }
-            for backup_file in job.files
-        ],
-    }
-
-def database_backup_output_dir() -> Path:
-    return Path(
-        os.getenv("BACKUP_OUTPUT_DIR")
-        or Path(__file__).resolve().parents[1] / "backups" / "database"
-    ).resolve()
-
-def validated_backup_path(backup_file: models.BackupFile) -> Path:
-    root = database_backup_output_dir()
-    candidate = Path(backup_file.file_path).expanduser().resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="备份文件位置无效") from exc
-    if not candidate.is_file():
-        raise HTTPException(status_code=404, detail="备份文件已不存在")
-    return candidate
-
-def verify_database_health() -> None:
-    required_tables = {"users", "backup_jobs", "restore_jobs"}
-    with engine.connect() as connection:
-        connection.execute(text("SELECT 1"))
-    present_tables = set(inspect(engine).get_table_names())
-    missing = required_tables - present_tables
-    if missing:
-        raise RuntimeError("restored database is missing required tables")
-
-def safe_restore_error(exc: Exception) -> str:
-    message = " ".join(str(exc).split())
-    for sensitive in (
-        str(database_backup_output_dir()),
-        str(Path(__file__).resolve().parents[1]),
-    ):
-        message = message.replace(sensitive, "<private>")
-    return f"{type(exc).__name__}: {message}"[:500]
-
-def serialize_restore_job(job: models.RestoreJob) -> dict:
-    return {
-        "id": job.id,
-        "operation_id": job.operation_id,
-        "backup_file_id": job.backup_file_id,
-        "source_filename": job.source_filename,
-        "status": job.status,
-        "rollback_status": job.rollback_status,
-        "created_by": job.created_by,
-        "created_at": job.created_at,
-        "finished_at": job.finished_at,
-        "error_message": job.error_message,
-    }
-
-def persist_restore_result(
-    snapshot: dict,
-    *,
-    status_value: str,
-    rollback_status: str,
-    error_message: str | None,
-    audit_action: str,
-    audit_outcome: str,
-) -> dict:
-    """Upsert a restore result after the target database has been reconnected."""
-    fresh = SessionLocal()
-    try:
-        source_exists = None
-        if snapshot["backup_file_id"] is not None:
-            source_exists = fresh.query(models.BackupFile.id).filter(
-                models.BackupFile.id == snapshot["backup_file_id"]
-            ).scalar()
-        actor_exists = None
-        if snapshot["created_by"] is not None:
-            actor_exists = fresh.query(models.User.id).filter(
-                models.User.id == snapshot["created_by"]
-            ).scalar()
-        job = fresh.query(models.RestoreJob).filter(
-            models.RestoreJob.operation_id == snapshot["operation_id"]
-        ).first()
-        if job is None:
-            job = models.RestoreJob(operation_id=snapshot["operation_id"])
-            fresh.add(job)
-        job.backup_file_id = source_exists
-        job.source_filename = snapshot["source_filename"]
-        job.source_sha256 = snapshot["source_sha256"]
-        job.status = status_value
-        job.rollback_status = rollback_status
-        job.created_by = actor_exists
-        job.created_at = snapshot["created_at"]
-        job.finished_at = datetime.utcnow()
-        job.error_message = error_message
-        fresh.flush()
-        add_admin_audit(
-            fresh,
-            actor_id=actor_exists,
-            action=audit_action,
-            resource_type="restore_job",
-            resource_id=snapshot["operation_id"],
-            outcome=audit_outcome,
-            detail=f"restore={status_value}; rollback={rollback_status}",
-        )
-        fresh.commit()
-        fresh.refresh(job)
-        return serialize_restore_job(job)
-    except Exception:
-        fresh.rollback()
-        raise
-    finally:
-        fresh.close()
-
-def create_database_backup_record(
-    db: Session,
-    user_id: int,
-    backup_type: str = "database",
-) -> models.BackupJob:
-    from database import SQLALCHEMY_DATABASE_URL
-    from database_backup import create_config_archive, run_backup_with_metadata, sha256_file
-
-    job = models.BackupJob(
-        type=backup_type,
-        status="running",
-        created_by=user_id,
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    try:
-        artifact = run_backup_with_metadata(
-            SQLALCHEMY_DATABASE_URL,
-            output_dir=database_backup_output_dir(),
-            keep=14,
-        )
-        project_root = Path(__file__).resolve().parents[1]
-        config_archive, included_configs = create_config_archive(
-            database_backup_output_dir(),
-            [
-                project_root / "backend" / ".env",
-                project_root / "frontend" / ".env.production",
-                project_root / "start-prod.sh",
-                Path(os.getenv("FRP_ROOT", "/home/frp")) / "frps.toml",
-            ],
-        )
-        artifact.summary["configs"] = included_configs
-        job.status = "completed"
-        job.finished_at = datetime.utcnow()
-        job.summary_json = json.dumps(artifact.summary, ensure_ascii=False)
-        db.add(
-            models.BackupFile(
-                job_id=job.id,
-                type="database",
-                file_path=str(artifact.path),
-                file_size=artifact.file_size,
-                sha256=artifact.sha256,
-            )
-        )
-        db.add(
-            models.BackupFile(
-                job_id=job.id,
-                type="config",
-                file_path=str(config_archive),
-                file_size=config_archive.stat().st_size,
-                sha256=sha256_file(config_archive),
-            )
-        )
-        db.commit()
-        db.refresh(job)
-        return job
-    except Exception as exc:
-        job.status = "failed"
-        job.finished_at = datetime.utcnow()
-        job.error_message = str(exc)
-        db.commit()
-        raise
-
-def get_backup_file_or_404(db: Session, backup_file_id: int) -> models.BackupFile:
-    backup_file = db.query(models.BackupFile).filter(
-        models.BackupFile.id == backup_file_id,
-    ).first()
-    if not backup_file:
-        raise HTTPException(status_code=404, detail="备份文件不存在")
-    return backup_file
-
-@app.get("/api/admin/backups", response_model=List[schemas.BackupJobInfo])
-def list_backup_jobs(
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    jobs = (
-        db.query(models.BackupJob)
-        .order_by(models.BackupJob.created_at.desc())
-        .limit(100)
-        .all()
-    )
-    return [serialize_backup_job(job) for job in jobs]
-
-@app.post("/api/admin/backups/database", response_model=schemas.BackupJobInfo)
-def create_database_backup(
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    enforce_user_rate_limit(
-        db,
-        actor_id=current_user.id,
-        action="database_backup_create",
-        limit=3,
-        window_seconds=60,
-        resource_type="backup_job",
-    )
-    try:
-        job = create_database_backup_record(db, current_user.id)
-        return serialize_backup_job(job)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"备份失败: {exc}") from exc
-
-@app.get("/api/admin/backups/files/{backup_file_id}/download")
-def download_backup_file(
-    backup_file_id: int,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    backup_file = get_backup_file_or_404(db, backup_file_id)
-    path = validated_backup_path(backup_file)
-    add_admin_audit(
-        db,
-        actor_id=current_user.id,
-        action="database_backup_downloaded",
-        resource_type="backup_file",
-        resource_id=backup_file.id,
-        detail=f"filename={path.name}",
-    )
-    db.commit()
-    return FileResponse(
-        path,
-        filename=path.name,
-        media_type="application/octet-stream",
-    )
-
-@app.delete("/api/admin/backups/files/{backup_file_id}")
-def delete_backup_file(
-    backup_file_id: int,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    enforce_user_rate_limit(
-        db,
-        actor_id=current_user.id,
-        action="database_backup_delete",
-        limit=5,
-        window_seconds=60,
-        resource_type="backup_file",
-        resource_id=backup_file_id,
-    )
-    backup_file = get_backup_file_or_404(db, backup_file_id)
-    path = validated_backup_path(backup_file)
-    path.unlink()
-    add_admin_audit(
-        db,
-        actor_id=current_user.id,
-        action="database_backup_deleted",
-        resource_type="backup_file",
-        resource_id=backup_file.id,
-        detail=f"filename={path.name}",
-    )
-    db.delete(backup_file)
-    db.commit()
-    return {"status": "success"}
-
-@app.post(
-    "/api/admin/backups/files/{backup_file_id}/restore",
-    response_model=schemas.RestoreJobInfo,
-)
-def restore_backup_file(
-    backup_file_id: int,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    from database import SQLALCHEMY_DATABASE_URL
-    import database_backup
-
-    enforce_user_rate_limit(
-        db,
-        actor_id=current_user.id,
-        action="database_restore",
-        limit=1,
-        window_seconds=300,
-        resource_type="backup_file",
-        resource_id=backup_file_id,
-    )
-
-    backup_file = get_backup_file_or_404(db, backup_file_id)
-    if backup_file.type != "database":
-        raise HTTPException(status_code=400, detail="只能恢复数据库备份文件")
-
-    path = validated_backup_path(backup_file)
-    if database_backup.sha256_file(path) != backup_file.sha256:
-        raise HTTPException(status_code=400, detail="备份文件校验失败")
-    pre_restore_path = None
-    snapshot = None
-    try:
-        with maintenance_controller.hold("database_restore"):
-            restore_job = models.RestoreJob(
-                backup_file_id=backup_file.id,
-                source_filename=path.name,
-                source_sha256=backup_file.sha256,
-                status="running",
-                rollback_status="not_attempted",
-                created_by=current_user.id,
-            )
-            db.add(restore_job)
-            db.flush()
-            add_admin_audit(
-                db,
-                actor_id=current_user.id,
-                action="database_restore_started",
-                resource_type="restore_job",
-                resource_id=restore_job.operation_id,
-                detail=f"filename={path.name}",
-            )
-            db.commit()
-            db.refresh(restore_job)
-            snapshot = {
-                "operation_id": restore_job.operation_id,
-                "backup_file_id": backup_file.id,
-                "source_filename": path.name,
-                "source_sha256": backup_file.sha256,
-                "created_by": current_user.id,
-                "created_at": restore_job.created_at,
-            }
-
-            try:
-                pre_restore_job = create_database_backup_record(
-                    db,
-                    current_user.id,
-                    backup_type="pre_restore",
-                )
-                pre_restore_file = next(
-                    item for item in pre_restore_job.files if item.type == "database"
-                )
-                pre_restore_path = validated_backup_path(pre_restore_file)
-
-                db.close()
-                engine.dispose()
-                database_backup.restore_database(SQLALCHEMY_DATABASE_URL, path)
-                engine.dispose()
-                models.Base.metadata.create_all(bind=engine)
-                verify_database_health()
-                return persist_restore_result(
-                    snapshot,
-                    status_value="completed",
-                    rollback_status="not_needed",
-                    error_message=None,
-                    audit_action="database_restore_completed",
-                    audit_outcome="success",
-                )
-            except Exception as exc:
-                original_error = safe_restore_error(exc)
-                rollback_status = "not_available"
-                rollback_error = None
-                db.close()
-                if pre_restore_path is not None:
-                    try:
-                        engine.dispose()
-                        database_backup.restore_database(
-                            SQLALCHEMY_DATABASE_URL,
-                            pre_restore_path,
-                        )
-                        engine.dispose()
-                        models.Base.metadata.create_all(bind=engine)
-                        verify_database_health()
-                        rollback_status = "completed"
-                    except Exception as rollback_exc:
-                        rollback_status = "failed"
-                        rollback_error = safe_restore_error(rollback_exc)
-
-                persisted = None
-                if snapshot is not None:
-                    try:
-                        persisted = persist_restore_result(
-                            snapshot,
-                            status_value="failed",
-                            rollback_status=rollback_status,
-                            error_message=original_error,
-                            audit_action="database_restore_failed",
-                            audit_outcome="failed",
-                        )
-                    except Exception:
-                        logger.exception("Failed to persist restore failure state")
-
-                if rollback_status == "failed":
-                    logger.error(
-                        "Database restore and automatic rollback failed: %s",
-                        rollback_error,
-                    )
-                    raise HTTPException(
-                        status_code=500,
-                        detail="数据库恢复失败，自动回滚也未能完成，请立即检查服务",
-                    ) from exc
-                detail = "数据库恢复失败，已自动回滚到操作前状态"
-                if persisted is None and rollback_status != "completed":
-                    detail = "数据库恢复失败，未开始替换当前数据"
-                raise HTTPException(status_code=500, detail=detail) from exc
-    except MaintenanceAlreadyActive as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="已有数据库维护任务正在进行，请稍后重试",
-            headers={"Retry-After": "5"},
-        ) from exc
-    except Exception as exc:
-        if isinstance(exc, HTTPException):
-            raise
-        raise HTTPException(status_code=500, detail="数据库恢复失败") from exc
 
 # 健康检查端点
 @app.get("/api/health")
