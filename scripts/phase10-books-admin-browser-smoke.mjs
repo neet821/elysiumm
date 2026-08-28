@@ -425,27 +425,13 @@ async function main() {
     const backendBase = `http://127.0.0.1:${backendPort}`
     const adminFilesRoot = path.join(temporaryRoot, 'admin-files')
     const syncRoot = path.join(temporaryRoot, 'sync-storage')
-    const backupRoot = path.join(temporaryRoot, 'backups')
-    const frpRoot = path.join(temporaryRoot, 'frp')
-    fs.mkdirSync(path.join(frpRoot, 'backups'), { recursive: true })
-    fs.writeFileSync(path.join(frpRoot, 'frps.toml'), 'bindPort = 7000\n', 'utf8')
-    fs.writeFileSync(path.join(frpRoot, 'frps.log'), '2026-07-16 [I] [phase10-browser] isolated\n', 'utf8')
-    fs.writeFileSync(path.join(frpRoot, 'frps'), '#!/bin/sh\nexit 0\n', { mode: 0o700 })
     const environment = {
       ...process.env,
       ACCESS_TOKEN_EXPIRE_MINUTES: '60',
       ADMIN_FILES_STORAGE_DIR: adminFilesRoot,
-      BACKUP_OUTPUT_DIR: backupRoot,
       BOOKMARK_BACKUP_OUTPUT_DIR: path.join(temporaryRoot, 'bookmark-backups'),
       CORS_ORIGINS: appBase,
       DATABASE_URL: `sqlite:///${path.join(temporaryRoot, 'phase10.sqlite')}`,
-      FRP_BACKUP_DIR: path.join(frpRoot, 'backups'),
-      FRP_BINARY: path.join(frpRoot, 'frps'),
-      FRP_CONFIG: path.join(frpRoot, 'frps.toml'),
-      FRP_DRY_RUN: '1',
-      FRP_LOG: path.join(frpRoot, 'frps.log'),
-      FRP_ROOT: frpRoot,
-      KAVITA_PUBLIC_BASE_URL: 'https://reader.example.invalid/kavita',
       PRIVATE_STORAGE_DIR: path.join(temporaryRoot, 'private-storage'),
       PUBLIC_SYNC_STORAGE: syncRoot,
       SECRET_KEY: 'phase10-browser-isolated-secret',
@@ -623,7 +609,7 @@ async function main() {
     assert.equal(revokedResult.status, 401, 'revoked device secret remained valid')
     await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
 
-    // Visit every canonical administrator area and create one isolated database backup.
+    // Visit every canonical administrator area that belongs to the website.
     const sections = [
       ['/account/admin', '管理总览'],
       ['/account/admin/content/homepage', '首页设置'],
@@ -633,18 +619,12 @@ async function main() {
       ['/account/admin/rooms', '房间管理'],
       ['/account/admin/files', '文件'],
       ['/account/admin/services', '服务器状态'],
-      ['/account/admin/services/frp', 'frp 穿透管理'],
-      ['/account/admin/backups', '数据备份'],
       ['/account/admin/security', '安全记录'],
     ]
     for (const [pathname, heading] of sections) {
       await admin.navigate(`${appBase}${pathname}`)
       await admin.waitFor(`document.body.textContent.includes(${JSON.stringify(heading)})`, 20000)
       await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
-      if (pathname === '/account/admin/backups') {
-        await clickText(admin, '创建备份')
-        await admin.waitFor("document.body.textContent.includes('已完成')", 20000)
-      }
     }
     await admin.navigate(`${appBase}/account/admin/security`)
     await admin.waitFor("document.body.textContent.includes('暂不提供网页会话清单') && document.body.textContent.includes('撤销设备')")
@@ -658,8 +638,6 @@ async function main() {
       ['/admin/photos', '/account/admin/content/photos'],
       ['/admin/files', '/account/admin/files'],
       ['/admin/agent-console', '/account/admin/services'],
-      ['/tools/backup', '/account/admin/backups'],
-      ['/tools/frp', '/account/admin/services/frp'],
       ['/tools/public-sync', '/account/admin/files'],
     ]
     for (const [legacy, canonical] of redirects) {

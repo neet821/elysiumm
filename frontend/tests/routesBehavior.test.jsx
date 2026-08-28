@@ -25,8 +25,6 @@ vi.mock('../src/pages/SyncRoomList.jsx', () => ({ default: () => <div>Shared roo
 vi.mock('../src/pages/AdminFilesPage.jsx', () => ({ default: () => <div>Admin files</div> }))
 vi.mock('../src/pages/AgentConsolePage.jsx', () => ({ default: () => <div>Server status</div> }))
 vi.mock('../src/pages/PhotoManagePage.jsx', () => ({ default: () => <div>Admin photos</div> }))
-vi.mock('../src/pages/BackupPage.jsx', () => ({ default: () => <div>Admin backups</div> }))
-vi.mock('../src/pages/FrpAdminPage.jsx', () => ({ default: () => <div>Admin FRP</div> }))
 vi.mock('../src/pages/ToolsPage.jsx', () => ({ default: () => <div>Tools page</div> }))
 vi.mock('../src/pages/MusicLobbyPage.jsx', () => ({ default: () => <div>Music lobby</div> }))
 
@@ -135,8 +133,6 @@ describe('stable public routes', () => {
     ['/admin/photos', '/account/admin/content/photos'],
     ['/admin/files', '/account/admin/files'],
     ['/admin/agent-console', '/account/admin/services'],
-    ['/tools/backup', '/account/admin/backups'],
-    ['/tools/frp', '/account/admin/services/frp'],
     ['/tools/public-sync', '/account/admin/files'],
   ])('redirects administrator legacy path %s to %s', async (from, destination) => {
     renderAppRoute(`${from}?phase10=legacy`)

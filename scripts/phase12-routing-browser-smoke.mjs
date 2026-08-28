@@ -325,10 +325,6 @@ async function main() {
     const adminShot = await page.capture('admin-account.png')
     await page.navigate(`${appBase}/tools`)
     assert(!(await page.evaluate('document.body.innerText')).includes('管理员控制台'))
-    await page.navigate(`${appBase}/tools/frp?tab=logs#latest`)
-    await page.waitFor("location.pathname === '/account/admin/services/frp'")
-    assert.equal(await page.evaluate('location.search + location.hash'), '?tab=logs#latest')
-
     await setAuth(page, appBase, readerAuth)
     await page.navigate(`${appBase}/tools/sync-room/room-direct?autoplay=1#player`)
     assert.equal(await page.evaluate('location.pathname + location.search + location.hash'), '/tools/sync-room/room-direct?autoplay=1#player')

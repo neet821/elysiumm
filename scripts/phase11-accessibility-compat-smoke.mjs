@@ -305,12 +305,9 @@ async function main() {
     const environment = {
       ...process.env,
       ADMIN_FILES_STORAGE_DIR: path.join(temporaryRoot, 'admin-files'),
-      BACKUP_OUTPUT_DIR: path.join(temporaryRoot, 'backups'),
       BOOKMARK_BACKUP_OUTPUT_DIR: path.join(temporaryRoot, 'bookmark-backups'),
       CORS_ORIGINS: appBase,
       DATABASE_URL: `sqlite:///${path.join(temporaryRoot, 'acceptance.sqlite')}`,
-      FRP_DRY_RUN: '1',
-      FRP_ROOT: path.join(temporaryRoot, 'frp'),
       PRIVATE_STORAGE_DIR: path.join(temporaryRoot, 'private-storage'),
       PUBLIC_SYNC_STORAGE: path.join(temporaryRoot, 'sync-storage'),
       SECRET_KEY: 'phase11-accessibility-isolated-secret',
