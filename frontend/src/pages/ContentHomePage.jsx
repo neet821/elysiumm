@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronDown, Clapperboard, Disc3, DoorOpen, Gamepad2, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Disc3, DoorOpen, Gamepad2, Home, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -148,7 +148,7 @@ function HomeNavigation({ label }) {
 
   return (
     <div className="home-nav">
-      <span className="home-nav__label">{label}</span>
+      <span className="home-nav__label">{label || '首页'}</span>
       <nav className="home-nav__actions" aria-label="首页导航">
         <button
           className="home-nav__action home-nav__sidebar-toggle"
@@ -161,11 +161,13 @@ function HomeNavigation({ label }) {
         >
           {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
         </button>
-        {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /></Link>}
-        <Link className="home-nav__action" to="/rooms" aria-label="房间" title="房间"><DoorOpen size={19} /></Link>
-        <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}`} to="/live" aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'}><Radio size={19} /></Link>
+        <Link className="home-nav__action home-nav__action--home" to="/" aria-current="page" aria-label="首页" title="首页"><Home size={19} /><span className="home-nav__action-label">首页</span></Link>
+        {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /><span className="home-nav__action-label">管理后台</span></Link>}
+        <Link className="home-nav__action" to="/rooms" aria-label="房间" title="房间"><DoorOpen size={19} /><span className="home-nav__action-label">房间</span></Link>
+        <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}`} to="/live" aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'}><Radio size={19} /><span className="home-nav__action-label">直播</span></Link>
         <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
           {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
+          <span className="home-nav__action-label">{isAuthenticated ? '账户' : '登录'}</span>
         </Link>
       </nav>
     </div>

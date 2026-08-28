@@ -487,6 +487,14 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[^}]*grid-template-areas:/s)
   })
 
+  it('moves homepage actions into an always-open left rail on wide screens', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav\s*\{[^}]*position:\s*fixed;[^}]*left:\s*0;[^}]*top:\s*0;[^}]*bottom:\s*0;/s)
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat\s*\{[^}]*margin-left:\s*var\(--home-nav-rail-width\);/s)
+    expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*inline-flex\s*!important;/s)
+    expect(css).toMatch(/\.home-nav__action-label\s*\{/s)
+  })
+
   it('returns to the top after changing article pages', async () => {
     const user = userEvent.setup()
     const scrollTo = window.scrollTo
