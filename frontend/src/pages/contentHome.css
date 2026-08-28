@@ -635,6 +635,21 @@
   .legacy-old-home--flat .home-nav--local { display: none; }
 }
 
+/* Keep ordinary wide-rail text neutral even when generic link tokens are later in the bundle. */
+@media (min-width: 1101px) {
+  .home-nav--global .home-nav__identity,
+  .home-nav--global .home-nav__identity-name,
+  .home-nav--global .home-nav__action:not(.home-nav__action--live-active),
+  .home-nav--global .home-nav__action:not(.home-nav__action--live-active) .home-nav__action-label {
+    color: #111 !important;
+  }
+
+  .home-nav--global .home-nav__action--active:not(.home-nav__action--live-active),
+  .home-nav--global .home-nav__action--active:not(.home-nav__action--live-active) .home-nav__action-label {
+    color: #fff !important;
+  }
+}
+
 @media (max-width: 1100px) {
   .home-nav--global { display: none; }
 }

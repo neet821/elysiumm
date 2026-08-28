@@ -64,4 +64,11 @@ describe('shared wide navigation shell', () => {
     expect(css).toMatch(/\.home-nav--global[\s\S]*?\.home-nav__admin-action[\s\S]*?margin-top:\s*auto/s)
     expect(css).not.toMatch(/\.home-nav--global[^}]*#(?:6e|7a|8b|9a)[0-9a-f]{4,6}/i)
   })
+
+  it('keeps ordinary wide-rail text neutral while preserving the live accent', () => {
+    const css = fs.readFileSync(path.join(frontendRoot, 'src', 'pages', 'contentHome.css'), 'utf8')
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.home-nav--global \.home-nav__identity[\s\S]*?color:\s*#111\s*!important;/s)
+    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.home-nav--global \.home-nav__action:not\(\.home-nav__action--live-active\)[\s\S]*?color:\s*#111\s*!important;/s)
+    expect(css).toMatch(/\.home-nav--global \.home-nav__action--active:not\(\.home-nav__action--live-active\)[\s\S]*?color:\s*#fff\s*!important;/s)
+  })
 })
