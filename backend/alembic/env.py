@@ -39,11 +39,27 @@ else:
 
 target_metadata = Base.metadata
 
+RETIRED_WEBSITE_TABLES = {
+    "backup_jobs",
+    "backup_files",
+    "restore_jobs",
+    "frp_operation_logs",
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    """Keep retired website tables intact while they remain in old databases."""
+
+    if type_ == "table" and reflected and name in RETIRED_WEBSITE_TABLES:
+        return False
+    return True
+
 
 def migration_options() -> dict:
     url = config.get_main_option("sqlalchemy.url")
     return {
         "target_metadata": target_metadata,
+        "include_object": include_object,
         "compare_type": True,
         "render_as_batch": url.startswith("sqlite"),
     }
