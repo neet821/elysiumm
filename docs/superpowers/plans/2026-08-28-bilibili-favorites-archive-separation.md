@@ -4,7 +4,7 @@
 
 **Goal:** Separate the Bilibili favourites backup project from Elysium, give it a specific name, and reconcile local/GitHub/server state without changing production runtime paths or deleting archived records.
 
-**Architecture:** `Bilibili-Favorites-Archive` becomes the sole local source checkout and owns the collector plus deployment/backup files. Elysium keeps only its website and read-only mirror integration. Production compatibility identifiers and paths remain unchanged; deployment uses staged file replacement and rollback snapshots.
+**Architecture:** `Bilibili-Favorites-Archive` becomes the sole local source checkout and owns the collector plus deployment/backup files. Elysium is unrelated to this project and keeps no runtime or data dependency on its collector. Production compatibility identifiers and paths remain unchanged; deployment uses staged file replacement and rollback snapshots.
 
 **Tech Stack:** Git, Python 3.12/uv, pytest, Ruff, mypy, Bash, systemd, SSH, GitHub CLI.
 
@@ -75,7 +75,7 @@ Compare every moved file with the Elysium copy and the installed production file
 
 - [ ] **Step 3: Move backup documentation to Personal Archive and narrow Elysium documentation**
 
-Keep backup schedules, retention, restore verification, and archive preservation rules in Personal Archive operations documentation. Leave Elysium documentation describing only its article/mirror dependency and health contract.
+Keep backup schedules, retention, restore verification, and archive preservation rules in Personal Archive operations documentation. Do not add a Bilibili archive dependency to Elysium documentation or deployment configuration.
 
 - [ ] **Step 4: Remove only the verified Elysium duplicate directory**
 

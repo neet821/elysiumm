@@ -13,7 +13,8 @@ existing production services.
 - The Personal-Archive Git repository remains the source repository; only its
   local checkout directory and project-facing name become
   `Bilibili-Favorites-Archive` / `Bilibili Favorites Archive`.
-- Elysium owns only the website and its read-only article/mirror integration.
+- Elysium is a separate project with no runtime or data dependency on the
+  Bilibili archive collector.
 - Archive collector deployment files and backup/restore files live under the
   archiver repository's `deploy/` directory.
 

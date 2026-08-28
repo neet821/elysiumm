@@ -31,8 +31,3 @@ deployment secret and must remain in the server environment only.
 Use redacted status checks only: public endpoint status, CouchDB/mirror service
 state, recent authorized request status codes, and device-side note arrival. Do
 not log request URLs containing the private path or any credentials.
-
-The Bilibili archive collector and its combined backup/restore deployment
-files are owned by the separate Bilibili Favorites Archive project. Elysium
-only consumes the resulting mirror content through its configured article and
-media roots; it does not own or delete archive records.
