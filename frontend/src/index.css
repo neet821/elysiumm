@@ -357,22 +357,6 @@
 .auth-form-field__icon { flex: 0 0 auto; }
 .app-shell--toolbox { height: 100dvh; overflow: hidden; }
 .app-shell--toolbox .app-shell__main { min-height: 0; overflow: hidden; }
-.app-shell--immersive, .app-shell--immersive .app-shell__main { height: 100svh; min-height: 0; overflow: hidden; }
-html.app-immersive-locked,
-body.app-immersive-locked,
-body.app-immersive-locked #root {
-  background: #080a0d;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-body.app-immersive-locked {
-  inset: 0;
-  position: fixed;
-  width: 100%;
-}
-
 @media (max-width: 960px) {
   .toolbox-triptych { grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); }
   .toolbox-portal { min-height: 0; padding: .8rem 1rem; }
@@ -3291,26 +3275,7 @@ html.dark .polaroid-card:hover,
 /* Live pages stay plain white; the only dark surface is the video frame itself. */
 .service-shell:has(.live-watch-page),
 .service-shell:has(.admin-live) { background: #fff; color: #111; }
-.live-watch-page__back,
-.admin-live__preview-back {
-  align-items: center;
-  background: #fff;
-  border: 1px solid #aaa;
-  color: #111;
-  display: inline-flex;
-  height: 2.65rem;
-  justify-content: center;
-  text-decoration: none;
-  width: 2.65rem;
-}
-.live-watch-page__back { left: 1rem; position: absolute; top: 1rem; }
-.live-watch-page__back:hover,
-.live-watch-page__back:focus-visible,
-.admin-live__preview-back:hover,
-.admin-live__preview-back:focus-visible { background: #111; color: #fff; }
 .admin-live { background: #fff; color: #111; min-height: 100vh; padding: 1rem clamp(1rem, 4vw, 3rem) 3rem; }
-.admin-live__preview-back { left: 1rem; position: absolute; top: 1rem; z-index: 2; }
-.admin-live__preview-back svg { height: 1.15rem; width: 1.15rem; }
 .admin-live__below-preview { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-live__audience-card,
 .admin-live__admin-messages { min-width: 0; width: 100%; }
@@ -3425,14 +3390,14 @@ body::before { display: none !important; }
 }
 
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell__main { min-height: 0; }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive),
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell__main {
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home),
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell__main {
   height: auto;
   min-height: 100vh;
   overflow: visible;
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell--toolbox,
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home):not(.app-shell--immersive) .app-shell__main {
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell--toolbox,
+.service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-shell__main {
   overflow: visible;
 }
 .service-shell:not(.service-shell--legacy-review):not(.app-shell--home) .app-header {
@@ -3819,6 +3784,9 @@ body:has(.app-shell--home)::before {
 }
 .route-back-button:hover,
 .route-back-button:focus-visible { background: #111; color: #fff; }
+@media (min-width: 1101px) {
+  .route-back-button { display: none; }
+}
 .service-shell:has(.live-page) .app-shell__main { padding-top: 0; }
 .service-shell:has(.live-page) .live-page { padding-top: 4.25rem; }
 .transfer-page__kicker { color: var(--accent-blue); font: 600 .75rem/1.2 var(--font-interface, sans-serif); letter-spacing: .14em; text-transform: uppercase; }

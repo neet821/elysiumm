@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronDown, Clapperboard, Disc3, Film, Gamepad2, Headphones, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Disc3, Film, Gamepad2, Headphones, Home, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -184,6 +184,7 @@ function HomeNavigation({ label, activeView, isWideViewport, onWideViewChange })
         <span className="home-nav__identity-name">{identity}</span>
       </Link>
       <nav className="home-nav__actions" aria-label="首页导航">
+        <Link className={`home-nav__action home-nav__action--home${activeView === 'home' ? ' home-nav__action--active' : ''}`} to="/" aria-current={activeView === 'home' ? 'page' : undefined} aria-label="首页" title="首页" onClick={(event) => handleViewClick('home', event)}><Home size={19} /><span className="home-nav__action-label">首页</span></Link>
         <button
           className="home-nav__action home-nav__sidebar-toggle"
           type="button"

@@ -104,6 +104,16 @@ describe('public live page', () => {
     expect(apiClient.post).not.toHaveBeenCalled()
   })
 
+  it('does not place a home link inside the live player page', async () => {
+    apiClient.get.mockResolvedValue({ data: { ...liveStatus, status: 'waiting', access_mode: 'public' } })
+
+    render(<LivePage />)
+
+    await screen.findByText('未开播')
+    expect(screen.queryByRole('link', { name: '返回首页' })).not.toBeInTheDocument()
+    expect(document.querySelector('.live-watch-page__back')).not.toBeInTheDocument()
+  })
+
   it('keeps the empty player for a completed broadcast without a state overlay', async () => {
     apiClient.get.mockResolvedValue({
       data: {

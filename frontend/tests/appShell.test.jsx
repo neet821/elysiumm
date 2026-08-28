@@ -93,41 +93,34 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByRole('button', { name: '打开导航' })).not.toBeInTheDocument()
   })
 
-  it('removes global chrome from the article reader and branding from rooms', () => {
+  it('removes global chrome from the article reader and provides an icon-only home link for rooms', () => {
     const { unmount } = renderShell({ initialPath: '/article/hello' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
 
     unmount()
-    renderShell({ initialPath: '/rooms/music/9' })
+    const roomView = renderShell({ initialPath: '/rooms/music/9' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '返回首页' })).not.toBeInTheDocument()
+    const roomHomeLink = screen.getByRole('link', { name: '返回首页' })
+    expect(roomHomeLink).toHaveAttribute('href', '/')
+    expect(roomHomeLink).toHaveTextContent('')
+    expect(roomHomeLink.querySelector('svg')).toBeInTheDocument()
     expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
     expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
 
-    unmount()
+    roomView.unmount()
     renderShell({ initialPath: '/account' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
   })
 
-  it('locks the top-level viewport while a music room is mounted', () => {
-    const style = document.createElement('style')
-    style.dataset.testStyle = 'immersive-room-lock'
-    style.textContent = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
-    document.head.appendChild(style)
-
+  it('keeps the top-level viewport scrollable while a room is mounted', () => {
     const { unmount } = renderShell({ initialPath: '/rooms/music/9' })
-    expect(document.querySelector('.app-shell')).toHaveClass('app-shell--immersive')
-    expect(document.documentElement).toHaveClass('app-immersive-locked')
-    expect(document.body).toHaveClass('app-immersive-locked')
-    expect(getComputedStyle(document.body).position).toBe('fixed')
-    expect(getComputedStyle(document.body).overflow).toBe('hidden')
-    expect(getComputedStyle(document.documentElement).overflow).toBe('hidden')
-
-    unmount()
+    expect(document.querySelector('.app-shell')).not.toHaveClass('app-shell--immersive')
     expect(document.documentElement).not.toHaveClass('app-immersive-locked')
     expect(document.body).not.toHaveClass('app-immersive-locked')
+
+    unmount()
   })
 
   it('keeps login and registration pages free of the global top bar', () => {
@@ -139,15 +132,21 @@ describe('Elysium plain service shell', () => {
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
   })
 
-  it('uses only the home arrow on the room hub and live page', () => {
-    const { unmount } = renderShell({ initialPath: '/rooms' })
+  it('uses only one icon-only home link on the room hub and live page', () => {
+    const roomHubView = renderShell({ initialPath: '/rooms' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
+    const roomHubHomeLink = screen.getByRole('link', { name: '返回首页' })
+    expect(roomHubHomeLink).toHaveAttribute('href', '/')
+    expect(roomHubHomeLink).toHaveTextContent('')
+    expect(roomHubHomeLink.querySelector('svg')).toBeInTheDocument()
 
-    unmount()
+    roomHubView.unmount()
     renderShell({ initialPath: '/live' })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '返回首页' })).toHaveAttribute('href', '/')
+    const liveHomeLink = screen.getByRole('link', { name: '返回首页' })
+    expect(liveHomeLink).toHaveAttribute('href', '/')
+    expect(liveHomeLink).toHaveTextContent('')
+    expect(liveHomeLink.querySelector('svg')).toBeInTheDocument()
   })
 
   it('renders a simple footer and the specialized routes remain immersive', () => {

@@ -169,7 +169,8 @@ describe('live administrator workspace', () => {
     render(<AdminLivePage />)
 
     expect(await screen.findByTestId('admin-live-preview')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '返回首页' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '返回首页' })).not.toBeInTheDocument()
+    expect(document.querySelector('.admin-live__preview-back')).not.toBeInTheDocument()
     expect(screen.queryByText('当前状态')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '留言' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('管理员直播留言')).toBeInTheDocument()

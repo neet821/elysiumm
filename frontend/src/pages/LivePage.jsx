@@ -77,7 +77,6 @@ function MinimalWatchPage({ isLoading, isLive, liveSessionId, mediaUrl, retry, s
   if (isLive) {
     return (
       <main className="live-watch-page">
-        <a className="live-watch-page__back" href="/" aria-label="返回首页" title="返回首页">←</a>
         {status?.title && <h1 className="live-watch-page__title">{status.title}</h1>}
         <LivePlayer mediaUrl={mediaUrl} minimal onRefresh={retry} />
         {showMessages && <LiveMessageBoard liveSessionId={liveSessionId} />}
@@ -87,7 +86,6 @@ function MinimalWatchPage({ isLoading, isLive, liveSessionId, mediaUrl, retry, s
 
   return (
     <main className="live-watch-page">
-      <a className="live-watch-page__back" href="/" aria-label="返回首页" title="返回首页">←</a>
       <p className="live-watch-page__empty-prompt" role="status">未开播</p>
       <LivePlayer mediaUrl="" minimal onRefresh={retry} />
     </main>

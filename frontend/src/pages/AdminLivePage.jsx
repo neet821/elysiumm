@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ArrowLeft,
   Copy,
   Link2,
   Radio,
@@ -235,9 +234,6 @@ export default function AdminLivePage() {
       {error && <p className="admin-live__error" role="alert">{error}</p>}
 
       <section className="admin-live__preview" aria-label="直播预览">
-        <a className="admin-live__preview-back" href="/" aria-label="返回首页" title="返回首页">
-          <ArrowLeft aria-hidden="true" />
-        </a>
         {preview.state === 'live' && preview.mediaUrl ? (
           <LivePlayer mediaUrl={preview.mediaUrl} minimal onRefresh={preview.retry} />
         ) : (

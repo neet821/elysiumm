@@ -545,6 +545,7 @@ describe('ArticleFlowHome', () => {
 
     const navigation = await screen.findByRole('navigation', { name: '首页导航' })
     expect(screen.getByTestId('home-identity')).toHaveTextContent('neet821')
+    expect(within(navigation).getByRole('link', { name: '首页' })).toHaveAttribute('href', '/')
     expect(screen.queryByText('账户')).not.toBeInTheDocument()
     expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
 
