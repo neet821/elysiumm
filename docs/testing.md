@@ -10,7 +10,7 @@ backend/.venv/bin/pip install -r backend/requirements-dev.txt
 npm --prefix frontend ci
 ```
 
-Tests must not use production data, production credentials, live Nginx/systemd/FRP controls or configured production storage. The repository gate exports a temporary SQLite URL and temporary backup/admin/FRP roots, then removes them.
+Tests must not use production data, production credentials, live Nginx/systemd/FRP controls or configured production storage. The repository gate exports a temporary SQLite URL and temporary backup/admin roots, then removes them.
 
 ## Primary repository gate
 

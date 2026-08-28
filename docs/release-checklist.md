@@ -94,13 +94,13 @@ Fresh closure gate: 2026-07-16 at `6556621`, `scripts/release-gate.sh`, PASS in 
 
 | Target acceptance | Status | Evidence |
 | --- | --- | --- |
-| Public Books exposes only published metadata and safe credential-free Kavita links | PASS | Books API/security/component/browser tests. |
-| One admin console covers overview, content, Books, users, rooms, Files, services, backups and security | PASS | Admin shell/route tests and all-section browser flow. |
+| Public Books exposes only published metadata and has no Kavita reader-link integration | PASS | Books API/security/component/browser tests. |
+| One admin console covers content, Books, users, rooms, Files, services and security; server backups are external | PASS | Admin shell/route tests and all-section browser flow. |
 | Normal users cannot enter administrator routes or legacy redirects | PASS | Protected-route and API authorization tests. |
 | Manual uploads reject traversal and enforce size/type, temporary write and atomic replace | PASS | Administrator file storage tests. |
 | Public Sync credentials are one-time/digested/rotatable/revocable; uploads enforce digest, quota and atomicity | PASS | Device and whole/chunk upload regressions plus real browser lifecycle. |
-| FRP configuration is validated and high-risk actions are audited without secrets/paths | PASS | FRP/admin audit and redaction tests. |
-| RestoreJob terminal state is accurate and backup recovery has a verified rollback path | PASS | Backup service/routes, release script fixtures and isolated recovery rehearsal. |
+| FRP file synchronization remains authenticated and path-safe without website service control | PASS | File-sync API and redaction tests. |
+| Deployment rollback and bookmark-import safety backups retain verified recovery paths | PASS | Release script fixtures, bookmark routes and isolated recovery rehearsal. |
 
 ## Release readiness
 
@@ -157,7 +157,8 @@ without secrets. Follow [deployment](deployment.md) and
 ## Honest compatibility and external boundaries
 
 Chrome 150 is the real browser used in final local acceptance. Firefox and WebKit
-have source/production-build evidence but were not executed here. Kavita and music
-providers use safe unavailable states, adapters and mocks when credentials are
-absent. Live production, Kavita/provider accounts and Firefox/WebKit execution are
-BLOCKED by external state, not reported as PASS.
+have source/production-build evidence but were not executed here. Music providers
+use safe unavailable states, adapters and mocks when credentials are absent. Live
+production, provider accounts and Firefox/WebKit execution are BLOCKED by external
+state, not reported as PASS. Kavita is an external server boundary and is not part
+of website acceptance.

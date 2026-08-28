@@ -17,9 +17,9 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 
 ## Domain boundaries
 
-Public content covers the homepage, posts, photos, Archive, public Collection and Books. Accounts own private Collection data and search engines. Administrator routes manage content, users, rooms, files, sync devices, backups, FRP controls and bounded security evidence.
+Public content covers the homepage, posts, photos, Archive, public Collection and Books. Accounts own private Collection data and search engines. Administrator routes manage content, users, rooms, files, sync devices and bounded security evidence; server services and release backups remain outside the website administration boundary.
 
-Music uses a canonical-track catalog above provider adapters. Provider mappings and expiring audio sources stay server-side. A provider-neutral resolver allows local sources first, then approved provider URLs, and returns an honest unavailable state when no legal source works. Books stores curated public metadata; Kavita is an optional public base URL used only to derive credential-free reader links.
+Music uses a canonical-track catalog above provider adapters. Provider mappings and expiring audio sources stay server-side. A provider-neutral resolver allows local sources first, then approved provider URLs, and returns an honest unavailable state when no legal source works. Books stores curated public metadata. Kavita is an independently operated server service and is not configured, controlled or linked by the website.
 
 Room Core is the media-independent authority for media identity, position, play/pause, server time, playback rate and version. Music adds queue, proposals, votes, favorites and history. Video adds playlist items, managed uploads, subtitles, metadata, range streaming and transient buffering. Games use a separate deterministic turn engine, role-filtered state and hash-chained replay rather than the playback clock.
 
@@ -41,4 +41,4 @@ Bare-metal production uses Nginx, systemd, one Uvicorn worker, MariaDB and a ver
 
 ## External dependencies
 
-Third-party music and Kavita services are optional adapters. Network or credential absence must produce a safe unavailable state and does not disable local content. Browser requests to user-entered external video URLs remain browser-side; the backend does not fetch those URLs as trusted internal resources.
+Third-party music services are optional adapters. Kavita and other server services are outside the website runtime boundary. Network or credential absence must produce a safe unavailable state and does not disable local content. Browser requests to user-entered external video URLs remain browser-side; the backend does not fetch those URLs as trusted internal resources.

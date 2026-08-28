@@ -1,17 +1,15 @@
-"""Curated book metadata, public shelves, and safe Kavita links."""
+"""Curated book metadata and public shelves."""
 
 from __future__ import annotations
 
 from datetime import datetime
 import json
-from urllib.parse import quote, urlparse, urlunparse
 
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
 from admin_audit import add_admin_audit
-from config import config
 
 
 class BookNotFound(LookupError):
@@ -28,49 +26,6 @@ class BookRevisionConflict(RuntimeError):
 
 class BookListMembershipError(ValueError):
     pass
-
-
-def _validated_base_url(base_url: str | None) -> str | None:
-    normalized = (base_url or "").strip().rstrip("/")
-    if not normalized:
-        return None
-    parsed = urlparse(normalized)
-    if (
-        parsed.scheme not in {"http", "https"}
-        or not parsed.netloc
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-    ):
-        return None
-    return urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
-
-
-def _safe_reader_path(reader_path: str | None) -> str | None:
-    normalized = (reader_path or "").strip()
-    if not normalized:
-        return None
-    if (
-        normalized.startswith("/")
-        or "\\" in normalized
-        or "?" in normalized
-        or "#" in normalized
-        or ":" in normalized
-        or ".." in normalized.split("/")
-        or any(not part for part in normalized.split("/"))
-    ):
-        return None
-    return normalized
-
-
-def derive_reader_url(base_url: str | None, reader_path: str | None) -> str | None:
-    safe_base = _validated_base_url(base_url)
-    safe_path = _safe_reader_path(reader_path)
-    if safe_base is None or safe_path is None:
-        return None
-    encoded_path = "/".join(quote(part, safe="-._~") for part in safe_path.split("/"))
-    return f"{safe_base}/{encoded_path}"
 
 
 def _tags(row: models.Book) -> list[str]:
@@ -93,11 +48,7 @@ def _metadata_overrides(row: models.Book) -> list[str]:
     return [item for item in value if isinstance(item, str)][:32]
 
 
-def serialize_public_book(
-    row: models.Book,
-    *,
-    kavita_base_url: str | None = None,
-) -> dict:
+def serialize_public_book(row: models.Book) -> dict:
     return {
         "id": row.id,
         "slug": row.slug,
@@ -114,21 +65,15 @@ def serialize_public_book(
         "publication_year": row.publication_year,
         "personal_rating": row.personal_rating,
         "personal_notes": row.personal_notes,
-        "reader_url": derive_reader_url(kavita_base_url, row.reader_path),
         "is_featured": row.is_featured,
         "display_order": row.display_order,
         "last_read_at": row.last_read_at,
     }
 
 
-def serialize_admin_book(
-    row: models.Book,
-    *,
-    kavita_base_url: str | None = None,
-) -> schemas.BookAdminView:
+def serialize_admin_book(row: models.Book) -> schemas.BookAdminView:
     return schemas.BookAdminView(
-        **serialize_public_book(row, kavita_base_url=kavita_base_url),
-        reader_path=row.reader_path,
+        **serialize_public_book(row),
         is_public=row.is_public,
         revision=row.revision,
         metadata_overrides=_metadata_overrides(row),
@@ -146,7 +91,7 @@ def _ordered_books(query):
     )
 
 
-def _serialize_public_list(row: models.BookList, base_url: str | None) -> dict:
+def _serialize_public_list(row: models.BookList) -> dict:
     ordered_items = sorted(row.items, key=lambda item: (item.position, item.id))[:100]
     return {
         "id": row.id,
@@ -155,14 +100,14 @@ def _serialize_public_list(row: models.BookList, base_url: str | None) -> dict:
         "description": row.description,
         "display_order": row.display_order,
         "books": [
-            serialize_public_book(item.book, kavita_base_url=base_url)
+            serialize_public_book(item.book)
             for item in ordered_items
             if item.book is not None and item.book.is_public
         ],
     }
 
 
-def _serialize_admin_list(row: models.BookList, base_url: str | None) -> schemas.BookListAdminView:
+def _serialize_admin_list(row: models.BookList) -> schemas.BookListAdminView:
     ordered_items = sorted(row.items, key=lambda item: (item.position, item.id))[:100]
     return schemas.BookListAdminView(
         id=row.id,
@@ -171,7 +116,7 @@ def _serialize_admin_list(row: models.BookList, base_url: str | None) -> schemas
         description=row.description,
         display_order=row.display_order,
         books=[
-            serialize_admin_book(item.book, kavita_base_url=base_url)
+            serialize_admin_book(item.book)
             for item in ordered_items
             if item.book is not None
         ],
@@ -182,12 +127,7 @@ def _serialize_admin_list(row: models.BookList, base_url: str | None) -> schemas
     )
 
 
-def public_catalog(
-    db: Session,
-    *,
-    kavita_base_url: str | None = None,
-) -> dict:
-    base_url = config.KAVITA_PUBLIC_BASE_URL if kavita_base_url is None else kavita_base_url
+def public_catalog(db: Session) -> dict:
     books = _ordered_books(
         db.query(models.Book).filter(models.Book.is_public.is_(True))
     ).limit(200).all()
@@ -214,15 +154,13 @@ def public_catalog(
         .all()
     )
     return {
-        "reader_available": _validated_base_url(base_url) is not None,
-        "books": [serialize_public_book(book, kavita_base_url=base_url) for book in books],
-        "lists": [_serialize_public_list(book_list, base_url) for book_list in lists],
-        "recent": [serialize_public_book(book, kavita_base_url=base_url) for book in recent],
+        "books": [serialize_public_book(book) for book in books],
+        "lists": [_serialize_public_list(book_list) for book_list in lists],
+        "recent": [serialize_public_book(book) for book in recent],
     }
 
 
 def admin_catalog(db: Session) -> dict:
-    base_url = config.KAVITA_PUBLIC_BASE_URL
     books = _ordered_books(db.query(models.Book)).limit(500).all()
     lists = (
         db.query(models.BookList)
@@ -236,9 +174,8 @@ def admin_catalog(db: Session) -> dict:
         .all()
     )
     return {
-        "reader_available": _validated_base_url(base_url) is not None,
-        "books": [serialize_admin_book(book, kavita_base_url=base_url) for book in books],
-        "lists": [_serialize_admin_list(book_list, base_url) for book_list in lists],
+        "books": [serialize_admin_book(book) for book in books],
+        "lists": [_serialize_admin_list(book_list) for book_list in lists],
     }
 
 
@@ -282,7 +219,7 @@ def create_book(db: Session, payload: schemas.BookCreate, *, actor_id: int) -> s
     )
     db.commit()
     db.refresh(row)
-    return serialize_admin_book(row, kavita_base_url=config.KAVITA_PUBLIC_BASE_URL)
+    return serialize_admin_book(row)
 
 
 def update_book(
@@ -332,7 +269,7 @@ def update_book(
     )
     db.commit()
     db.refresh(row)
-    return serialize_admin_book(row, kavita_base_url=config.KAVITA_PUBLIC_BASE_URL)
+    return serialize_admin_book(row)
 
 
 def delete_book(db: Session, book_id: int, *, revision: int, actor_id: int) -> None:
@@ -386,7 +323,7 @@ def create_book_list(
     )
     db.commit()
     db.refresh(row)
-    return _serialize_admin_list(row, config.KAVITA_PUBLIC_BASE_URL)
+    return _serialize_admin_list(row)
 
 
 def update_book_list(
@@ -424,7 +361,7 @@ def update_book_list(
     )
     db.commit()
     db.refresh(row)
-    return _serialize_admin_list(row, config.KAVITA_PUBLIC_BASE_URL)
+    return _serialize_admin_list(row)
 
 
 def replace_book_list_items(
@@ -481,7 +418,7 @@ def replace_book_list_items(
         .filter(models.BookList.id == row.id)
         .one()
     )
-    return _serialize_admin_list(refreshed, config.KAVITA_PUBLIC_BASE_URL)
+    return _serialize_admin_list(refreshed)
 
 
 def delete_book_list(db: Session, list_id: int, *, revision: int, actor_id: int) -> None:

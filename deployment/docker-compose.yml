@@ -30,7 +30,6 @@ services:
       DATABASE_URL: mysql+pymysql://${DB_USER:?set DB_USER in .env}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:3306/${DB_NAME:?set DB_NAME in .env}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
-      KAVITA_PUBLIC_BASE_URL: ${KAVITA_PUBLIC_BASE_URL:-}
       EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
       MUSIC_PROVIDER_BASE_URL: http://mineradio:3000
       MUSIC_PROVIDER_ADMIN_TOKEN: ${MUSIC_PROVIDER_ADMIN_TOKEN:?set MUSIC_PROVIDER_ADMIN_TOKEN in .env}

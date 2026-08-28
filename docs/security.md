@@ -30,7 +30,7 @@ File upload endpoints stream to managed temporary files, enforce type and size l
 
 ## SSRF and external URLs
 
-SSRF controls differ by feature. The server-side audio resolver accepts only credential-free HTTP(S) URLs on the selected provider's approved host list. Kavita links are derived from one credential-free configured base plus an encoded relative reader path. External video URLs are syntax-checked and stored for the browser to load; the backend does not fetch them. Any future server-side fetcher must add DNS/IP-range validation, redirect limits, size limits and a host allowlist before release.
+SSRF controls differ by feature. The server-side audio resolver accepts only credential-free HTTP(S) URLs on the selected provider's approved host list. The website does not derive or fetch Kavita links; Kavita remains a separate server-owned service. External video URLs are syntax-checked and stored for the browser to load; the backend does not fetch them. Any future server-side fetcher must add DNS/IP-range validation, redirect limits, size limits and a host allowlist before release.
 
 ## Rate limiting and Audit evidence
 
@@ -42,7 +42,7 @@ Release and rollback bundles are mode-restricted and contain sensitive configura
 
 ## Privacy
 
-Public serializers omit ownership-only descriptions, credential digests, storage paths, provider cookies and internal errors. Books exposes only published entries and credential-free reader links. Public Sync returns a device secret only at creation or rotation. Room histories are bounded and filtered for the current viewer. Administrators can see operational metadata but not secrets or private content through the overview/security evidence endpoints.
+Public serializers omit ownership-only descriptions, credential digests, storage paths, provider cookies and internal errors. Books exposes only published entries and curated metadata; it has no Kavita reader-link integration. Public Sync returns a device secret only at creation or rotation. Room histories are bounded and filtered for the current viewer. Administrators can see operational metadata but not secrets or private content through the overview/security evidence endpoints.
 
 Live viewing uses a short-lived HttpOnly cookie after server-side authorization. Public, signed-in allowlist and anonymous invite access share the same media gate, so revoking an invite also blocks later HLS requests. Raw stream keys and invite tokens are returned only once and stored as digests. Live visitor records contain IP address, locally resolved region, device, operating system, browser and watch duration; they are administrator-only and expire after 90 days. Region lookup does not send IP addresses to an external service. Recording routes resolve every file beneath the configured recording root and never return the absolute storage path.
 

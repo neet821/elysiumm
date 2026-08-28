@@ -11,9 +11,9 @@ class DeploymentConfigTest(unittest.TestCase):
 
     def test_deploy_script_preserves_required_runtime_permissions(self):
         script = (Path(__file__).resolve().parents[2] / "start-prod.sh").read_text(encoding="utf-8")
-        self.assertIn("/etc/sudoers.d/blue-album-frp", script)
-        self.assertIn("/home/frp/backups", script)
         self.assertIn('"$ROOT_DIR/backups/bookmarks"', script)
+        self.assertNotIn("/etc/sudoers.d/blue-album-frp", script)
+        self.assertNotIn("frps.service", script)
 
     def test_deploy_persists_live_runtime_and_nginx_media_authorization(self):
         root = Path(__file__).resolve().parents[2]

@@ -13,7 +13,6 @@ const EMPTY_BOOK = {
   display_order: 0,
   is_featured: false,
   is_public: false,
-  reader_path: '',
   reading_status: 'unread',
   slug: '',
   tags: '',
@@ -50,7 +49,6 @@ function bookToDraft(book) {
     display_order: book.display_order || 0,
     is_featured: Boolean(book.is_featured),
     is_public: Boolean(book.is_public),
-    reader_path: book.reader_path || '',
     reading_status: book.reading_status || 'unread',
     slug: book.slug,
     tags: (book.tags || []).join(', '),
@@ -78,7 +76,6 @@ function BookEditor({ draft, editingBook, onChange, onClose, onSubmit, saving })
         <Input label="作者" value={draft.author} maxLength={255} onChange={(event) => onChange('author', event.target.value)} />
         <Input label="分类" value={draft.category} maxLength={80} onChange={(event) => onChange('category', event.target.value)} />
         <Input label="封面地址" value={draft.cover_url} maxLength={500} hint="使用站内相对路径或 HTTPS 地址。" onChange={(event) => onChange('cover_url', event.target.value)} />
-        <Input label="Kavita 相对路径" value={draft.reader_path} maxLength={1000} onChange={(event) => onChange('reader_path', event.target.value)} />
         <Input label="书籍标签" value={draft.tags} hint="用逗号分隔，最多 12 个。" onChange={(event) => onChange('tags', event.target.value)} />
         <Input label="显示顺序" type="number" min="0" value={draft.display_order} onChange={(event) => onChange('display_order', event.target.value)} />
         <label className="ui-field"><span className="ui-field__label">阅读状态</span><select className="ui-input" value={draft.reading_status} onChange={(event) => onChange('reading_status', event.target.value)}><option value="unread">未读</option><option value="reading">阅读中</option><option value="paused">已暂停</option><option value="completed">已读完</option></select></label>
@@ -91,7 +88,7 @@ function BookEditor({ draft, editingBook, onChange, onClose, onSubmit, saving })
 }
 
 export default function AdminBooksPage() {
-  const [catalog, setCatalog] = useState({ books: [], lists: [], reader_available: false })
+  const [catalog, setCatalog] = useState({ books: [], lists: [] })
   const [activeTab, setActiveTab] = useState('books')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -110,7 +107,7 @@ export default function AdminBooksPage() {
     setError('')
     try {
       const response = await apiClient.get(API_ENDPOINTS.ADMIN_BOOKS)
-      setCatalog({ books: [], lists: [], reader_available: false, ...response.data })
+      setCatalog({ books: [], lists: [], ...response.data })
     } catch (requestError) {
       setError(errorDetail(requestError, '书籍内容暂时无法载入。'))
     } finally {
@@ -168,7 +165,6 @@ export default function AdminBooksPage() {
       display_order: Number(bookDraft.display_order) || 0,
       is_featured: bookDraft.is_featured,
       is_public: bookDraft.is_public,
-      reader_path: nullable(bookDraft.reader_path),
       reading_status: bookDraft.reading_status,
       slug: bookDraft.slug,
       tags,
@@ -385,7 +381,7 @@ export default function AdminBooksPage() {
         <div>
           <p className="route-shell__eyebrow"><BookOpen size={15} aria-hidden="true" /> 内容管理</p>
           <h1>书籍内容</h1>
-          <p>管理公开书籍资料和有序书单，不保存 Kavita 凭据。</p>
+          <p>管理公开书籍资料和有序书单。</p>
         </div>
         <Link className="ui-button ui-button--secondary ui-button--md" to="/books" aria-label="查看公开书籍">
           <ExternalLink size={16} aria-hidden="true" /> 查看公开书籍

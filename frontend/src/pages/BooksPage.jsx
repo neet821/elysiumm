@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, ExternalLink, Library, RotateCcw } from 'lucide-react'
+import { BookOpen, Library, RotateCcw } from 'lucide-react'
 import { Button, Card, EmptyState, Input, Skeleton, Tag } from '../components/ui/index.js'
 import { API_ENDPOINTS } from '../config.js'
 import apiClient from '../utils/request.js'
@@ -14,7 +14,6 @@ const STATUS_LABELS = {
 const emptyCatalog = {
   books: [],
   lists: [],
-  reader_available: false,
   recent: [],
 }
 
@@ -35,20 +34,8 @@ function safeCoverUrl(value) {
   }
 }
 
-function safeReaderUrl(value) {
-  if (!value || typeof value !== 'string') return null
-  try {
-    const parsed = new URL(value)
-    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null
-    return parsed.href
-  } catch {
-    return null
-  }
-}
-
 function BookCard({ book, compact = false }) {
   const coverUrl = safeCoverUrl(book.cover_url)
-  const readerUrl = safeReaderUrl(book.reader_url)
   return (
     <Card as="article" className={`books-card${compact ? ' books-card--compact' : ''}`}>
       <div className="books-card__cover" aria-hidden={coverUrl ? undefined : 'true'}>
@@ -71,21 +58,6 @@ function BookCard({ book, compact = false }) {
             {book.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
           </div>
         )}
-        <div className="books-card__action">
-          {readerUrl ? (
-            <a
-              className="ui-button ui-button--primary ui-button--sm"
-              href={readerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`在 Kavita 中阅读${book.title}`}
-            >
-              在 Kavita 中阅读 <ExternalLink size={14} aria-hidden="true" />
-            </a>
-          ) : (
-            <span className="books-card__unavailable">阅读器暂不可用</span>
-          )}
-        </div>
       </div>
     </Card>
   )
@@ -142,12 +114,8 @@ export default function BooksPage() {
       <header className="route-shell__intro books-route__intro">
         <p className="route-shell__eyebrow"><Library size={15} aria-hidden="true" /> 阅读空间</p>
         <h1>书籍</h1>
-        <p>这里是整理好的个人书架，Kavita 负责打开阅读。</p>
+        <p>这里是整理好的个人书架。</p>
       </header>
-
-      {!loading && !catalog.reader_available && (
-        <p className="books-route__reader-note">Kavita 阅读器尚未配置。</p>
-      )}
 
       {loading ? (
         <div className="books-route__loading" aria-label="正在载入书籍">

@@ -229,7 +229,6 @@ PUBLIC_SYNC_STORAGE=$PUBLIC_SYNC_STORAGE
 PRIVATE_STORAGE_DIR=$PRIVATE_STORAGE_DIR
 ADMIN_FILES_STORAGE_DIR=${ADMIN_FILES_STORAGE_DIR:-$PRIVATE_STORAGE_DIR/admin_files}
 BACKUP_OUTPUT_DIR=$BACKUP_OUTPUT_DIR
-KAVITA_PUBLIC_BASE_URL=${KAVITA_PUBLIC_BASE_URL:-}
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 BACKEND_LOG_FILE=$BACKEND_LOG_DIR/backend.log
 ALLOW_PREEXISTING_SCHEMA_DRIFT=${ALLOW_PREEXISTING_SCHEMA_DRIFT:-0}
@@ -290,31 +289,9 @@ Restart=always
 WantedBy=multi-user.target
 SYSTEMD
 
-# Give the web backend only the narrow permissions needed by the admin pages.
-install -d -o root -g www-data -m 2770 "$ROOT_DIR/backups" "$ROOT_DIR/backups/database" "$ROOT_DIR/backups/bookmarks"
-if [[ -d /home/frp && -f /home/frp/frps.toml ]]; then
-  getent group frp-admin >/dev/null || groupadd --system frp-admin
-  usermod -a -G frp-admin www-data
-  chgrp frp-admin /home/frp/frps.toml
-  chmod 660 /home/frp/frps.toml
-  if [[ -f /home/frp/frps.log ]]; then
-    chgrp frp-admin /home/frp/frps.log
-    chmod 640 /home/frp/frps.log
-  fi
-  install -d -o root -g frp-admin -m 2770 /home/frp/backups
-  cat > /etc/sudoers.d/blue-album-frp <<'SUDOERS'
-www-data ALL=(root) NOPASSWD: /usr/bin/systemctl start frps.service, /usr/bin/systemctl stop frps.service, /usr/bin/systemctl restart frps.service
-SUDOERS
-  chown root:root /etc/sudoers.d/blue-album-frp
-  chmod 440 /etc/sudoers.d/blue-album-frp
-  visudo -cf /etc/sudoers.d/blue-album-frp
-  install -d -m 0755 /etc/systemd/system/frps.service.d
-  cat > /etc/systemd/system/frps.service.d/blue-album.conf <<'FRP_OVERRIDE'
-[Service]
-Group=frp-admin
-UMask=0027
-FRP_OVERRIDE
-fi
+# Keep bookmark-import safety backups writable by the web backend. Deployment
+# release bundles remain in the separate root-owned backup area above.
+install -d -o root -g www-data -m 2770 "$ROOT_DIR/backups/bookmarks"
 
 systemctl daemon-reload
 systemctl enable --now "$BACKEND_SERVICE"

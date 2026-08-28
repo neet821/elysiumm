@@ -18,8 +18,6 @@ export ACCESS_TOKEN_EXPIRE_MINUTES="${ACCESS_TOKEN_EXPIRE_MINUTES:-30}"
 export REFRESH_TOKEN_EXPIRE_DAYS="${REFRESH_TOKEN_EXPIRE_DAYS:-30}"
 export BACKUP_OUTPUT_DIR="${TEST_ROOT}/backups"
 export ADMIN_FILES_STORAGE_DIR="${TEST_ROOT}/admin-files"
-export FRP_ROOT="${TEST_ROOT}/frp"
-export FRP_DRY_RUN=1
 
 echo "[1/7] 后端代码检查"
 "${PYTHON}" -m ruff check "${ROOT_DIR}/backend" "${ROOT_DIR}/sync-agent" \

@@ -21,7 +21,6 @@ const blueNotes = {
   category: 'Notes',
   tags: ['blue', 'notes'],
   reading_status: 'reading',
-  reader_url: 'https://books.example.test/kavita/Library/Blue%20Notes/7',
   is_featured: true,
   display_order: 0,
   last_read_at: '2026-07-15T12:00:00Z',
@@ -36,14 +35,12 @@ const secondBook = {
   category: 'Essays',
   tags: ['essay'],
   reading_status: 'completed',
-  reader_url: null,
   is_featured: false,
   display_order: 1,
   last_read_at: null,
 }
 
 const catalog = {
-  reader_available: true,
   books: [blueNotes, secondBook],
   lists: [{
     id: 4,
@@ -70,7 +67,7 @@ describe('public Books portal', () => {
     apiClient.get.mockResolvedValue({ data: catalog })
   })
 
-  it('renders curated shelves, ordered lists, recent reading, and safe explicit reader links', async () => {
+  it('renders curated shelves and ordered lists without server-owned reader links', async () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: '书籍' })).toBeInTheDocument()
@@ -81,17 +78,11 @@ describe('public Books portal', () => {
     const listedBooks = within(list).getAllByTestId('book-list-item')
     expect(within(listedBooks[0]).getByText('Second Book')).toBeInTheDocument()
     expect(within(listedBooks[1]).getByText('Blue Notes')).toBeInTheDocument()
-    const readerLinks = screen.getAllByRole('link', { name: '在 Kavita 中阅读Blue Notes' })
-    expect(readerLinks[0]).toHaveAttribute(
-      'href',
-      'https://books.example.test/kavita/Library/Blue%20Notes/7',
-    )
-    expect(readerLinks[0]).toHaveAttribute('target', '_blank')
-    expect(readerLinks[0]).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    expect(screen.queryByRole('link', { name: /Kavita/ })).not.toBeInTheDocument()
     expect(document.querySelector('iframe')).not.toBeInTheDocument()
   })
 
-  it('filters locally without changing server order and explains unavailable reading', async () => {
+  it('filters locally without changing server order', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByText('Start here')
@@ -100,7 +91,6 @@ describe('public Books portal', () => {
     const allShelf = screen.getByTestId('all-books-shelf')
     expect(within(allShelf).queryByText('Blue Notes')).not.toBeInTheDocument()
     expect(within(allShelf).getByText('Second Book')).toBeInTheDocument()
-    expect(within(allShelf).getByText('阅读器暂不可用')).toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('搜索书籍'))
     await user.selectOptions(screen.getByLabelText('阅读状态'), 'completed')
@@ -108,7 +98,7 @@ describe('public Books portal', () => {
     expect(within(allShelf).getByText('Second Book')).toBeInTheDocument()
   })
 
-  it('shows retry, empty, and globally unconfigured reader states truthfully', async () => {
+  it('shows retry and empty states without a reader configuration surface', async () => {
     const user = userEvent.setup()
     apiClient.get.mockRejectedValueOnce({
       response: { data: { detail: 'Books are temporarily unavailable' } },
@@ -117,12 +107,12 @@ describe('public Books portal', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Books are temporarily unavailable')
     apiClient.get.mockResolvedValueOnce({
-      data: { reader_available: false, books: [], lists: [], recent: [] },
+      data: { books: [], lists: [], recent: [] },
     })
     await user.click(screen.getByRole('button', { name: '重试' }))
 
     expect(await screen.findByText('暂时没有书籍')).toBeInTheDocument()
-    expect(screen.getByText('Kavita 阅读器尚未配置。')).toBeInTheDocument()
+    expect(screen.queryByText(/Kavita/)).not.toBeInTheDocument()
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledTimes(2))
   })
 })

@@ -8,7 +8,6 @@ import json
 from sqlalchemy.orm import Session, joinedload
 
 import bookmark_service
-import book_service
 import crud
 import media_service
 import models
@@ -178,15 +177,10 @@ def _safe_capability_url(value: str | None) -> str | None:
 
 def _homepage_capabilities() -> dict:
     raindrop_url = _safe_capability_url(config.RAINDROP_PUBLIC_URL)
-    kavita_url = book_service._validated_base_url(config.KAVITA_PUBLIC_BASE_URL)
     return {
         "raindrop": {
             "configured": raindrop_url is not None,
             "url": raindrop_url,
-        },
-        "kavita": {
-            "configured": kavita_url is not None,
-            "url": kavita_url,
         },
         "records": {"mode": "manual", "message": "记录由 Obsidian 手动维护"},
     }
@@ -224,10 +218,6 @@ def _scene_payloads(
                 scene.featured_book_ids,
                 limit=4,
             )
-            if capabilities["kavita"]["configured"]:
-                base["links"].append(
-                    {"id": "kavita", "label": "Kavita", "url": capabilities["kavita"]["url"]}
-                )
             if capabilities["raindrop"]["configured"]:
                 base["links"].append(
                     {"id": "raindrop", "label": "Raindrop", "url": capabilities["raindrop"]["url"]}

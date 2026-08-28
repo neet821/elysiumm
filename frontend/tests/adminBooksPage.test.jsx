@@ -21,8 +21,6 @@ const firstBook = {
   category: 'Notes',
   tags: ['blue', 'notes'],
   reading_status: 'reading',
-  reader_url: 'https://books.example.test/kavita/Library/Blue/1',
-  reader_path: 'Library/Blue/1',
   is_public: true,
   is_featured: true,
   display_order: 0,
@@ -55,7 +53,6 @@ const readingList = {
 }
 
 const catalog = {
-  reader_available: true,
   books: [firstBook, secondBook],
   lists: [readingList],
 }
@@ -101,7 +98,6 @@ describe('administrator Books content', () => {
     await user.type(await screen.findByLabelText(/^书名/), 'A New Book')
     await user.type(screen.getByLabelText(/^网址标识/), 'a-new-book')
     await user.type(screen.getByLabelText('书籍标签'), 'new, reading')
-    await user.type(screen.getByLabelText('Kavita 相对路径'), 'Library/New/9')
     await user.click(screen.getByLabelText('公开书籍'))
     await user.click(screen.getByRole('button', { name: '创建书籍' }))
 
@@ -110,7 +106,6 @@ describe('administrator Books content', () => {
       title: 'A New Book',
       slug: 'a-new-book',
       tags: ['new', 'reading'],
-      reader_path: 'Library/New/9',
       is_public: true,
     }))
     expect(apiClient.get).toHaveBeenCalledTimes(2)

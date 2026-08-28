@@ -496,7 +496,6 @@ async function main() {
     await setControl(admin, '网址标识', 'phase-10-browser-book')
     await setControl(admin, '作者', 'Browser Curator')
     await setControl(admin, '分类', 'Acceptance')
-    await setControl(admin, 'Kavita 相对路径', 'Library/Acceptance/Phase 10')
     await setControl(admin, '书籍标签', 'browser, acceptance')
     await setControl(admin, '阅读状态', 'reading')
     await setControl(admin, '简介', 'A browser-created acceptance title.')
@@ -522,7 +521,7 @@ async function main() {
     await admin.waitFor("document.body.textContent.includes('书单顺序已保存。') && document.body.textContent.includes('1. Phase 10 Browser Book Revised')")
 
     // Books are administrator-only after the toolbox redesign. A regular member is denied,
-    // while an administrator can still review the published shelf without opening Kavita.
+    // while an administrator can still review the published shelf.
     await visitor.navigate(`${appBase}/books`)
     await visitor.waitFor("document.body.textContent.includes('无权访问此页面') && !document.body.textContent.includes('Phase 10 Browser Book Revised')")
     await inspectPage(visitor, appBase)
@@ -530,8 +529,7 @@ async function main() {
 
     await admin.navigate(`${appBase}/books`)
     await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Book Revised') && document.body.textContent.includes('Phase 10 Reading Path')")
-    const readerLink = await admin.evaluate(`document.querySelector('a[aria-label="在 Kavita 中阅读Phase 10 Browser Book Revised"]')?.href`)
-    assert.equal(readerLink, 'https://reader.example.invalid/kavita/Library/Acceptance/Phase%2010')
+    assert.equal(await admin.evaluate("document.body.textContent.includes('Kavita')"), false)
     await setControl(admin, '搜索书籍', 'Browser Book Revised')
     await admin.waitFor("document.querySelectorAll('.books-card').length >= 1")
     await inspectPage(admin, appBase)
@@ -676,6 +674,8 @@ async function main() {
     const publicCatalog = expectOk(await api(appBase, '/api/books'), 'public Books catalog')
     assert.equal(publicCatalog.books.length, 1)
     assert.equal(publicCatalog.lists[0].books.length, 1)
+    assert(!JSON.stringify(publicCatalog).includes('reader_url'))
+    assert(!JSON.stringify(publicCatalog).includes('reader_available'))
     assert(!JSON.stringify(publicCatalog).includes('reader_path'))
 
     console.log(JSON.stringify({

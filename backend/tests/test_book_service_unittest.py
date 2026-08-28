@@ -51,7 +51,6 @@ class BookServiceTest(unittest.TestCase):
             "category": "Essays",
             "tags": ["design", "reading"],
             "reading_status": "reading",
-            "reader_path": "Library/Blue Book/42",
             "is_public": True,
             "is_featured": True,
             "display_order": 4,
@@ -59,32 +58,9 @@ class BookServiceTest(unittest.TestCase):
         payload.update(overrides)
         return schemas.BookCreate.model_validate(payload)
 
-    def test_reader_url_requires_a_safe_configured_base_and_relative_path(self):
-        self.assertEqual(
-            book_service.derive_reader_url(
-                "https://books.example.test/kavita",
-                "Library/Blue Book/42",
-            ),
-            "https://books.example.test/kavita/Library/Blue%20Book/42",
-        )
-        self.assertIsNone(book_service.derive_reader_url("", "Library/Book/1"))
-        self.assertIsNone(
-            book_service.derive_reader_url(
-                "https://books.example.test",
-                None,
-            )
-        )
-        for unsafe_base, unsafe_path in (
-            ("https://user:secret@books.example.test", "Library/Book/1"),
-            ("javascript:alert(1)", "Library/Book/1"),
-            ("https://books.example.test", "../private"),
-            ("https://books.example.test", "/absolute"),
-            ("https://books.example.test", "https://evil.example/book"),
-        ):
-            with self.subTest(base=unsafe_base, path=unsafe_path):
-                self.assertIsNone(
-                    book_service.derive_reader_url(unsafe_base, unsafe_path)
-                )
+    def test_reader_path_is_not_an_active_book_field(self):
+        with self.assertRaises(ValueError):
+            schemas.BookCreate.model_validate({**self.book_payload().model_dump(), "reader_path": "Library/Blue Book/42"})
 
     def test_create_update_and_delete_are_revisioned_and_audited(self):
         created = book_service.create_book(
@@ -200,10 +176,7 @@ class BookServiceTest(unittest.TestCase):
         )
         self.db.commit()
 
-        payload = book_service.public_catalog(
-            self.db,
-            kavita_base_url="https://books.example.test",
-        )
+        payload = book_service.public_catalog(self.db)
         self.assertEqual([book["slug"] for book in payload["books"]], ["first", "second"])
         self.assertEqual([item["slug"] for item in payload["lists"]], ["start-here"])
         self.assertEqual(
@@ -212,6 +185,8 @@ class BookServiceTest(unittest.TestCase):
         )
         serialized = repr(payload)
         self.assertNotIn("updated_by", serialized)
+        self.assertNotIn("reader_url", serialized)
+        self.assertNotIn("reader_available", serialized)
         self.assertNotIn("reader_path", serialized)
         self.assertNotIn("tags_json", serialized)
         self.assertNotIn("Private/1", serialized)
@@ -235,10 +210,10 @@ class BookServiceTest(unittest.TestCase):
         )
         self.db.commit()
 
-        payload = book_service.public_catalog(self.db, kavita_base_url="")
+        payload = book_service.public_catalog(self.db)
 
         self.assertEqual(len(payload["books"]), 200)
-        self.assertFalse(payload["reader_available"])
+        self.assertNotIn("reader_available", payload)
 
 
 if __name__ == "__main__":

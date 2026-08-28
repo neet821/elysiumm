@@ -1197,23 +1197,6 @@ def _validate_book_cover(value: Optional[str]) -> Optional[str]:
     raise ValueError("封面网址必须使用 HTTPS 或应用内相对路径")
 
 
-def _validate_reader_path(value: Optional[str]) -> Optional[str]:
-    normalized = _clean_optional_text(value)
-    if normalized is None:
-        return None
-    if (
-        normalized.startswith("/")
-        or "\\" in normalized
-        or "?" in normalized
-        or "#" in normalized
-        or ":" in normalized
-        or ".." in normalized.split("/")
-        or any(not part for part in normalized.split("/"))
-    ):
-        raise ValueError("阅读路径必须是安全的 Kavita 相对路径")
-    return normalized
-
-
 def _validate_book_tags(value: List[str]) -> List[str]:
     if len(value) > 12:
         raise ValueError("最多允许 12 个标签")
@@ -1443,7 +1426,6 @@ class BookCreate(BaseModel):
     publication_year: Optional[int] = Field(default=None, ge=1000, le=2200)
     personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
     personal_notes: Optional[str] = Field(default=None, max_length=20_000)
-    reader_path: Optional[str] = Field(default=None, max_length=1000)
     is_public: bool = False
     is_featured: bool = False
     display_order: int = Field(default=0, ge=0, le=1_000_000)
@@ -1465,11 +1447,6 @@ class BookCreate(BaseModel):
     @classmethod
     def validate_cover(cls, value: Optional[str]) -> Optional[str]:
         return _validate_book_cover(value)
-
-    @field_validator("reader_path")
-    @classmethod
-    def validate_reader(cls, value: Optional[str]) -> Optional[str]:
-        return _validate_reader_path(value)
 
     @field_validator("tags")
     @classmethod
@@ -1495,7 +1472,6 @@ class BookUpdate(BaseModel):
     publication_year: Optional[int] = Field(default=None, ge=1000, le=2200)
     personal_rating: Optional[float] = Field(default=None, ge=0, le=10)
     personal_notes: Optional[str] = Field(default=None, max_length=20_000)
-    reader_path: Optional[str] = Field(default=None, max_length=1000)
     is_public: Optional[bool] = None
     is_featured: Optional[bool] = None
     display_order: Optional[int] = Field(default=None, ge=0, le=1_000_000)
@@ -1510,11 +1486,6 @@ class BookUpdate(BaseModel):
     @classmethod
     def validate_cover(cls, value: Optional[str]) -> Optional[str]:
         return _validate_book_cover(value)
-
-    @field_validator("reader_path")
-    @classmethod
-    def validate_reader(cls, value: Optional[str]) -> Optional[str]:
-        return _validate_reader_path(value)
 
     @field_validator("tags")
     @classmethod
@@ -1553,14 +1524,12 @@ class BookPublicView(BaseModel):
     publication_year: Optional[int] = None
     personal_rating: Optional[float] = None
     personal_notes: Optional[str] = None
-    reader_url: Optional[str]
     is_featured: bool
     display_order: int
     last_read_at: Optional[datetime]
 
 
 class BookAdminView(BookPublicView):
-    reader_path: Optional[str]
     is_public: bool
     revision: int
     metadata_overrides: List[str] = Field(default_factory=list)
@@ -1647,14 +1616,12 @@ class BookListAdminView(BookListPublicView):
 
 
 class BookCatalogPublicResponse(BaseModel):
-    reader_available: bool
     books: List[BookPublicView]
     lists: List[BookListPublicView]
     recent: List[BookPublicView]
 
 
 class BookCatalogAdminResponse(BaseModel):
-    reader_available: bool
     books: List[BookAdminView]
     lists: List[BookListAdminView]
 

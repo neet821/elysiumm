@@ -51,8 +51,6 @@ def _run_migrations(database_url: str, workspace: Path) -> None:
         "BACKUP_OUTPUT_DIR": str(workspace / "application-backups"),
         "BOOKMARK_BACKUP_OUTPUT_DIR": str(workspace / "bookmark-backups"),
         "DATABASE_URL": database_url,
-        "FRP_DRY_RUN": "1",
-        "FRP_ROOT": str(workspace / "frp"),
         "PRIVATE_STORAGE_DIR": str(workspace / "private-storage"),
         "PUBLIC_SYNC_STORAGE": str(workspace / "sync-storage"),
         "SECRET_KEY": "phase11-isolated-recovery-rehearsal-secret",

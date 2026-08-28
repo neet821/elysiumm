@@ -8,7 +8,6 @@ from pathlib import Path
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 os.environ.setdefault("REFRESH_TOKEN_EXPIRE_DAYS", "30")
-os.environ["KAVITA_PUBLIC_BASE_URL"] = "https://books.example.test/kavita"
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -28,8 +27,6 @@ from database import SessionLocal  # noqa: E402
 
 class BookRoutesTest(unittest.TestCase):
     def setUp(self):
-        self.previous_kavita_base_url = book_service.config.KAVITA_PUBLIC_BASE_URL
-        book_service.config.KAVITA_PUBLIC_BASE_URL = "https://books.example.test/kavita"
         self.client = TestClient(main.app)
         self.db = SessionLocal()
         for model in (
@@ -62,7 +59,6 @@ class BookRoutesTest(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
-        book_service.config.KAVITA_PUBLIC_BASE_URL = self.previous_kavita_base_url
 
     def login(self, username, password):
         response = self.client.post(
@@ -83,7 +79,6 @@ class BookRoutesTest(unittest.TestCase):
             "category": "Notes",
             "tags": ["blue", "notes"],
             "reading_status": "reading",
-            "reader_path": "Library/Blue Notes/7",
             "is_public": True,
             "is_featured": True,
             "display_order": 2,
@@ -123,16 +118,14 @@ class BookRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual([book["slug"] for book in payload["books"]], ["visible"])
-        self.assertEqual(
-            payload["books"][0]["reader_url"],
-            "https://books.example.test/kavita/Library/Visible/1",
-        )
         serialized = response.text
         for private_value in (
             "hidden",
             "Private/Hidden/2",
             "updated_by",
             "reader_path",
+            "reader_url",
+            "reader_available",
             "tags_json",
         ):
             self.assertNotIn(private_value, serialized)

@@ -539,8 +539,7 @@
 .books-route { max-width: 86rem; }
 .books-route .ui-empty-state { background: var(--surface-card-muted); border: 1px solid var(--border-subtle); border-radius: var(--radius-card); }
 .books-route__intro { max-width: 50rem; }
-.books-route__reader-note, .books-route__error, .books-route__no-match, .admin-books__message { border: 1px solid var(--border-subtle); border-radius: var(--radius-control); color: var(--text-secondary); margin: 0 0 1.25rem; padding: 0.9rem 1rem; }
-.books-route__reader-note { background: color-mix(in srgb, var(--accent-warm) 10%, var(--surface-card)); border-color: color-mix(in srgb, var(--accent-warm) 32%, var(--border-subtle)); }
+.books-route__error, .books-route__no-match, .admin-books__message { border: 1px solid var(--border-subtle); border-radius: var(--radius-control); color: var(--text-secondary); margin: 0 0 1.25rem; padding: 0.9rem 1rem; }
 .books-route__loading { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .books-route__skeleton { min-height: 23rem; }
 .books-route__error { align-items: center; background: color-mix(in srgb, var(--accent-danger) 8%, var(--surface-card)); border-color: color-mix(in srgb, var(--accent-danger) 30%, var(--border-subtle)); display: flex; gap: 1rem; justify-content: space-between; }
@@ -565,9 +564,6 @@
 .books-card__author, .books-card__description { color: var(--text-secondary); line-height: 1.55; margin: 0; }
 .books-card__description { font-size: 0.82rem; }
 .books-card__tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.books-card__action { align-items: end; display: flex; margin-top: auto; padding-top: 0.35rem; }
-.books-card__action a { text-decoration: none; }
-.books-card__unavailable { color: var(--text-muted); font-size: 0.76rem; }
 .books-card--compact { grid-template-columns: 4.5rem minmax(0, 1fr); grid-template-rows: none; }
 .books-card--compact .books-card__cover { aspect-ratio: auto; min-height: 8rem; }
 .books-card--compact .books-card__body { padding: 0.85rem; }

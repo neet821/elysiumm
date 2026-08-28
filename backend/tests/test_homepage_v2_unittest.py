@@ -62,6 +62,7 @@ class HomepageV2Test(unittest.TestCase):
         )
         self.assertFalse(payload["capabilities"]["raindrop"]["configured"])
         self.assertIsNone(payload["capabilities"]["raindrop"]["url"])
+        self.assertNotIn("kavita", payload["capabilities"])
         self.assertEqual(payload["capabilities"]["records"]["mode"], "manual")
         self.assertIn("Obsidian", payload["capabilities"]["records"]["message"])
 

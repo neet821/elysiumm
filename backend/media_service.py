@@ -11,8 +11,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from admin_audit import add_admin_audit
-import book_service
-from config import config
 import models
 import schemas
 
@@ -132,7 +130,7 @@ def _media_status_to_book(value: str) -> str:
 def _book_external_url(row: models.Book) -> str | None:
     if row.source == "openlibrary" and row.source_id:
         return _safe_external_url(f"https://openlibrary.org/works/{row.source_id}")
-    return book_service.derive_reader_url(config.KAVITA_PUBLIC_BASE_URL, row.reader_path)
+    return None
 
 
 def serialize_book_view(row: models.Book) -> schemas.MediaEntryView:

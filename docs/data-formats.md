@@ -32,9 +32,9 @@ Collection Import and export supports JSON and Netscape bookmark HTML. JSON pres
 
 HTML export uses the browser bookmark interchange structure. HTML import treats titles and URLs as untrusted text, preserves nested folders where valid and does not import script URLs. Neither format contains login tokens, storage paths or server configuration.
 
-## Books and reader links
+## Books
 
-Public Books JSON includes published metadata, safe cover references, lists and an optional `reader_url`. Internal `reader_path`, draft state and revision stay on administrator responses. `reader_url` exists only when a credential-free Kavita base and safe relative path can be combined; it never embeds a Kavita cookie or API key.
+Public Books JSON includes published metadata, safe cover references and lists. Internal draft state and revision stay on administrator responses. The website does not include Kavita reader URLs or server credentials in Books responses.
 
 ## Game replay
 

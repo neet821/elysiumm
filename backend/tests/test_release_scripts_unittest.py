@@ -315,7 +315,7 @@ class ReleaseScriptsTest(unittest.TestCase):
         frontend = (ROOT / "frontend/.env.example").read_text(encoding="utf-8")
         for variable in (
             "PUBLIC_SYNC_STORAGE", "PRIVATE_STORAGE_DIR", "ADMIN_FILES_STORAGE_DIR",
-            "BACKUP_OUTPUT_DIR", "KAVITA_PUBLIC_BASE_URL",
+            "BACKUP_OUTPUT_DIR",
         ):
             self.assertIn(variable, backend)
         self.assertIn("VITE_API_BASE_URL", frontend)
