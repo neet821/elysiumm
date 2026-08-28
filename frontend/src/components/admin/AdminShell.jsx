@@ -1,13 +1,11 @@
-import { Activity, ArrowLeft, Files, Gauge, Home, Menu, Music2, Radio, Users, X } from 'lucide-react'
+import { Activity, ArrowLeft, Files, Home, Menu, Music2, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navigation = [
-  { label: '总览', to: '/admin', icon: Gauge, end: true },
   { label: '首页设置', to: '/admin/homepage', icon: Home },
   { label: '用户', to: '/admin/users', icon: Users },
   { label: '文件', to: '/admin/files', icon: Files },
-  { label: '直播', to: '/admin/live', icon: Radio },
   { label: '曲库账户', to: '/admin/music', icon: Music2 },
   { label: '服务器状态', to: '/admin/services', icon: Activity },
 ]
@@ -39,7 +37,7 @@ export default function AdminShell() {
   return (
     <div className="admin-shell">
       <aside className="admin-shell__rail">
-        <NavLink className="admin-shell__brand" to="/admin" end>
+        <NavLink className="admin-shell__brand" to="/admin/homepage">
           <span className="admin-shell__brand-mark" aria-hidden="true">E</span>
           <span><strong>管理控制台</strong><small>ADMIN WORKSPACE</small></span>
         </NavLink>

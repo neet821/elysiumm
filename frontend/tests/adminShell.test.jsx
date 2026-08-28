@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -23,10 +24,9 @@ describe('responsive administrator shell', () => {
 
     const navigation = screen.getByRole('navigation', { name: '管理控制台导航' })
     const expectedLinks = [
-      ['总览', '/admin'],
+      ['首页设置', '/admin/homepage'],
       ['用户', '/admin/users'],
       ['文件', '/admin/files'],
-      ['直播', '/admin/live'],
       ['曲库账户', '/admin/music'],
       ['服务器状态', '/admin/services'],
     ]
@@ -38,6 +38,14 @@ describe('responsive administrator shell', () => {
     expect(screen.getAllByRole('link', { name: '返回首页' })[0]).toHaveAttribute('href', '/')
     expect(screen.getByRole('heading', { name: 'File workspace' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '管理控制台页签' })).not.toBeInTheDocument()
+  })
+
+  it('removes the deleted overview and live entries from the administrator shell', () => {
+    const source = readFileSync('src/components/admin/AdminShell.jsx', 'utf8')
+    expect(source).not.toContain("label: '总览'")
+    expect(source).not.toContain("to: '/admin/live'")
+    expect(screen.queryByRole('link', { name: '总览' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '直播' })).not.toBeInTheDocument()
   })
 
   it('opens and closes the mobile navigation without losing keyboard semantics', async () => {

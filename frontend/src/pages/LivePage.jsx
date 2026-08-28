@@ -3,8 +3,6 @@ import { Clock3, LogIn, RefreshCw, ShieldCheck } from 'lucide-react'
 import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
 import useLiveSession from '../features/live/useLiveSession'
-import AdminLivePage from './AdminLivePage'
-import { useOptionalAuth } from '../contexts/AuthContext'
 
 
 const stateMessages = {
@@ -100,12 +98,6 @@ function PublicLivePage({ showMessages = true }) {
 }
 
 export default function LivePage() {
-  const { isAdmin, loading } = useOptionalAuth()
   const isWatchPage = new URLSearchParams(window.location.search).get('watch') === '1'
-
-  if (loading) {
-    return <section className="live-state" role="status" aria-live="polite"><p>正在确认账户…</p></section>
-  }
-
-  return isAdmin && !isWatchPage ? <AdminLivePage /> : <PublicLivePage showMessages={!isWatchPage} />
+  return <PublicLivePage showMessages={!isWatchPage} />
 }

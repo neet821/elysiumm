@@ -3192,7 +3192,7 @@ html.dark .polaroid-card:hover,
   .live-page { padding: 5.5rem 0.75rem 2rem; }
   .live-hero { min-height: 18rem; }
   .live-presence { align-items: flex-start; flex-direction: column; gap: 0.45rem; }
-  .live-watch-page { padding: 1rem 0.75rem 2rem; }
+  .live-watch-page { padding: 4.5rem 0.75rem 2rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

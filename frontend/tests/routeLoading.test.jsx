@@ -32,7 +32,7 @@ describe('route-level loading', () => {
       'utf8',
     )
     for (const page of (
-      ['AccountPage', 'AdminUsersPage', 'AdminOverviewPage', 'MusicLobbyPage',
+      ['AccountPage', 'AdminUsersPage', 'MusicLobbyPage',
         'MineradioPage', 'AdminFilesPage']
     )) {
       expect(source).toMatch(new RegExp(`lazy\\(\\(\\) => import\\(["']\\./pages/${page}`))

@@ -1,5 +1,6 @@
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
@@ -99,6 +100,19 @@ describe('stable public routes', () => {
   ])('keeps %s available', async (path, content) => {
     renderAppRoute(path)
     expect(await screen.findByText(content)).toBeInTheDocument()
+  })
+
+  it('redirects the removed administrator overview entry to homepage settings', async () => {
+    renderAppRoute('/admin')
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/admin/homepage'))
+    expect(await screen.findByText('Admin homepage')).toBeInTheDocument()
+  })
+
+  it('removes the deleted administrator overview and live route modules', () => {
+    const source = readFileSync(new URL('../src/routes.jsx', import.meta.url), 'utf8')
+    expect(source).not.toContain('AdminOverviewPage')
+    expect(source).not.toContain('AdminLivePage')
+    expect(source).not.toMatch(/<Route path="live" element=\{<AdminLivePage \/>\} \/>/)
   })
 
   it('can preserve a legacy query and attach a destination hash', async () => {

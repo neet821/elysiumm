@@ -8,11 +8,11 @@ import { ArticleFlowHome, LegacyArticlePage } from '../src/pages/ContentHomePage
 import { HomeNavigationContext, HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
 
 vi.mock('../src/pages/SyncRoomList.jsx', () => ({
-  default: () => <div data-testid="watch-page">观影房页面</div>,
+  default: ({ embedded }) => <div data-testid="watch-page" data-embedded={String(Boolean(embedded))}>观影房页面</div>,
 }))
 
 vi.mock('../src/pages/MusicLobbyPage.jsx', () => ({
-  default: () => <div data-testid="music-page">听歌房页面</div>,
+  default: ({ embedded }) => <div data-testid="music-page" data-embedded={String(Boolean(embedded))}>听歌房页面</div>,
 }))
 
 vi.mock('../src/pages/LivePage.jsx', () => ({
@@ -546,6 +546,8 @@ describe('ArticleFlowHome', () => {
     const navigation = await screen.findByRole('navigation', { name: '首页导航' })
     expect(screen.getByTestId('home-identity')).toHaveTextContent('neet821')
     expect(within(navigation).getByRole('link', { name: '首页' })).toHaveAttribute('href', '/')
+    expect(within(navigation.querySelector('.home-nav__leading-actions')).getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin/homepage')
+    expect(within(navigation.querySelector('.home-nav__trailing-actions')).getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
     expect(screen.queryByText('账户')).not.toBeInTheDocument()
     expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
 
@@ -554,6 +556,7 @@ describe('ArticleFlowHome', () => {
     expect(window.location.href).toBe(initialUrl)
     expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'watch')
     expect(await screen.findByTestId('watch-page')).toBeInTheDocument()
+    expect(screen.getByTestId('watch-page')).toHaveAttribute('data-embedded', 'true')
     expect(screen.queryByRole('heading', { name: '首页文章' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
 
@@ -561,10 +564,19 @@ describe('ArticleFlowHome', () => {
     expect(window.location.href).toBe(initialUrl)
     expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'music')
     expect(await screen.findByTestId('music-page')).toBeInTheDocument()
+    expect(screen.getByTestId('music-page')).toHaveAttribute('data-embedded', 'true')
 
     await userEvent.click(within(navigation).getByRole('link', { name: '直播' }))
     expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'live')
     expect(await screen.findByTestId('live-page')).toBeInTheDocument()
+  })
+
+  it('groups compact navigation into a left control cluster and a right destination cluster', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    expect(css).toContain('.home-nav__leading-actions')
+    expect(css).toContain('.home-nav__trailing-actions')
+    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__trailing-actions\s*\{[^}]*margin-left:\s*auto;/s)
+    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__leading-actions\s*\{[^}]*margin-left:\s*auto;/s)
   })
 
   it('returns to the top after changing article pages', async () => {

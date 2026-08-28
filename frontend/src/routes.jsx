@@ -11,7 +11,6 @@ const LIGHT_STYLES = THEME.light
 const AdminShell = lazy(() => import('./components/admin/AdminShell'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
-const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage'))
 const AdminHomepagePage = lazy(() => import('./pages/AdminHomepagePage'))
 const MusicProvidersAdminPage = lazy(() => import('./pages/MusicProvidersAdminPage'))
 const AdminFilesPage = lazy(() => import('./pages/AdminFilesPage'))
@@ -22,7 +21,6 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const MineradioPage = lazy(() => import('./pages/MineradioPage'))
 const MusicLobbyPage = lazy(() => import('./pages/MusicLobbyPage'))
 const LivePage = lazy(() => import('./pages/LivePage'))
-const AdminLivePage = lazy(() => import('./pages/AdminLivePage'))
 const TransferPage = lazy(() => import('./pages/TransferPage'))
 
 export const RouteLoadingFallback = () => <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true"><span className="route-loading__spinner" aria-hidden="true" /><span>正在载入页面…</span></div>
@@ -57,12 +55,11 @@ const AppRoutes = () => (
       <Route path="/transfer/:token" element={<TransferPage />} />
 
       <Route path="/admin/*" element={withAuth(<AdminShell />, true)}>
-        <Route index element={<AdminOverviewPage />} />
+        <Route index element={<Navigate replace to="homepage" />} />
         <Route path="homepage" element={<AdminHomepagePage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="rooms" element={<SharedRoomListRedirect />} />
         <Route path="files" element={<AdminFilesPage />} />
-        <Route path="live" element={<AdminLivePage />} />
         <Route path="music" element={<MusicProvidersAdminPage />} />
         <Route path="services" element={withUserProps(AgentConsolePage)} />
       </Route>

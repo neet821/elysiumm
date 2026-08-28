@@ -184,25 +184,29 @@ function HomeNavigation({ label, activeView, isWideViewport, onWideViewChange })
         <span className="home-nav__identity-name">{identity}</span>
       </Link>
       <nav className="home-nav__actions" aria-label="首页导航">
-        <Link className={`home-nav__action home-nav__action--home${activeView === 'home' ? ' home-nav__action--active' : ''}`} to="/" aria-current={activeView === 'home' ? 'page' : undefined} aria-label="首页" title="首页" onClick={(event) => handleViewClick('home', event)}><Home size={19} /><span className="home-nav__action-label">首页</span></Link>
-        <button
-          className="home-nav__action home-nav__sidebar-toggle"
-          type="button"
-          aria-expanded={homeSidebarOpen}
-          aria-controls="home-sidebar"
-          aria-label={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-          title={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-          onClick={toggleHomeSidebar}
-        >
-          {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
-        </button>
-        <Link className={`home-nav__action${activeView === 'watch' ? ' home-nav__action--active' : ''}`} to="/rooms/watch" aria-current={activeView === 'watch' ? 'page' : undefined} aria-label="观影房" title="观影房" onClick={(event) => handleViewClick('watch', event)}><Film size={19} /><span className="home-nav__action-label">观影房</span></Link>
-        <Link className={`home-nav__action${activeView === 'music' ? ' home-nav__action--active' : ''}`} to="/rooms/music" aria-current={activeView === 'music' ? 'page' : undefined} aria-label="听歌房" title="听歌房" onClick={(event) => handleViewClick('music', event)}><Headphones size={19} /><span className="home-nav__action-label">听歌房</span></Link>
-        <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}${activeView === 'live' ? ' home-nav__action--active' : ''}`} to="/live" aria-current={activeView === 'live' ? 'page' : undefined} aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'} onClick={(event) => handleViewClick('live', event)}><Radio size={19} /><span className="home-nav__action-label">直播</span></Link>
-        {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /><span className="home-nav__action-label">管理后台</span></Link>}
-        <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
-          {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
-        </Link>
+        <div className="home-nav__leading-actions">
+          <button
+            className="home-nav__action home-nav__sidebar-toggle"
+            type="button"
+            aria-expanded={homeSidebarOpen}
+            aria-controls="home-sidebar"
+            aria-label={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+            title={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
+            onClick={toggleHomeSidebar}
+          >
+            {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
+          </button>
+          {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin/homepage" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /><span className="home-nav__action-label">管理后台</span></Link>}
+        </div>
+        <div className="home-nav__trailing-actions">
+          <Link className={`home-nav__action home-nav__action--home${activeView === 'home' ? ' home-nav__action--active' : ''}`} to="/" aria-current={activeView === 'home' ? 'page' : undefined} aria-label="首页" title="首页" onClick={(event) => handleViewClick('home', event)}><Home size={19} /><span className="home-nav__action-label">首页</span></Link>
+          <Link className={`home-nav__action${activeView === 'watch' ? ' home-nav__action--active' : ''}`} to="/rooms/watch" aria-current={activeView === 'watch' ? 'page' : undefined} aria-label="观影房" title="观影房" onClick={(event) => handleViewClick('watch', event)}><Film size={19} /><span className="home-nav__action-label">观影房</span></Link>
+          <Link className={`home-nav__action${activeView === 'music' ? ' home-nav__action--active' : ''}`} to="/rooms/music" aria-current={activeView === 'music' ? 'page' : undefined} aria-label="听歌房" title="听歌房" onClick={(event) => handleViewClick('music', event)}><Headphones size={19} /><span className="home-nav__action-label">听歌房</span></Link>
+          <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}${activeView === 'live' ? ' home-nav__action--active' : ''}`} to="/live" aria-current={activeView === 'live' ? 'page' : undefined} aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'} onClick={(event) => handleViewClick('live', event)}><Radio size={19} /><span className="home-nav__action-label">直播</span></Link>
+          <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
+            {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
+          </Link>
+        </div>
       </nav>
     </div>
   )
@@ -458,7 +462,7 @@ export function ArticleFlowHome() {
       {isWideViewport && wideView !== 'home' ? (
         <main className="home-wide-view" data-testid="wide-home-view" data-wide-view={wideView}>
           <Suspense fallback={<section className="home-wide-view__loading" role="status">正在载入页面…</section>}>
-            {wideView === 'watch' ? <WideWatchPage roomMode="video" /> : wideView === 'music' ? <WideMusicPage /> : <WideLivePage />}
+            {wideView === 'watch' ? <WideWatchPage embedded roomMode="video" /> : wideView === 'music' ? <WideMusicPage embedded /> : <WideLivePage />}
           </Suspense>
         </main>
       ) : <div className="home-layout">
