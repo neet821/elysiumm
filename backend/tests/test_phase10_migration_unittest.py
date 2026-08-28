@@ -55,6 +55,13 @@ class Phase10MigrationTest(unittest.TestCase):
                 "author",
                 "description",
                 "cover_url",
+                "source",
+                "source_id",
+                "isbn",
+                "publication_year",
+                "personal_rating",
+                "personal_notes",
+                "metadata_overrides_json",
                 "category",
                 "tags_json",
                 "reading_status",
@@ -190,7 +197,9 @@ class Phase10MigrationTest(unittest.TestCase):
                 )
             engine.dispose()
 
-            self.run_alembic(database_url, "upgrade", "head")
+            # 0023 intentionally cannot be downgraded after removing game data;
+            # this legacy-token test exercises the reversible migration chain.
+            self.run_alembic(database_url, "upgrade", "0022_sync_room_lock")
             engine = create_engine(database_url)
             self.assert_phase10_schema(inspect(engine))
             with engine.connect() as connection:

@@ -27,7 +27,7 @@ function renderLobby() {
     <MemoryRouter initialEntries={['/music']} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Routes>
         <Route path="/music" element={<MusicLobbyPage />} />
-        <Route path="/music/rooms/:roomId" element={<p>房间页面</p>} />
+        <Route path="/rooms/music/:roomId" element={<p>房间页面</p>} />
       </Routes>
       <LocationProbe />
     </MemoryRouter>,
@@ -78,7 +78,7 @@ describe('music room lobby', () => {
       room_name: '夜间电台',
       type: 'video',
     })
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/music/rooms/27'))
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/rooms/music/27'))
   })
 
   it('shows authoritative occupancy and a live empty-room countdown', async () => {

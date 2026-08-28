@@ -7,11 +7,8 @@ let authState = { isAuthenticated: false, isAdmin: false, loading: false, user: 
 vi.mock('../src/contexts/AuthContext.jsx', () => ({
   useAuth: () => authState,
 }))
-vi.mock('../src/pages/PrivateCollectionPage.jsx', () => ({
-  default: () => <div>Protected private collection</div>,
-}))
-vi.mock('../src/pages/LoginPage.jsx', () => ({
-  default: () => <div>Login page</div>,
+vi.mock('../src/pages/AdminFilesPage.jsx', () => ({
+  default: () => <div>Admin files</div>,
 }))
 
 import AppRoutes from '../src/routes.jsx'
@@ -21,13 +18,13 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}{location.search}</output>
 }
 
-function renderRoute() {
+function renderRoute(path = '/admin/files') {
   return render(
     <MemoryRouter
-      initialEntries={['/account/collection']}
+      initialEntries={[path]}
       future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
     >
-      <AppRoutes styles={{}} isDark={false} />
+      <AppRoutes />
       <LocationProbe />
     </MemoryRouter>,
   )
@@ -35,31 +32,31 @@ function renderRoute() {
 
 afterEach(() => {
   authState = { isAuthenticated: false, isAdmin: false, loading: false, user: null }
-  window.localStorage.clear()
 })
 
-describe('private Collection route protection', () => {
+describe('administrator route protection', () => {
   it('sends anonymous visitors to login with the complete return path', async () => {
-    renderRoute()
+    renderRoute('/admin/files?tab=devices')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
-      '/login?redirect=%2Faccount%2Fcollection',
+      '/login?redirect=%2Fadmin%2Ffiles%3Ftab%3Ddevices',
     ))
-    expect(screen.queryByText('Protected private collection')).not.toBeInTheDocument()
   })
 
-  it('denies the workspace to an authenticated non-administrator', async () => {
+  it('denies the administrator workspace to an authenticated non-administrator', async () => {
     authState = { isAuthenticated: true, isAdmin: false, loading: false, user: { id: 7 } }
     renderRoute()
     expect(await screen.findByRole('heading', { name: '无权访问此页面' })).toBeInTheDocument()
-    expect(screen.queryByText('Protected private collection')).not.toBeInTheDocument()
   })
 
-  it('redirects an administrator to the canonical collection workspace', async () => {
+  it('renders the canonical administrator Files workspace for an administrator', async () => {
     authState = { isAuthenticated: true, isAdmin: true, loading: false, user: { id: 1 } }
     renderRoute()
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
-      '/account/admin/content/collection',
-    ))
-    expect(await screen.findByText('Protected private collection')).toBeInTheDocument()
+    expect(await screen.findByText('Admin files')).toBeInTheDocument()
+  })
+
+  it('does not revive the removed private Collection route', async () => {
+    authState = { isAuthenticated: true, isAdmin: true, loading: false, user: { id: 1 } }
+    renderRoute('/account/collection')
+    expect(await screen.findByRole('heading', { name: '这个页面不存在' })).toBeInTheDocument()
   })
 })

@@ -268,7 +268,7 @@ describe('Mineradio room embed', () => {
     expect(bridge).toContain('roomStreamUrl')
     expect(bridge).toContain('当前正在播放')
     expect(bridge).toContain('在线成员与聊天')
-    expect(bridge).toContain('房主功能')
+    expect(bridge).toContain('房主管理')
     expect(bridge).not.toContain('点歌提示')
     expect(bridge).toContain('blue-room-search-mode-other')
     expect(bridge).toContain('data-room-sync-ready')

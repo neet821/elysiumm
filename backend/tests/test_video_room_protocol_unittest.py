@@ -172,7 +172,7 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.assertEqual(joined["data"]["snapshot"]["media_id"], self.first.id)
         session = joined["data"]["video_session"]
         self.assertEqual(session["current_item_id"], self.first.id)
-        self.assertEqual(len(session["playlist"]), 1)
+        self.assertEqual([item["id"] for item in session["playlist"]], [self.first.id, self.second.id])
         self.assertNotIn("storage_path", str(session))
 
         self.emitted.clear()

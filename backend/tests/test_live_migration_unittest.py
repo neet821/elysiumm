@@ -58,7 +58,7 @@ class LiveMigrationTest(unittest.TestCase):
                 )
             engine.dispose()
 
-            self.run_alembic(database_url, "upgrade", "head")
+            self.run_alembic(database_url, "upgrade", "0022_sync_room_lock")
             engine = create_engine(database_url)
             self.assertTrue(
                 LIVE_TABLES.issubset(set(inspect(engine).get_table_names()))

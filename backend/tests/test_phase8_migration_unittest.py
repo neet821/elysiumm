@@ -193,7 +193,7 @@ class Phase8MigrationTest(unittest.TestCase):
                 connection.execute(room_sql, rows)
             engine.dispose()
 
-            self.run_alembic(database_url, "upgrade", "head")
+            self.run_alembic(database_url, "upgrade", "0022_sync_room_lock")
             engine = create_engine(database_url)
             with engine.connect() as connection:
                 sessions = connection.execute(

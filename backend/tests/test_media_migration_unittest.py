@@ -28,7 +28,7 @@ class MediaMigrationTest(unittest.TestCase):
     def test_upgrade_adds_media_without_replacing_the_existing_book_table(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             database_url = f"sqlite:///{Path(temp_dir) / 'media-migration.sqlite'}"
-            self.run_alembic(database_url, "upgrade", "head")
+            self.run_alembic(database_url, "upgrade", "0022_sync_room_lock")
             engine = create_engine(database_url)
             inspector = inspect(engine)
 

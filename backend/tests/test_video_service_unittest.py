@@ -70,14 +70,14 @@ class VideoServiceTest(unittest.TestCase):
 
         payload = video_service.session_payload(self.db, self.room)
 
-        self.assertEqual([item["id"] for item in payload["playlist"]], [uploaded.id])
-        self.assertEqual([item["position"] for item in payload["playlist"]], [1])
+        self.assertEqual([item["id"] for item in payload["playlist"]], [external.id, uploaded.id])
+        self.assertEqual([item["position"] for item in payload["playlist"]], [0, 1])
         self.assertEqual(payload["current_item_id"], uploaded.id)
         self.assertEqual(
-            payload["playlist"][0]["playback_url"],
+            payload["playlist"][1]["playback_url"],
             f"/api/video/items/{uploaded.id}/stream",
         )
-        self.assertEqual(payload["playlist"][0]["original_filename"], "family.mp4")
+        self.assertEqual(payload["playlist"][1]["original_filename"], "family.mp4")
         self.assertNotIn("storage_path", payload["playlist"][0])
         self.assertNotIn("/private/video", str(payload))
 

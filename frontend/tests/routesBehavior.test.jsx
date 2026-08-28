@@ -1,34 +1,24 @@
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Outlet, useLocation } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 let authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
 
-vi.mock('../src/contexts/AuthContext.jsx', () => ({
-  useAuth: () => authState,
-}))
-vi.mock('../src/utils/request.js', () => ({
-  default: { get: vi.fn(() => new Promise(() => {})) },
-}))
-vi.mock('../src/pages/HomePage.jsx', () => ({ default: () => <div>Home page</div> }))
-vi.mock('../src/pages/PostsPage.jsx', () => ({ default: () => <div>Writings view</div> }))
-vi.mock('../src/pages/PhotosPage.jsx', () => ({ default: () => <div>Photos view</div> }))
-vi.mock('../src/pages/LinkDashboard.jsx', () => ({ default: () => <div>Collection dashboard</div> }))
-vi.mock('../src/pages/PrivateCollectionPage.jsx', () => ({ default: () => <div>Private collection</div> }))
-vi.mock('../src/pages/AccountPage.jsx', () => ({ default: () => <div>Account page</div> }))
-vi.mock('../src/pages/PostDetailPage.jsx', () => ({ default: () => <div>Post detail</div> }))
-vi.mock('../src/pages/PostEditorPage.jsx', () => ({ default: () => <div>Post editor</div> }))
-vi.mock('../src/pages/AdminUsersPage.jsx', () => ({ default: () => <div>Admin users</div> }))
+vi.mock('../src/contexts/AuthContext.jsx', () => ({ useAuth: () => authState }))
+vi.mock('../src/components/admin/AdminShell.jsx', () => ({ default: () => <Outlet /> }))
 vi.mock('../src/pages/AdminHomepagePage.jsx', () => ({ default: () => <div>Admin homepage</div> }))
-vi.mock('../src/pages/SyncRoomList.jsx', () => ({ default: () => <div>Shared room list</div> }))
 vi.mock('../src/pages/AdminFilesPage.jsx', () => ({ default: () => <div>Admin files</div> }))
 vi.mock('../src/pages/AgentConsolePage.jsx', () => ({ default: () => <div>Server status</div> }))
-vi.mock('../src/pages/PhotoManagePage.jsx', () => ({ default: () => <div>Admin photos</div> }))
-vi.mock('../src/pages/ToolsPage.jsx', () => ({ default: () => <div>Tools page</div> }))
-vi.mock('../src/pages/MusicLobbyPage.jsx', () => ({ default: () => <div>Music lobby</div> }))
+vi.mock('../src/pages/AdminUsersPage.jsx', () => ({ default: () => <div>Admin users</div> }))
+vi.mock('../src/pages/MusicProvidersAdminPage.jsx', () => ({ default: () => <div>Music providers</div> }))
+vi.mock('../src/pages/SyncRoomList.jsx', () => ({ default: () => <div>Shared room list</div> }))
+vi.mock('../src/pages/MineradioPage.jsx', () => ({ default: () => <div>Music room</div> }))
+vi.mock('../src/pages/SyncRoomPlayer.jsx', () => ({ default: () => <div>Watch room</div> }))
+vi.mock('../src/pages/LivePage.jsx', () => ({ default: () => <div>Live page</div> }))
+vi.mock('../src/pages/LoginPage.jsx', () => ({ default: () => <div>Login page</div> }))
+vi.mock('../src/pages/RegisterPage.jsx', () => ({ default: () => <div>Register page</div> }))
 
-import LegacyRedirect from '../src/components/LegacyRedirect.jsx'
 import AppRoutes from '../src/routes.jsx'
 
 function LocationProbe() {
@@ -39,127 +29,59 @@ function LocationProbe() {
 function renderAppRoute(path) {
   return render(
     <MemoryRouter initialEntries={[path]} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-      <AppRoutes styles={{}} isDark={false} />
+      <AppRoutes />
       <LocationProbe />
     </MemoryRouter>,
   )
 }
 
-describe('stable public routes', () => {
+describe('current route contract', () => {
   beforeEach(() => {
     authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
   })
 
-  it('keeps the migrated single-page article flow as the root route', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ articles: [] }),
-    })
-    renderAppRoute('/')
-    expect(await screen.findByText('还没有照片。')).toBeInTheDocument()
+  it('keeps the current public, room, live, and administrator routes', () => {
+    const source = readFileSync('src/routes.jsx', 'utf8')
+    for (const path of ['/content/*', '/rooms/music', '/rooms/watch', '/live', '/admin/*']) {
+      expect(source).toContain(`path="${path}"`)
+    }
+    for (const path of ['homepage', 'users', 'rooms', 'files', 'music', 'services']) {
+      expect(source).toContain(`path="${path}"`)
+    }
+    expect(source).not.toContain('AdminOverviewPage')
+    expect(source).not.toContain('AdminLivePage')
+    expect(source).not.toContain('GamesPage')
   })
 
-  it.each([
-    ['/archive?type=writing', '归档'],
-    ['/archive?type=photo', '归档'],
-    ['/collection', '收藏'],
-    ['/books', '书籍'],
-  ])('renders %s', async (path, content) => {
-    renderAppRoute(path)
-    expect(await screen.findByText(content)).toBeInTheDocument()
-  })
-
-  it.each([
-    ['/posts', '/archive?type=writing'],
-    ['/photos', '/archive?type=photo'],
-    ['/messages', '/#messages'],
-    ['/tools/links', '/account/admin/content/collection'],
-  ])('redirects legacy %s to %s', async (from, destination) => {
-    renderAppRoute(from)
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(destination))
-  })
-
-  it('keeps the public tools shell and the authenticated music lobby reachable', async () => {
-    renderAppRoute('/tools')
-    expect(await screen.findByText('Tools page')).toBeInTheDocument()
-
+  it('redirects the remaining legacy room links to the shared room pages', async () => {
     renderAppRoute('/music')
-    expect(await screen.findByText('Music lobby')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/rooms/music'))
+
+    renderAppRoute('/tools/sync-room')
+    await waitFor(() => expect(screen.getAllByTestId('location').at(-1)).toHaveTextContent('/rooms/watch'))
   })
 
-  it.each([
-    ['/posts/42', 'Post detail'],
-    ['/posts/new', 'Post editor'],
-    ['/posts/42/edit', 'Post editor'],
-    ['/admin/homepage', 'Admin homepage'],
-    ['/admin/users', 'Admin users'],
-    ['/account/admin/homepage', 'Admin homepage'],
-    ['/account/collection', 'Private collection'],
-  ])('keeps %s available', async (path, content) => {
-    renderAppRoute(path)
-    expect(await screen.findByText(content)).toBeInTheDocument()
-  })
-
-  it('redirects the removed administrator overview entry to homepage settings', async () => {
+  it('redirects the administrator index to homepage settings', async () => {
     renderAppRoute('/admin')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/admin/homepage'))
     expect(await screen.findByText('Admin homepage')).toBeInTheDocument()
   })
 
-  it('removes the deleted administrator overview and live route modules', () => {
-    const source = readFileSync(new URL('../src/routes.jsx', import.meta.url), 'utf8')
-    expect(source).not.toContain('AdminOverviewPage')
-    expect(source).not.toContain('AdminLivePage')
-    expect(source).not.toMatch(/<Route path="live" element=\{<AdminLivePage \/>\} \/>/)
-  })
+  it('protects administrator routes for anonymous users and non-administrators', async () => {
+    authState = { isAdmin: false, isAuthenticated: false, loading: false, user: null }
+    renderAppRoute('/admin/files?tab=devices')
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/login?redirect=%2Fadmin%2Ffiles%3Ftab%3Ddevices'))
 
-  it('can preserve a legacy query and attach a destination hash', async () => {
-    render(
-      <MemoryRouter initialEntries={['/legacy?from=old']}>
-        <Routes>
-          <Route path="/legacy" element={<LegacyRedirect to="/target" preserveSearch hash="archive" />} />
-          <Route path="/target" element={<LocationProbe />} />
-        </Routes>
-      </MemoryRouter>,
-    )
-
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/target?from=old#archive'))
-  })
-
-  it.each([
-    ['/account/admin/homepage', '/account/admin/content/homepage'],
-    ['/admin/users', '/account/admin/users'],
-    ['/admin/rooms', '/rooms/watch'],
-    ['/admin/photos', '/account/admin/content/photos'],
-    ['/admin/files', '/account/admin/files'],
-    ['/admin/agent-console', '/account/admin/services'],
-    ['/tools/public-sync', '/account/admin/files'],
-  ])('redirects administrator legacy path %s to %s', async (from, destination) => {
-    renderAppRoute(`${from}?phase10=legacy`)
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`${destination}?phase10=legacy`))
-  })
-
-  it('rejects authenticated non-administrators from the complete administrator shell', async () => {
     authState = { isAdmin: false, isAuthenticated: true, loading: false, user: { id: 2 } }
-    renderAppRoute('/account/admin/security')
+    renderAppRoute('/admin/files')
     expect(await screen.findByRole('heading', { name: '无权访问此页面' })).toBeInTheDocument()
-    expect(document.querySelectorAll('main')).toHaveLength(0)
-    expect(screen.getByTestId('location')).toHaveTextContent('/account/admin/security')
   })
 
-  it('keeps tools public but protects private content routes', async () => {
-    authState = { isAdmin: false, isAuthenticated: false, loading: false, user: null }
-    renderAppRoute('/tools')
-    expect(await screen.findByText('Tools page')).toBeInTheDocument()
-    expect(screen.getByTestId('location')).toHaveTextContent('/tools')
+  it('renders the retained room and live destinations', async () => {
+    renderAppRoute('/rooms/watch')
+    expect(await screen.findByText('Shared room list')).toBeInTheDocument()
 
-    renderAppRoute('/books?from=tools#recent')
-    await waitFor(() => expect(screen.getAllByTestId('location').at(-1)).toHaveTextContent('/login?redirect=%2Fbooks%3Ffrom%3Dtools%23recent'))
-  })
-
-  it('preserves the intended administrator path when login is required', async () => {
-    authState = { isAdmin: false, isAuthenticated: false, loading: false, user: null }
-    renderAppRoute('/account/admin/files?tab=devices')
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/login?redirect=%2Faccount%2Fadmin%2Ffiles%3Ftab%3Ddevices'))
+    renderAppRoute('/live')
+    expect(await screen.findByText('Live page')).toBeInTheDocument()
   })
 })

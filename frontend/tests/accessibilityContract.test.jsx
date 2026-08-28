@@ -31,7 +31,7 @@ describe('application accessibility contract', () => {
     expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: '返回首页' })).toHaveAttribute('title', '返回首页')
   })
 
   it('shows a generic named alert without disclosing runtime details', () => {

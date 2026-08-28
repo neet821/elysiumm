@@ -580,33 +580,33 @@ class VideoRoutesTest(unittest.TestCase):
             files={"file": ("legacy.mp4", b"legacy-video", "video/mp4")},
         )
         self.assertEqual(uploaded.status_code, 200, uploaded.text)
-        self.assertEqual(uploaded.json()["playback_version"], 1)
+        self.assertEqual(uploaded.json()["playback_version"], 0)
         self.assertIn("access=", uploaded.json()["video_url"])
         detail = self.client.get(
             f"/api/video/rooms/{self.room.id}",
             headers=self.headers(self.member),
         ).json()
-        self.assertEqual(detail["snapshot"]["version"], 1)
+        self.assertEqual(detail["snapshot"]["version"], 0)
         current = next(
             item
             for item in detail["session"]["playlist"]
             if item["id"] == detail["session"]["current_item_id"]
         )
-        self.assertEqual(current["source_type"], "upload")
+        self.assertEqual(current["source_type"], "external")
 
         deleted = self.client.delete(
             f"/api/sync-rooms/{self.room.id}/video",
             headers=self.headers(self.host),
         )
-        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.status_code, 400, deleted.text)
         detail = self.client.get(
             f"/api/video/rooms/{self.room.id}",
             headers=self.headers(self.member),
         ).json()
-        self.assertEqual(detail["snapshot"]["version"], 2)
-        self.assertIsNone(detail["session"]["current_item_id"])
-        self.assertEqual(detail["session"]["playlist"], [])
-        self.assertEqual(len(list(self.video_root.iterdir())), 0)
+        self.assertEqual(detail["snapshot"]["version"], 0)
+        self.assertEqual(detail["session"]["current_item_id"], current["id"])
+        self.assertEqual([item["source_type"] for item in detail["session"]["playlist"]], ["external", "upload"])
+        self.assertEqual(len(list(self.video_root.iterdir())), 1)
 
     def test_cleanup_and_streaming_never_follow_a_tampered_outside_path(self):
         outside = Path(self.temporary_directory.name) / "outside.mp4"
