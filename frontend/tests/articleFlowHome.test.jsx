@@ -523,7 +523,7 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.home-nav__account\s*\{[^}]*display:\s*none;/s)
   })
 
-  it('switches watch, music and live inside the wide homepage without navigating', async () => {
+  it('keeps room and live links as real routes instead of embedded homepage views', async () => {
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn((query) => ({
@@ -551,24 +551,13 @@ describe('ArticleFlowHome', () => {
     expect(screen.queryByText('账户')).not.toBeInTheDocument()
     expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
 
-    const initialUrl = window.location.href
-    await userEvent.click(within(navigation).getByRole('link', { name: '观影房' }))
-    expect(window.location.href).toBe(initialUrl)
-    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'watch')
-    expect(await screen.findByTestId('watch-page')).toBeInTheDocument()
-    expect(screen.getByTestId('watch-page')).toHaveAttribute('data-embedded', 'true')
-    expect(screen.queryByRole('heading', { name: '首页文章' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
-
-    await userEvent.click(within(navigation).getByRole('link', { name: '听歌房' }))
-    expect(window.location.href).toBe(initialUrl)
-    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'music')
-    expect(await screen.findByTestId('music-page')).toBeInTheDocument()
-    expect(screen.getByTestId('music-page')).toHaveAttribute('data-embedded', 'true')
-
-    await userEvent.click(within(navigation).getByRole('link', { name: '直播' }))
-    expect(screen.getByTestId('wide-home-view')).toHaveAttribute('data-wide-view', 'live')
-    expect(await screen.findByTestId('live-page')).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
+    expect(within(navigation).getByRole('link', { name: '听歌房' })).toHaveAttribute('href', '/rooms/music')
+    expect(within(navigation).getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
+    expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('watch-page')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('music-page')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('live-page')).not.toBeInTheDocument()
   })
 
   it('groups compact navigation into a left control cluster and a right destination cluster', () => {

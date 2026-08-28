@@ -41,10 +41,10 @@ describe('Elysium plain service shell', () => {
     expect(document.querySelector('.home-header-portal')).not.toBeInTheDocument()
   })
 
-  it('does not fetch homepage chrome from the global shell', () => {
+  it('only polls the live indicator from the shared navigation shell', () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
     renderShell({ initialPath: '/' })
-    expect(fetch).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledWith('/api/live/status', { cache: 'no-store' })
   })
 
   it('shows login instead of account to signed-out visitors', () => {
@@ -84,7 +84,7 @@ describe('Elysium plain service shell', () => {
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
     renderShell({ initialPath: '/' })
-    expect(screen.queryByRole('link', { name: '打开管理员控制台' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin/homepage')
   })
 
   it('keeps formal pages free of current-page and theme controls', () => {

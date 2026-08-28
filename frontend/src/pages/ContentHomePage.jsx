@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { BookOpen, ChevronDown, Clapperboard, Disc3, Film, Gamepad2, Headphones, Home, LayoutDashboard, Menu, Radio, UserRound, X } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Disc3, Gamepad2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { useHomeNavigation, useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
-import { Avatar } from '../components/ui/Avatar.jsx'
+import { useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
+import HomeNavigation from '../components/layout/HomeNavigation.jsx'
 import './contentHome.css'
 
 const CATEGORY_LABELS = { article: '文章', essay: '随笔', photo: '照片', record: '记录' }
@@ -47,9 +47,6 @@ const ESSAY_COLLAPSE_THRESHOLD = 120
 const RECORD_REVIEW_PREVIEW_LENGTH = 72
 const ARTICLE_REFRESH_INTERVAL_MS = 15000
 const DEFAULT_ARTICLE_TITLE_SCALE = 0.8
-const WideWatchPage = lazy(() => import('./SyncRoomList.jsx'))
-const WideMusicPage = lazy(() => import('./MusicLobbyPage.jsx'))
-const WideLivePage = lazy(() => import('./LivePage.jsx'))
 
 function normalizeArticleTitleScale(value) {
   const scale = Number(value)
@@ -70,13 +67,6 @@ function contentTextLength(value) {
     .replace(/[`*_#>\-[\]|]/g, '')
     .replace(/\s+/g, '')
     .length
-}
-
-function avatarUrl(user) {
-  const value = user?.avatar || user?.avatar_url
-  if (!value) return undefined
-  if (/^(?:https?:|data:|\/)/i.test(value)) return value
-  return `/${value}`
 }
 
 async function enrichArticle(article) {
@@ -113,102 +103,6 @@ function RecordTypeIcon({ type }) {
     <span className="record-type-icon" aria-label={`${recordType.label}类型`} title={recordType.label}>
       <Icon aria-hidden="true" size={15} strokeWidth={1.8} />
     </span>
-  )
-}
-
-function useHomeLiveStatus() {
-  const [isLive, setIsLive] = useState(false)
-
-  useEffect(() => {
-    let active = true
-    const refresh = async () => {
-      try {
-        const response = await fetch('/api/live/status', { cache: 'no-store' })
-        if (!response.ok) return
-        const data = await response.json()
-        if (active) setIsLive(data?.status === 'live')
-      } catch {
-        // The homepage keeps the normal button when live status is unavailable.
-      }
-    }
-
-    void refresh()
-    const intervalId = window.setInterval(refresh, 15000)
-    return () => {
-      active = false
-      window.clearInterval(intervalId)
-    }
-  }, [])
-
-  return isLive
-}
-
-function useWideHomeViewport() {
-  const [isWide, setIsWide] = useState(() => (
-    typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(min-width: 1101px)').matches
-  ))
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined
-    const mediaQuery = window.matchMedia('(min-width: 1101px)')
-    const update = () => setIsWide(mediaQuery.matches)
-    update()
-    mediaQuery.addEventListener?.('change', update)
-    return () => mediaQuery.removeEventListener?.('change', update)
-  }, [])
-
-  return isWide
-}
-
-function HomeNavigation({ label, activeView, isWideViewport, onWideViewChange }) {
-  const { isAdmin, isAuthenticated, user } = useHomeNavigation()
-  const { isOpen: homeSidebarOpen, toggle: toggleHomeSidebar } = useHomeSidebar()
-  const isLive = useHomeLiveStatus()
-  const accountTarget = isAuthenticated ? '/account' : '/login'
-  const identity = user?.username || user?.id || (isAuthenticated ? '已登录' : '登录')
-  const handleViewClick = (view, event) => {
-    if (!isWideViewport || !onWideViewChange) return
-    event.preventDefault()
-    onWideViewChange(view)
-  }
-
-  return (
-    <div className="home-nav">
-      <span className="home-nav__label">{label || '首页'}</span>
-      <Link className="home-nav__identity" to={accountTarget} data-testid="home-identity" aria-label={identity} title={identity}>
-        {isAuthenticated
-          ? <Avatar className="home-nav__identity-avatar" name={identity} src={avatarUrl(user)} size="lg" />
-          : <UserRound className="home-nav__identity-icon" size={28} aria-hidden="true" />}
-        <span className="home-nav__identity-name">{identity}</span>
-      </Link>
-      <nav className="home-nav__actions" aria-label="首页导航">
-        <div className="home-nav__leading-actions">
-          <button
-            className="home-nav__action home-nav__sidebar-toggle"
-            type="button"
-            aria-expanded={homeSidebarOpen}
-            aria-controls="home-sidebar"
-            aria-label={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-            title={homeSidebarOpen ? '收起记录和随笔' : '展开记录和随笔'}
-            onClick={toggleHomeSidebar}
-          >
-            {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
-          </button>
-          {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin/homepage" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /><span className="home-nav__action-label">管理后台</span></Link>}
-        </div>
-        <div className="home-nav__trailing-actions">
-          <Link className={`home-nav__action home-nav__action--home${activeView === 'home' ? ' home-nav__action--active' : ''}`} to="/" aria-current={activeView === 'home' ? 'page' : undefined} aria-label="首页" title="首页" onClick={(event) => handleViewClick('home', event)}><Home size={19} /><span className="home-nav__action-label">首页</span></Link>
-          <Link className={`home-nav__action${activeView === 'watch' ? ' home-nav__action--active' : ''}`} to="/rooms/watch" aria-current={activeView === 'watch' ? 'page' : undefined} aria-label="观影房" title="观影房" onClick={(event) => handleViewClick('watch', event)}><Film size={19} /><span className="home-nav__action-label">观影房</span></Link>
-          <Link className={`home-nav__action${activeView === 'music' ? ' home-nav__action--active' : ''}`} to="/rooms/music" aria-current={activeView === 'music' ? 'page' : undefined} aria-label="听歌房" title="听歌房" onClick={(event) => handleViewClick('music', event)}><Headphones size={19} /><span className="home-nav__action-label">听歌房</span></Link>
-          <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}${activeView === 'live' ? ' home-nav__action--active' : ''}`} to="/live" aria-current={activeView === 'live' ? 'page' : undefined} aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'} onClick={(event) => handleViewClick('live', event)}><Radio size={19} /><span className="home-nav__action-label">直播</span></Link>
-          <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
-            {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
-          </Link>
-        </div>
-      </nav>
-    </div>
   )
 }
 
@@ -347,13 +241,6 @@ export function ArticleFlowHome() {
   const [error, setError] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
   const homeSidebarRef = useRef(null)
-  const isWideViewport = useWideHomeViewport()
-  const [wideView, setWideView] = useState('home')
-
-  useEffect(() => {
-    if (!isWideViewport) setWideView('home')
-  }, [isWideViewport])
-
   useEffect(() => {
     let active = true
     let hasLoaded = false
@@ -457,15 +344,9 @@ export function ArticleFlowHome() {
 
   return (
     <div className="legacy-old-home legacy-old-home--flat" style={{ '--home-article-title-scale': articleTitleScale }}>
-      <HomeNavigation label={homeLabel} activeView={wideView} isWideViewport={isWideViewport} onWideViewChange={setWideView} />
+      <HomeNavigation label={homeLabel} activeView="home" className="home-nav--local" />
       {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
-      {isWideViewport && wideView !== 'home' ? (
-        <main className="home-wide-view" data-testid="wide-home-view" data-wide-view={wideView}>
-          <Suspense fallback={<section className="home-wide-view__loading" role="status">正在载入页面…</section>}>
-            {wideView === 'watch' ? <WideWatchPage embedded roomMode="video" /> : wideView === 'music' ? <WideMusicPage embedded /> : <WideLivePage />}
-          </Suspense>
-        </main>
-      ) : <div className="home-layout">
+      <div className="home-layout">
         <main className="home-main">
           <section className="articles-section">
             <div className="writing-list">
@@ -526,7 +407,7 @@ export function ArticleFlowHome() {
           </section>
         </aside>
         <PhotoStrip photos={photos} />
-      </div>}
+      </div>
     </div>
   )
 }

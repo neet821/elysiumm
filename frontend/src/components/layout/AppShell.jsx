@@ -6,6 +6,14 @@ import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { HomeNavigationContext, HomeSidebarContext } from '../../contexts/HomeSidebarContext.jsx'
+import HomeNavigation from './HomeNavigation.jsx'
+
+function homeNavigationView(pathname) {
+  if (pathname === '/') return 'home'
+  if (pathname === '/rooms/music' || pathname.startsWith('/rooms/music/')) return 'music'
+  if (pathname === '/live') return 'live'
+  return 'watch'
+}
 
 export function AppShell({ children }) {
   const location = useLocation()
@@ -19,6 +27,7 @@ export function AppShell({ children }) {
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
+  const hasWideNavigation = isHome || isRoom || isLive
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const auth = useAuth()
   const showHeader = !isAuthPage && !isHome && !isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute
@@ -55,8 +64,9 @@ export function AppShell({ children }) {
     <ToastProvider>
       <HomeNavigationContext.Provider value={auth}>
         <HomeSidebarContext.Provider value={sidebarContext}>
-          <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}`}>
+          <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}${hasWideNavigation ? ' app-shell--wide-navigation' : ''}`}>
             <a className="skip-link" href="#main-content">跳到主要内容</a>
+            {hasWideNavigation && <HomeNavigation label={isHome ? undefined : ''} activeView={homeNavigationView(location.pathname)} className="home-nav--global" />}
             {header}
             {(isAccount || isRoom || isLive) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页"><ArrowLeft size={19} aria-hidden="true" /></Link>}
             <main className="app-shell__main" id="main-content" tabIndex={-1}>

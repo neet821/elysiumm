@@ -3781,7 +3781,10 @@ body:has(.app-shell--home)::before {
 .route-back-button:hover,
 .route-back-button:focus-visible { background: #111; color: #fff; }
 @media (min-width: 1101px) {
-  .route-back-button { display: none; }
+  .app-shell--wide-navigation .route-back-button { display: none; }
+}
+@media (max-width: 1100px) {
+  .app-shell--wide-navigation .route-back-button { display: flex; }
 }
 .service-shell:has(.live-page) .app-shell__main { padding-top: 0; }
 .service-shell:has(.live-page) .live-page { padding-top: 4.25rem; }
