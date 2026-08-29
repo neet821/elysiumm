@@ -21,6 +21,13 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertIn("DOCKER_ENV: \"true\"", source)
         self.assertIn("healthcheck:", source)
 
+    def test_compose_persists_transfer_storage(self):
+        for relative_path in ("docker-compose.yml", "deployment/docker-compose.yml"):
+            source = self.read(relative_path)
+            self.assertIn("TRANSFER_STORAGE_DIR: /app/transfers", source)
+            self.assertIn("- transfer_storage:/app/transfers", source)
+            self.assertIn("  transfer_storage:", source)
+
     def test_container_runtime_versions_and_reproducible_install_are_current(self):
         backend = self.read("backend/Dockerfile")
         frontend = self.read("frontend/Dockerfile")

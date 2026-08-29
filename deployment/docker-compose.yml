@@ -39,11 +39,13 @@ services:
       ADMIN_FILES_STORAGE_DIR: /app/private_storage/admin_files
       PUBLIC_SYNC_STORAGE: /app/sync-storage
       BACKUP_OUTPUT_DIR: /app/backups
+      TRANSFER_STORAGE_DIR: /app/transfers
     volumes:
       - backend_uploads:/app/uploads
       - private_storage:/app/private_storage
       - public_sync_storage:/app/sync-storage
       - backup_storage:/app/backups
+      - transfer_storage:/app/transfers
     networks:
       - app-network
     healthcheck:
@@ -94,6 +96,7 @@ volumes:
   private_storage:
   public_sync_storage:
   backup_storage:
+  transfer_storage:
   mineradio_data:
 
 networks:
