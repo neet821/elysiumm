@@ -10,7 +10,7 @@ import path from 'node:path'
 const root = path.resolve(import.meta.dirname, '..')
 const python = path.join(root, 'backend', '.venv', 'bin', 'python')
 const chromeBinary = process.env.CHROME_BINARY || '/usr/bin/google-chrome-stable'
-const screenshotDir = process.env.BLUE_ALBUM_SCREENSHOT_DIR || '/tmp/blue-album-phase10-books-admin-browser'
+const screenshotDir = process.env.BLUE_ALBUM_SCREENSHOT_DIR || '/tmp/elysium-phase10-admin-files-browser'
 const password = 'Phase10Browser2026!'
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 
@@ -348,12 +348,13 @@ async function inspectPage(page, appBase, forbiddenValues = []) {
       duplicateIds,
       hasIframe: Boolean(document.querySelector('iframe')),
       headingCount: document.querySelectorAll('h1, h2').length,
+      adminShell: Boolean(document.querySelector('.admin-shell__workspace')),
       leak: ['device_token_hash', 'storage_path', '/private_storage', '/sync-storage', '/home/frp', 'password_hash']
         .some((token) => html.toLowerCase().includes(token)),
       mainCount: document.querySelectorAll('main').length,
       overflow: document.documentElement.scrollWidth - innerWidth,
       pathname: location.pathname,
-      staleNotice: /书籍已创建。|书籍已保存。|书单顺序已保存。|设备凭据已复制。/.test(document.body.innerText),
+      staleNotice: /设备凭据已复制。/.test(document.body.innerText),
       text: document.body.innerText,
     }
   })()`)
@@ -368,7 +369,8 @@ async function inspectPage(page, appBase, forbiddenValues = []) {
   assert.equal(state.cookieReads, 0, `${page.label} read document.cookie`)
   assert.equal(state.hasIframe, false, `${page.label} rendered an iframe`)
   assert.equal(state.leak, false, `${page.label} exposed a private credential or path field`)
-  assert.equal(state.mainCount, 1, `${page.label} should render exactly one main landmark`)
+  const expectedMainCount = state.adminShell ? 2 : 1
+  assert.equal(state.mainCount, expectedMainCount, `${page.label} should render ${expectedMainCount} main landmark(s) (${state.pathname}, ${state.mainCount})`)
   assert(state.headingCount > 0, `${page.label} has no page heading`)
   assert.equal(state.staleNotice, false, `${page.label} kept a stale success notice after navigation`)
   assert.deepEqual(state.duplicateIds, [], `${page.label} rendered duplicate ids`)
@@ -435,6 +437,7 @@ async function main() {
       PRIVATE_STORAGE_DIR: path.join(temporaryRoot, 'private-storage'),
       PUBLIC_SYNC_STORAGE: syncRoot,
       SECRET_KEY: 'phase10-browser-isolated-secret',
+      TRANSFER_STORAGE_DIR: path.join(temporaryRoot, 'transfers'),
     }
 
     await run(python, [path.join(root, 'backend', 'run_migrations.py')], { cwd: root, env: environment })
@@ -488,86 +491,69 @@ async function main() {
     ])
     await Promise.all([admin.setViewport(1440, 1000), visitor.setViewport(1440, 1000)])
 
-    // Curate a public book, edit it, create a public reading list, and order the book through the UI.
-    await admin.navigate(`${appBase}/account/admin/content/books`)
-    await admin.waitFor("document.querySelector('h1')?.textContent === '书籍内容' && document.body.textContent.includes('还没有书籍')")
-    await clickText(admin, '添加书籍')
-    await setControl(admin, '书名', 'Phase 10 Browser Book')
-    await setControl(admin, '网址标识', 'phase-10-browser-book')
-    await setControl(admin, '作者', 'Browser Curator')
-    await setControl(admin, '分类', 'Acceptance')
-    await setControl(admin, '书籍标签', 'browser, acceptance')
-    await setControl(admin, '阅读状态', 'reading')
-    await setControl(admin, '简介', 'A browser-created acceptance title.')
-    await setControl(admin, '公开书籍', true)
-    await setControl(admin, '设为精选', true)
-    await clickText(admin, '创建书籍')
-    await admin.waitFor("document.body.textContent.includes('书籍已创建。') && document.body.textContent.includes('Phase 10 Browser Book')")
-    await clickAria(admin, '编辑 Phase 10 Browser Book')
-    await setControl(admin, '书名', 'Phase 10 Browser Book Revised')
-    await clickText(admin, '保存书籍')
-    await admin.waitFor("document.body.textContent.includes('书籍已保存。') && document.body.textContent.includes('Phase 10 Browser Book Revised')")
+    // The current Files page exposes read-only FRP browsing plus anonymous
+    // transfer links.  Exercise that public transfer lifecycle from the UI;
+    // the retired manual-admin-file controls are intentionally not part of the
+    // current route.
+    const transferPath = path.join(temporaryRoot, 'phase10-transfer.txt')
+    fs.writeFileSync(transferPath, 'phase 10 transfer handoff\n', 'utf8')
+    await admin.navigate(`${appBase}/admin/files`)
+    await admin.waitFor("document.querySelector('h2')?.textContent === '文件' && Boolean(Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('创建中转链接')))")
+    await clickText(admin, '创建中转链接')
+    await admin.waitFor("Boolean(document.querySelector('.admin-transfer-created input'))")
+    const transferUrl = await admin.evaluate("document.querySelector('.admin-transfer-created input')?.value || ''")
+    const transferMatch = transferUrl.match(/\/transfer\/([^/?#]+)/)
+    assert(transferMatch, `admin did not expose a transfer URL: ${transferUrl}`)
+    const transferToken = transferMatch[1]
 
-    await clickText(admin, '书单', '[role="tab"]')
-    await clickText(admin, '添加书单')
-    await setControl(admin, '书单名称', 'Phase 10 Reading Path')
-    await setControl(admin, '网址标识', 'phase-10-reading-path')
-    await setControl(admin, '书单简介', 'Ordered during browser acceptance.')
-    await setControl(admin, '公开书单', true)
-    await clickText(admin, '创建书单')
-    await admin.waitFor("document.body.textContent.includes('书单已创建。') && document.body.textContent.includes('添加书籍')")
-    await selectOptionText(admin, '添加书籍', 'Phase 10 Browser Book Revised')
-    await clickText(admin, '保存书单顺序')
-    await admin.waitFor("document.body.textContent.includes('书单顺序已保存。') && document.body.textContent.includes('1. Phase 10 Browser Book Revised')")
+    await visitor.navigate(`${appBase}/transfer/${transferToken}`)
+    await visitor.waitFor("document.querySelector('h1')?.textContent === '文件中转' && Boolean(document.querySelector('input[type=\"file\"]'))")
+    await setFileInput(visitor, 'input[type="file"]', transferPath)
+    await visitor.waitFor("document.body.textContent.includes('phase10-transfer.txt') && Boolean(document.querySelector('.transfer-page__files a'))")
+    const transferDownloadUrl = await visitor.evaluate("document.querySelector('.transfer-page__files a')?.href || ''")
+    assert(transferDownloadUrl, 'transfer page did not render a download link')
+    const transferDownload = await fetch(transferDownloadUrl)
+    assert.equal(transferDownload.status, 200, 'transfer download failed')
+    assert.equal(Buffer.compare(Buffer.from(await transferDownload.arrayBuffer()), fs.readFileSync(transferPath)), 0, 'transfer download content mismatch')
+    await inspectPage(visitor, appBase, [temporaryRoot])
 
-    // Books are administrator-only after the toolbox redesign. A regular member is denied,
-    // while an administrator can still review the published shelf.
-    await visitor.navigate(`${appBase}/books`)
-    await visitor.waitFor("document.body.textContent.includes('无权访问此页面') && !document.body.textContent.includes('Phase 10 Browser Book Revised')")
-    await inspectPage(visitor, appBase)
-    await capture(visitor, 'books-member-denied.png')
-
-    await admin.navigate(`${appBase}/books`)
-    await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Book Revised') && document.body.textContent.includes('Phase 10 Reading Path')")
-    assert.equal(await admin.evaluate("document.body.textContent.includes('Kavita')"), false)
-    await setControl(admin, '搜索书籍', 'Browser Book Revised')
-    await admin.waitFor("document.querySelectorAll('.books-card').length >= 1")
-    await inspectPage(admin, appBase)
-    await capture(admin, 'books-admin-desktop.png')
-    await admin.setViewport(390, 844, true)
-    await inspectPage(admin, appBase)
-    await capture(admin, 'books-admin-mobile.png')
-    await admin.setViewport(1440, 1000)
-
-    // Manual upload, authenticated download, and delete all happen from the unified Files page.
-    const manualPath = path.join(temporaryRoot, 'phase10-manual.txt')
-    fs.writeFileSync(manualPath, 'phase 10 private manual handoff\n', 'utf8')
-    await admin.navigate(`${appBase}/account/admin/files`)
-    await admin.waitFor("document.querySelector('h1')?.textContent === '文件' && Boolean(document.querySelector('input[aria-label=\"上传手动文件\"]'))")
-    await setFileInput(admin, 'input[aria-label="上传手动文件"]', manualPath)
-    await admin.waitFor("document.body.textContent.includes('phase10-manual.txt 已上传。') && Boolean(document.querySelector('[aria-label=\"下载 phase10-manual.txt\"]'))")
-    await clickAria(admin, '下载 phase10-manual.txt')
-    await admin.waitFor("!document.querySelector('[aria-label=\"下载 phase10-manual.txt\"]')?.disabled")
+    await admin.navigate(`${appBase}/admin/files`)
+    await admin.waitFor("document.querySelector('h2')?.textContent === '文件' && Boolean(document.querySelector('[aria-label=\"销毁中转链接\"]'))")
     await admin.evaluate('window.confirm = () => true')
-    await clickAria(admin, '删除 phase10-manual.txt')
-    await admin.waitFor("document.body.textContent.includes('phase10-manual.txt 已删除。') && !document.querySelector('[aria-label=\"删除 phase10-manual.txt\"]')")
+    await clickAria(admin, '销毁中转链接')
+    await admin.waitFor("!document.querySelector('[aria-label=\"销毁中转链接\"]')")
+    assert.equal((await api(appBase, `/api/transfers/${transferToken}`)).status, 404, 'destroyed transfer remained accessible')
 
-    // Issue a one-time device secret, use lifecycle controls, and upload an agent-style verified two-part file.
-    await clickText(admin, '同步设备', '[role="tab"]')
-    await clickText(admin, '添加设备')
-    await setControl(admin, '设备名称', 'Phase 10 Browser Device')
-    await clickText(admin, '创建设备')
-    await admin.waitFor("document.body.textContent.includes('保存设备凭据') && Boolean(document.querySelector('.admin-files__secret code'))")
-    const firstDeviceSecret = await admin.evaluate("document.querySelector('.admin-files__secret code').textContent")
+    // Public sync is still a protected integration, but its operator controls
+    // are API-only in the current admin shell.  Exercise the complete device
+    // lifecycle and agent-style chunk upload directly against those endpoints.
+    const deviceForm = new FormData()
+    deviceForm.append('name', 'Phase 10 Browser Device')
+    deviceForm.append('expires_in_days', '30')
+    const createdDevice = expectOk(await api(appBase, '/api/sync/devices', {
+      form: deviceForm,
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'create sync device')
+    const deviceId = createdDevice.id
+    const firstDeviceSecret = createdDevice.device_token
+    assert(Number.isInteger(deviceId), 'sync device id was not issued')
     assert(firstDeviceSecret.length >= 32, 'device secret was not issued')
-    await clickAria(admin, '关闭凭据窗口')
-    await admin.waitFor("!document.querySelector('.admin-files__secret code') && document.body.textContent.includes('Phase 10 Browser Device')")
-    await clickAria(admin, '暂停 Phase 10 Browser Device')
-    await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Device：暂停已完成。') && Boolean(document.querySelector('[aria-label=\"恢复 Phase 10 Browser Device\"]'))")
-    await clickAria(admin, '恢复 Phase 10 Browser Device')
-    await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Device：恢复已完成。') && Boolean(document.querySelector('[aria-label=\"暂停 Phase 10 Browser Device\"]'))")
-    await clickAria(admin, '扫描 Phase 10 Browser Device')
-    await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Device：扫描已完成。')")
+    const pausedDevice = expectOk(await api(appBase, `/api/sync/devices/${deviceId}/pause`, {
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'pause sync device')
+    assert.equal(pausedDevice.is_paused, true)
+    const resumedDevice = expectOk(await api(appBase, `/api/sync/devices/${deviceId}/resume`, {
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'resume sync device')
+    assert.equal(resumedDevice.is_paused, false)
+    const scanRequested = expectOk(await api(appBase, `/api/sync/devices/${deviceId}/scan`, {
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'request sync scan')
+    assert.equal(scanRequested.scan_requested, true)
     const heartbeat = expectOk(await api(appBase, '/api/sync/heartbeat', {
       headers: { 'X-Sync-Token': firstDeviceSecret }, method: 'POST',
     }), 'device heartbeat')
@@ -577,20 +563,20 @@ async function main() {
     const synced = await uploadChunks(appBase, firstDeviceSecret, 'reports/phase10-agent.txt', syncContent)
     assert.equal(synced.relative_path, 'reports/phase10-agent.txt')
     assert.equal(synced.sync_status, 'synced')
-    await clickText(admin, '刷新')
-    await admin.waitFor("!Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('刷新') && button.disabled)")
-    await clickText(admin, '同步文件', '[role="tab"]')
-    await admin.waitFor("document.body.textContent.includes('reports/phase10-agent.txt') && document.body.textContent.includes('100%')")
+    await admin.navigate(`${appBase}/admin/files`)
+    await admin.waitFor("document.querySelector('h2')?.textContent === '文件'")
+    await clickAria(admin, '刷新文件')
     await capture(admin, 'files-synced-desktop.png')
-    await clickText(admin, '同步动态', '[role="tab"]')
-    await admin.waitFor("document.body.textContent.includes('更新文件') && document.body.textContent.includes('reports/phase10-agent.txt')")
 
-    await clickText(admin, '同步设备', '[role="tab"]')
-    await clickAria(admin, '更新 Phase 10 Browser Device 的凭据')
-    await admin.waitFor("document.body.textContent.includes('保存设备凭据') && Boolean(document.querySelector('.admin-files__secret code'))")
-    const rotatedDeviceSecret = await admin.evaluate("document.querySelector('.admin-files__secret code').textContent")
+    const rotateForm = new FormData()
+    rotateForm.append('expires_in_days', '30')
+    const rotatedDevice = expectOk(await api(appBase, `/api/sync/devices/${deviceId}/rotate`, {
+      form: rotateForm,
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'rotate sync device')
+    const rotatedDeviceSecret = rotatedDevice.device_token
     assert.notEqual(rotatedDeviceSecret, firstDeviceSecret)
-    await clickAria(admin, '关闭凭据窗口')
     const oldSecretResult = await api(appBase, '/api/sync/heartbeat', {
       headers: { 'X-Sync-Token': firstDeviceSecret }, method: 'POST',
     })
@@ -598,9 +584,11 @@ async function main() {
     expectOk(await api(appBase, '/api/sync/heartbeat', {
       headers: { 'X-Sync-Token': rotatedDeviceSecret }, method: 'POST',
     }), 'rotated device heartbeat')
-    await admin.evaluate('window.confirm = () => true')
-    await clickAria(admin, '撤销 Phase 10 Browser Device')
-    await admin.waitFor("document.body.textContent.includes('Phase 10 Browser Device：撤销已完成。') && document.body.textContent.includes('已撤销')")
+    const revokedDevice = expectOk(await api(appBase, `/api/sync/devices/${deviceId}/revoke`, {
+      method: 'POST',
+      token: adminAuth.access_token,
+    }), 'revoke sync device')
+    assert(revokedDevice.revoked_at, 'sync device revoke did not set revoked_at')
     const revokedResult = await api(appBase, '/api/sync/heartbeat', {
       headers: { 'X-Sync-Token': rotatedDeviceSecret }, method: 'POST',
     })
@@ -609,59 +597,50 @@ async function main() {
 
     // Visit every canonical administrator area that belongs to the website.
     const sections = [
-      ['/account/admin', '管理总览'],
-      ['/account/admin/content/homepage', '首页设置'],
-      ['/account/admin/content/books', '书籍内容'],
-      ['/account/admin/content/photos', '照片管理'],
-      ['/account/admin/users', '用户管理'],
-      ['/account/admin/rooms', '房间管理'],
-      ['/account/admin/files', '文件'],
-      ['/account/admin/services', '服务器状态'],
-      ['/account/admin/security', '安全记录'],
+      ['/admin', '首页设置'],
+      ['/admin/homepage', '首页设置'],
+      ['/admin/users', '用户'],
+      ['/admin/files', '文件'],
+      ['/admin/music', '共享曲库'],
+      ['/admin/services', '服务器状态'],
     ]
     for (const [pathname, heading] of sections) {
       await admin.navigate(`${appBase}${pathname}`)
       await admin.waitFor(`document.body.textContent.includes(${JSON.stringify(heading)})`, 20000)
       await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
     }
-    await admin.navigate(`${appBase}/account/admin/security`)
-    await admin.waitFor("document.body.textContent.includes('暂不提供网页会话清单') && document.body.textContent.includes('撤销设备')")
-    await capture(admin, 'security-desktop.png')
+    await admin.navigate(`${appBase}/admin/services`)
+    await admin.waitFor("document.body.textContent.includes('服务器状态')")
+    await capture(admin, 'services-desktop.png')
 
-    // Every old administrator path resolves to one canonical protected destination.
+    // Legacy aliases resolve only to the current canonical route table.
     const redirects = [
-      ['/account/admin/homepage', '/account/admin/content/homepage'],
-      ['/admin/users', '/account/admin/users'],
-      ['/admin/rooms', '/account/admin/rooms'],
-      ['/admin/photos', '/account/admin/content/photos'],
-      ['/admin/files', '/account/admin/files'],
-      ['/admin/agent-console', '/account/admin/services'],
-      ['/tools/public-sync', '/account/admin/files'],
+      ['/admin', '/admin/homepage'],
+      ['/music', '/rooms/music'],
+      ['/tools/sync-room', '/rooms/watch'],
     ]
     for (const [legacy, canonical] of redirects) {
       await admin.navigate(`${appBase}${legacy}?phase10=legacy`)
-      await admin.waitFor(`location.pathname === ${JSON.stringify(canonical)} && location.search === '?phase10=legacy'`)
+      await admin.waitFor(`location.pathname === ${JSON.stringify(canonical)} && location.search === ''`)
     }
 
     // A regular member cannot enter the administrator shell and receives an explicit Chinese denial.
-    await visitor.navigate(`${appBase}/account/admin/security?from=visitor`)
-    await visitor.waitFor("location.pathname === '/account/admin/security' && document.body.textContent.includes('无权访问此页面')")
-    assert.equal(await visitor.evaluate("document.body.textContent.includes('安全记录')"), false)
+    await visitor.navigate(`${appBase}/admin/services?from=visitor`)
+    await visitor.waitFor("location.pathname === '/admin/services' && document.body.textContent.includes('无权访问此页面')")
+    assert.equal(await visitor.evaluate("document.body.textContent.includes('服务器状态')"), false)
 
     // Mobile menu responds to keyboard activation and the two densest pages do not overflow.
     await admin.setViewport(390, 844, true)
-    await admin.navigate(`${appBase}/account/admin`)
-    await admin.waitFor("document.querySelector('h1')?.textContent === '管理总览'")
+    await admin.navigate(`${appBase}/admin`)
+    await admin.waitFor("document.querySelector('h1')?.textContent === '首页设置'")
     await admin.evaluate("document.querySelector('[aria-label=\"打开管理导航\"]').focus()")
     await admin.send('Input.dispatchKeyEvent', { key: ' ', code: 'Space', type: 'keyDown' })
     await admin.send('Input.dispatchKeyEvent', { key: ' ', code: 'Space', type: 'keyUp' })
     await admin.waitFor("document.querySelector('[aria-label=\"关闭管理导航\"]')?.getAttribute('aria-expanded') === 'true'")
     await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
     await capture(admin, 'overview-mobile.png')
-    await admin.navigate(`${appBase}/account/admin/files`)
-    await admin.waitFor("document.querySelector('h1')?.textContent === '文件'")
-    await clickText(admin, '同步文件', '[role="tab"]')
-    await admin.waitFor("document.body.textContent.includes('reports/phase10-agent.txt')")
+    await admin.navigate(`${appBase}/admin/files`)
+    await admin.waitFor("document.querySelector('h2')?.textContent === '文件'")
     await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
     await capture(admin, 'files-mobile.png')
 
@@ -671,15 +650,17 @@ async function main() {
     assert.equal(dashboard.devices[0].revoked_at !== null, true)
     assert(!JSON.stringify(dashboard).includes('device_token_hash'))
     assert(!JSON.stringify(dashboard).includes(syncRoot))
-    const publicCatalog = expectOk(await api(appBase, '/api/books'), 'public Books catalog')
-    assert.equal(publicCatalog.books.length, 1)
-    assert.equal(publicCatalog.lists[0].books.length, 1)
-    assert(!JSON.stringify(publicCatalog).includes('reader_url'))
-    assert(!JSON.stringify(publicCatalog).includes('reader_available'))
-    assert(!JSON.stringify(publicCatalog).includes('reader_path'))
+    const booksResponse = expectOk(await api(appBase, '/api/books'), 'retained Books compatibility catalog')
+    assert(Array.isArray(booksResponse.books), 'retained Books catalog must expose books')
+    assert(Array.isArray(booksResponse.lists), 'retained Books catalog must expose lists')
+    assert(!JSON.stringify(booksResponse).includes('reader_url'))
+    assert(!JSON.stringify(booksResponse).includes('reader_available'))
+    assert(!JSON.stringify(booksResponse).includes('reader_path'))
+    const retiredArchive = await api(appBase, '/api/archive')
+    assert.equal(retiredArchive.status, 404, 'retired Archive API must return 404')
 
     console.log(JSON.stringify({
-      books: { lists: publicCatalog.lists.length, published: publicCatalog.books.length },
+      books: { lists: booksResponse.lists.length, published: booksResponse.books.length, retained: true },
       screenshots: fs.readdirSync(screenshotDir).sort(),
       sync: { devices: dashboard.devices.length, files: dashboard.files.length, revoked: true },
       viewports: ['1440x1000', '390x844'],

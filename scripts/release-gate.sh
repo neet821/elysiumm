@@ -52,7 +52,7 @@ run_step 5 "听歌房多客户端关键验收" \
 run_step 6 "视频房多客户端关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase8-video-multiclient-smoke.mjs"
 
-run_step 7 "Books、Files 与管理员关键验收" \
+run_step 7 "Files、管理员与退役 API 关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase10-books-admin-browser-smoke.mjs"
 
 run_step 8 "单直播间关键验收" \
@@ -62,4 +62,4 @@ CURRENT_STEP="最终补丁格式检查"
 git -C "${ROOT_DIR}" diff --check
 
 FINISHED_AT="$(date +%s)"
-echo "Blue Album 发布门禁全部通过，用时 $((FINISHED_AT - STARTED_AT)) 秒。"
+echo "Elysium 发布门禁全部通过，用时 $((FINISHED_AT - STARTED_AT)) 秒。"

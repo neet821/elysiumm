@@ -299,9 +299,12 @@ async function main() {
   let client
 
   try {
-    const [backendPort, frontendPort, mineradioPort, debugPort] = await Promise.all([freePort(), freePort(), freePort(), freePort()])
+    const [backendPort, articlePort, frontendPort, mineradioPort, debugPort] = await Promise.all([freePort(), freePort(), freePort(), freePort(), freePort()])
     const appBase = `http://127.0.0.1:${frontendPort}`
     const backendBase = `http://127.0.0.1:${backendPort}`
+    const articleBase = `http://127.0.0.1:${articlePort}`
+    const articleRoot = path.join(temporaryRoot, 'articles')
+    fs.mkdirSync(articleRoot, { recursive: true })
     const environment = {
       ...process.env,
       ADMIN_FILES_STORAGE_DIR: path.join(temporaryRoot, 'admin-files'),
@@ -318,6 +321,18 @@ async function main() {
       '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(backendPort), '--log-level', 'warning',
     ], { cwd: path.join(root, 'backend'), env: environment, logPath: path.join(temporaryRoot, 'backend.log') }))
     await waitForUrl(`${backendBase}/api/health`)
+    processes.push(startProcess('node', ['server/index.js'], {
+      cwd: root,
+      env: {
+        ...process.env,
+        ARTICLE_ROOT: articleRoot,
+        HOST: '127.0.0.1',
+        MEDIA_ROOT: articleRoot,
+        PORT: String(articlePort),
+      },
+      logPath: path.join(temporaryRoot, 'article.log'),
+    }))
+    await waitForUrl(`${articleBase}/api/health`)
     processes.push(startProcess('node', ['server.js'], {
       cwd: path.join(root, 'mineradio'),
       env: {
@@ -335,6 +350,7 @@ async function main() {
       cwd: path.join(root, 'frontend'),
       env: {
         ...process.env,
+        VITE_ARTICLE_PROXY_TARGET: articleBase,
         VITE_BACKEND_PROXY_TARGET: backendBase,
         VITE_MINERADIO_PROXY_TARGET: `http://127.0.0.1:${mineradioPort}`,
       },
@@ -354,127 +370,34 @@ async function main() {
     const screenshots = []
     for (const width of widths) {
       await client.setViewport(width, width <= 430 ? 844 : 1000)
-      for (const pathname of ['/', '/books', '/login', '/register']) {
+      for (const pathname of ['/', '/content', '/login', '/register']) {
         await client.navigate(`${appBase}${pathname}`)
         viewportResults.push({ width, ...await inspectPage(client, `${width}px ${pathname}`) })
       }
       await client.navigate(`${appBase}/`)
-      const hasLegacyEditorialHome = await client.evaluate("Boolean(document.querySelector('.home-masonry-item'))")
-      if (hasLegacyEditorialHome) {
-      await client.waitFor("document.querySelector('.home-masonry-item')?.dataset.revealed === 'false'")
-      const homeInitial = await client.evaluate(`(() => {
-        const hero = document.querySelector('.album-hero')
-        const content = document.querySelector('.home-content')
-        const firstCard = document.querySelector('.home-masonry-item')
-        const intro = document.querySelector('.home-content__intro')
-        const topbar = document.querySelector('.album-hero__topbar')
-        const layoutLeft = (element) => {
-          if (!element) return null
-          const rect = element.getBoundingClientRect()
-          return rect.left - ((element.offsetWidth - rect.width) / 2)
-        }
-        return {
-          branch: Boolean(document.querySelector('.album-hero__branch-shadow')),
-          cardLeft: layoutLeft(firstCard),
-          cardOpacity: firstCard ? Number(getComputedStyle(firstCard).opacity) : null,
-          cardRevealed: firstCard?.dataset.revealed,
-          contentLeft: content?.getBoundingClientRect().left,
-          contentPaddingLeft: content ? getComputedStyle(content).paddingLeft : null,
-          contentTop: content?.getBoundingClientRect().top,
-          contentWidth: content?.getBoundingClientRect().width,
-          copyVisible: Boolean(document.querySelector('.album-hero__copy h1')),
-          heroBottom: hero?.getBoundingClientRect().bottom,
-          heroHeight: hero?.getBoundingClientRect().height,
-          heroLabel: hero?.getAttribute('aria-label'),
-          introLeft: layoutLeft(intro),
-          photoCount: document.querySelectorAll('.album-hero__photo').length,
-          scrollLink: Boolean(document.querySelector('.album-hero__scroll[href="#home-content"]')),
-          topbarPosition: topbar ? getComputedStyle(topbar).position : null,
-          viewportHeight: innerHeight,
-        }
-      })()`)
-      assert.equal(homeInitial.branch, true, `${width}px home must render the branch decoration`)
-      assert.equal(homeInitial.copyVisible, true, `${width}px home must render its title`)
-      assert.equal(homeInitial.photoCount, 2, `${width}px home must render two layered photos`)
-      assert.equal(homeInitial.scrollLink, true, `${width}px home must link the hero to its content`)
-      assert.equal(homeInitial.topbarPosition, 'absolute', `${width}px home navigation must stay inside the hero`)
-      assert.equal(homeInitial.heroLabel, 'Blue Album 首页首屏', `${width}px home must expose the album hero`)
-      const minimumHeroHeight = width <= 900
-        ? Math.min(homeInitial.viewportHeight * 0.98, 848)
-        : homeInitial.viewportHeight * 0.98
-      assert(
-        homeInitial.heroHeight >= minimumHeroHeight,
-        `${width}px album hero must fill the first viewport: ${JSON.stringify(homeInitial)}`,
-      )
-      assert(
-        homeInitial.contentTop >= homeInitial.heroBottom - 1,
-        `${width}px lower content must follow the hero without overlap: ${JSON.stringify(homeInitial)}`,
-      )
-      assert(Math.abs(homeInitial.introLeft - homeInitial.cardLeft) <= 1, `${width}px introduction and cards must share one rail: ${JSON.stringify(homeInitial)}`)
-      assert.equal(homeInitial.cardRevealed, 'false', `${width}px cards must initially be unrevealed`)
-      assert.equal(homeInitial.cardOpacity, 0, `${width}px cards must initially be invisible`)
-      await client.evaluate("document.querySelector('.home-masonry-item')?.scrollIntoView({ block: 'center' })")
-      await client.waitFor("document.querySelector('.home-masonry-item')?.dataset.revealed === 'true'")
-      await client.waitFor("Number(getComputedStyle(document.querySelector('.home-masonry-item')).opacity) > 0.95")
-      await client.waitFor("getComputedStyle(document.querySelector('.home-masonry-item')).filter === 'blur(0px)'")
-      const homeRevealed = await client.evaluate(`(() => {
-        const firstCard = document.querySelector('.home-masonry-item')
-        const styles = getComputedStyle(firstCard)
-        return {
-          filter: styles.filter,
-          opacity: Number(styles.opacity),
-          revealed: firstCard.dataset.revealed,
-          transform: styles.transform,
-        }
-      })()`)
-      assert.equal(homeRevealed.revealed, 'true', `${width}px first card must reveal after scrolling`)
-      assert(homeRevealed.opacity > 0.95, `${width}px revealed card must be visible`)
-      assert.equal(homeRevealed.filter, 'blur(0px)', `${width}px revealed card must remove blur`)
-      await client.evaluate('scrollTo(0, 0)')
-      await client.waitFor("document.querySelector('.home-masonry-item')?.dataset.revealed === 'false'")
-      await client.waitFor("Number(getComputedStyle(document.querySelector('.home-masonry-item')).opacity) < 0.05")
-      await client.evaluate("document.querySelector('.home-masonry-item')?.scrollIntoView({ block: 'center' })")
-      await client.waitFor("document.querySelector('.home-masonry-item')?.dataset.revealed === 'true'")
-      await client.waitFor("Number(getComputedStyle(document.querySelector('.home-masonry-item')).opacity) > 0.95")
-      }
-      await client.navigate(`${appBase}/tools`)
-      viewportResults.push({ width, ...await inspectPage(client, `${width}px /tools`) })
-      const toolbox = await client.evaluate(`(() => ({
-        cardCount: document.querySelectorAll('.toolbox-portal').length,
-        hasFooter: Boolean(document.querySelector('.app-footer')),
+      const homeState = await client.evaluate(`(() => ({
+        heading: document.querySelector('h1')?.textContent?.trim() || '',
+        navigation: Array.from(document.querySelectorAll('nav[aria-label="首页导航"] a')).map((item) => item.textContent.trim()),
+        articleFlow: Boolean(document.querySelector('.articles-section')),
+        sidebar: Boolean(document.querySelector('.home-sidebar')),
         horizontalOverflow: document.documentElement.scrollWidth - innerWidth,
-        verticalOverflow: document.documentElement.scrollHeight - innerHeight,
       }))()`)
-      assert.equal(toolbox.cardCount, 3, `${width}px toolbox must show three tools`)
-      assert.equal(toolbox.hasFooter, false, `${width}px toolbox must hide the global footer`)
-      assert(toolbox.horizontalOverflow <= 1, `${width}px toolbox has horizontal overflow`)
-      // The current service shell intentionally allows the directory below
-      // the three primary cards to continue below a short mobile viewport.
-      // Horizontal overflow remains a hard failure; vertical scrolling is
-      // expected on those narrow screens.
-      if (hasLegacyEditorialHome && [390, 1366].includes(width)) {
-        let shot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
-        let screenshot = path.join(screenshotDir, `tools-${width}.png`)
-        fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'))
-        screenshots.push(screenshot)
-        await client.navigate(`${appBase}/`)
-        await new Promise((resolve) => setTimeout(resolve, 1100))
-        shot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
-        screenshot = path.join(screenshotDir, `home-${width}-initial.png`)
-        fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'))
-        screenshots.push(screenshot)
-        await client.evaluate("document.querySelector('.home-masonry-item')?.scrollIntoView({ block: 'center' })")
-        await client.waitFor("document.querySelector('.home-masonry-item')?.dataset.revealed === 'true'")
-        await new Promise((resolve) => setTimeout(resolve, 750))
-        shot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
-        screenshot = path.join(screenshotDir, `home-${width}-revealed.png`)
+      assert.equal(homeState.articleFlow, true, `${width}px home must render the article flow`)
+      assert.equal(homeState.sidebar, true, `${width}px home must render the records sidebar`)
+      assert(homeState.navigation.includes('观影房'), `${width}px home must expose the watch-room entry`)
+      assert(homeState.navigation.includes('听歌房'), `${width}px home must expose the music-room entry`)
+      assert(homeState.horizontalOverflow <= 1, `${width}px home has horizontal overflow`)
+      viewportResults.push({ width, home: homeState })
+      if ([390, 1366].includes(width)) {
+        const shot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
+        const screenshot = path.join(screenshotDir, `home-${width}.png`)
         fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'))
         screenshots.push(screenshot)
       }
+      await client.navigate(`${appBase}/content`)
       if ([360, 768, 1366, 2560].includes(width)) {
-        await client.navigate(`${appBase}/books`)
         const shot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
-        const screenshot = path.join(screenshotDir, `books-${width}.png`)
+        const screenshot = path.join(screenshotDir, `content-${width}.png`)
         fs.writeFileSync(screenshot, Buffer.from(shot.data, 'base64'))
         screenshots.push(screenshot)
       }
@@ -494,15 +417,15 @@ async function main() {
     })()`)
     await client.navigate(`${appBase}/account`)
     await client.waitFor("document.body.textContent.includes('个人信息')")
-    const accountCollectionEntry = await client.evaluate(`(() => ({
+    const accountLegacyEntry = await client.evaluate(`(() => ({
       hasDescription: document.body.textContent.includes('管理私人文件夹、公开收藏、访问记录和个人起始页'),
       hasEntry: Array.from(document.querySelectorAll('button, a')).some((element) => element.textContent.includes('打开我的收藏')),
     }))()`)
-    assert.equal(accountCollectionEntry.hasDescription, false, 'account page must remove the duplicate collection description')
-    assert.equal(accountCollectionEntry.hasEntry, false, 'account page must remove the duplicate collection entry')
+    assert.equal(accountLegacyEntry.hasDescription, false, 'account page must not expose archived collection copy')
+    assert.equal(accountLegacyEntry.hasEntry, false, 'account page must not expose archived collection entry')
     for (const width of widths) {
       await client.setViewport(width, width <= 430 ? 844 : 1000)
-      await client.navigate(`${appBase}/music/rooms/${musicRoom.id}`)
+      await client.navigate(`${appBase}/rooms/music/${musicRoom.id}`)
       await client.waitFor("Boolean(document.querySelector('iframe[title=\"Mineradio 原版房间播放器\"]'))")
       await client.waitFor("document.querySelector('iframe')?.contentDocument?.body.classList.contains('blue-album-room-mode')", 30000)
       await client.waitFor("document.querySelector('iframe')?.contentDocument?.querySelector('#blue-room-panel')?.classList.contains('show') && document.querySelector('iframe')?.contentDocument?.querySelector('#br-title')?.textContent === 'Mineradio 浏览器验收房'", 30000)
@@ -529,25 +452,33 @@ async function main() {
     }
 
     await client.setViewport(1366, 900)
-    for (const pathname of ['/archive', '/collection']) {
+    for (const pathname of ['/archive', '/books']) {
       await client.navigate(`${appBase}${pathname}`)
-      viewportResults.push({ width: 1366, ...await inspectPage(client, `1366px ${pathname}`) })
+      viewportResults.push({ width: 1366, ...await inspectPage(client, `1366px retired ${pathname}`) })
+      assert.equal(await client.evaluate("document.querySelector('h1')?.textContent?.trim()"), '这个页面不存在')
     }
 
     await client.setViewport(390, 844)
-    await client.navigate(`${appBase}/books`)
+    await client.navigate(`${appBase}/`)
     await client.evaluate("document.querySelector('.skip-link').focus()")
     assert.equal(await client.evaluate("document.activeElement?.textContent?.trim()"), '跳到主要内容')
     await client.key('Enter', 'Enter')
     await client.waitFor("location.hash === '#main-content'")
     assert.equal(await client.evaluate("document.activeElement?.id"), 'main-content', 'skip link must focus the main region')
 
-    await client.evaluate("document.querySelector('[aria-label=\"打开导航\"]').focus()")
+    await client.evaluate(`(() => {
+      const button = [...document.querySelectorAll('[aria-label="展开记录和随笔"]')].find((element) => {
+        const style = getComputedStyle(element)
+        const rect = element.getBoundingClientRect()
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+      })
+      button?.focus()
+    })()`)
     await client.key('Enter', 'Enter')
     await client.waitFor("Boolean(document.querySelector('[role=\"dialog\"]'))")
     const dialogState = await client.evaluate(`(() => {
       const dialog = document.querySelector('[role="dialog"]')
-      const button = document.querySelector('[aria-label="打开导航"]')
+      const button = dialog?.querySelector('[aria-label="收起记录和随笔"]')
       const rect = button.getBoundingClientRect()
       return { activeInside: dialog.contains(document.activeElement), height: rect.height, modal: dialog.getAttribute('aria-modal'), width: rect.width }
     })()`)
@@ -556,7 +487,7 @@ async function main() {
     assert(dialogState.width >= 44 && dialogState.height >= 44, 'mobile navigation control must be at least 44px')
     await client.key('Escape', 'Escape')
     await client.waitFor("!document.querySelector('[role=\"dialog\"]')")
-    assert.equal(await client.evaluate("document.activeElement?.getAttribute('aria-label')"), '打开导航')
+    assert.equal(await client.evaluate("document.activeElement?.getAttribute('aria-label')"), '展开记录和随笔')
 
     await client.setViewport(1366, 900)
     await client.setMedia('light', 'reduce')
@@ -578,11 +509,11 @@ async function main() {
     if (hasThemeControl) {
       await client.evaluate("localStorage.removeItem('blue-album-theme')")
       await client.setMedia('dark')
-      await client.navigate(`${appBase}/books`)
+      await client.navigate(`${appBase}/content`)
       assert.equal(await client.evaluate("document.documentElement.classList.contains('dark')"), true, 'dark system fallback must be honored')
       await client.evaluate("localStorage.removeItem('blue-album-theme')")
       await client.setMedia('light')
-      await client.navigate(`${appBase}/books`)
+      await client.navigate(`${appBase}/content`)
       assert.equal(await client.evaluate("document.documentElement.classList.contains('dark')"), false, 'light system fallback must be honored')
     }
     await client.key('Tab', 'Tab')
@@ -615,7 +546,11 @@ async function main() {
   } finally {
     client?.close()
     for (const process of processes.reverse()) await stopProcess(process)
-    fs.rmSync(temporaryRoot, { recursive: true, force: true })
+    if (process.env.BLUE_ALBUM_KEEP_TEMP) {
+      console.error(`Preserved browser logs at ${temporaryRoot}`)
+    } else {
+      fs.rmSync(temporaryRoot, { recursive: true, force: true })
+    }
   }
 }
 

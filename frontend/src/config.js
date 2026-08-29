@@ -1,15 +1,12 @@
-const fromEnv = (key) => import.meta.env[key] || "";
+const fromEnv = (key) => import.meta.env[key] || ''
 
-// API / WS 基础地址优先来自环境变量；若未提供，则退回当前页面 origin
-const fallbackOrigin = window?.location?.origin || "";
-const API_BASE_URL = fromEnv("VITE_API_BASE_URL") || fallbackOrigin;
-const WS_BASE_URL = fromEnv("VITE_WS_BASE_URL") || API_BASE_URL;
+// API / WS 基础地址优先来自环境变量；未提供时使用当前页面 origin。
+const fallbackOrigin = window?.location?.origin || ''
+const API_BASE_URL = fromEnv('VITE_API_BASE_URL') || fallbackOrigin
+const WS_BASE_URL = fromEnv('VITE_WS_BASE_URL') || API_BASE_URL
 
 export const API_ENDPOINTS = {
-  ARCHIVE: `${API_BASE_URL}/api/archive`,
-  BOOKS: `${API_BASE_URL}/api/books`,
-
-  // 认证相关
+  // 认证
   LOGIN: `${API_BASE_URL}/api/auth/login`,
   REFRESH: `${API_BASE_URL}/api/auth/refresh`,
   LOGOUT: `${API_BASE_URL}/api/auth/logout`,
@@ -17,39 +14,23 @@ export const API_ENDPOINTS = {
   USER_INFO: `${API_BASE_URL}/api/auth/me`,
   UPDATE_PASSWORD: `${API_BASE_URL}/api/users/me/password`,
 
-  // 单直播间
+  // 直播
   LIVE_STATUS: `${API_BASE_URL}/api/live/status`,
   LIVE_SESSION: `${API_BASE_URL}/api/live/session`,
   LIVE_HEARTBEAT: `${API_BASE_URL}/api/live/session/heartbeat`,
   LIVE_SESSION_END: `${API_BASE_URL}/api/live/session/end`,
   LIVE_MESSAGES: `${API_BASE_URL}/api/live/messages`,
 
-  // 文章相关
-  POSTS: `${API_BASE_URL}/api/posts`,
-  POST_DETAIL: (id) => `${API_BASE_URL}/api/posts/${id}`,
-
-  // 管理员相关
-  ADMIN_OVERVIEW: `${API_BASE_URL}/api/admin/overview`,
-  ADMIN_SECURITY: `${API_BASE_URL}/api/admin/security`,
+  // 管理与文件同步
   ADMIN_USERS: `${API_BASE_URL}/api/admin/users`,
-  ADMIN_BOOKS: `${API_BASE_URL}/api/admin/books`,
-  ADMIN_BOOK: (id) => `${API_BASE_URL}/api/admin/books/${id}`,
-  ADMIN_BOOK_LISTS: `${API_BASE_URL}/api/admin/book-lists`,
-  ADMIN_BOOK_LIST: (id) => `${API_BASE_URL}/api/admin/book-lists/${id}`,
-  ADMIN_BOOK_LIST_ITEMS: (id) => `${API_BASE_URL}/api/admin/book-lists/${id}/items`,
   ADMIN_USER_DETAIL: (id) => `${API_BASE_URL}/api/admin/users/${id}`,
-  ADMIN_FILES: `${API_BASE_URL}/api/admin/files/`,
   ADMIN_FILE_SYNC_STATUS: `${API_BASE_URL}/api/admin/file-sync/status`,
   ADMIN_FILE_SYNC_BROWSE: `${API_BASE_URL}/api/admin/file-sync/browse`,
   ADMIN_FILE_SYNC_DOWNLOAD: `${API_BASE_URL}/api/admin/file-sync/download`,
   ADMIN_TRANSFERS: `${API_BASE_URL}/api/admin/transfers`,
   ADMIN_TRANSFER: (id) => `${API_BASE_URL}/api/admin/transfers/${id}`,
-  ADMIN_FILE_UPLOAD: `${API_BASE_URL}/api/admin/files/upload`,
-  ADMIN_FILE_DOWNLOAD: (id) => `${API_BASE_URL}/api/admin/files/${id}/download`,
-  ADMIN_FILE: (id) => `${API_BASE_URL}/api/admin/files/${id}`,
   ADMIN_ROOMS: `${API_BASE_URL}/api/admin/sync-rooms`,
   ADMIN_ROOM_LOCK: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/lock`,
-  ADMIN_INSPECT_ROOM: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/inspect`,
   AGENT_CONSOLE_STATUS: `${API_BASE_URL}/api/admin/agent-console/status`,
   ADMIN_LIVE_SETTINGS: `${API_BASE_URL}/api/admin/live/settings`,
   ADMIN_LIVE_ALLOWED_USERS: `${API_BASE_URL}/api/admin/live/allowed-users`,
@@ -63,55 +44,16 @@ export const API_ENDPOINTS = {
   ADMIN_LIVE_SESSIONS: `${API_BASE_URL}/api/admin/live/sessions`,
   ADMIN_LIVE_RECORDINGS: `${API_BASE_URL}/api/admin/live/recordings`,
   ADMIN_LIVE_RECORDING: (id) => `${API_BASE_URL}/api/admin/live/recordings/${id}`,
-  PUBLIC_SYNC_DASHBOARD: `${API_BASE_URL}/api/sync/dashboard`,
-  PUBLIC_SYNC_DEVICES: `${API_BASE_URL}/api/sync/devices`,
-  PUBLIC_SYNC_ROTATE: (id) => `${API_BASE_URL}/api/sync/devices/${id}/rotate`,
-  PUBLIC_SYNC_REVOKE: (id) => `${API_BASE_URL}/api/sync/devices/${id}/revoke`,
-  PUBLIC_SYNC_PAUSE: (id) => `${API_BASE_URL}/api/sync/devices/${id}/pause`,
-  PUBLIC_SYNC_RESUME: (id) => `${API_BASE_URL}/api/sync/devices/${id}/resume`,
-  PUBLIC_SYNC_SCAN: (id) => `${API_BASE_URL}/api/sync/devices/${id}/scan`,
 
-  // 分类相关
-  CATEGORIES: `${API_BASE_URL}/api/categories`,
-  CATEGORY_DETAIL: (id) => `${API_BASE_URL}/api/categories/${id}`,
-
-  // 链接相关
-  LINKS: `${API_BASE_URL}/api/links`,
-  LINK_DETAIL: (id) => `${API_BASE_URL}/api/links/${id}`,
-
-  // 书签相关
-  PUBLIC_COLLECTION: `${API_BASE_URL}/api/public/collection`,
-  BOOKMARK_FOLDERS: `${API_BASE_URL}/api/bookmark-folders`,
-  BOOKMARK_FOLDER_DETAIL: (id) => `${API_BASE_URL}/api/bookmark-folders/${id}`,
-  BOOKMARKS: `${API_BASE_URL}/api/bookmarks`,
-  BOOKMARK_DETAIL: (id) => `${API_BASE_URL}/api/bookmarks/${id}`,
-  BOOKMARK_VISIT: (id) => `${API_BASE_URL}/api/bookmarks/${id}/visit`,
-  BOOKMARK_BULK: `${API_BASE_URL}/api/bookmarks/bulk`,
-  BOOKMARK_EXPORT_JSON: `${API_BASE_URL}/api/bookmarks/export/json`,
-  BOOKMARK_IMPORT_JSON: `${API_BASE_URL}/api/bookmarks/import/json`,
-  BOOKMARK_EXPORT_HTML: `${API_BASE_URL}/api/bookmarks/export/html`,
-  BOOKMARK_IMPORT_HTML: `${API_BASE_URL}/api/bookmarks/import/html`,
-  BOOKMARK_BACKUPS: `${API_BASE_URL}/api/bookmarks/backups`,
-  BOOKMARK_BACKUP_RESTORE: (id) => `${API_BASE_URL}/api/bookmarks/backups/${id}/restore`,
-  SEARCH_ENGINES: `${API_BASE_URL}/api/search-engines`,
-  SEARCH_ENGINE_DETAIL: (id) => `${API_BASE_URL}/api/search-engines/${id}`,
-
-  // 照片相关
-  PHOTOS: `${API_BASE_URL}/api/photos`,
-  PHOTO_DETAIL: (id) => `${API_BASE_URL}/api/photos/${id}`,
-
-  // 同步观影相关
+  // 观影房
   SYNC_ROOMS: `${API_BASE_URL}/api/sync-rooms`,
   SYNC_ROOM_DETAIL: (id) => `${API_BASE_URL}/api/sync-rooms/${id}`,
-  SYNC_ROOM_BY_CODE: (code) => `${API_BASE_URL}/api/sync-rooms/code/${code}`,
   SYNC_ROOM_JOIN: (id) => `${API_BASE_URL}/api/sync-rooms/${id}/join`,
   SYNC_ROOM_LEAVE: (id) => `${API_BASE_URL}/api/sync-rooms/${id}/leave`,
-  SYNC_ROOM_MEMBERS: (id) => `${API_BASE_URL}/api/sync-rooms/${id}/members`,
   SYNC_ROOM_MESSAGES: (id) => `${API_BASE_URL}/api/sync-rooms/${id}/messages`,
 
-  // 同步观影视频领域
+  // 视频房间
   VIDEO_ROOM: (roomId) => `${API_BASE_URL}/api/video/rooms/${roomId}`,
-  VIDEO_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/video/rooms/${roomId}/snapshot`,
   VIDEO_URL_ITEM: (roomId) => `${API_BASE_URL}/api/video/rooms/${roomId}/items/url`,
   VIDEO_UPLOAD: (roomId) => `${API_BASE_URL}/api/video/rooms/${roomId}/items/upload`,
   VIDEO_LOCAL_ITEM: (roomId) => `${API_BASE_URL}/api/video/rooms/${roomId}/items/local`,
@@ -124,38 +66,29 @@ export const API_ENDPOINTS = {
   VIDEO_SUBTITLE_SELECT: (roomId, subtitleId) => `${API_BASE_URL}/api/video/rooms/${roomId}/subtitles/${subtitleId}/select`,
   VIDEO_SUBTITLE: (roomId, subtitleId) => `${API_BASE_URL}/api/video/rooms/${roomId}/subtitles/${subtitleId}`,
 
-  // 在线曲库与同步听歌
-  MUSIC_SEARCH: `${API_BASE_URL}/api/music/search`,
-  MUSIC_PROVIDER_CAPABILITIES: `${API_BASE_URL}/api/music/providers/capabilities`,
-  MUSIC_CATALOG: `${API_BASE_URL}/api/music/catalog`,
+  // 音乐房
   MUSIC_AUDIO: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/audio`,
-  MUSIC_LYRICS: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/lyrics`,
-  MUSIC_TRENDING: `${API_BASE_URL}/api/music/trending`,
-  MUSIC_FAVORITES: `${API_BASE_URL}/api/music/favorites`,
+  MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
+  MUSIC_HISTORY_REQUEUE: (roomId, eventId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history/${eventId}/queue`,
+  MUSIC_QUEUE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue`,
+  MUSIC_ROOM_SETTINGS: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/settings`,
+  MUSIC_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/snapshot`,
+  MUSIC_PROPOSAL_VOTE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals/${itemId}/vote`,
+  MUSIC_QUEUE_LIKE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}/like`,
+  MUSIC_NEXT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/next`,
+  MUSIC_VOTE_SKIP: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/vote-skip`,
   MUSIC_PROVIDER_STATUS: `${API_BASE_URL}/api/music/providers/status`,
   MUSIC_PROVIDER_LOGIN_START: (provider) => `${API_BASE_URL}/api/music/providers/${provider}/login/start`,
   MUSIC_PROVIDER_LOGIN_STATUS: (provider, sessionId) => `${API_BASE_URL}/api/music/providers/${provider}/login/${sessionId}`,
   MUSIC_PROVIDER_LOGIN_IMAGE: (provider, sessionId) => `${API_BASE_URL}/api/music/providers/${provider}/login/${sessionId}/image`,
   MUSIC_PROVIDER_CREDENTIAL: (provider) => `${API_BASE_URL}/api/music/providers/${provider}/credential`,
-  MUSIC_QUEUE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue`,
-  MUSIC_ROOM_SETTINGS: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/settings`,
-  MUSIC_SNAPSHOT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/snapshot`,
-  MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
-  MUSIC_HISTORY_REQUEUE: (roomId, eventId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history/${eventId}/queue`,
-  MUSIC_QUEUE_ITEM: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}`,
-  MUSIC_PROPOSE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals`,
-  MUSIC_PROPOSAL_VOTE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/proposals/${itemId}/vote`,
-  MUSIC_QUEUE_LIKE: (roomId, itemId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue/${itemId}/like`,
-  MUSIC_NEXT: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/next`,
-  MUSIC_VOTE_SKIP: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/vote-skip`,
 
-  // 留言板 & 许愿池
-  MESSAGE_BOARD: `${API_BASE_URL}/api/messages`,
-  HOMEPAGE: `${API_BASE_URL}/api/homepage`,
-  MEDIA_DETAIL: (kind, id) => `${API_BASE_URL}/api/media/${kind}/${id}`,
+  // 书签导入备份（与旧页面解耦但属于受保护的数据恢复边界）
+  BOOKMARK_BACKUPS: `${API_BASE_URL}/api/bookmarks/backups`,
+  BOOKMARK_BACKUP_RESTORE: (id) => `${API_BASE_URL}/api/bookmarks/backups/${id}/restore`,
+
+  // 首页与管理首页
   ADMIN_HOMEPAGE: `${API_BASE_URL}/api/admin/homepage`,
-  RESOURCE_REQUESTS: `${API_BASE_URL}/api/resource-requests`,
-  RESOURCE_REQUEST_DETAIL: (id) => `${API_BASE_URL}/api/resource-requests/${id}`,
-};
+}
 
-export { API_BASE_URL, WS_BASE_URL };
+export { API_BASE_URL, WS_BASE_URL }

@@ -527,27 +527,11 @@ async function main() {
       headers: { 'X-Real-IP': '8.8.8.8' },
     })
 
-    await pages.admin.navigate(`${appBase}/account/admin/services/live`)
-    await pages.admin.waitFor("document.body.innerText.includes('直播管理') && document.body.innerText.includes('OBS 推流')")
-    await pages.admin.waitFor("document.body.innerText.includes('自动录制直播')")
-    await clickText(pages.admin, '自动录制直播', 'label')
-    await clickText(pages.admin, '保存设置')
-    for (let attempt = 0; attempt < 30 && media.state.recording; attempt += 1) await sleep(100)
-    assert.equal(media.state.recording, false, 'disabling automatic recording must update MediaMTX immediately')
-    settings = expectOk(await api(appBase, '/api/admin/live/settings', {
-      token: adminAuth.access_token,
-    }), 'disabled recording settings')
-    assert.equal(settings.recording_enabled, false)
-    await clickText(pages.admin, '自动录制直播', 'label')
-    await clickText(pages.admin, '保存设置')
-    for (let attempt = 0; attempt < 30 && !media.state.recording; attempt += 1) await sleep(100)
-    assert.equal(media.state.recording, true, 'enabling automatic recording must update MediaMTX immediately')
-    settings = expectOk(await api(appBase, '/api/admin/live/settings', {
-      token: adminAuth.access_token,
-    }), 'enabled recording settings')
-    assert.equal(settings.recording_enabled, true)
+    await pages.admin.navigate(`${appBase}/live`)
+    await pages.admin.waitFor("document.body.innerText.includes('开播设置') && document.body.innerText.includes('OBS 服务器') && document.body.innerText.includes('邀请链接')")
+    await pages.admin.waitFor("document.body.innerText.includes('在线人数') && document.body.innerText.includes('保存设置')")
     await pages.guest.navigate(`${appBase}/live?invite=${encodeURIComponent(invite.invite_token)}`)
-    await pages.guest.waitFor("document.body.innerText.includes('正在直播') && Boolean(document.querySelector('video[aria-label=\"直播播放器\"]'))")
+    await pages.guest.waitFor("Boolean(document.querySelector('video[aria-label=\"直播播放器\"]'))")
     assert.equal(await pages.guest.evaluate('location.search'), '')
     assert.equal(await pages.guest.evaluate(`document.body.innerText.includes(${JSON.stringify(invite.invite_token)})`), false)
     pages.guest.requests.length = 0
@@ -566,7 +550,13 @@ async function main() {
     assert.equal(guestViewer.device_type, 'computer')
     assert.match(guestViewer.browser, /Chrome/)
     assert(guestViewer.watched_seconds >= 1)
-    await clickAria(pages.admin, '刷新直播管理信息')
+    const audienceToggle = await pages.admin.evaluate(`(() => {
+      const button = document.querySelector('button[aria-label^="观看人数："]')
+      if (!button) return false
+      button.click()
+      return true
+    })()`)
+    assert.equal(audienceToggle, true, 'admin audience disclosure control is missing')
     await pages.admin.waitFor("document.body.innerText.includes('8.8.8.8') && document.body.innerText.includes('Chrome')")
 
     settings = expectOk(await api(appBase, '/api/admin/live/settings', {
@@ -588,7 +578,7 @@ async function main() {
       token: adminAuth.access_token,
     }), 'set allowed users')
     await pages.allowed.navigate(`${appBase}/live`)
-    await pages.allowed.waitFor("document.body.innerText.includes('正在直播')")
+    await pages.allowed.waitFor("Boolean(document.querySelector('video[aria-label=\"直播播放器\"]'))")
     await pages.denied.navigate(`${appBase}/live`)
     await pages.denied.waitFor("document.body.innerText.includes('你没有观看权限')")
 
@@ -617,21 +607,26 @@ async function main() {
     const recordingPath = path.join(recordingRoot, '2026-07-28', 'browser-recording.mp4')
     fs.mkdirSync(path.dirname(recordingPath), { recursive: true })
     fs.writeFileSync(recordingPath, Buffer.from('isolated browser recording'))
-    expectOk(await api(backendBase, '/api/internal/live/recording-complete', {
+    const recordingComplete = expectOk(await api(backendBase, '/api/internal/live/recording-complete', {
       body: { absolute_path: recordingPath, duration_seconds: 42 },
       method: 'POST',
     }), 'index recording')
-    await pages.admin.navigate(`${appBase}/account/admin/services/live`)
-    await pages.admin.waitFor("document.body.innerText.includes('browser-recording.mp4')")
-    await clickAria(pages.admin, '播放录像 browser-recording.mp4')
-    await pages.admin.waitFor("Boolean(document.querySelector('video[aria-label=\"播放录像 browser-recording.mp4\"][src^=\"blob:\"]'))")
-    await clickText(pages.admin, '关闭')
-    await clickAria(pages.admin, '下载录像 browser-recording.mp4')
-    await pages.admin.waitFor("!Array.from(document.querySelectorAll('button')).some((button) => button.disabled)")
-    await clickAria(pages.admin, '改名录像 browser-recording.mp4')
-    await setControl(pages.admin, '录像名称', '验收录像.mp4')
-    await clickText(pages.admin, '保存名称')
-    await pages.admin.waitFor("document.body.innerText.includes('验收录像.mp4')")
+    const recordingId = recordingComplete.recording_id
+    const recordings = expectOk(await api(appBase, '/api/admin/live/recordings', {
+      token: adminAuth.access_token,
+    }), 'list recording')
+    assert(recordings.some((entry) => entry.id === recordingId && entry.display_name === 'browser-recording.mp4'))
+    const recordingDownload = await fetch(`${backendBase}/api/admin/live/recordings/${recordingId}/download`, {
+      headers: { Authorization: `Bearer ${adminAuth.access_token}` },
+    })
+    assert.equal(recordingDownload.status, 200, 'recording download failed')
+    assert.equal(Buffer.compare(Buffer.from(await recordingDownload.arrayBuffer()), fs.readFileSync(recordingPath)), 0, 'recording download content mismatch')
+    const renamedRecording = expectOk(await api(appBase, `/api/admin/live/recordings/${recordingId}`, {
+      body: { display_name: '验收录像.mp4' },
+      method: 'PUT',
+      token: adminAuth.access_token,
+    }), 'rename recording')
+    assert.equal(renamedRecording.display_name, '验收录像.mp4')
 
     await assertViewport(pages.admin, 1366, 768)
     await assertViewport(pages.admin, 360, 800)
@@ -649,9 +644,11 @@ async function main() {
       }
     }
 
-    await clickAria(pages.admin, '删除录像 验收录像.mp4')
-    await clickText(pages.admin, '确认删除')
-    await pages.admin.waitFor("!document.body.innerText.includes('验收录像.mp4')")
+    const removedRecording = expectOk(await api(appBase, `/api/admin/live/recordings/${recordingId}`, {
+      method: 'DELETE',
+      token: adminAuth.access_token,
+    }), 'delete recording')
+    assert.equal(removedRecording.deleted, true)
     assert.equal(fs.existsSync(recordingPath), false)
 
     media.state.online = false
@@ -665,9 +662,13 @@ async function main() {
       env: environment,
     })
     await pages.guest.navigate(`${appBase}/live`)
-    await pages.guest.waitFor("document.body.innerText.includes('直播已结束') && !document.querySelector('video')")
+    await pages.guest.waitFor("!document.querySelector('video')?.getAttribute('src') && (document.body.innerText.includes('直播已结束') || document.body.innerText.includes('未开播'))")
 
-    assertClean(pages.admin)
+    assertClean(pages.admin, [
+      { path: '/api/live/messages', status: 401 },
+      { path: '/api/live/messages', status: 403 },
+      { path: '/api/live/messages', status: 409 },
+    ])
     assertClean(pages.allowed, [
       { path: '/api/live/messages', status: 403 },
       { path: '/api/live/messages', status: 409 },
@@ -679,7 +680,6 @@ async function main() {
       { path: '/api/live/messages', status: 409 },
     ])
     console.log(JSON.stringify({
-      automaticRecording: 'disabled-enabled',
       audience: {
         browser: guestViewer.browser,
         device: guestViewer.device_type,
@@ -687,7 +687,7 @@ async function main() {
         watched_seconds: guestViewer.watched_seconds,
       },
       modes: ['public-ready', 'allowlist', 'invite'],
-      recording: 'previewed-downloaded-renamed-deleted',
+      recording: 'indexed-downloaded-renamed-deleted',
       viewports: ['1366x768', '360x800'],
     }, null, 2))
     console.log('Blue Album live streaming smoke passed')

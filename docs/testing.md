@@ -39,7 +39,7 @@ scripts/release-gate.sh
 
 It runs release configuration, the full repository gate, isolated recovery,
 accessibility/responsive browser acceptance, and the critical music, video,
-tabletop and Books/Files/administrator browser flows in a fixed order. A failed
+live, and Files/administrator browser flows in a fixed order. A failed
 step stops every later step. The command creates only temporary local state and
 never invokes deployment, rollback, Docker startup or privileged host actions.
 
@@ -68,17 +68,20 @@ Browser acceptance scripts start isolated backend/frontend processes on temporar
 The tracked domain flows are:
 
 ```bash
-node scripts/phase2-browser-smoke.mjs
-node scripts/phase3-browser-smoke.mjs
-node scripts/phase4-browser-smoke.mjs
-node scripts/phase5-browser-smoke.mjs
-node scripts/phase6-browser-smoke.mjs
 node scripts/phase7-multiclient-smoke.mjs
 node scripts/phase8-video-multiclient-smoke.mjs
 node scripts/phase10-books-admin-browser-smoke.mjs
+node scripts/phase11-accessibility-compat-smoke.mjs
+node scripts/live-stream-smoke.mjs
 ```
 
 Each script has its own prerequisites and should be run from the repository root. A passing component test does not replace a real Browser acceptance for navigation, layout, media, reconnect or multi-client authority.
+
+On the 2026-08-30 cleanup baseline the repository gate reaches the production build
+and then stops at the unchanged JavaScript budget: initial JS is 423,764 bytes
+(134,918 gzip) against 360,000 (120,000 gzip). CSS is 170,190 bytes and is under
+budget. This is recorded as a genuine BLOCKED performance follow-up; no threshold
+was raised and the remaining browser scripts were run separately where needed.
 
 ## Migration and recovery tests
 

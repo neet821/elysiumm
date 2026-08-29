@@ -1,293 +1,121 @@
-# Blue Album 2026 final acceptance report
+# Elysium 核心代码清理与可恢复归档报告
 
-Date: 2026-07-16
-Fresh closure-gate baseline: `6556621` (`docs: publish the final Blue Album release report`)
-Target pack: `blue-album-codex-target-pack`
+Date: 2026-08-30
+Scope: 当前 `main` 的死代码移出、归档索引、Archive API 退役；不部署生产。
 
 ## Release candidate status
 
-**Local release candidate: PASS.** Phases 0–11 are implemented. The latest complete
-eight-step release gate passed in 236 seconds on isolated local state with no FAIL
-item in the acceptance checklist. It ran 312 backend tests, 198 frontend component
-tests, 6 frontend source-contract tests, the full migration/drift check, production
-build and budgets, recovery rehearsal, accessibility/responsive checks, and the
-critical multi-client browser flows.
+本次清理候选为 **PASS（代码、迁移与核心测试）/ BLOCKED（既有 JavaScript 预算）**。
+清理前先创建并推送了注释标签
+`archive/pre-core-cleanup-2026-08-30`，标签指向清理前提交
+`3cde728e4ef8dfff34989093ae1922a2e0e86e10`，且没有覆盖已存在的标签。
+归档索引位于 [legacy-code-archive.md](docs/reference/legacy-code-archive.md)，每组都记录原路径、退役理由、依赖边界和恢复命令。
 
-**Production deployment or rollback: BLOCKED.** No production authorization,
-credentials, approved maintenance window, off-host backup, TLS/DNS ownership or
-operator was supplied. No production service, database, Nginx, FRP, systemd or
-secret was read or changed. All locally controllable release, preflight, staging,
-verification and rollback work is complete.
-
-The detailed target-by-target decision record is in the
-[release checklist](docs/release-checklist.md). PASS means a named current command
-or isolated browser flow completed. BLOCKED is used only for external authority or
-infrastructure. There is no current FAIL.
+没有修改 Aliyun 服务、Nginx、systemd、FRP、静态目录或数据库，也没有执行部署和回滚。用户未跟踪的运维文件保持原内容和状态；只有归档索引作为本次新增跟踪文件。Books API 没有因“无请求”而强行删除：它仍被媒体首页、媒体服务、后台服务和 ORM 测试使用，因此按计划保留。
 
 ## Architecture and delivered scope
 
-Blue Album is a React application backed by FastAPI, SQLAlchemy/Alembic and
-MariaDB/MySQL. Nginx serves the built application and forwards API and Socket.IO
-traffic. The supported release topology intentionally uses one backend worker;
-live rooms, presence and rate limits are process-local and are not presented as a
-multi-worker system.
+当前正式入口是 React 前端的文章首页、文章阅读、认证、音乐房、观影房、直播、账户、传输和 `/admin/*` 管理壳；文章 API 由根目录 `server/` 提供，FastAPI 后端继续承载认证、内容、文件、同步、媒体和实时协议，Mineradio、MediaMTX、FRP 文件同步和发布/回滚链保持独立运行边界。
 
-The delivered product has these boundaries:
-
-- Public experience: configurable Hero, writing, photography, messages, Archive,
-  public Collection and Books.
-- Account experience: private Collection, search engines, preferences, music and
-  video rooms, games and private Files.
-- Music: provider-neutral canonical catalog, legal source resolver, isolated direct
-  player and server-authoritative room snapshots.
-- Video: independent playlist, managed uploads, subtitles, range streaming,
-  buffering telemetry and the same media-independent authoritative clock.
-- Games: deterministic shared turn engine, tic-tac-toe, Gomoku, roles, chat,
-  reconnect and hash-chained replay.
-- Administration: one `/account/admin/*` console for overview, content, homepage,
-  Books, photos, users, rooms, Files/Public Sync, server status, FRP, backups and
-  bounded security evidence.
-- External adapters: music providers and Kavita fail safely when credentials or
-  services are absent. Provider cookies, storage paths and private secrets do not
-  enter browser payloads.
-
-The canonical system, information-architecture and music-separation decisions from
-the target pack were implemented without inventing Redis, distributed workers,
-background queues or production credentials. Current detail is recorded in
-[architecture](docs/architecture.md), [security](docs/security.md) and
-[data formats](docs/data-formats.md).
+本次没有触碰以下保护边界：文章 `server/` 及其测试、Mineradio、MediaMTX、FRP 文件同步、同步代理、认证和实时房间、首页书签/媒体供给链、Alembic 历史、生产数据、部署与回滚脚本。旧 3D 房间、旧首页/Archive/Collection/Books/Tools 页面、旧独立播放器、专属测试、旧素材和构建快照被移出；原代码仍可由归档标签精确恢复。
 
 ## Phase delivery summary
 
-| Phase | Result | Delivered outcome |
+| Phase | Result | Evidence and scope |
 | --- | --- | --- |
-| Phase 0 | PASS | Target takeover, dependency/build baseline and progress ledger. |
-| Phase 1 | PASS | P0 authentication, authorization, storage/restore, rate-limit, audit and migration hardening. |
-| Phase 2 | PASS | Brand assets, design primitives, theme, responsive application shell and route migration. |
-| Phase 3 | PASS | Configurable Hero, scroll narrative, theme-specific visuals, content grid and messages. |
-| Phase 4 | PASS | Archive and isolated public/private Collection, hierarchy, search, bulk operations and transactional import/recovery. |
-| Phase 5 | PASS | Standalone `PlayerAdapter`, normalized test track, direct player stage, room bridge and GPL attribution. |
-| Phase 6 | PASS | Canonical music catalog, NetEase/QQ/Audius/local adapters, federated search and legal expiring-source resolution. |
-| Phase 7 | PASS | Server-authoritative music Snapshot, version conflicts, reconnect/drift correction, queue, chat and history. |
-| Phase 8 | PASS | Shared media Room Core and independent synchronized video domain. |
-| Phase 9 | PASS | Unified tabletop contract, tic-tac-toe, Gomoku, spectators, timeouts and tamper-detecting replay. |
-| Phase 10 | PASS | Books/Kavita portal, secure Public Sync, unified Files and administrator console. |
-| Phase 11 | PASS | Release configuration, CI, preflight/rollback, documentation, budgets, accessibility, compatibility, recovery and release gate. |
+| Phase 0 | PASS | 记录 Git 状态、路由、依赖、服务引用、生产 release 标记和未跟踪文件快照。 |
+| Phase 1 | PASS | 创建并推送注释归档标签，建立保护边界和可恢复索引。 |
+| Phase 2 | PASS | 移出根目录旧 Vite/3D 入口、旧 `src/`、旧浏览器脚本、旧前端页面/组件/测试、旧样式、素材、模板和阶段报告；精简包脚本与依赖。 |
+| Phase 3 | PASS | 保留文章服务、当前首页文章流、首页设置、书签与媒体数据供给链。 |
+| Phase 4 | PASS | 保留认证、账户、文件传输、FRP 同步和后台当前页面；旧 Collection UI 归档，受保护的 Collection API/数据未删除。 |
+| Phase 5 | PASS | 保留当前 Mineradio embed、房间同步和视频播放器适配器；旧独立播放器实现归档。 |
+| Phase 6 | PASS | 保留当前音乐 provider、曲库、歌词、签名音频和服务端房间权限。 |
+| Phase 7 | PASS | 保留音乐房的服务端权威快照、队列、聊天、历史、重连和多客户端协议。 |
+| Phase 8 | PASS | 保留观影房、视频播放列表、上传、字幕、Range 流和同步时钟。 |
+| Phase 9 | PASS | 保留直播、管理、传输和既有实时安全边界；旧游戏前端和已退役的游戏平台迁移历史不回流。 |
+| Phase 10 | PASS/BLOCKED | 48 小时生产日志满足 Archive 退役条件；Books 组因活跃内部消费者而阻止 ORM/API 退役。 |
+| Phase 11 | PASS/BLOCKED | 当前测试、构建、Chrome 验收和归档恢复验证完成；JavaScript 预算仍是真实失败，阈值未提高。 |
 
-Representative phase completion commits are `7cbee0e`, `1ce31f2`, `dea88d5`,
-`3d3c4bf`, `80db6b2`, `886db84`, `6ebff7c`, `5f82b0c`, `91522bb`, `fc95026`
-and `ae620ee`. The complete unit-level record remains in `AGENT_PROGRESS.md` and
-`docs/progress-archive/`.
+## API retirement evidence
 
-## Major file inventory
+在 2026-08-30 00:51（Asia/Shanghai）即时计算的连续 48 小时窗口为
+2026-08-28 00:51–2026-08-30 00:51。读取生产 Nginx `access.log`、`.1` 和
+`.2.gz` 后，`/api/archive`、`/api/books`、`/api/admin/books*`、
+`/api/admin/book-lists*` 均为 **0 请求（任何状态码都计数）**；活动配置范围内也没有 Nginx、systemd 或同步客户端引用。
 
-This is the review-oriented inventory; generated build output and individual tests
-are intentionally not listed one by one.
-
-- `frontend/src/design-system/`, `frontend/src/components/` and
-  `frontend/src/layouts/`: brand, reusable controls, themes, loading/error boundaries
-  and responsive navigation.
-- `frontend/src/pages/`: public, account, room, game, Books, Files and administrator
-  screens, loaded on demand through `frontend/src/App.jsx`.
-- `frontend/src/features/player/` and `frontend/src/features/video/`: isolated player
-  adapters/controllers and their host integrations.
-- `backend/app/routers/`, `backend/app/services/` and `backend/app/realtime.py`:
-  validated HTTP, domain transactions and trusted real-time identity.
-- `backend/app/game_definitions/` and game services: deterministic rules, safe views
-  and replay validation.
-- `backend/alembic/versions/`: the linear production schema history.
-- `scripts/check-all.sh`, `scripts/release-gate.sh`, browser smoke scripts,
-  `scripts/rehearse-backup-restore.py`, release preflight and rollback scripts:
-  reproducible local and operator checks.
-- `.github/workflows/quality.yml`: locked dependency installation and the same release
-  gate used locally.
-- `docs/`: architecture, security, contracts, migrations, testing, recovery,
-  deployment/rollback and acceptance evidence.
-- `mineradio/`: preserved upstream Mineradio source, GPL-3.0 license, notice and Blue
-  Album integration boundary.
+- Archive 满足“无入口、无内部调用、无活动基础设施引用”，已删除 router 和专属响应类型；`/api/archive` 现在由契约测试确认返回 404/OpenAPI 不再暴露。
+- Books 虽然 48 小时无请求，但 `media_service`、媒体路由、`admin_dashboard_service`、首页/媒体测试和 ORM 仍消费 Book/BookList/BookListItem，因此退役被 **BLOCKED**。保留 `/api/books`、后台 Books 服务/模型、`books`、`book_lists`、`book_list_items` 表及全部迁移；没有新增破坏性迁移，也没有把这些表加入 Alembic 忽略集合。
+- `/api/homepage` 明确保留：当前首页和 Header 仍读取设置，书签与媒体供给链仍由页面调用。
 
 ## Migrations
 
-Alembic is the production schema source of truth. The verified linear chain is:
-
-1. `0001_legacy_baseline`
-2. `0002_phase1_security`
-3. `0003_phase3_homepage`
-4. `0004_phase4_collection`
-5. `0005_phase6_catalog`
-6. `0006_phase7_music_room_authority`
-7. `0007_phase8_video_room_core`
-8. `0008_phase9_game_platform`
-9. `0009_phase10_books_files_admin`
-10. `0010_repair_legacy_gaps`
-
-The repository gate upgrades a fresh isolated database to
-`0010_repair_legacy_gaps`, checks model/head drift and covers representative
-legacy upgrade and downgrade compatibility. Production deployment must create a
-verified pre-migration release bundle before running `backend/run_migrations.py`.
-Production recovery restores the matched database and prior code revision; it does
-not guess an Alembic downgrade. See [database migrations](docs/migrations.md).
+Alembic 当前线性历史从 `0001_legacy_baseline` 延伸至
+`0023_remove_game_platform`。本次验证覆盖 `0009_phase10_books_files_admin`、
+`0010_repair_legacy_gaps` 以及后续 `0011`–`0023`；空库升级到 head 成功，
+autogenerate 报告无新操作。Books 表和历史迁移保持不变，生产数据不被脚本触碰。
+详见 [migrations](docs/migrations.md)。
 
 ## Security
 
-The completed P0/P1 work includes:
-
-- required strong release secrets, signed access/refresh token types, active-user
-  resolution and server-bound Socket.IO identity;
-- server-side ownership, membership, host, spectator and administrator checks;
-- explicit production CORS, single-worker real-time boundary and version-conflict
-  rejection instead of client authority;
-- bounded, allowlisted or credential-free external URLs and no provider-cookie
-  exposure to the browser;
-- streamed size/type-controlled uploads, managed roots, traversal rejection,
-  temporary writes, digest checks, atomic publication and failure cleanup;
-- one-time Public Sync credentials stored as digests, expiration/revocation,
-  per-device quotas and persistent chunk-session binding;
-- bounded rate limiting and audit records that exclude secrets, paths, private
-  messages and internal exception detail;
-- role-filtered game state and replay, checksum-verified recovery bundles and
-  fail-closed release configuration.
-
-Security regression is part of the repository and domain gates. The complete threat
-model and limitations are in [security](docs/security.md).
+认证、授权、JWT、Socket.IO 身份、房间成员权限、上传路径/类型/大小检查、FRP 文件同步鉴权、Public Sync 凭据摘要、备份恢复和生产配置 fail-closed 边界均保留。删除只针对已证明不可达的旧代码；归档索引不包含生产密钥、用户内容或凭据。安全模型见 [security](docs/security.md)。
 
 ## Verification evidence
 
-The primary release command is:
+已运行并记录以下证据（均为隔离临时状态，未使用生产数据）：
 
-```bash
-scripts/release-gate.sh
-```
-
-Fresh closure result on 2026-07-16 at `6556621`: **PASS in 236 seconds**.
-
-| Evidence | Result |
+| Check | Result |
 | --- | --- |
-| Release configuration | PASS; secrets/placeholders, CORS, persistence, runtime, health, proxy and CI rules validated. |
-| Backend | PASS; 312 tests plus fatal lint and byte compilation. |
-| Frontend | PASS; 198 component tests, 6 source-contract tests, lint and production build. |
-| Database | PASS; fresh migration to `0009`, legacy/downgrade coverage and no model/head drift. |
-| Recovery | PASS; 60-table temporary database restored with integrity `ok`, verified SHA-256 and complete cleanup. |
-| Accessibility/responsive | PASS; 34 page/width combinations and keyboard/focus/theme/reduced-motion checks in Chrome 150. |
-| Music room | PASS; isolated two-client authority, drift, reconnect, queue/chat/history and privacy flow. |
-| Video room | PASS; isolated two-client playlist/upload/stream/subtitle/rate/buffering/reconnect flow. |
-| Games | PASS; isolated two-player plus spectator tic-tac-toe/Gomoku/chat/reconnect/replay flow. |
-| Books/Files/admin | PASS; isolated public Books, manual/sync files, all admin sections and legacy redirects. |
+| Backend fatal lint/compile | PASS |
+| Backend unittest | PASS — 357 tests |
+| Alembic empty upgrade/autogenerate | PASS — head `0023_remove_game_platform`，无新操作 |
+| Frontend source contracts | PASS — 51 files |
+| Frontend Vitest | PASS — 34 files / 238 tests |
+| Frontend production build | PASS — initial JS 423,764 B / gzip 134,918 B；total JS 1,141,499 B；CSS 170,190 B；async chunks 30 |
+| CSS budget | PASS — 170,190 B 已低于 230,000 B 阈值 |
+| JavaScript budget | **BLOCKED** — initial JS 423,764 B > 360,000 B，gzip 134,918 B > 120,000 B；保留真实失败，不提高阈值 |
+| Archive 404 contract | PASS — 后端测试与 OpenAPI 检查 |
+| Chrome browser acceptance | PASS — `scripts/phase11-accessibility-compat-smoke.mjs`，Chrome 152 via CDP，8 个视口、50 个页面检查，含文章服务、房间 iframe、键盘焦点、44px 控件、溢出和第三方请求检查 |
+| Patch format | PASS — `git diff --check` |
 
-The gate creates temporary state, stops on the first failure and does not call
-deployment, rollback, Docker startup or privileged host commands. Full command and
-interpretation details are in [testing](docs/testing.md).
+`scripts/release-gate.sh` 会在资源预算步骤保留上述 JavaScript 失败并停止；其余已修改的浏览器脚本使用当前路由，Phase 11 已单独以真实 Chrome 重跑。完整命令和解释见 [testing](docs/testing.md)。
 
 ## Performance and compatibility
 
-Route-level loading removed room, game, editor and administrator pages from the
-initial application bundle. The enforced production budget result is:
+清理前基线为 initial JS 425,932 B、gzip 135,425 B、CSS 275,189 B；当前 CSS 降至 170,190 B，JavaScript 仅小幅下降。说明死样式和 `three` 依赖已移除，但当前入口仍有真实 JavaScript 超预算，后续应作为独立性能任务处理。
 
-- initial JS: 267,663 bytes; gzip 87,124 bytes;
-- total JS: 764,533 bytes;
-- largest JS file: 267,663 bytes;
-- total CSS: 180,632 bytes;
-- asynchronous chunks: 70.
-
-Chrome 150 executed 34 checks across widths 360, 390, 430, 768, 1024, 1366,
-1920 and 2560 pixels. The checks cover landmarks/headings, names and labels, image
-alternatives, keyboard focus, mobile navigation, 44-pixel menu control, reduced
-motion, system theme fallback, overflow, browser errors, failed requests and
-third-party traffic. Firefox and WebKit received standards-oriented source and
-production-build checks but were not installed and were not claimed as live-engine
-passes. Runtime Web Vitals on the actual production network remain an operator
-measurement after deployment.
+Phase 11 在 360、390、430、768、1024、1366、1920、2560 宽度运行，覆盖 `/`、`/content`、认证、文章服务、音乐房和退役路由 404；Firefox/WebKit 仅有源代码和构建层面的兼容检查，未声称实时引擎通过。生产网络 Web Vitals、真实设备和生产 Nginx 仍需部署后由运维验收。
 
 ## Third-party licenses
 
-The direct player preserves attribution to
-[XxHuberrr/Mineradio v1.1.1](https://github.com/XxHuberrr/Mineradio) and GPL-3.0 in
-`frontend/src/features/player/LICENSE_NOTICE.md`, the player interface,
-`mineradio/LICENSE`, `mineradio/NOTICE.md` and `mineradio/BLUE_ALBUM_INTEGRATION.md`.
-The active player uses Blue Album's browser-generated local demonstration audio and
-does not embed provider credentials.
-
-The README states that Blue Album's own code is MIT, but this repository currently
-has no root `LICENSE` file. Adding a legal license text and copyright holder is an
-owner decision and is recorded as a non-blocking distribution limitation rather
-than silently inventing legal ownership. npm/Python dependencies and external
-services remain under their own licenses and terms as represented by the tracked
-lockfiles, requirements and upstream notices.
+Mineradio 的运行边界和归属保留在 `mineradio/LICENSE`、`mineradio/NOTICE.md` 与
+`mineradio/BLUE_ALBUM_INTEGRATION.md`；旧前端独立播放器及其专属 notice 一并归档，没有把 GPL 代码复制进当前 React 入口。npm/Python 依赖继续由各自 lockfile、requirements 和上游许可约束。
 
 ## Deployment and rollback
 
-No live deployment was performed. For an authorized Debian/Nginx/systemd/MariaDB
-single-worker release, the operator must first review the exact clean commit, create
-a mode-600 `backend/prod.env`, provision TLS/database/persistent roots, name the
-maintenance and rollback owners, and verify an off-host backup.
+本次只提交代码、文档和标签，**没有部署生产**。部署前应先审阅干净提交、执行 [release checklist](docs/release-checklist.md)、运行
+`scripts/release-preflight.sh`、制作带 `SHA256SUMS` 的迁移前发布包，并由授权运维执行显式回滚链；不可把本地测试结果当作生产健康证明。生产回滚仍使用匹配的数据库/代码/静态资产发布包和 `scripts/rollback-prod.sh`，不猜测 Alembic downgrade。
 
-Read-only preflight:
+任一归档组可恢复，例如：
 
 ```bash
-sudo scripts/release-preflight.sh \
-  --env-file backend/prod.env \
-  --health-url http://127.0.0.1:8000/api/health
+git restore --source archive/pre-core-cleanup-2026-08-30 -- frontend/src/pages/ArchivePage.jsx
 ```
 
-Apply only after approval:
-
-```bash
-sudo PROD_ENV_FILE="$PWD/backend/prod.env" ./start-prod.sh
-```
-
-The script makes a checksummed pre-migration bundle, records candidate and previous
-revisions, runs the safe migration, stages dependencies/services/frontend, performs
-an atomic frontend switch and verifies health. It does not pull or choose code.
-
-Verify a rollback bundle without mutation:
-
-```bash
-sudo scripts/rollback-prod.sh \
-  --backup-root /home/blue-album/backups \
-  --bundle /home/blue-album/backups/releases/<timestamp> \
-  --verify-only
-```
-
-An approved rollback requires the exact `ROLLBACK:<timestamp>` confirmation and
-restores the matched database, previous code, configuration, services and frontend
-after creating a second safety bundle. Exact prerequisites, abort conditions and
-post-release checks are in [deployment and rollback](docs/deployment.md) and the
-[backup/restore drill](docs/backup-restore-drill.md).
+完整路径清单、依赖和验证命令见 [legacy-code-archive.md](docs/reference/legacy-code-archive.md)。
 
 ## External blockers
 
-| Item | Status | Reason and completed local substitute |
+| Item | Status | Reason |
 | --- | --- | --- |
-| Live production deploy/rollback | BLOCKED | No authorization, credentials, operator window or production infrastructure was supplied. Preflight, stage, recovery and rollback scripts are fixture-tested. |
-| Live Kavita account | BLOCKED | No service/credential was supplied. Credential-free safe-link construction, unavailable behavior, mocks and browser UI are complete. |
-| Live music-provider accounts | BLOCKED | No provider credentials were supplied. Adapters, normalization, timeout/failure behavior, mocks and legal resolver boundaries are complete. |
-| Live Firefox/WebKit execution | BLOCKED | Engines are not installed in this workspace. Source/build compatibility passes; Chrome 150 is the recorded real engine. |
-
-These blockers do not conceal locally actionable code or test failures.
+| JavaScript budget | BLOCKED | 当前入口仍超过既有阈值；本次只删除死代码，未提高阈值。 |
+| Books API/ORM retirement | BLOCKED | 48 小时无请求，但活跃媒体首页、后台服务和 ORM 消费者仍在。 |
+| Production deployment | BLOCKED | 本请求明确不部署，且本地没有执行生产写权限。 |
+| Firefox/WebKit live engine | BLOCKED | 工作区未安装这两个引擎；已完成源/构建检查。 |
 
 ## Known limitations
 
-- The supported release uses one backend worker. Redis/shared Socket.IO, distributed
-  presence/rate limits, background queues and horizontal scaling are future work.
-- Per-session persistent JWT revocation is not present; short access lifetime,
-  refresh-token handling, account disabling and coordinated key rotation are the
-  current controls.
-- Runtime Web Vitals, observability/alerting, TLS, firewall/database grants and
-  off-host immutable backup operation depend on the real deployment environment.
-- Firefox/WebKit require a future live-engine run; Chrome 150 is the only locally
-  executed engine.
-- International chess, Chinese chess, UNO and card games are later adapters; the
-  delivered common game platform currently proves tic-tac-toe and Gomoku.
-- The repository lacks a root legal license file even though the README says MIT;
-  the owner should add an approved copyright/license file before redistribution.
-- The frontend lint run has 43 existing non-fatal warnings. Fatal checks, tests,
-  build and resource budgets pass; warning reduction is a non-blocking cleanup.
-
-## Non-blocking follow-up enhancements
-
-Add live Firefox/WebKit and production-network performance runs to CI infrastructure;
-adopt Redis/shared real-time coordination before increasing worker count; add
-external monitoring and signed/off-host release evidence; add more game definitions
-through the existing contract; and resolve the root license-owner decision. None of
-these changes is required to reproduce the current single-worker local release
-candidate.
+- 本次清理不删除生产表、不修改 Aliyun 配置、不清理用户未跟踪运维文件；生产切换和真实设备验收仍是后续运维工作。
+- Books 数据兼容边界仍然存在，只有旧前端入口和专属 API 退役；必须在内部消费者消失并再次完成连续 48 小时日志审计后，才能讨论下一次退役。
+- 当前 JavaScript bundle 预算仍未达标；这不是通过提高门槛掩盖的“通过”。
+- Chrome 是唯一执行的实时浏览器；Firefox/WebKit、生产 TLS/DNS、外部 provider/Kavita、监控和 off-host 备份需在目标环境验证。
+- 归档标签恢复的是清理前源码，不会自动恢复生产静态目录、数据库行或外部服务状态。

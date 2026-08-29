@@ -725,29 +725,6 @@ class Photo(PhotoBase):
         from_attributes = True
 
 
-class ArchiveItem(BaseModel):
-    id: str
-    source_id: int
-    type: Literal["writing", "article", "essay", "photo", "book", "album", "movie", "game"]
-    content_type: Optional[Literal["article", "essay"]] = None
-    title: str
-    excerpt: Optional[str] = None
-    href: Optional[str] = None
-    image_url: Optional[str] = None
-    category: Optional[str] = None
-    location: Optional[str] = None
-    author_name: Optional[str] = None
-    tags: List[str] = Field(default_factory=list)
-    created_at: datetime
-
-
-class ArchiveResponse(BaseModel):
-    items: List[ArchiveItem] = Field(default_factory=list)
-    total: int
-    skip: int
-    limit: int
-
-
 # Homepage Schemas
 class HomepageCardConfig(BaseModel):
     id: Literal[

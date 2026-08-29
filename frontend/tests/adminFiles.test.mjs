@@ -32,10 +32,10 @@ assert.equal(
   "the separate Public Sync page must be removed",
 );
 assert.doesNotMatch(routes, /import PublicSyncPage/, "routes must not import the removed sync page");
-assert.match(styles, /\.admin-files__device-grid/, "the Files workspace needs a responsive device grid");
+assert.match(styles, /\.admin-file-cards\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, "the Files workspace needs a responsive card grid");
 assert.match(
   styles,
-  /@media \(max-width: 680px\)[\s\S]*?\.admin-files__intro[\s\S]*?flex-direction: column/,
+  /@media\(max-width:760px\)[\s\S]*?\.admin-file-cards\{grid-template-columns:1fr\}/,
   "the Files workspace must collapse safely on narrow screens",
 );
 

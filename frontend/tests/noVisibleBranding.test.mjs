@@ -8,17 +8,10 @@ const read = (relativePath) => readFileSync(new URL(relativePath, root), 'utf8')
 const visibleSources = [
   'index.html',
   'src/components/Footer.jsx',
-  'src/components/brand/BrandLogo.jsx',
   'src/components/auth/LoginCard.jsx',
-  'src/components/collection/CollectionTransferPanel.jsx',
-  'src/navigation.js',
-  'src/pages/BooksPage.jsx',
   'src/pages/ContentHomePage.jsx',
-  'src/pages/HomePage.jsx',
   'src/pages/RegisterPage.jsx',
   'src/pages/TransferPage.jsx',
-  '../src/ui/createHud.js',
-  '../src/routes/routeConfig.js',
   'public/brand/elysium-mark.svg',
 ]
 

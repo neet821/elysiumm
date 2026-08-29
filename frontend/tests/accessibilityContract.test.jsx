@@ -18,7 +18,7 @@ afterEach(() => {
 describe('application accessibility contract', () => {
   it('provides one named main region, a skip link and simple navigation controls', () => {
     render(
-      <MemoryRouter initialEntries={['/archive']}>
+      <MemoryRouter initialEntries={['/content']}>
         <AppShell isDark={false} toggleTheme={() => {}}>
           <h1>Acceptance fixture</h1>
         </AppShell>

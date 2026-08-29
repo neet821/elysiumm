@@ -1,164 +1,115 @@
-# Blue Album release checklist
+# Elysium 核心代码清理发布检查单
 
-Fresh closure gate: 2026-07-16 at `6556621`, `scripts/release-gate.sh`, PASS in 236 seconds on isolated local state.
+基线：2026-08-30，注释标签 `archive/pre-core-cleanup-2026-08-30`。本次只提交代码、文档和标签，不部署生产。
 
 ## Status meanings
 
-- **PASS** — implemented and verified by the cited current command or evidence.
-- **BLOCKED** — the remaining check requires external authorization, credentials,
-  infrastructure or an unavailable browser engine; local substitutes are complete.
-- **FAIL** — locally actionable work is incomplete. A release candidate cannot
-  contain a FAIL.
+- **PASS**：当前命令或证据已完成。
+- **BLOCKED**：按计划保留的真实限制、外部环境或尚未满足的退役条件；不伪装成通过。
 
 ## Automated release evidence
 
 | Area | Status | Current evidence |
 | --- | --- | --- |
-| Fail-closed release configuration | PASS | Gate step 1 validates secrets/placeholders, CORS, persistent roots, current runtimes, reproducible install, health gates, Socket.IO proxy, CI entrypoint and tracked-file safety. |
-| Repository checks | PASS | Gate step 2 runs fatal checks, compilation, 312 backend tests, 198 frontend component tests and 6 source-contract tests. |
-| Migrations | PASS | Fresh SQLite reaches `0010_repair_legacy_gaps`; legacy/downgrade and skipped-history repair tests pass. |
-| Frontend production build and budget | PASS | 1,933 modules; initial JS 267,663 bytes / gzip 87,124; total JS 764,533; largest JS 267,663; CSS 180,632; 70 asynchronous chunks. |
-| Backup and restore | PASS | Temporary 60-table database migrated, seeded, backed up, mutated, restored and verified; integrity `ok`, SHA-256 verified and workspace removed. |
-| Accessibility and responsive layout | PASS | Chrome 150 checks 34 page/width combinations from 360 through 2560 pixels plus keyboard, focus, reduced motion and theme fallback. |
-| Critical browser flows | PASS | Isolated music, video, tabletop and Books/Files/admin flows pass with no unexpected browser error, external request, private-path/secret leak or overflow. |
-| Production deploy or rollback | BLOCKED | No production authority or credentials are in scope. Preflight, staging, checksummed bundle, verify-only rollback and recovery scripts are fixture-tested; no live mutation was attempted. |
+| Repository checks | BLOCKED | `scripts/check-all.sh` 的步骤 1–5 已完成（后端 357 tests、前端 source 51 files、Vitest 34 files/238 tests、编译和 lint fatal checks）；步骤 6 因既有 JavaScript 预算超标停止，详见下行。 |
+| Migrations | PASS | 临时 SQLite 空库升级到 `0023_remove_game_platform`，autogenerate 无新操作。 |
+| Frontend build | PASS | 生产构建完成；initial JS 423,764 B、total JS 1,141,499 B、CSS 170,190 B、async chunks 30。 |
+| JavaScript budget | BLOCKED | 既有阈值 360,000 B / gzip 120,000 B 未改变，当前 423,764 B / 134,918 B；后续作为独立性能任务。 |
+| CSS budget | PASS | 清理旧样式后 170,190 B，低于 230,000 B 阈值。 |
+| Backup/recovery | PASS | 隔离数据库迁移、备份、修改、恢复、完整性和摘要校验完成；临时目录已清理。 |
+| Archive API contract | PASS | `/api/archive` 返回 404，专属 schema/router 已移出，后端契约测试通过。 |
+| Browser acceptance | PASS | Phase 11 用 Chrome 152 via CDP 检查 8 个视口、50 个页面状态，包含文章 API、认证、首页侧栏、音乐房 iframe、404、焦点、溢出和第三方请求。 |
+| Production deploy | BLOCKED | 本次明确不部署；没有修改 Aliyun、Nginx、systemd、FRP、静态目录或数据库。 |
 
 ## Homepage and navigation
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Hero is the only first-screen emphasis; Hello prefix hides on scroll, German line/body follow and reverse scrolling restores it | PASS | Phase 3 component and real-browser scroll acceptance. |
-| No “Explore Archive” or standalone Photos top entry; messages remain on Home and Index is a normal card | PASS | Phase 3/route tests and Phase 11 desktop/mobile navigation checks. |
-| Short cards do not create large gaps; images use controlled ratios; tags remain semantically distinct | PASS | Editorial-grid tests and responsive browser screenshots. |
-| Administrators can configure text; dark/light Hero decorations differ | PASS | Homepage API/admin tests and theme browser checks. |
-| Reduced motion remains usable | PASS | Phase 3 behavior tests and Phase 11 live reduced-motion check. |
-| Desktop/mobile include Archive, Collection, Music, Books, Account and Theme; public Tools/Services are absent | PASS | Phase 2 shell tests, route contracts and Phase 11 keyboard/mobile checks. |
+| 当前首页文章流和 `/api/homepage` 供给链可达 | PASS | `ContentHomePage`、Header、首页设置测试及 Phase 11 `/` 验收。 |
+| 文章、认证、音乐房、观影房、直播、账户、传输和 `/admin/*` 当前入口可达 | PASS | `frontend/src/routes.jsx` 路由合同与 Phase 11/现有页面测试。 |
+| 旧 3D 房间、旧首页、旧 Archive/Collection/Books/Tools 页面不回流 | PASS | 旧入口/模块已移出；`/music` 和 `/tools/sync-room` 仅保留兼容重定向，归档路径返回 NotFound。 |
+| 键盘跳转、移动侧栏、减少动画和宽度溢出 | PASS | Phase 11 八档视口真实 Chrome 验收。 |
 
 ## Collection
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| User isolation, root and nested folders, and cycle rejection | PASS | Collection service/route authorization and hierarchy tests. |
-| Search and recent/most-visited views | PASS | Search-engine, ordering and browser acceptance. |
-| Bulk move, copy and delete | PASS | Transactional bulk-operation tests and private workspace browser flow. |
-| JSON/Netscape HTML import, dry run and bounds | PASS | Import parser/route tests for valid, duplicate and unsafe input. |
-| Pre-import backup and all-or-nothing rollback | PASS | Forced-failure transaction and backup/restore tests. |
-| Public output contains only `is_public` items and omits private fields | PASS | Public serialization and cross-user regression tests. |
+| Collection API、备份/恢复、公开字段和权限边界 | PASS | 后端 collection、bookmark backup、授权和序列化测试；数据表与迁移未删除。 |
+| 旧 Collection UI、文件夹组件和专属测试归档 | PASS | 路由图无当前消费者，路径记录在 [legacy-code-archive.md](reference/legacy-code-archive.md)。 |
+| `/api/homepage` 的书签/媒体供给链保持可用 | PASS | 首页服务和媒体服务仍有内部调用，未纳入退役组。 |
 
 ## Player and catalog
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Standalone `PlayerAdapter` and playable deterministic test Track | PASS | Player adapter/stage tests and Phase 5 browser acceptance. |
-| Core player imports no room/provider service and reads no login Cookie | PASS | Source-contract checks and browser instrumentation. |
-| play/pause/seek/timeupdate/ended/error and complete cleanup | PASS | Adapter/controller lifecycle tests. |
-| Original Mineradio author and GPL-3.0 information retained | PASS | Visible player attribution plus `LICENSE_NOTICE.md`, `mineradio/LICENSE` and `NOTICE.md`. |
-| NetEase/QQ share canonical response; Audius/local fit the same catalog | PASS | Provider normalization and canonical persistence tests. |
-| One provider failure degrades, duplicates merge/stand distinctly and provider/availability are shown | PASS | Federated-search tests and Phase 6 responsive browser flow. |
-| No membership/DRM bypass; expired audio refreshes | PASS | Resolver allowlist, availability, cache/expiry and unsafe-URL tests. |
-| Search rate limits and provider timeouts are bounded | PASS | Catalog route and adapter timeout tests. |
+| 当前 Mineradio embed、房间同步和视频播放器可达 | PASS | `MineradioRoomEmbed`、`playerTrack`、`roomPlayerIntegration`、视频房间测试和 Phase 11 iframe 验收。 |
+| 旧独立播放器和专属样式/测试移出 | PASS | 当前入口图无消费者；恢复命令见归档索引。 |
+| Mineradio 许可和上游边界保留 | PASS | `mineradio/LICENSE`、`NOTICE.md`、`BLUE_ALBUM_INTEGRATION.md` 继续跟踪。 |
+| 曲库 provider、签名音频、歌词和失败降级 | PASS | 当前音乐服务/路由/适配器测试。 |
 
 ## Music rooms
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Socket connection requires valid JWT and actor comes from session | PASS | Real-time identity/security regressions. |
-| Nonmembers cannot subscribe; hosts and members cannot impersonate roles | PASS | Membership/permission tests and two-client flow. |
-| Snapshot restores state and stale versions are rejected with current safe state | PASS | Snapshot/service/protocol tests. |
-| Reconnect/page restore resynchronize; three drift bands meet the specification | PASS | Synchronization-engine tests and Phase 7 two-client Chrome flow. |
-| Queue, voting, chat, private history and multi-tab presence enforce role/privacy rules | PASS | Domain/realtime tests and critical browser flow. |
-| Closing/expiring rooms cleans only owned allowed resources | PASS | Lifecycle/upload-cleanup tests. |
+| JWT 身份、成员/主持权限和服务端快照 | PASS | realtime、music-room service/protocol 测试。 |
+| 队列、投票、聊天、历史、重连和漂移校正 | PASS | Phase 7 当前 `/rooms/music/:roomId` 脚本及多客户端测试。 |
+| Mineradio 原版页面可在隔离浏览器中嵌入 | PASS | Phase 11 Chrome 视口验收；本地依赖由锁文件安装到 ignored `node_modules`，未改生产。 |
 
 ## Video rooms
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Independent playlist, URL/managed upload, metadata and subtitles | PASS | Video domain/API tests and Phase 8 flow. |
-| Server-authoritative play/pause/seek/rate/media version with reconnect and drift correction | PASS | Shared Room Core tests and two-client browser acceptance. |
-| Managed files enforce membership, paths, size/type and byte-range streaming | PASS | Upload/stream/security tests; final server drift after range fix is within 0.022 seconds. |
-| Buffering is connection-scoped and ephemeral; ended advances exactly once | PASS | Real-time multi-tab/ended idempotency tests. |
-| Local volume/fullscreen do not become shared authority | PASS | Player/controller tests and browser flow. |
+| 当前观影房入口、播放列表、上传、字幕和 Range 流 | PASS | Phase 8 当前 `/rooms/watch/:id` 脚本及后端视频测试。 |
+| 权威播放状态、重连和权限边界 | PASS | Room Core、video route 和多客户端测试。 |
+| 旧 `/tools/sync-room` 页面不再作为实现入口 | PASS | 路由只做兼容重定向，旧页面代码已归档。 |
 
 ## Games
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| One deterministic game contract supports tic-tac-toe and 15×15 Gomoku | PASS | Pure definition/registry tests. |
-| Public/private/password/invite rooms; players, spectators, ready/start and reconnect | PASS | Lobby/service/API tests and three-client browser flow. |
-| Server validates turn, timeout, surrender, draw and version in one transaction | PASS | Unified action and rollback tests. |
-| Chat/presence are identity-bound and role-filtered | PASS | Real-time security and multi-tab tests. |
-| Hidden state stays viewer-specific | PASS | Dedicated hidden-information test definition across REST/realtime/replay. |
-| Replay hash chain detects tampering, gaps, order and final-result mismatch | PASS | Replay service and three-role browser tests. |
+| 当前网站不提供旧游戏前端入口 | PASS | 旧页面、导航和专属测试已移出；当前路由无 games 页面。 |
+| 游戏数据/迁移历史不被清理破坏 | PASS | Alembic `0023_remove_game_platform` 已验证，历史迁移保持不可变。 |
+| 未来恢复旧实现 | PASS | 使用归档标签按路径恢复，不从生产数据库删除数据。 |
 
 ## Books, Files and administration
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Public Books exposes only published metadata and has no Kavita reader-link integration | PASS | Books API/security/component/browser tests. |
-| One admin console covers content, Books, users, rooms, Files, services and security; server backups are external | PASS | Admin shell/route tests and all-section browser flow. |
-| Normal users cannot enter administrator routes or legacy redirects | PASS | Protected-route and API authorization tests. |
-| Manual uploads reject traversal and enforce size/type, temporary write and atomic replace | PASS | Administrator file storage tests. |
-| Public Sync credentials are one-time/digested/rotatable/revocable; uploads enforce digest, quota and atomicity | PASS | Device and whole/chunk upload regressions plus real browser lifecycle. |
-| FRP file synchronization remains authenticated and path-safe without website service control | PASS | File-sync API and redaction tests. |
-| Deployment rollback and bookmark-import safety backups retain verified recovery paths | PASS | Release script fixtures, bookmark routes and isolated recovery rehearsal. |
+| `/api/archive` 退役并明确返回 404 | PASS | 连续 48 小时无请求、无入口/内部/基础设施消费者；router/schema 删除和 404 合同测试完成。 |
+| Books API、服务、ORM 和表退役 | BLOCKED | 同一窗口为 0 请求，但媒体首页、`media_service`、后台服务、测试和 ORM 仍消费 Book/BookList/BookListItem；保留 `/api/books`、后台接口、三张表及全部迁移。 |
+| 当前 Files、用户、首页设置、音乐 provider、服务状态后台可达 | PASS | 当前 admin shell/route 测试和 Phase 10 Files/admin 脚本。 |
+| FRP 文件同步、Public Sync、传输和备份边界保留 | PASS | 认证、路径安全、摘要凭据、上传/恢复测试；未修改生产同步代理。 |
 
 ## Release readiness
 
-| Target acceptance | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
-| Locked install, checks, tests, migration, build and critical E2E run in one fail-fast command | PASS | `scripts/release-gate.sh` and static/dynamic gate tests. |
-| CI reuses the same release gate | PASS | `.github/workflows/quality.yml` and release-config regression. |
-| Production configuration fails closed | PASS | Placeholder/weak secret, CORS, worker, persistence, health and proxy tests. |
-| Deployment makes a verified pre-migration bundle and stages frontend safely | PASS | Release-script fixture tests; live apply remains blocked. |
-| Rollback verifies root/checksum/revision/confirmation and restores database/code/config/services/frontend together | PASS | Rollback fixture tests; live apply remains blocked. |
-| Architecture, security, data, migration, testing, recovery and deployment docs are current and linked | PASS | Documentation/link/command regression tests. |
-| Performance budget, eight-width responsive and accessibility checks | PASS | Build-budget script and Chrome 150 Phase 11 browser acceptance. |
-| Final report contains scope, architecture, files, migrations, security, tests, performance, compatibility, licenses, deploy/rollback, blockers and limitations | PASS | `FINAL_REPORT.md` plus documentation regression. |
+| 归档标签可列出并恢复每个移出路径 | PASS | `git tag --list 'archive/pre-core-cleanup-2026-08-30'` 与索引中的 `git restore --source ... -- <paths>`。 |
+| 未跟踪运维文件未被写入或暂存 | PASS | 清理前后状态和摘要快照一致；只新增 `docs/reference/legacy-code-archive.md`。 |
+| CI/本地门禁复用同一 release gate | PASS | `.github/workflows/quality.yml`、`scripts/release-gate.sh` 和 `docs/testing.md`。 |
+| JavaScript 预算与性能后续项 | BLOCKED | 真实预算失败已保留；不得通过提高阈值关闭门禁。 |
+| 生产部署、Nginx/systemd/FRP/数据库验收 | BLOCKED | 本次范围不含生产写操作，需后续授权窗口、迁移前备份和真实设备验收。 |
 
-There are no current FAIL rows. BLOCKED production or external-service rows do not
-hide locally actionable work and do not weaken the isolated release bundle.
-
-## Required command
-
-From a clean reviewed checkout with Python 3.12-compatible dependencies, Node
-20-compatible dependencies and Chrome available:
+## Required commands
 
 ```bash
+scripts/check-all.sh
 scripts/release-gate.sh
+node scripts/phase11-accessibility-compat-smoke.mjs
+git diff --check
 ```
 
-The gate stops on the first failure and runs release configuration, full repository
-checks/migrations/build/budget, recovery, Phase 11 accessibility/responsive checks,
-music rooms, video rooms, tabletop, and Books/Files/administration. It does not call
-production deployment, rollback, Docker startup, Nginx, systemd, FRP, DNS or a
-third-party account.
+`scripts/release-gate.sh` 在 JavaScript 预算步骤保留真实非零结果并停止；Phase 7、8、10、11 和直播脚本均已改为当前路由，需在预算任务单独处理后作为完整门禁运行。
 
-## Evidence required before a real deployment
+## 48-hour retirement record
 
-- [ ] Reviewed release commit and clean tree are recorded.
-- [ ] `scripts/release-gate.sh` passes on that exact commit.
-- [ ] Production environment file is host-only, mode `600`, placeholder-free and
-  passes read-only preflight.
-- [ ] Database/application health, disk, persistent roots and current revision are recorded.
-- [ ] An off-host backup exists and the intended release-bundle destination is writable.
-- [ ] Maintenance window, incident lead and rollback decision owner are named.
-- [ ] Expected public, protected, administrator and real-time smoke results are written down.
-- [ ] Exact rollback bundle and confirmation text are prepared but not executed.
+窗口：2026-08-28 00:51–2026-08-30 00:51（Asia/Shanghai）；来源：生产
+Nginx `access.log`、`.1`、`.2.gz`。候选 `/api/archive`、`/api/books`、
+`/api/admin/books*`、`/api/admin/book-lists*` 均为 0 请求，且活动配置没有
+Nginx/systemd/同步客户端引用。零请求只足以退役 Archive；Books 的内部依赖阻止了退役。
 
 ## Abort conditions
 
-Abort on any gate failure, dirty/unreviewed code, placeholder or overexposed secret,
-wildcard production CORS, migration drift, missing backup, checksum mismatch, low
-space, unexplained unhealthy service, failed Nginx validation, storage mismatch,
-database integrity failure or changed authorization. Preserve logs and bundles
-without secrets. Follow [deployment](deployment.md) and
-[backup/restore drill](backup-restore-drill.md); do not improvise a schema downgrade.
+若发现未记录的路由/服务消费者、任意状态码请求、迁移漂移、备份摘要不一致、授权回归或生产文件变化，应停止清理并用归档标签恢复对应路径。不得删除 `books`、`book_lists`、`book_list_items` 表，不得修改 FRP 认证、Mineradio、MediaMTX、首页供给链或生产数据。
 
-## Honest compatibility and external boundaries
-
-Chrome 150 is the real browser used in final local acceptance. Firefox and WebKit
-have source/production-build evidence but were not executed here. Music providers
-use safe unavailable states, adapters and mocks when credentials are absent. Live
-production, provider accounts and Firefox/WebKit execution are BLOCKED by external
-state, not reported as PASS. Kavita is an external server boundary and is not part
-of website acceptance.
+完整架构、迁移和部署说明见 [architecture](architecture.md)、[migrations](migrations.md)、[testing](testing.md) 和 [deployment](deployment.md)。

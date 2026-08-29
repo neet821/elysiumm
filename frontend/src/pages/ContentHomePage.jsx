@@ -241,6 +241,7 @@ export function ArticleFlowHome() {
   const [error, setError] = useState('')
   const { isOpen: homeSidebarOpen, close: closeHomeSidebar } = useHomeSidebar()
   const homeSidebarRef = useRef(null)
+  const sidebarWasOpenRef = useRef(false)
   useEffect(() => {
     let active = true
     let hasLoaded = false
@@ -303,11 +304,24 @@ export function ArticleFlowHome() {
   }, [articles])
 
   useEffect(() => {
-    if (!homeSidebarOpen || !homeSidebarRef.current) return
+    if (!homeSidebarOpen || !homeSidebarRef.current) {
+      if (sidebarWasOpenRef.current) {
+        const toggle = [...document.querySelectorAll('[aria-label="收起记录和随笔"], [aria-label="展开记录和随笔"]')].find((element) => {
+          const style = getComputedStyle(element)
+          const rect = element.getBoundingClientRect()
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+        })
+        toggle?.focus()
+        sidebarWasOpenRef.current = false
+      }
+      return
+    }
     homeSidebarRef.current.scrollTop = 0
     homeSidebarRef.current.querySelectorAll('.sidebar-scroll-viewport').forEach((viewport) => {
       viewport.scrollTop = 0
     })
+    homeSidebarRef.current.querySelector('.home-sidebar__close')?.focus()
+    sidebarWasOpenRef.current = true
   }, [homeSidebarOpen])
 
   const pageParam = searchParams.get('page') || '1'
@@ -347,7 +361,8 @@ export function ArticleFlowHome() {
       <HomeNavigation label={homeLabel} activeView="home" className="home-nav--local" />
       {homeSidebarOpen && <button className="home-sidebar-backdrop" type="button" aria-label="关闭记录和随笔" onClick={closeHomeSidebar} />}
       <div className="home-layout">
-        <main className="home-main">
+        <section className="home-main" aria-label="文章流">
+          <h1 className="sr-only">首页</h1>
           <section className="articles-section">
             <div className="writing-list">
               {visibleArticles.length > 0
@@ -369,7 +384,7 @@ export function ArticleFlowHome() {
             )}
             {visibleArticles.length > 0 && <div className="articles-section__end-cap" aria-hidden="true" />}
           </section>
-        </main>
+        </section>
         <aside
           ref={homeSidebarRef}
           className={`home-sidebar${homeSidebarOpen ? ' home-sidebar--drawer-open' : ''}`}

@@ -17,7 +17,13 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 
 ## Domain boundaries
 
-Public content covers the homepage, posts, photos, Archive, public Collection and Books. Accounts own private Collection data and search engines. Administrator routes manage content, users, rooms, files, sync devices and bounded security evidence; server services and release backups remain outside the website administration boundary.
+Public content covers the homepage, posts and photos supplied by the current
+homepage/content flow. Legacy Archive, Collection and Books pages are no longer
+frontend entrypoints; their protected backend/data boundaries are recorded in the
+cleanup archive index. Accounts own the retained private Collection data and search
+engines. Administrator routes manage current content, users, rooms, files, sync
+devices and bounded security evidence; server services and release backups remain
+outside the website administration boundary.
 
 Music uses a canonical-track catalog above provider adapters. Provider mappings and expiring audio sources stay server-side. A provider-neutral resolver allows local sources first, then approved provider URLs, and returns an honest unavailable state when no legal source works. Books stores curated public metadata. Kavita is an independently operated server service and is not configured, controlled or linked by the website.
 
@@ -33,7 +39,11 @@ Real-time clients authenticate during the Socket.IO handshake. A successful muta
 
 ## Persistence and migrations
 
-The Alembic chain is `0001` through `0009`. Every supported backend start path runs `backend/run_migrations.py` before accepting traffic. Release deployment creates a database/config/frontend bundle before migration. See [migrations](./migrations.md) and [data formats](./data-formats.md).
+The Alembic chain is the linear `0001`–`0023` history, including the retained Books
+tables and later repair, stream, transfer and game-removal revisions. Every
+supported backend start path runs `backend/run_migrations.py` before accepting
+traffic. Release deployment creates a database/config/frontend bundle before
+migration. See [migrations](./migrations.md) and [data formats](./data-formats.md).
 
 ## Deployment boundary
 

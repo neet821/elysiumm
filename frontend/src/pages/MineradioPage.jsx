@@ -19,14 +19,6 @@ import apiClient from '../utils/request'
 const currentQueueTrack = (queue) => queue.find((item) => item.status === 'playing') || null
 const REMOTE_MEDIA_EVENT_GRACE_MS = 300
 
-const ROOM_STATUS_LABELS = {
-  connecting: '正在连接…',
-  error: '同步暂时失败',
-  reconnecting: '连接中断，正在恢复…',
-  synced: '已与服务器同步',
-  syncing: '正在同步…',
-}
-
 export default function MineradioPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()

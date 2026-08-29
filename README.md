@@ -1,10 +1,10 @@
 # Elysium
 
-Elysium 是个人网站的唯一单仓。首页默认进入 Three.js 真 3D 房间，功能页继续使用原有地址、登录状态、接口、数据库和实时协议。
+Elysium 是个人网站的唯一单仓。React 前端提供文章首页、账户、房间、直播、传输和管理功能；文章 API、FastAPI 后端与 Mineradio 按独立运行边界协作。
 
 ## 项目组成
 
-- `frontend/`：React 功能站点、3D 房间和轻量 2.5D 模式
+- `frontend/`：React 功能站点与房间/直播界面
 - `backend/`：FastAPI 接口、登录、内容、文件、管理和实时功能
 - `mineradio/`：音乐服务
 - `deployment/`：Docker、systemd、MediaMTX 和 Nginx 发布模板
@@ -16,29 +16,22 @@ Elysium 是个人网站的唯一单仓。首页默认进入 Three.js 真 3D 房�
 ```bash
 npm install
 npm --prefix frontend install
-npm run dev
+npm --prefix frontend run dev
 ```
 
-默认访问 `http://localhost:5173`。前端代理会把 `/api`、上传、音乐、直播和 WebSocket 请求转发到本机服务。
+默认访问 `http://localhost:5173`。前端代理会把 `/api`、上传、音乐、直播和 WebSocket 请求转发到本机服务。文章 API 可用 `npm start` 在 `3100` 端口启动。
 
 ## 验证
 
 ```bash
-npm run check:frontend
-npm run test:e2e:frontend
-npm run test:room
-npm run test:backend
+npm --prefix frontend run check
+npm test -- --run
+scripts/check-all.sh
 ```
 
 后端测试使用临时测试数据，不连接生产数据库。完整发布前还要执行 `scripts/release-gate.sh`，并检查 `git diff --check`。
 
-## 首页模式
-
-首页固定提供 `3d` 和 `lite` 两种手动模式，默认值是 `3d`，选择保存在浏览器本地。3D 初始化失败时会明确提示切换，不会自动改变用户选择。
-
-正式功能入口保持不变：
-
-`/archive` · `/live` · `/music` · `/tools` · `/collection` · `/books` · `/account`
+正式功能入口包括 `/`、`/article/*`、`/content/*`、`/login`、`/register`、`/rooms/music`、`/rooms/watch`、`/live`、`/account`、`/transfer/:token` 和 `/admin/*`。`/music` 与 `/tools/sync-room` 仅作为旧链接重定向保留。
 
 ## 发布资料
 
@@ -55,4 +48,4 @@ npm run test:backend
 - [环境说明](./ENVIRONMENT_NOTES.md)
 - [最终报告](./FINAL_REPORT.md)
 
-服务器切换前必须完成最终备份、校验、DNS/HTTPS、登录权限、媒体播放、实时能力和 Obsidian 同步验收。旧域名和旧仓库不会在此之前停用。
+生产发布前必须完成最终备份、校验、DNS/HTTPS、登录权限、媒体播放、实时能力和 Obsidian 同步验收；本仓库的代码清理不会自动修改生产服务或数据库。

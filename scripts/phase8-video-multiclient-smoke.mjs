@@ -398,7 +398,13 @@ async function inspectPage(page, appBase) {
       notice: document.querySelector('main > div > p[role="status"]')?.textContent || null,
       overflow: document.documentElement.scrollWidth - innerWidth,
       pathname: location.pathname,
-      syncText: Array.from(document.querySelectorAll('header [role="status"]')).map((node) => node.textContent.trim()).join(' '),
+      // The current room toolbar uses a status span rather than a header element;
+      // include all visible status announcements so this contract follows the
+      // live accessibility markup instead of the retired layout.
+      syncText: Array.from(document.querySelectorAll('[role="status"]'))
+        .filter((node) => node.getClientRects().length > 0)
+        .map((node) => node.textContent.trim())
+        .join(' '),
     }
   })()`)
   const forbidden = page.requests.filter((url) => (
@@ -512,7 +518,7 @@ async function main() {
     await Promise.all([host.connect(), member.connect()])
     await Promise.all([authenticatePage(host, appBase, hostAuth), authenticatePage(member, appBase, memberAuth)])
     await Promise.all([host.setViewport(1440, 1000), member.setViewport(390, 844, true)])
-    const roomUrl = `${appBase}/tools/sync-room/${room.id}`
+    const roomUrl = `${appBase}/rooms/watch/${room.id}`
     await Promise.all([host.navigate(roomUrl), member.navigate(roomUrl)])
     const readyExpression = `document.querySelector('h1')?.textContent === 'Phase 8 Video Browser Room'
       && document.body.textContent.includes('已与服务器同步')
@@ -544,6 +550,7 @@ async function main() {
         }, {
           clearTimer() {},
           clientNowMs: 10_000,
+          mediaKind: 'video',
           receivedAtMs: 10_000,
           setTimer() { return 1 },
         })
@@ -552,13 +559,13 @@ async function main() {
       return {
         applied: {
           ignore: await apply(10, 10.1),
-          rate: await apply(10, 10.4),
-          seek: await apply(10, 10.8),
+          rate: await apply(10, 10.75),
+          seek: await apply(10, 12.1),
         },
-        ignore: module.classifyDrift(10, 10.149).kind,
-        rateAhead: module.classifyDrift(10, 9.7).kind,
-        rateBehind: module.classifyDrift(10, 10.3).kind,
-        seek: module.classifyDrift(10, 10.601).kind,
+        ignore: module.classifyDrift(10, 10.749).kind,
+        rateAhead: module.classifyDrift(10, 11).kind,
+        rateBehind: module.classifyDrift(10, 9).kind,
+        seek: module.classifyDrift(10, 15).kind,
       }
     })()`)
     assert.deepEqual(driftProof, {
@@ -600,10 +607,11 @@ async function main() {
       const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'play snapshot')
       return current.state === 'playing' ? current : null
     }, 'host play')
-    await Promise.all([
-      host.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused"),
-      member.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused"),
-    ])
+    await host.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused")
+    // A member must explicitly unlock local media once; autoplay policy is
+    // intentionally not bypassed by the shared room state.
+    await click(member, 'button[aria-label^="播放 "]')
+    await member.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused")
     await selectValue(host, 'select[aria-label="共享播放速度"]', 1.25)
     playing = await waitForApi(async () => {
       const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'rate snapshot')
@@ -681,9 +689,15 @@ async function main() {
     assert.equal(staleConflict.snapshot.version, outageSnapshot.version)
     await member.navigate(roomUrl)
     await member.waitFor(readyExpression, 25000)
+    // Reloading a playing room resets the browser's local autoplay grant;
+    // unlock the member tab explicitly before checking shared playback.
+    await click(member, 'button[aria-label^="播放 "]')
 
     const heartbeatProof = waitForSocketEvent(hostSocket, 'time_heartbeat', 13_000)
-    let finalSnapshot = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final snapshot')
+    let finalSnapshot = await waitForApi(async () => {
+      const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final snapshot')
+      return current.state === 'playing' ? current : null
+    }, 'member playback unlock')
     if (finalSnapshot.state !== 'playing') {
       finalSnapshot = await socketControl(hostSocket, {
         action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: 2,

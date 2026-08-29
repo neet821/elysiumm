@@ -13,7 +13,7 @@ import { AppShell } from '../src/components/layout/AppShell.jsx'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-function renderShell({ initialPath = '/archive' } = {}) {
+function renderShell({ initialPath = '/content' } = {}) {
   return render(
     <MemoryRouter initialEntries={[initialPath]} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <AppShell><h1>Page content</h1></AppShell>
@@ -55,12 +55,12 @@ describe('Elysium plain service shell', () => {
   })
 
   it('routes every authenticated avatar to the user account', () => {
-    const { unmount } = renderShell({ initialPath: '/archive' })
+    const { unmount } = renderShell({ initialPath: '/content' })
     expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
 
     unmount()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'Admin', avatar_url: null } }
-    renderShell({ initialPath: '/archive' })
+    renderShell({ initialPath: '/content' })
     expect(screen.getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
   })
 
@@ -71,7 +71,7 @@ describe('Elysium plain service shell', () => {
   })
 
   it('keeps icon-only home navigation and restores the admin control entry', () => {
-    const { unmount } = renderShell({ initialPath: '/archive?type=photo' })
+    const { unmount } = renderShell({ initialPath: '/content?type=photo' })
     expect(screen.getByRole('banner')).toBeInTheDocument()
 
     unmount()

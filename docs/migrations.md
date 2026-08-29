@@ -16,6 +16,19 @@ The current linear revisions are:
 - `0008_phase9_game_platform`: unified game state, members, events, invites, results and replay.
 - `0009_phase10_books_files_admin`: Books, lists, sync credential/upload changes and administrator persistence.
 - `0010_repair_legacy_gaps`: Repairs older databases whose recorded revision skipped required Phase 1-4 columns and indexes.
+- `0011_local_video_fingerprint` through `0017_media_homepage_v2`: video identity,
+  room timing/live streaming, music-room switching and the current media homepage
+  supply chain.
+- `0018_public_archive_types`: public content type compatibility (the retired
+  HTTP Archive router is a code-only removal; this history remains immutable).
+- `0019_temporary_video_uploads`, `0020_transfer_sessions`,
+  `0021_live_viewer_ip_identity`, `0022_sync_room_lock` and
+  `0023_remove_game_platform`: upload, transfer, live identity, room locking and
+  game-removal compatibility revisions.
+
+The Books ORM and the `books`, `book_lists` and `book_list_items` tables remain
+active because homepage/media/admin services still consume them. No destructive
+migration or Alembic retired-table ignore entry is part of this cleanup.
 
 ## Normal upgrade
 

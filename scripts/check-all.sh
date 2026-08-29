@@ -47,4 +47,4 @@ npm --prefix "${ROOT_DIR}/frontend" run check:budget
 echo "[7/7] 补丁格式检查"
 git -C "${ROOT_DIR}" diff --check
 
-echo "Blue Album 全部本地检查通过。"
+echo "Elysium 本地检查（不含资源预算阻塞）完成。"

@@ -54,7 +54,7 @@ describe('Blue Album UI primitives', () => {
   })
 
   it('keeps an interactive card semantically neutral for nested links and buttons', () => {
-    render(<Card interactive data-testid="card"><a href="/archive">Open archive</a></Card>)
+    render(<Card interactive data-testid="card"><a href="/content">Open content</a></Card>)
 
     const card = screen.getByTestId('card')
     expect(card).not.toHaveAttribute('role', 'button')
