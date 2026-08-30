@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -215,6 +215,42 @@ describe('administrator Files workspace', () => {
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/current-token', firstFile, expect.any(Object)))
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/token-two', secondFile, expect.any(Object)))
     expect(apiClient.put.mock.calls.filter(([endpoint]) => endpoint.startsWith('/api/transfers/'))).toHaveLength(2)
+  })
+
+  it('copies the administrator-only text', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    render(<AdminFilesPage />)
+
+    await user.click(await screen.findByRole('button', { name: '复制文本' }))
+    expect(writeText).toHaveBeenCalledWith('管理员保留文本')
+    expect(await screen.findByRole('button', { name: '已复制文本' })).toBeInTheDocument()
+  })
+
+  it('refreshes the administrator-only text from the server', async () => {
+    const originalGet = apiClient.get.getMockImplementation()
+    let refresh
+    let nextNote = '管理员保留文本'
+    const setIntervalSpy = vi.spyOn(window, 'setInterval').mockImplementation((callback, delay) => {
+      if (delay === 5000) refresh = callback
+      return 1
+    })
+    apiClient.get.mockImplementation((endpoint, options) => {
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: nextNote } })
+      return originalGet(endpoint, options)
+    })
+    render(<AdminFilesPage />)
+
+    expect(await screen.findByRole('textbox', { name: '管理员纯文本' })).toHaveValue('管理员保留文本')
+    nextNote = '来自另一台设备的文本'
+    expect(refresh).toEqual(expect.any(Function))
+    const noteCallsBeforeRefresh = apiClient.get.mock.calls.filter(([endpoint]) => endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE).length
+    await act(async () => { await refresh() })
+    await waitFor(() => expect(apiClient.get.mock.calls.filter(([endpoint]) => endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE)).toHaveLength(noteCallsBeforeRefresh + 1))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: '管理员纯文本' })).toHaveValue('来自另一台设备的文本'))
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 5000)
+    setIntervalSpy.mockRestore()
   })
 
   it('deletes individual transfer files', async () => {

@@ -49,7 +49,10 @@ export default function AdminFilesPage() {
   const [adminNote, setAdminNote] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
+  const [noteCopied, setNoteCopied] = useState(false)
   const noteSaveTimer = useRef(null)
+  const noteContentRef = useRef('')
+  const noteDirtyRef = useRef(false)
   const fixedTransferHost = isTransferHost()
 
   const loadSync = useCallback(async (nextPath = '') => {
@@ -95,9 +98,12 @@ export default function AdminFilesPage() {
   }, [])
 
   const loadAdminNote = useCallback(async () => {
+    if (noteDirtyRef.current) return
     try {
       const response = await apiClient.get(API_ENDPOINTS.ADMIN_TRANSFER_NOTE)
-      setAdminNote(typeof response.data?.content === 'string' ? response.data.content : '')
+      const content = typeof response.data?.content === 'string' ? response.data.content : ''
+      noteContentRef.current = content
+      setAdminNote(content)
       setNoteSaved(false)
     } catch (reason) {
       setError(detail(reason, '管理员文本暂时无法载入。'))
@@ -108,6 +114,7 @@ export default function AdminFilesPage() {
     setNoteSaving(true)
     try {
       await apiClient.put(API_ENDPOINTS.ADMIN_TRANSFER_NOTE, { content })
+      if (noteContentRef.current === content) noteDirtyRef.current = false
       setNoteSaved(true)
     } catch (reason) {
       setError(detail(reason, '管理员文本保存失败。'))
@@ -123,16 +130,42 @@ export default function AdminFilesPage() {
     loadAdminNote()
   }, [loadAdminNote, loadCurrentTransfer, loadSync, loadTransferFiles])
 
+  useEffect(() => {
+    const refreshTimer = window.setInterval(loadAdminNote, 5000)
+    return () => window.clearInterval(refreshTimer)
+  }, [loadAdminNote])
+
   useEffect(() => () => {
     if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current)
   }, [])
 
   function editAdminNote(event) {
     const content = event.target.value
+    noteContentRef.current = content
+    noteDirtyRef.current = true
     setAdminNote(content)
     setNoteSaved(false)
     if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current)
     noteSaveTimer.current = window.setTimeout(() => saveAdminNote(content), 500)
+  }
+
+  async function copyAdminNote() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable')
+      await navigator.clipboard.writeText(adminNote)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = adminNote
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      textarea.remove()
+    }
+    setNoteCopied(true)
+    window.setTimeout(() => setNoteCopied(false), 1600)
   }
 
   async function uploadTransfer(event) {
@@ -279,7 +312,7 @@ export default function AdminFilesPage() {
         <h3>纯文本</h3>
         <label className="admin-transfer-note__label" htmlFor="admin-transfer-note">管理员纯文本</label>
         <textarea id="admin-transfer-note" aria-label="管理员纯文本" value={adminNote} onChange={editAdminNote} rows="8" placeholder="只在管理员页面保存的文本" />
-        <div className="admin-transfer-note__status">{noteSaving ? '保存中…' : noteSaved ? '已保存' : '自动保存'}</div>
+        <div className="admin-transfer-note__actions"><button type="button" onClick={copyAdminNote} aria-label={noteCopied ? '已复制文本' : '复制文本'}>{noteCopied ? <Check size={15} /> : <Copy size={15} />}<span>{noteCopied ? '已复制' : '复制文本'}</span></button><div className="admin-transfer-note__status">{noteSaving ? '保存中…' : noteSaved ? '已保存' : '自动保存'}</div></div>
       </article>
     </div>
   </section>

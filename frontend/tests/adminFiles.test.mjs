@@ -28,6 +28,8 @@ assert.match(source, /type=["']file["']/, "admin transfer workspace must expose 
 assert.match(source, /multiple/, "admin transfer workspace must allow selecting multiple files");
 assert.match(source, /管理员纯文本/, "admin workspace must expose the administrator-only text area");
 assert.match(source, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
+assert.match(source, /复制文本/, "admin workspace must expose a text copy action");
+assert.match(source, /setInterval\(loadAdminNote, 5000\)/, "admin workspace must refresh the persistent text");
 assert.match(source, /transfer\?\.ready/, "the current share link must be rendered");
 assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fixed public host");
 assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
