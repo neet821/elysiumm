@@ -19,11 +19,12 @@ const syncItems = [
   { name: 'docs', path: 'docs/', size: 0 },
 ]
 
-function mockLoads({ status = 'online', items = syncItems, transfers = [] } = {}) {
+function mockLoads({ status = 'online', items = syncItems, transfers = [], transferFiles = [] } = {}) {
   apiClient.get.mockImplementation((endpoint) => {
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status } })
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items } })
     if (endpoint === API_ENDPOINTS.ADMIN_TRANSFERS) return Promise.resolve({ data: transfers })
+    if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: transferFiles })
     return Promise.reject(new Error(`unexpected GET ${endpoint}`))
   })
 }
@@ -34,26 +35,54 @@ describe('administrator Files workspace', () => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
     apiClient.put.mockReset()
-    mockLoads({ transfers: [{ id: 3, total_bytes: 1024, max_bytes: 2048, expires_at: '2026-08-28T08:00:00Z', files: [{ name: 'transfer.pdf' }, { name: 'video.mp4' }] }] })
+    mockLoads({ transfers: [{ id: 3, total_bytes: 1024, max_bytes: 2048, expires_at: '2026-08-28T08:00:00Z' }], transferFiles: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/11/download' }, { id: 12, name: 'video.mp4', size: 2048, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/12/download' }] })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
   it('loads the retained file-sync and transfer workspaces', async () => {
     render(<AdminFilesPage />)
 
-    expect(await screen.findByRole('heading', { name: '文件' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '文件同步' })).toBeInTheDocument()
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS)
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS)
     expect(screen.getByText('notes.txt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'docs' })).not.toBeInTheDocument()
-    expect(screen.getByText('transfer.pdf · video.mp4')).toBeInTheDocument()
+    expect(screen.getByText('transfer.pdf')).toBeInTheDocument()
+    expect(screen.getByText('video.mp4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下载 transfer.pdf' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下载 video.mp4' })).toBeInTheDocument()
     expect(screen.getByText('文件同步')).toBeInTheDocument()
     expect(screen.getByText('文件中转')).toBeInTheDocument()
     expect(screen.queryByText('READ ONLY / FRP')).not.toBeInTheDocument()
     expect(screen.queryByText('ANONYMOUS / 5 MIN IDLE')).not.toBeInTheDocument()
     expect(screen.queryByText(/实时浏览并下载/)).not.toBeInTheDocument()
     expect(screen.queryByText(/在此页直接上传/)).not.toBeInTheDocument()
+    expect(screen.queryByText('管理控制台 / 文件')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '文件', level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('downloads each transfer file from its own row', async () => {
+    const user = userEvent.setup()
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:transfer')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    apiClient.get.mockImplementation((endpoint, options) => {
+      if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status: 'online' } })
+      if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items: syncItems } })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFERS) return Promise.resolve({ data: [] })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, download_url: '/api/admin/transfers/files/11/download' }] })
+      if (endpoint === '/api/admin/transfers/files/11/download') {
+        expect(options).toEqual({ responseType: 'blob' })
+        return Promise.resolve({ data: new Blob(['file']) })
+      }
+      return Promise.reject(new Error(`unexpected GET ${endpoint}`))
+    })
+    render(<AdminFilesPage />)
+
+    await user.click(await screen.findByRole('button', { name: '下载 transfer.pdf' }))
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(apiClient.get).toHaveBeenCalledWith('/api/admin/transfers/files/11/download', { responseType: 'blob' })
   })
 
   it('browses and downloads files from the read-only sync workspace', async () => {

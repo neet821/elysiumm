@@ -15,6 +15,8 @@ for (const label of ["文件同步", "文件中转"]) {
 for (const removed of ["READ ONLY / FRP", "ANONYMOUS / 5 MIN IDLE", "实时浏览并下载", "在此页直接上传"]) {
   assert.doesNotMatch(source, new RegExp(removed), `Files workspace must remove ${removed}`);
 }
+assert.doesNotMatch(source, /管理控制台 \/ 文件/, "Files workspace must remove the duplicate breadcrumb");
+assert.doesNotMatch(source, /<h2>文件<\/h2>/, "Files workspace must remove the duplicate page heading");
 for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFERS", "ADMIN_TRANSFER_CURRENT_LINK", "ADMIN_TRANSFER", "ADMIN_TRANSFER_FILES"]) {
   assert.match(config, new RegExp(`${endpoint}:`), `config must expose ${endpoint}`);
 }
@@ -31,7 +33,7 @@ assert.doesNotMatch(routes, /TransferInboxPage/, "the fixed transfer host must n
 assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
 assert.match(source, /filter\(\(item\) => !item\.path\.endsWith\('\/'\)\)/, "sync workspace must list files only");
-assert.match(source, /item\.files\?\.map/, "transfer rows must render concrete file names");
+assert.match(source, /transferFiles\.map/, "transfer files must render one row per file");
 assert.doesNotMatch(source, /device_token_hash|storage_path/, "private sync fields must never be consumed");
 assert.doesNotMatch(source, /file\.url|uploads\/admin_files/, "manual files must never use a public static URL");
 assert.match(source, /退出登录/, "the fixed transfer host must expose a logout action for shared devices");
