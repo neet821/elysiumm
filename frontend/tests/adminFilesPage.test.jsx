@@ -69,7 +69,7 @@ describe('administrator Files workspace', () => {
 
   it('uploads from the admin page and only reveals the link after upload', async () => {
     const user = userEvent.setup()
-    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' })
+    const file = new File(['hello'], '中文资料.txt', { type: 'text/plain' })
     apiClient.post.mockResolvedValue({ data: { token: 'one-time-token' } })
     apiClient.put.mockResolvedValue({ data: { id: 4, name: 'notes.txt', size: 5 } })
 
@@ -81,7 +81,8 @@ describe('administrator Files workspace', () => {
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS))
     expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/one-time-token', file, {
       timeout: 0,
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': 'notes.txt' },
+      params: { filename: '中文资料.txt' },
+      headers: { 'Content-Type': 'application/octet-stream' },
     })
     expect(await screen.findByDisplayValue(/\/transfer\/one-time-token$/)).toBeInTheDocument()
   })
@@ -107,7 +108,8 @@ describe('administrator Files workspace', () => {
     expect(apiClient.post).toHaveBeenCalledTimes(1)
     expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/retryable-token', retryFile, {
       timeout: 0,
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': 'retry.txt' },
+      params: { filename: 'retry.txt' },
+      headers: { 'Content-Type': 'application/octet-stream' },
     })
     expect(await screen.findByDisplayValue(/\/transfer\/retryable-token$/)).toBeInTheDocument()
   })

@@ -18,7 +18,7 @@ export default function AdminFilesPage() {
     try {
       let token = transfer?.token; let url = transfer?.url
       if (!token) { const response = await apiClient.post(API_ENDPOINTS.ADMIN_TRANSFERS); token = response.data?.token; if (!token) throw new Error('中转链接创建失败。'); url = `${window.location.origin}/transfer/${token}`; setTransfer({ token, url, ready: false }) }
-      await apiClient.put(`/api/transfers/${token}`, file, { timeout: 0, headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': file.name } })
+      await apiClient.put(`/api/transfers/${token}`, file, { timeout: 0, params: { filename: file.name }, headers: { 'Content-Type': 'application/octet-stream' } })
       setTransfer({ token, url, ready: true }); await loadTransfers()
     } catch (reason) { if (reason.response?.status === 404) setTransfer(null); setError(detail(reason, '文件上传失败。')) } finally { setUploading(false); input.value = '' }
   }
