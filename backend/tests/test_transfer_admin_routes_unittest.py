@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
+import transfer_service  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -28,6 +29,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
         tmp.cleanup()
 
     def setUp(self):
+        transfer_service.TRANSFER_ROOT = Path(tmp.name) / "storage"
         self.db = SessionLocal()
         self.db.query(models.TransferFile).delete()
         self.db.query(models.TransferSession).delete()
@@ -97,6 +99,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload[0]["name"], "中文资料.txt")
         self.assertEqual(payload[0]["transfer_id"], 1)
+        self.assertTrue(payload[0]["expires_at"].endswith("Z"))
         self.assertEqual(payload[0]["download_url"], "/api/admin/transfers/files/1/download")
 
         download = self.client.get(payload[0]["download_url"], headers=self.admin_auth)
@@ -107,6 +110,36 @@ class TransferAdminRoutesTest(unittest.TestCase):
             self.client.get(payload[0]["download_url"], headers=self.member_auth).status_code,
             403,
         )
+
+    def test_upload_rotates_token_while_retaining_all_session_files(self):
+        created = self.client.post("/api/admin/transfers", headers=self.admin_auth)
+        self.assertEqual(created.status_code, 201, created.text)
+        old_token = created.json()["token"]
+
+        uploaded = self.client.put(
+            f"/api/transfers/{old_token}?filename=rotated.txt",
+            content=b"rotated",
+        )
+
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+        payload = uploaded.json()
+        self.assertNotEqual(payload["token"], old_token)
+        self.assertEqual(payload["url"], f"/api/transfers/{payload['token']}")
+        self.assertEqual(self.client.get(f"/api/transfers/{old_token}").status_code, 404)
+        refreshed = self.client.get(f"/api/transfers/{payload['token']}")
+        self.assertEqual(refreshed.status_code, 200)
+        self.assertEqual([item["name"] for item in refreshed.json()["files"]], ["rotated.txt"])
+        self.assertTrue(refreshed.json()["expires_at"].endswith("Z"))
+
+    def test_current_admin_link_reveals_the_latest_session_without_exposing_other_sessions(self):
+        response = self.client.post("/api/admin/transfers/current-link", headers=self.admin_auth)
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["token"])
+        self.assertEqual([item["name"] for item in payload["files"]], ["中文资料.txt"])
+        self.assertEqual(self.client.get(f"/api/transfers/{payload['token']}").status_code, 200)
+        repeated = self.client.post("/api/admin/transfers/current-link", headers=self.admin_auth)
+        self.assertEqual(repeated.json()["token"], payload["token"])
 
 
 if __name__ == "__main__":

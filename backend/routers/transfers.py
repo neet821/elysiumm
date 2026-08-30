@@ -4,7 +4,7 @@ import hashlib
 import mimetypes
 import os
 import secrets
-from datetime import timedelta
+from datetime import timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -38,13 +38,13 @@ def session_for_token(db: Session, token: str) -> models.TransferSession:
 def serialize_session(session: models.TransferSession, token: str | None = None) -> dict:
     payload = {
         "id": session.id,
-        "created_at": session.created_at,
-        "last_activity_at": session.last_activity_at,
-        "expires_at": session.expires_at,
+        "created_at": serialize_datetime(session.created_at),
+        "last_activity_at": serialize_datetime(session.last_activity_at),
+        "expires_at": serialize_datetime(session.expires_at),
         "total_bytes": session.total_bytes,
         "max_bytes": session.max_bytes,
         "files": [
-            {"id": item.id, "name": item.original_name, "size": item.file_size, "sha256": item.sha256, "created_at": item.created_at, "download_url": f"/api/transfers/{token}/files/{item.id}" if token else None}
+            {"id": item.id, "name": item.original_name, "size": item.file_size, "sha256": item.sha256, "created_at": serialize_datetime(item.created_at), "download_url": f"/api/transfers/{token}/files/{item.id}" if token else None}
             for item in session.files
         ],
     }
@@ -52,6 +52,13 @@ def serialize_session(session: models.TransferSession, token: str | None = None)
         payload["token"] = token
         payload["url"] = f"/api/transfers/{token}"
     return payload
+
+
+def serialize_datetime(value):
+    if value is None:
+        return None
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return aware.isoformat().replace("+00:00", "Z")
 
 
 @router.post("/api/admin/transfers", status_code=status.HTTP_201_CREATED)
@@ -65,6 +72,7 @@ def create_transfer(_admin: models.User = Depends(admin_user), db: Session = Dep
     now = transfer_service.utcnow()
     session = models.TransferSession(
         token_hash=transfer_service.token_hash(token),
+        public_token=token,
         created_by=_admin.id,
         max_bytes=transfer_service.TRANSFER_MAX_SESSION_BYTES,
         last_activity_at=now,
@@ -72,6 +80,38 @@ def create_transfer(_admin: models.User = Depends(admin_user), db: Session = Dep
         created_at=now,
     )
     db.add(session); db.commit(); db.refresh(session)
+    return serialize_session(session, token)
+
+
+@router.post("/api/admin/transfers/current-link")
+def current_transfer_link(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    transfer_service.cleanup_expired(db)
+    session = db.query(models.TransferSession).order_by(models.TransferSession.created_at.desc()).first()
+    if not session:
+        if db.query(models.TransferSession).count() >= transfer_service.TRANSFER_MAX_ACTIVE:
+            raise HTTPException(status.HTTP_409_CONFLICT, "有效中转链接已达到上限")
+        if not transfer_service.has_disk_reserve():
+            raise HTTPException(status.HTTP_507_INSUFFICIENT_STORAGE, "服务器可用空间不足")
+        now = transfer_service.utcnow()
+        token = transfer_service.new_token()
+        session = models.TransferSession(
+            token_hash=transfer_service.token_hash(token),
+            public_token=token,
+            created_by=_admin.id,
+            max_bytes=transfer_service.TRANSFER_MAX_SESSION_BYTES,
+            last_activity_at=now,
+            expires_at=now + timedelta(seconds=transfer_service.TRANSFER_TTL_SECONDS),
+            created_at=now,
+        )
+        db.add(session)
+        db.flush()
+    token = session.public_token
+    if not token:
+        token = transfer_service.new_token()
+        session.token_hash = transfer_service.token_hash(token)
+        session.public_token = token
+    db.commit()
+    db.refresh(session)
     return serialize_session(session, token)
 
 
@@ -96,9 +136,9 @@ def list_transfer_files(_admin: models.User = Depends(admin_user), db: Session =
             "name": item.original_name,
             "size": item.file_size,
             "sha256": item.sha256,
-            "created_at": item.created_at,
+            "created_at": serialize_datetime(item.created_at),
             "transfer_id": session.id,
-            "expires_at": session.expires_at,
+            "expires_at": serialize_datetime(session.expires_at),
             "download_url": f"/api/admin/transfers/files/{item.id}/download",
         }
         for item, session in records
@@ -179,8 +219,10 @@ async def upload_transfer(token: str, request: Request, filename: str | None = Q
         if size == 0: raise HTTPException(status.HTTP_400_BAD_REQUEST, "不能上传空文件")
         final_name = f"{secrets.token_hex(16)}.bin"; final_path = (root / final_name).resolve(); os.replace(temp_path, final_path)
         item = models.TransferFile(session=session, original_name=name, stored_name=final_name, storage_path=str(final_path), file_size=size, sha256=digest.hexdigest())
-        session.total_bytes += size; transfer_service.refresh_expiry(session); db.add(item); db.commit(); db.refresh(item)
-        return {"id": item.id, "name": item.original_name, "size": item.file_size, "sha256": item.sha256, "download_url": f"/api/transfers/{token}/files/{item.id}"}
+        session.total_bytes += size; transfer_service.refresh_expiry(session); db.add(item)
+        rotated_token = transfer_service.new_token(); session.token_hash = transfer_service.token_hash(rotated_token); session.public_token = rotated_token
+        db.commit(); db.refresh(item)
+        return {"id": item.id, "name": item.original_name, "size": item.file_size, "sha256": item.sha256, "token": rotated_token, "url": f"/api/transfers/{rotated_token}", "download_url": f"/api/transfers/{rotated_token}/files/{item.id}"}
     except HTTPException:
         temp_path.unlink(missing_ok=True)
         if final_path: final_path.unlink(missing_ok=True)

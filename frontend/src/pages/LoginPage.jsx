@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { consumeAuthRedirect, getLocationTarget, getSafeRedirectTarget } from "../utils/authRedirect";
+import { consumeAuthRedirect, getLocationTarget, getPostLoginTarget } from "../utils/authRedirect";
 import LoginCard from "../components/auth/LoginCard.jsx";
 
 const LoginPage = ({ styles, isDark }) => {
@@ -12,7 +12,7 @@ const LoginPage = ({ styles, isDark }) => {
     const stateTarget = location.state?.from
       ? getLocationTarget(location.state.from)
       : "";
-    const redirectTarget = getSafeRedirectTarget(
+    const redirectTarget = getPostLoginTarget(
       searchParams.get("redirect") || stateTarget || storedTarget,
     );
     navigate(redirectTarget, { replace: true });

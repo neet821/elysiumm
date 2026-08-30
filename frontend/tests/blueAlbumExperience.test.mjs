@@ -13,6 +13,7 @@ for (const label of ['网络地址', '上传视频', '本地同步']) assert.mat
 assert.match(sidebar, /MP4、WebM、MOV、Ogg 和 HLS/)
 assert.match(shell, /const showHeader = !isTransferDomain && !isAuthPage[\s\S]*!isAdminRoute/)
 assert.match(shell, /const showFooter = !isTransferDomain && !isHome && !isToolbox[\s\S]*!isAdminRoute/)
+assert.match(shell, /const hasWideNavigation = !isTransferDomain &&/)
 assert.match(css, /--surface-page:\s*#fff/)
 assert.match(css, /--shadow-card:\s*none/)
 assert.doesNotMatch(bridge, />ONLINE<|>PRIVATE SYNC<|>ROOMS<|USER ID/)

@@ -29,7 +29,7 @@ export function AppShell({ children }) {
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
   const isTransferDomain = isTransferHost()
-  const hasWideNavigation = isHome || isRoom || isLive
+  const hasWideNavigation = !isTransferDomain && (isHome || isRoom || isLive)
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const auth = useAuth()
   const showHeader = !isTransferDomain && !isAuthPage && !isHome && !isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute

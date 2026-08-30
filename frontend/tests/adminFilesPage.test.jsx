@@ -71,7 +71,7 @@ describe('administrator Files workspace', () => {
     const user = userEvent.setup()
     const file = new File(['hello'], '中文资料.txt', { type: 'text/plain' })
     apiClient.post.mockResolvedValue({ data: { token: 'one-time-token' } })
-    apiClient.put.mockResolvedValue({ data: { id: 4, name: 'notes.txt', size: 5 } })
+    apiClient.put.mockResolvedValue({ data: { id: 4, name: 'notes.txt', size: 5, token: 'rotated-token', url: '/api/transfers/rotated-token' } })
 
     render(<AdminFilesPage />)
 
@@ -85,7 +85,7 @@ describe('administrator Files workspace', () => {
       headers: { 'Content-Type': 'application/octet-stream' },
     }))
     expect(apiClient.put.mock.calls[0][2].onUploadProgress).toEqual(expect.any(Function))
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/one-time-token')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-token')).toBeInTheDocument()
   })
 
   it('keeps a failed transfer available for retry without exposing its link', async () => {
@@ -95,7 +95,7 @@ describe('administrator Files workspace', () => {
     apiClient.post.mockResolvedValue({ data: { token: 'retryable-token' } })
     apiClient.put
       .mockRejectedValueOnce({ response: { data: { detail: '上传被拒绝。' } } })
-      .mockResolvedValueOnce({ data: { id: 5, name: 'retry.txt', size: 5 } })
+      .mockResolvedValueOnce({ data: { id: 5, name: 'retry.txt', size: 5, token: 'rotated-retry-token', url: '/api/transfers/rotated-retry-token' } })
 
     render(<AdminFilesPage />)
 
@@ -113,7 +113,7 @@ describe('administrator Files workspace', () => {
       headers: { 'Content-Type': 'application/octet-stream' },
     }))
     expect(apiClient.put.mock.calls[1][2].onUploadProgress).toEqual(expect.any(Function))
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/retryable-token')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-retry-token')).toBeInTheDocument()
   })
 
   it('shows live upload progress while the transfer request is in flight', async () => {

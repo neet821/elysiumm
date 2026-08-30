@@ -12,7 +12,7 @@ const styles = readFileSync(new URL("../src/index.css", import.meta.url), "utf8"
 for (const label of ["文件同步", "文件中转", "READ ONLY / FRP"]) {
   assert.match(source, new RegExp(label), `Files workspace must include ${label}`);
 }
-for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFERS", "ADMIN_TRANSFER", "ADMIN_TRANSFER_FILES"]) {
+for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFERS", "ADMIN_TRANSFER_CURRENT_LINK", "ADMIN_TRANSFER", "ADMIN_TRANSFER_FILES"]) {
   assert.match(config, new RegExp(`${endpoint}:`), `config must expose ${endpoint}`);
 }
 assert.match(source, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");

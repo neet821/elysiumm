@@ -55,6 +55,7 @@ class TransferSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    public_token = Column(String(128), unique=True, nullable=True, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     total_bytes = Column(BigInteger, default=0, nullable=False)
     max_bytes = Column(BigInteger, default=2 * 1024**3, nullable=False)

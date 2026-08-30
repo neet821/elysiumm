@@ -31,6 +31,7 @@ export const API_ENDPOINTS = {
   ADMIN_FILE_SYNC_BROWSE: `${API_BASE_URL}/api/admin/file-sync/browse`,
   ADMIN_FILE_SYNC_DOWNLOAD: `${API_BASE_URL}/api/admin/file-sync/download`,
   ADMIN_TRANSFERS: `${API_BASE_URL}/api/admin/transfers`,
+  ADMIN_TRANSFER_CURRENT_LINK: `${API_BASE_URL}/api/admin/transfers/current-link`,
   ADMIN_TRANSFER_FILES: `${API_BASE_URL}/api/admin/transfers/files`,
   ADMIN_TRANSFER: (id) => `${API_BASE_URL}/api/admin/transfers/${id}`,
   ADMIN_ROOMS: `${API_BASE_URL}/api/admin/sync-rooms`,

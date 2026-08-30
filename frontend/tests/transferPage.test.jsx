@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -9,6 +8,7 @@ vi.mock('../src/utils/request.js', () => ({
 
 import TransferPage from '../src/pages/TransferPage.jsx'
 import apiClient from '../src/utils/request.js'
+import { formatTransferDate } from '../src/utils/transfer.js'
 
 beforeEach(() => {
   apiClient.get.mockReset()
@@ -18,36 +18,14 @@ beforeEach(() => {
   })
 })
 
-it('uploads a non-ASCII filename without putting it in an HTTP header', async () => {
-  const user = userEvent.setup()
-  const file = new File(['hello'], '中文资料.txt', { type: 'text/plain' })
-  apiClient.put.mockResolvedValue({ data: {} })
-
-  render(
-    <MemoryRouter initialEntries={['/transfer/share-token']}>
-      <Routes><Route path="/transfer/:token" element={<TransferPage />} /></Routes>
-    </MemoryRouter>,
-  )
-
-  await screen.findByText('0 B / 1.9 GB')
-  await user.upload(screen.getByLabelText('选择文件上传'), file)
-
-  await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/share-token', file, expect.objectContaining({
-    timeout: 0,
-    params: { filename: '中文资料.txt' },
-    headers: { 'Content-Type': 'application/octet-stream' },
-  })))
-  expect(apiClient.put.mock.calls[0][2].onUploadProgress).toEqual(expect.any(Function))
-})
-
-it('shows live upload progress while a shared link upload is in flight', async () => {
-  const user = userEvent.setup()
-  const file = new File(['hello'], 'progress.txt', { type: 'text/plain' })
-  let resolveUpload
-  apiClient.put.mockImplementation(async (_url, _file, options) => {
-    options.onUploadProgress({ loaded: 5, total: 10 })
-    await new Promise((resolve) => { resolveUpload = resolve })
-    return { data: {} }
+it('is a download-only receiver page', async () => {
+  apiClient.get.mockResolvedValue({
+    data: {
+      expires_at: '2026-08-30T04:01:23Z',
+      total_bytes: 5,
+      max_bytes: 2_000_000_000,
+      files: [{ id: 1, name: '中文资料.txt', size: 5, sha256: 'a'.repeat(64), download_url: '/api/transfers/share-token/files/1' }],
+    },
   })
 
   render(
@@ -56,11 +34,14 @@ it('shows live upload progress while a shared link upload is in flight', async (
     </MemoryRouter>,
   )
 
-  await screen.findByText('0 B / 1.9 GB')
-  await user.upload(screen.getByLabelText('选择文件上传'), file)
-  await waitFor(() => expect(screen.getByRole('progressbar', { name: '上传进度' })).toHaveValue(50))
-  resolveUpload()
-  await waitFor(() => expect(screen.queryByRole('progressbar', { name: '上传进度' })).not.toBeInTheDocument())
+  expect(await screen.findByText('中文资料.txt')).toBeInTheDocument()
+  expect(screen.queryByLabelText('选择文件上传')).not.toBeInTheDocument()
+  expect(apiClient.put).not.toHaveBeenCalled()
+})
+
+it('formats transfer expiry timestamps in Beijing time', () => {
+  expect(formatTransferDate('2026-08-30T04:01:23Z')).toContain('2026/8/30')
+  expect(formatTransferDate('2026-08-30T04:01:23Z')).toContain('12:01:23')
 })
 
 it('loads already uploaded files again after the shared page is reopened', async () => {

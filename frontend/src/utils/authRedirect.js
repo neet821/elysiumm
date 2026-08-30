@@ -11,7 +11,7 @@ export const getLocationTarget = (location = {}) => {
   return `${pathname}${search}${hash}`;
 };
 
-export const getSafeRedirectTarget = (target, fallback = "/") => {
+export const getSafeRedirectTarget = (target, fallback = "/", allowBypass = false) => {
   if (!target || typeof target !== "string") {
     return fallback;
   }
@@ -26,11 +26,20 @@ export const getSafeRedirectTarget = (target, fallback = "/") => {
   }
 
   const pathname = trimmed.split(/[?#]/, 1)[0];
-  if (shouldBypassAuthRedirect(pathname)) {
+  if (shouldBypassAuthRedirect(pathname) && !allowBypass) {
     return fallback;
   }
 
   return trimmed;
+};
+
+export const getPostLoginTarget = (target) => {
+  const safeTarget = getSafeRedirectTarget(target, "/", true);
+  const pathname = safeTarget.split(/[?#]/, 1)[0];
+  const isRoom = pathname === "/rooms/music" || pathname.startsWith("/rooms/music/")
+    || pathname === "/rooms/watch" || pathname.startsWith("/rooms/watch/");
+  const isTransfer = pathname === "/admin/files" || pathname.startsWith("/admin/files/");
+  return pathname === "/live" || isRoom || isTransfer ? safeTarget : "/";
 };
 
 export const buildLoginRedirect = (location) => {

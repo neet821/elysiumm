@@ -5,6 +5,7 @@ import {
   consumeAuthRedirect,
   AUTH_REDIRECT_STORAGE_KEY,
   getSafeRedirectTarget,
+  getPostLoginTarget,
   saveAuthRedirect,
   shouldBypassAuthRedirect,
 } from "../src/utils/authRedirect.js";
@@ -38,6 +39,14 @@ assert.equal(
   "/",
   "protocol-relative redirect targets should fall back to home",
 );
+
+assert.equal(getPostLoginTarget('/rooms/watch/42', { role: 'user' }), '/rooms/watch/42');
+assert.equal(getPostLoginTarget('/rooms/music', { role: 'user' }), '/rooms/music');
+assert.equal(getPostLoginTarget('/live', { role: 'user' }), '/live');
+assert.equal(getPostLoginTarget('/admin/files', { role: 'user' }), '/admin/files');
+assert.equal(getPostLoginTarget('/admin/homepage', { role: 'user' }), '/');
+assert.equal(getPostLoginTarget('/account', { role: 'user' }), '/');
+assert.equal(getPostLoginTarget('/admin/homepage', { role: 'admin' }), '/');
 
 assert.equal(
   shouldBypassAuthRedirect("/login"),

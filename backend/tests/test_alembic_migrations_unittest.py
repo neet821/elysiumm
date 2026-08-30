@@ -252,7 +252,7 @@ class AlembicMigrationsTest(unittest.TestCase):
                     connection.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one(),
-                    self.current_head(),
+                    "0023_remove_game_platform",
                 )
             engine.dispose()
 

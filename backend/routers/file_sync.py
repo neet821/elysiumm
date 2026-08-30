@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
+from file_sync_paths import relative_item_path
 import models
 from dependencies import get_current_user
 
@@ -28,7 +29,10 @@ class DirectoryParser(HTMLParser):
         if self._href is not None:
             href = unquote(self._href)
             if href not in {"../", "./"} and not href.startswith("http"):
-                self.items.append({"name": data.strip() or href.strip("/"), "path": href.strip("/")})
+                path = href.strip("/")
+                if href.endswith("/"):
+                    path += "/"
+                self.items.append({"name": data.strip() or path.strip("/"), "path": path})
 
     def handle_endtag(self, tag):
         if tag == "a": self._href = None
@@ -82,7 +86,8 @@ async def browse(path: str = "", _admin: models.User = Depends(admin_user)):
     if response.status_code == 401: raise HTTPException(status.HTTP_502_BAD_GATEWAY, "文件同步鉴权失败")
     if response.status_code >= 400: raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "文件同步目录暂时不可用")
     parser = DirectoryParser(); parser.feed(response.text)
-    return {"status": "online", "path": normalized, "items": parser.items}
+    items = [{**item, "path": relative_item_path(item["path"], normalized, base_url())} for item in parser.items]
+    return {"status": "online", "path": normalized, "items": [item for item in items if item["path"]]}
 
 
 @router.get("/download")
