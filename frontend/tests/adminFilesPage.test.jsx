@@ -34,7 +34,7 @@ describe('administrator Files workspace', () => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
     apiClient.put.mockReset()
-    mockLoads({ transfers: [{ id: 3, total_bytes: 1024, max_bytes: 2048, expires_at: '2026-08-28T08:00:00Z' }] })
+    mockLoads({ transfers: [{ id: 3, total_bytes: 1024, max_bytes: 2048, expires_at: '2026-08-28T08:00:00Z', files: [{ name: 'transfer.pdf' }, { name: 'video.mp4' }] }] })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -46,8 +46,14 @@ describe('administrator Files workspace', () => {
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS)
     expect(screen.getByText('notes.txt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'docs' })).not.toBeInTheDocument()
+    expect(screen.getByText('transfer.pdf · video.mp4')).toBeInTheDocument()
     expect(screen.getByText('文件同步')).toBeInTheDocument()
     expect(screen.getByText('文件中转')).toBeInTheDocument()
+    expect(screen.queryByText('READ ONLY / FRP')).not.toBeInTheDocument()
+    expect(screen.queryByText('ANONYMOUS / 5 MIN IDLE')).not.toBeInTheDocument()
+    expect(screen.queryByText(/实时浏览并下载/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/在此页直接上传/)).not.toBeInTheDocument()
   })
 
   it('browses and downloads files from the read-only sync workspace', async () => {
