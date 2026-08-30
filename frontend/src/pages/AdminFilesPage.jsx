@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { API_ENDPOINTS, isTransferHost } from '../config.js'
 import apiClient from '../utils/request.js'
-import { TRANSFER_CURRENT_TOKEN_KEY, formatTransferDate, transferPublicUrl } from '../utils/transfer.js'
+import { TRANSFER_CURRENT_TOKEN_KEY, transferPublicUrl } from '../utils/transfer.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 function formatSize(value) {
@@ -37,7 +37,6 @@ function saveBlob(blob, filename) {
 export default function AdminFilesPage() {
   const { logout } = useAuth()
   const [sync, setSync] = useState({ status: 'loading', path: '', items: [] })
-  const [transfers, setTransfers] = useState([])
   const [transferFiles, setTransferFiles] = useState([])
   const [error, setError] = useState('')
   const [transfer, setTransfer] = useState(null)
@@ -65,15 +64,6 @@ export default function AdminFilesPage() {
     }
   }, [])
 
-  const loadTransfers = useCallback(async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.ADMIN_TRANSFERS)
-      setTransfers(Array.isArray(response.data) ? response.data : [])
-    } catch (reason) {
-      setError(detail(reason, '中转链接暂时无法载入。'))
-    }
-  }, [])
-
   const loadTransferFiles = useCallback(async () => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.ADMIN_TRANSFER_FILES)
@@ -84,23 +74,22 @@ export default function AdminFilesPage() {
   }, [])
 
   const loadCurrentTransfer = useCallback(async () => {
-    const token = localStorage.getItem(TRANSFER_CURRENT_TOKEN_KEY)
-    if (!token) return
     try {
-      await apiClient.get(`/api/transfers/${token}`)
+      const response = await apiClient.post(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
+      const token = response.data?.token
+      if (!token) throw new Error('分享链接创建失败。')
+      localStorage.setItem(TRANSFER_CURRENT_TOKEN_KEY, token)
       setTransfer({ token, url: transferPublicUrl(token), ready: true })
     } catch (reason) {
-      if (reason.response?.status === 404) localStorage.removeItem(TRANSFER_CURRENT_TOKEN_KEY)
-      else setError(detail(reason, '中转链接暂时无法载入。'))
+      setError(detail(reason, '中转链接暂时无法载入。'))
     }
   }, [])
 
   useEffect(() => {
     loadSync('')
-    loadTransfers()
     loadTransferFiles()
     loadCurrentTransfer()
-  }, [loadCurrentTransfer, loadSync, loadTransferFiles, loadTransfers])
+  }, [loadCurrentTransfer, loadSync, loadTransferFiles])
 
   async function uploadTransfer(event) {
     const input = event.currentTarget
@@ -111,12 +100,8 @@ export default function AdminFilesPage() {
     setError('')
     try {
       let token = transfer?.token
-      if (!token) {
-        const response = await apiClient.post(API_ENDPOINTS.ADMIN_TRANSFERS)
-        token = response.data?.token
-        if (!token) throw new Error('中转链接创建失败。')
-        setTransfer({ token, url: transferPublicUrl(token), ready: false })
-      }
+      if (!token) token = await loadCurrentTransfer()
+      if (!token) throw new Error('分享链接创建失败。')
       const uploadResponse = await apiClient.put(`/api/transfers/${token}`, file, {
         timeout: 0,
         params: { filename: file.name },
@@ -128,9 +113,9 @@ export default function AdminFilesPage() {
       const nextToken = uploadResponse.data?.token || token
       localStorage.setItem(TRANSFER_CURRENT_TOKEN_KEY, nextToken)
       setTransfer({ token: nextToken, url: transferPublicUrl(nextToken), ready: true })
-      await Promise.all([loadTransfers(), loadTransferFiles()])
+      await loadTransferFiles()
     } catch (reason) {
-      if (reason.response?.status === 404) setTransfer(null)
+      if (reason.response?.status === 404) await loadCurrentTransfer()
       setError(detail(reason, '文件上传失败。'))
     } finally {
       setUploading(false)
@@ -156,10 +141,14 @@ export default function AdminFilesPage() {
     window.setTimeout(() => setCopied(false), 1600)
   }
 
-  async function deleteTransfer(id) {
-    if (!window.confirm('提前销毁这个中转链接？')) return
-    await apiClient.delete(API_ENDPOINTS.ADMIN_TRANSFER(id))
-    await Promise.all([loadTransfers(), loadTransferFiles()])
+  async function deleteTransferFile(item) {
+    if (!window.confirm(`删除已上传文件“${item.name}”？`)) return
+    try {
+      await apiClient.delete(API_ENDPOINTS.ADMIN_TRANSFER_FILE(item.id))
+      await loadTransferFiles()
+    } catch (reason) {
+      setError(detail(reason, '文件删除失败。'))
+    }
   }
 
   async function downloadSync(item) {
@@ -187,7 +176,7 @@ export default function AdminFilesPage() {
   return <section className="admin-files-page">
     <header className="admin-page-heading admin-page-heading--actions-only">
       <div className="admin-page-heading__actions">
-        <button className="admin-icon-button" type="button" onClick={() => { loadSync(sync.path); loadTransfers(); loadTransferFiles(); loadCurrentTransfer() }} aria-label="刷新文件"><RefreshCw size={16} /></button>
+        <button className="admin-icon-button" type="button" onClick={() => { loadSync(sync.path); loadTransferFiles(); loadCurrentTransfer() }} aria-label="刷新文件"><RefreshCw size={16} /></button>
         {fixedTransferHost && <button className="admin-icon-button" type="button" onClick={() => logout()}><LogOut size={16} /><span>退出登录</span></button>}
       </div>
     </header>
@@ -211,9 +200,8 @@ export default function AdminFilesPage() {
         {uploading && <div className="transfer-upload-progress"><progress aria-label="上传进度" max="100" value={uploadProgress} /><span>{uploadProgress}%</span></div>}
         {transfer?.ready && <div className="admin-transfer-created"><span>中转链接</span><div className="transfer-share-row"><input aria-label="中转链接" readOnly value={transfer.url} onFocus={(event) => event.target.select()} /><button type="button" onClick={copyShareLink}>{copied ? <Check size={15} /> : <Copy size={15} />}<span>{copied ? '已复制' : '复制分享链接'}</span></button></div></div>}
         <div className="admin-transfer-list">
-          {transferFiles.map((item) => <button className="admin-transfer-file" type="button" key={item.id} onClick={() => downloadTransfer(item)} aria-label={`下载 ${item.name}`}><Download size={15} /><span><strong>{item.name}</strong><small>{formatSize(item.size)} · 中转 #{item.transfer_id} · 过期：{formatTransferDate(item.expires_at)}</small></span></button>)}
+          {transferFiles.map((item) => <div className="admin-transfer-file" key={item.id}><button className="admin-transfer-file__download" type="button" onClick={() => downloadTransfer(item)} aria-label={`下载 ${item.name}`}><Download size={15} /><span><strong>{item.name}</strong><small>{formatSize(item.size)}</small></span></button><button className="admin-transfer-file__delete" type="button" onClick={() => deleteTransferFile(item)} aria-label={`删除 ${item.name}`}><Trash2 size={15} /></button></div>)}
           {!transferFiles.length && <p className="admin-empty">暂无文件。</p>}
-          {transfers.map((item) => <div className="admin-transfer-session-row" key={`session-${item.id}`}><span><small>中转 #{item.id} · {formatSize(item.total_bytes)} / {formatSize(item.max_bytes)} · 过期：{formatTransferDate(item.expires_at)}</small></span><button type="button" onClick={() => deleteTransfer(item.id)} aria-label="销毁中转链接"><Trash2 size={15} /></button></div>)}
         </div>
       </article>
     </div>

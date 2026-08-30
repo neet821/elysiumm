@@ -19,11 +19,10 @@ const syncItems = [
   { name: 'docs', path: 'docs/', size: 0 },
 ]
 
-function mockLoads({ status = 'online', items = syncItems, transfers = [], transferFiles = [] } = {}) {
+function mockLoads({ status = 'online', items = syncItems, transferFiles = [] } = {}) {
   apiClient.get.mockImplementation((endpoint) => {
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status } })
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items } })
-    if (endpoint === API_ENDPOINTS.ADMIN_TRANSFERS) return Promise.resolve({ data: transfers })
     if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: transferFiles })
     return Promise.reject(new Error(`unexpected GET ${endpoint}`))
   })
@@ -35,7 +34,8 @@ describe('administrator Files workspace', () => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
     apiClient.put.mockReset()
-    mockLoads({ transfers: [{ id: 3, total_bytes: 1024, max_bytes: 2048, expires_at: '2026-08-28T08:00:00Z' }], transferFiles: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/11/download' }, { id: 12, name: 'video.mp4', size: 2048, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/12/download' }] })
+    apiClient.post.mockResolvedValue({ data: { token: 'current-token' } })
+    mockLoads({ transferFiles: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/11/download' }, { id: 12, name: 'video.mp4', size: 2048, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/12/download' }] })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -45,13 +45,16 @@ describe('administrator Files workspace', () => {
     expect(await screen.findByRole('heading', { name: '文件同步' })).toBeInTheDocument()
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS)
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
-    expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS)
+    expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
     expect(screen.getByText('notes.txt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'docs' })).not.toBeInTheDocument()
     expect(screen.getByText('transfer.pdf')).toBeInTheDocument()
     expect(screen.getByText('video.mp4')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '下载 transfer.pdf' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '下载 video.mp4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除 transfer.pdf' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除 video.mp4' })).toBeInTheDocument()
     expect(screen.getByText('文件同步')).toBeInTheDocument()
     expect(screen.getByText('文件中转')).toBeInTheDocument()
     expect(screen.queryByText('READ ONLY / FRP')).not.toBeInTheDocument()
@@ -60,6 +63,8 @@ describe('administrator Files workspace', () => {
     expect(screen.queryByText(/在此页直接上传/)).not.toBeInTheDocument()
     expect(screen.queryByText('管理控制台 / 文件')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '文件', level: 2 })).not.toBeInTheDocument()
+    expect(screen.queryByText(/中转 #/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/过期：/)).not.toBeInTheDocument()
   })
 
   it('downloads each transfer file from its own row', async () => {
@@ -70,7 +75,7 @@ describe('administrator Files workspace', () => {
     apiClient.get.mockImplementation((endpoint, options) => {
       if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status: 'online' } })
       if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items: syncItems } })
-      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFERS) return Promise.resolve({ data: [] })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK) return Promise.resolve({ data: { token: 'current-token' } })
       if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, download_url: '/api/admin/transfers/files/11/download' }] })
       if (endpoint === '/api/admin/transfers/files/11/download') {
         expect(options).toEqual({ responseType: 'blob' })
@@ -118,19 +123,18 @@ describe('administrator Files workspace', () => {
     expect(apiClient.get).not.toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
   })
 
-  it('uploads from the admin page and only reveals the link after upload', async () => {
+  it('keeps the current link visible while uploading from the admin page', async () => {
     const user = userEvent.setup()
     const file = new File(['hello'], '中文资料.txt', { type: 'text/plain' })
-    apiClient.post.mockResolvedValue({ data: { token: 'one-time-token' } })
     apiClient.put.mockResolvedValue({ data: { id: 4, name: 'notes.txt', size: 5, token: 'rotated-token', url: '/api/transfers/rotated-token' } })
 
     render(<AdminFilesPage />)
 
-    expect(screen.queryByDisplayValue(/\/transfer\/one-time-token$/)).not.toBeInTheDocument()
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
     await user.upload(screen.getByLabelText('选择文件上传'), file)
 
-    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS))
-    expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/one-time-token', file, expect.objectContaining({
+    expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
+    expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/current-token', file, expect.objectContaining({
       timeout: 0,
       params: { filename: '中文资料.txt' },
       headers: { 'Content-Type': 'application/octet-stream' },
@@ -139,11 +143,10 @@ describe('administrator Files workspace', () => {
     expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-token')).toBeInTheDocument()
   })
 
-  it('keeps a failed transfer available for retry without exposing its link', async () => {
+  it('keeps a failed transfer available for retry without hiding its link', async () => {
     const user = userEvent.setup()
     const firstFile = new File(['first'], 'first.txt', { type: 'text/plain' })
     const retryFile = new File(['retry'], 'retry.txt', { type: 'text/plain' })
-    apiClient.post.mockResolvedValue({ data: { token: 'retryable-token' } })
     apiClient.put
       .mockRejectedValueOnce({ response: { data: { detail: '上传被拒绝。' } } })
       .mockResolvedValueOnce({ data: { id: 5, name: 'retry.txt', size: 5, token: 'rotated-retry-token', url: '/api/transfers/rotated-retry-token' } })
@@ -153,12 +156,12 @@ describe('administrator Files workspace', () => {
     await user.upload(screen.getByLabelText('选择文件上传'), firstFile)
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent('上传被拒绝。')
-    expect(screen.queryByDisplayValue('https://send.elysiumm.top/retryable-token')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
 
     await user.upload(screen.getByLabelText('选择文件上传'), retryFile)
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(2))
-    expect(apiClient.post).toHaveBeenCalledTimes(1)
-    expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/retryable-token', retryFile, expect.objectContaining({
+    expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
+    expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/current-token', retryFile, expect.objectContaining({
       timeout: 0,
       params: { filename: 'retry.txt' },
       headers: { 'Content-Type': 'application/octet-stream' },
@@ -186,12 +189,12 @@ describe('administrator Files workspace', () => {
     await waitFor(() => expect(screen.queryByRole('progressbar', { name: '上传进度' })).not.toBeInTheDocument())
   })
 
-  it('destroys anonymous transfer links', async () => {
+  it('deletes individual transfer files', async () => {
     const user = userEvent.setup()
     apiClient.delete.mockResolvedValue({})
     render(<AdminFilesPage />)
 
-    await user.click(await screen.findByRole('button', { name: '销毁中转链接' }))
-    await waitFor(() => expect(apiClient.delete).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER(3)))
+    await user.click(await screen.findByRole('button', { name: '删除 transfer.pdf' }))
+    await waitFor(() => expect(apiClient.delete).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_FILE(11)))
   })
 })

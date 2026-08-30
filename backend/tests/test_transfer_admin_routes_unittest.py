@@ -62,7 +62,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
         )
         self.db.add(session)
         self.db.flush()
-        self.file_path = Path(tmp.name) / "acceptance.txt"
+        self.file_path = transfer_service.ensure_storage() / "acceptance.txt"
         self.file_path.write_text("hello", encoding="utf-8")
         self.db.add(models.TransferFile(
             session_id=session.id,
@@ -112,6 +112,10 @@ class TransferAdminRoutesTest(unittest.TestCase):
         )
 
     def test_upload_rotates_token_while_retaining_all_session_files(self):
+        session = self.db.query(models.TransferSession).first()
+        transfer_service.delete_session_files(session)
+        self.db.delete(session)
+        self.db.commit()
         created = self.client.post("/api/admin/transfers", headers=self.admin_auth)
         self.assertEqual(created.status_code, 201, created.text)
         old_token = created.json()["token"]
@@ -130,6 +134,40 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(refreshed.status_code, 200)
         self.assertEqual([item["name"] for item in refreshed.json()["files"]], ["rotated.txt"])
         self.assertTrue(refreshed.json()["expires_at"].endswith("Z"))
+
+    def test_current_link_consolidates_old_sessions_to_one(self):
+        now = datetime.utcnow() + timedelta(seconds=1)
+        newer = models.TransferSession(
+            token_hash="b" * 64,
+            public_token="new-current-token",
+            created_by=self.admin.id,
+            max_bytes=2 * 1024**3,
+            last_activity_at=now,
+            expires_at=now + timedelta(minutes=5),
+            created_at=now,
+        )
+        self.db.add(newer)
+        self.db.commit()
+
+        response = self.client.post("/api/admin/transfers/current-link", headers=self.admin_auth)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["token"], "new-current-token")
+        self.assertEqual(self.db.query(models.TransferSession).count(), 1)
+        self.assertEqual(self.db.query(models.TransferFile).count(), 1)
+        self.assertEqual(response.json()["files"][0]["name"], "中文资料.txt")
+        self.assertTrue(self.file_path.exists())
+
+    def test_admin_can_delete_one_transfer_file(self):
+        endpoint = "/api/admin/transfers/files/1"
+        self.assertEqual(self.client.delete(endpoint).status_code, 401)
+        self.assertEqual(self.client.delete(endpoint, headers=self.member_auth).status_code, 403)
+
+        response = self.client.delete(endpoint, headers=self.admin_auth)
+        self.assertEqual(response.status_code, 204, response.text)
+        self.assertEqual(self.db.query(models.TransferFile).count(), 0)
+        session = self.db.query(models.TransferSession).first()
+        self.assertEqual(session.total_bytes, 0)
+        self.assertFalse(self.file_path.exists())
 
     def test_current_admin_link_reveals_the_latest_session_without_exposing_other_sessions(self):
         response = self.client.post("/api/admin/transfers/current-link", headers=self.admin_auth)

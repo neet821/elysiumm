@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   ADMIN_TRANSFERS: `${API_BASE_URL}/api/admin/transfers`,
   ADMIN_TRANSFER_CURRENT_LINK: `${API_BASE_URL}/api/admin/transfers/current-link`,
   ADMIN_TRANSFER_FILES: `${API_BASE_URL}/api/admin/transfers/files`,
+  ADMIN_TRANSFER_FILE: (id) => `${API_BASE_URL}/api/admin/transfers/files/${id}`,
   ADMIN_TRANSFER: (id) => `${API_BASE_URL}/api/admin/transfers/${id}`,
   ADMIN_ROOMS: `${API_BASE_URL}/api/admin/sync-rooms`,
   ADMIN_ROOM_LOCK: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/lock`,

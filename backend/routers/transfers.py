@@ -61,35 +61,21 @@ def serialize_datetime(value):
     return aware.isoformat().replace("+00:00", "Z")
 
 
-@router.post("/api/admin/transfers", status_code=status.HTTP_201_CREATED)
-def create_transfer(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+def get_or_create_current_session(db: Session, admin_id: int) -> tuple[models.TransferSession, str]:
     transfer_service.cleanup_expired(db)
-    if db.query(models.TransferSession).count() >= transfer_service.TRANSFER_MAX_ACTIVE:
-        raise HTTPException(status.HTTP_409_CONFLICT, "有效中转链接已达到上限")
-    if not transfer_service.has_disk_reserve():
-        raise HTTPException(status.HTTP_507_INSUFFICIENT_STORAGE, "服务器可用空间不足")
-    token = transfer_service.new_token()
-    now = transfer_service.utcnow()
-    session = models.TransferSession(
-        token_hash=transfer_service.token_hash(token),
-        public_token=token,
-        created_by=_admin.id,
-        max_bytes=transfer_service.TRANSFER_MAX_SESSION_BYTES,
-        last_activity_at=now,
-        expires_at=now + timedelta(seconds=transfer_service.TRANSFER_TTL_SECONDS),
-        created_at=now,
-    )
-    db.add(session); db.commit(); db.refresh(session)
-    return serialize_session(session, token)
-
-
-@router.post("/api/admin/transfers/current-link")
-def current_transfer_link(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
-    transfer_service.cleanup_expired(db)
-    session = db.query(models.TransferSession).order_by(models.TransferSession.created_at.desc()).first()
-    if not session:
-        if db.query(models.TransferSession).count() >= transfer_service.TRANSFER_MAX_ACTIVE:
-            raise HTTPException(status.HTTP_409_CONFLICT, "有效中转链接已达到上限")
+    sessions = db.query(models.TransferSession).order_by(models.TransferSession.created_at.desc()).all()
+    session = sessions[0] if sessions else None
+    obsolete_files = [item for obsolete in sessions[1:] for item in obsolete.files]
+    combined_total = (session.total_bytes if session else 0) + sum(item.file_size for item in obsolete_files)
+    if session and combined_total > session.max_bytes:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "现有中转文件总量超过 2GB，无法合并")
+    for obsolete in sessions[1:]:
+        for item in obsolete.files:
+            item.session = session
+        db.delete(obsolete)
+    if session:
+        session.total_bytes = combined_total
+    if session is None:
         if not transfer_service.has_disk_reserve():
             raise HTTPException(status.HTTP_507_INSUFFICIENT_STORAGE, "服务器可用空间不足")
         now = transfer_service.utcnow()
@@ -97,19 +83,32 @@ def current_transfer_link(_admin: models.User = Depends(admin_user), db: Session
         session = models.TransferSession(
             token_hash=transfer_service.token_hash(token),
             public_token=token,
-            created_by=_admin.id,
+            created_by=admin_id,
             max_bytes=transfer_service.TRANSFER_MAX_SESSION_BYTES,
             last_activity_at=now,
             expires_at=now + timedelta(seconds=transfer_service.TRANSFER_TTL_SECONDS),
             created_at=now,
         )
         db.add(session)
-        db.flush()
-    token = session.public_token
-    if not token:
-        token = transfer_service.new_token()
-        session.token_hash = transfer_service.token_hash(token)
-        session.public_token = token
+    else:
+        token = session.public_token
+        if not token:
+            token = transfer_service.new_token()
+            session.token_hash = transfer_service.token_hash(token)
+            session.public_token = token
+    return session, token
+
+
+@router.post("/api/admin/transfers", status_code=status.HTTP_201_CREATED)
+def create_transfer(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    session, token = get_or_create_current_session(db, _admin.id)
+    db.commit(); db.refresh(session)
+    return serialize_session(session, token)
+
+
+@router.post("/api/admin/transfers/current-link")
+def current_transfer_link(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    session, token = get_or_create_current_session(db, _admin.id)
     db.commit()
     db.refresh(session)
     return serialize_session(session, token)
@@ -182,6 +181,30 @@ def download_admin_transfer(file_id: int, request: Request, _admin: models.User 
     if range_header:
         headers["Content-Range"] = f"bytes {start}-{end}/{size}"
     return StreamingResponse(iter_file(path, start, end), status_code=206 if range_header else 200, headers=headers)
+
+
+@router.delete("/api/admin/transfers/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_admin_transfer_file(file_id: int, _admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    transfer_service.cleanup_expired(db)
+    item, session = (
+        db.query(models.TransferFile, models.TransferSession)
+        .join(models.TransferSession, models.TransferFile.session_id == models.TransferSession.id)
+        .filter(models.TransferFile.id == file_id)
+        .first()
+        or (None, None)
+    )
+    if not item:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件不存在或已清理")
+    path = Path(item.storage_path).resolve()
+    try:
+        path.relative_to(transfer_service.ensure_storage())
+    except ValueError:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "文件路径无效")
+    path.unlink(missing_ok=True)
+    session.total_bytes = max(0, session.total_bytes - item.file_size)
+    db.delete(item)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/api/admin/transfers/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
