@@ -23,7 +23,6 @@ const MineradioPage = lazy(() => import('./pages/MineradioPage'))
 const MusicLobbyPage = lazy(() => import('./pages/MusicLobbyPage'))
 const LivePage = lazy(() => import('./pages/LivePage'))
 const TransferPage = lazy(() => import('./pages/TransferPage'))
-const TransferInboxPage = lazy(() => import('./pages/TransferInboxPage'))
 
 export const RouteLoadingFallback = () => <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true"><span className="route-loading__spinner" aria-hidden="true" /><span>正在载入页面…</span></div>
 export const RouteSuspense = ({ children }) => <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
@@ -47,7 +46,7 @@ function TransferTokenRoute() {
 const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
-      <Route path="/" element={isTransferHost() ? withAuth(<TransferInboxPage />, true) : <ArticleFlowHome />} />
+      <Route path="/" element={isTransferHost() ? withAuth(<AdminFilesPage />, true) : <ArticleFlowHome />} />
       <Route path="/article/*" element={<LegacyArticlePage />} />
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />

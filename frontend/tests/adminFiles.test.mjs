@@ -23,11 +23,13 @@ assert.match(source, /type=["']file["']/, "admin transfer workspace must expose 
 assert.match(source, /transfer\?\.ready/, "the share link must wait for a successful upload");
 assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fixed public host");
 assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
-assert.match(routes, /TransferInboxPage/, "the fixed transfer host must render the admin inbox");
+assert.match(routes, /isTransferHost\(\) \? withAuth\(<AdminFilesPage \/>/, "the fixed transfer host must render the unified admin Files workspace");
+assert.doesNotMatch(routes, /TransferInboxPage/, "the fixed transfer host must not render a separate transfer page");
 assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
 assert.doesNotMatch(source, /device_token_hash|storage_path/, "private sync fields must never be consumed");
 assert.doesNotMatch(source, /file\.url|uploads\/admin_files/, "manual files must never use a public static URL");
+assert.match(source, /退出登录/, "the fixed transfer host must expose a logout action for shared devices");
 assert.doesNotMatch(
   source,
   /<\/?main\b/,

@@ -6,6 +6,10 @@ vi.mock('../src/utils/request.js', () => ({
   default: { delete: vi.fn(), get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }))
 
+vi.mock('../src/contexts/AuthContext.jsx', () => ({
+  useAuth: () => ({ logout: vi.fn() }),
+}))
+
 import AdminFilesPage from '../src/pages/AdminFilesPage.jsx'
 import apiClient from '../src/utils/request.js'
 import { API_ENDPOINTS } from '../src/config.js'
@@ -50,6 +54,7 @@ describe('administrator Files workspace', () => {
     const user = userEvent.setup()
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const timers = vi.spyOn(window, 'setTimeout')
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     apiClient.get.mockImplementation((endpoint, options) => {
       if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status: 'online' } })
@@ -64,7 +69,18 @@ describe('administrator Files workspace', () => {
 
     await user.click(await screen.findByRole('button', { name: 'notes.txt' }))
     expect(createObjectURL).toHaveBeenCalled()
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+    const releaseBlob = timers.mock.calls.find(([callback]) => callback.toString().includes('revokeObjectURL'))[0]
+    releaseBlob()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:test')
+  })
+
+  it('does not browse or enable the sync workspace while the PC is offline', async () => {
+    mockLoads({ status: 'offline' })
+    render(<AdminFilesPage />)
+
+    expect(await screen.findByText('电脑未连接')).toBeInTheDocument()
+    expect(apiClient.get).not.toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
   })
 
   it('uploads from the admin page and only reveals the link after upload', async () => {
