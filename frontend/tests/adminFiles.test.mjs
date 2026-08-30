@@ -18,6 +18,10 @@ for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADM
 assert.match(source, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");
 assert.match(source, /URL\.createObjectURL/, "download must create a local Blob URL");
 assert.match(source, /URL\.revokeObjectURL/, "download must release the Blob URL");
+assert.match(source, /apiClient\.put\(/, "admin transfer uploads must use the transfer API");
+assert.match(source, /type=["']file["']/, "admin transfer workspace must expose a file picker");
+assert.match(source, /transfer\?\.ready/, "the share link must wait for a successful upload");
+assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
 assert.doesNotMatch(source, /device_token_hash|storage_path/, "private sync fields must never be consumed");
 assert.doesNotMatch(source, /file\.url|uploads\/admin_files/, "manual files must never use a public static URL");

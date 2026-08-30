@@ -28,6 +28,18 @@ class ReleaseConfigTest(unittest.TestCase):
             self.assertIn("- transfer_storage:/app/transfers", source)
             self.assertIn("  transfer_storage:", source)
 
+    def test_nginx_streams_transfer_uploads_with_the_backend_limits(self):
+        source = self.read("deployment/nginx/elysiumm.conf")
+        for expected in (
+            "location ~ ^/api/transfers/[^/]+$",
+            "proxy_http_version 1.1;",
+            "client_max_body_size 2g;",
+            "proxy_request_buffering off;",
+            "proxy_read_timeout 1h;",
+            "proxy_send_timeout 1h;",
+        ):
+            self.assertIn(expected, source)
+
     def test_container_runtime_versions_and_reproducible_install_are_current(self):
         backend = self.read("backend/Dockerfile")
         frontend = self.read("frontend/Dockerfile")

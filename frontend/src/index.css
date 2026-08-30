@@ -424,6 +424,7 @@
 .admin-files-page { display:grid; gap:1rem; }
 .admin-icon-button,.admin-file-primary { align-items:center; background:transparent; border:1px solid var(--border-subtle); color:var(--text-primary); display:inline-flex; gap:.4rem; padding:.6rem .75rem; }
 .admin-file-primary:hover,.admin-icon-button:hover { border-color:#f59e0b; color:#f59e0b; }
+.admin-transfer-upload { align-items:center; border:1px dashed var(--border-subtle); color:var(--text-secondary); cursor:pointer; display:flex; gap:.5rem; justify-content:center; margin-top:1rem; padding:1.4rem; }.admin-transfer-upload:hover { border-color:var(--accent-blue);color:var(--accent-blue); }.admin-transfer-upload input { display:none; }
 .admin-file-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
 .admin-file-card { border:1px solid var(--border-subtle); min-height:25rem; padding:1.25rem; }
 .admin-file-card__icon { align-items:center; border:1px solid var(--accent-blue); color:var(--accent-blue); display:flex; height:2.8rem; justify-content:center; width:2.8rem; }
