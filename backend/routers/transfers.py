@@ -8,8 +8,9 @@ from datetime import timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 import models
@@ -19,6 +20,10 @@ from dependencies import get_current_user
 
 
 router = APIRouter(tags=["transfers"])
+
+
+class AdminTransferNotePayload(BaseModel):
+    content: str = Field(default="", max_length=100_000)
 
 
 def admin_user(user: models.User = Depends(get_current_user)):
@@ -142,6 +147,30 @@ def list_transfer_files(_admin: models.User = Depends(admin_user), db: Session =
         }
         for item, session in records
     ]
+
+
+def get_admin_transfer_note(db: Session) -> models.AdminTransferNote:
+    note = db.query(models.AdminTransferNote).filter(models.AdminTransferNote.id == 1).first()
+    if note is None:
+        note = models.AdminTransferNote(id=1, content="")
+        db.add(note)
+        db.commit()
+        db.refresh(note)
+    return note
+
+
+@router.get("/api/admin/transfers/note")
+def read_admin_transfer_note(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    return {"content": get_admin_transfer_note(db).content}
+
+
+@router.put("/api/admin/transfers/note")
+def write_admin_transfer_note(payload: AdminTransferNotePayload = Body(...), _admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    note = get_admin_transfer_note(db)
+    note.content = payload.content
+    note.updated_by = _admin.id
+    db.commit()
+    return {"content": note.content}
 
 
 @router.get("/api/admin/transfers/files/{file_id}/download")

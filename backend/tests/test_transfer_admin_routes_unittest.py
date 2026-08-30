@@ -31,6 +31,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
     def setUp(self):
         transfer_service.TRANSFER_ROOT = Path(tmp.name) / "storage"
         self.db = SessionLocal()
+        self.db.query(models.AdminTransferNote).delete()
         self.db.query(models.TransferFile).delete()
         self.db.query(models.TransferSession).delete()
         self.db.query(models.User).delete()
@@ -168,6 +169,25 @@ class TransferAdminRoutesTest(unittest.TestCase):
         session = self.db.query(models.TransferSession).first()
         self.assertEqual(session.total_bytes, 0)
         self.assertFalse(self.file_path.exists())
+
+    def test_admin_note_is_private_and_persists_without_transfer_expiry(self):
+        endpoint = "/api/admin/transfers/note"
+        self.assertEqual(self.client.get(endpoint).status_code, 401)
+        self.assertEqual(self.client.get(endpoint, headers=self.member_auth).status_code, 403)
+
+        initial = self.client.get(endpoint, headers=self.admin_auth)
+        self.assertEqual(initial.status_code, 200, initial.text)
+        self.assertEqual(initial.json(), {"content": ""})
+
+        content = "长期保留的管理员文本\n第二行"
+        saved = self.client.put(endpoint, headers=self.admin_auth, json={"content": content})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json(), {"content": content})
+
+        refreshed = self.client.get(endpoint, headers=self.admin_auth)
+        self.assertEqual(refreshed.status_code, 200)
+        self.assertEqual(refreshed.json(), {"content": content})
+        self.assertEqual(self.db.query(models.AdminTransferNote).count(), 1)
 
     def test_current_admin_link_reveals_the_latest_session_without_exposing_other_sessions(self):
         response = self.client.post("/api/admin/transfers/current-link", headers=self.admin_auth)

@@ -1,5 +1,5 @@
 import { Check, Copy, Download, FileDown, FolderSync, Link2, LogOut, RefreshCw, Trash2, Upload } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { API_ENDPOINTS, isTransferHost } from '../config.js'
 import apiClient from '../utils/request.js'
@@ -42,7 +42,14 @@ export default function AdminFilesPage() {
   const [transfer, setTransfer] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadFileName, setUploadFileName] = useState('')
+  const [uploadFileIndex, setUploadFileIndex] = useState(0)
+  const [uploadFileTotal, setUploadFileTotal] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [adminNote, setAdminNote] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
+  const noteSaveTimer = useRef(null)
   const fixedTransferHost = isTransferHost()
 
   const loadSync = useCallback(async (nextPath = '') => {
@@ -80,8 +87,32 @@ export default function AdminFilesPage() {
       if (!token) throw new Error('分享链接创建失败。')
       localStorage.setItem(TRANSFER_CURRENT_TOKEN_KEY, token)
       setTransfer({ token, url: transferPublicUrl(token), ready: true })
+      return token
     } catch (reason) {
       setError(detail(reason, '中转链接暂时无法载入。'))
+      return null
+    }
+  }, [])
+
+  const loadAdminNote = useCallback(async () => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.ADMIN_TRANSFER_NOTE)
+      setAdminNote(typeof response.data?.content === 'string' ? response.data.content : '')
+      setNoteSaved(false)
+    } catch (reason) {
+      setError(detail(reason, '管理员文本暂时无法载入。'))
+    }
+  }, [])
+
+  const saveAdminNote = useCallback(async (content) => {
+    setNoteSaving(true)
+    try {
+      await apiClient.put(API_ENDPOINTS.ADMIN_TRANSFER_NOTE, { content })
+      setNoteSaved(true)
+    } catch (reason) {
+      setError(detail(reason, '管理员文本保存失败。'))
+    } finally {
+      setNoteSaving(false)
     }
   }, [])
 
@@ -89,30 +120,65 @@ export default function AdminFilesPage() {
     loadSync('')
     loadTransferFiles()
     loadCurrentTransfer()
-  }, [loadCurrentTransfer, loadSync, loadTransferFiles])
+    loadAdminNote()
+  }, [loadAdminNote, loadCurrentTransfer, loadSync, loadTransferFiles])
+
+  useEffect(() => () => {
+    if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current)
+  }, [])
+
+  function editAdminNote(event) {
+    const content = event.target.value
+    setAdminNote(content)
+    setNoteSaved(false)
+    if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current)
+    noteSaveTimer.current = window.setTimeout(() => saveAdminNote(content), 500)
+  }
 
   async function uploadTransfer(event) {
     const input = event.currentTarget
-    const file = input.files?.[0]
-    if (!file) return
+    const files = Array.from(input.files || [])
+    if (!files.length) return
     setUploading(true)
     setUploadProgress(0)
+    setUploadFileIndex(0)
+    setUploadFileTotal(files.length)
     setError('')
+    let token = transfer?.token
+    const failures = []
     try {
-      let token = transfer?.token
       if (!token) token = await loadCurrentTransfer()
       if (!token) throw new Error('分享链接创建失败。')
-      const uploadResponse = await apiClient.put(`/api/transfers/${token}`, file, {
-        timeout: 0,
-        params: { filename: file.name },
-        headers: { 'Content-Type': 'application/octet-stream' },
-        onUploadProgress: ({ loaded, total }) => {
-          if (total) setUploadProgress(Math.min(100, Math.round((loaded / total) * 100)))
-        },
-      })
-      const nextToken = uploadResponse.data?.token || token
-      localStorage.setItem(TRANSFER_CURRENT_TOKEN_KEY, nextToken)
-      setTransfer({ token: nextToken, url: transferPublicUrl(nextToken), ready: true })
+      for (const [index, file] of files.entries()) {
+        setUploadFileIndex(index + 1)
+        setUploadFileName(file.name)
+        setUploadProgress(0)
+        const send = (currentToken) => apiClient.put(`/api/transfers/${currentToken}`, file, {
+          timeout: 0,
+          params: { filename: file.name },
+          headers: { 'Content-Type': 'application/octet-stream' },
+          onUploadProgress: ({ loaded, total }) => {
+            if (total) setUploadProgress(Math.min(100, Math.round((loaded / total) * 100)))
+          },
+        })
+        try {
+          let uploadResponse
+          try {
+            uploadResponse = await send(token)
+          } catch (reason) {
+            if (reason.response?.status !== 404) throw reason
+            token = await loadCurrentTransfer()
+            if (!token) throw reason
+            uploadResponse = await send(token)
+          }
+          token = uploadResponse.data?.token || token
+          localStorage.setItem(TRANSFER_CURRENT_TOKEN_KEY, token)
+          setTransfer({ token, url: transferPublicUrl(token), ready: true })
+        } catch (reason) {
+          failures.push(file.name)
+          setError(detail(reason, `文件“${file.name}”上传失败。`))
+        }
+      }
       await loadTransferFiles()
     } catch (reason) {
       if (reason.response?.status === 404) await loadCurrentTransfer()
@@ -120,8 +186,12 @@ export default function AdminFilesPage() {
     } finally {
       setUploading(false)
       setUploadProgress(0)
+      setUploadFileName('')
+      setUploadFileIndex(0)
+      setUploadFileTotal(0)
       input.value = ''
     }
+    if (failures.length > 1) setError(`以下文件上传失败：${failures.join('、')}`)
   }
 
   async function copyShareLink() {
@@ -176,7 +246,7 @@ export default function AdminFilesPage() {
   return <section className="admin-files-page">
     <header className="admin-page-heading admin-page-heading--actions-only">
       <div className="admin-page-heading__actions">
-        <button className="admin-icon-button" type="button" onClick={() => { loadSync(sync.path); loadTransferFiles(); loadCurrentTransfer() }} aria-label="刷新文件"><RefreshCw size={16} /></button>
+        <button className="admin-icon-button" type="button" onClick={() => { loadSync(sync.path); loadTransferFiles(); loadCurrentTransfer(); loadAdminNote() }} aria-label="刷新文件"><RefreshCw size={16} /></button>
         {fixedTransferHost && <button className="admin-icon-button" type="button" onClick={() => logout()}><LogOut size={16} /><span>退出登录</span></button>}
       </div>
     </header>
@@ -196,13 +266,20 @@ export default function AdminFilesPage() {
       <article className="admin-file-card">
         <div className="admin-file-card__icon admin-file-card__icon--violet"><Link2 size={21} /></div>
         <h3>文件中转</h3>
-        <label className="admin-transfer-upload"><Upload size={15} />{uploading ? '上传中…' : transfer?.ready ? '继续上传文件' : '选择文件上传'}<input aria-label="选择文件上传" type="file" onChange={uploadTransfer} disabled={uploading} /></label>
-        {uploading && <div className="transfer-upload-progress"><progress aria-label="上传进度" max="100" value={uploadProgress} /><span>{uploadProgress}%</span></div>}
+        <label className="admin-transfer-upload"><Upload size={15} />{uploading ? '上传中…' : transfer?.ready ? '继续上传文件' : '选择文件上传'}<input aria-label="选择文件上传" type="file" multiple onChange={uploadTransfer} disabled={uploading} /></label>
+        {uploading && <div className="transfer-upload-progress"><span className="transfer-upload-progress__name">{uploadFileIndex}/{uploadFileTotal} {uploadFileName}</span><progress aria-label="上传进度" max="100" value={uploadProgress} /><span>{uploadProgress}%</span></div>}
         {transfer?.ready && <div className="admin-transfer-created"><span>中转链接</span><div className="transfer-share-row"><input aria-label="中转链接" readOnly value={transfer.url} onFocus={(event) => event.target.select()} /><button type="button" onClick={copyShareLink}>{copied ? <Check size={15} /> : <Copy size={15} />}<span>{copied ? '已复制' : '复制分享链接'}</span></button></div></div>}
         <div className="admin-transfer-list">
           {transferFiles.map((item) => <div className="admin-transfer-file" key={item.id}><button className="admin-transfer-file__download" type="button" onClick={() => downloadTransfer(item)} aria-label={`下载 ${item.name}`}><Download size={15} /><span><strong>{item.name}</strong><small>{formatSize(item.size)}</small></span></button><button className="admin-transfer-file__delete" type="button" onClick={() => deleteTransferFile(item)} aria-label={`删除 ${item.name}`}><Trash2 size={15} /></button></div>)}
           {!transferFiles.length && <p className="admin-empty">暂无文件。</p>}
         </div>
+      </article>
+      <article className="admin-file-card admin-transfer-note-card">
+        <div className="admin-file-card__icon admin-file-card__icon--note"><FileDown size={21} /></div>
+        <h3>纯文本</h3>
+        <label className="admin-transfer-note__label" htmlFor="admin-transfer-note">管理员纯文本</label>
+        <textarea id="admin-transfer-note" aria-label="管理员纯文本" value={adminNote} onChange={editAdminNote} rows="8" placeholder="只在管理员页面保存的文本" />
+        <div className="admin-transfer-note__status">{noteSaving ? '保存中…' : noteSaved ? '已保存' : '自动保存'}</div>
       </article>
     </div>
   </section>

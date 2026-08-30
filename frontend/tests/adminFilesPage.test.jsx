@@ -24,6 +24,7 @@ function mockLoads({ status = 'online', items = syncItems, transferFiles = [] } 
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status } })
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items } })
     if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: transferFiles })
+    if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: '管理员保留文本' } })
     return Promise.reject(new Error(`unexpected GET ${endpoint}`))
   })
 }
@@ -55,6 +56,7 @@ describe('administrator Files workspace', () => {
     expect(screen.getByRole('button', { name: '下载 video.mp4' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '删除 transfer.pdf' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '删除 video.mp4' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '管理员纯文本' })).toHaveValue('管理员保留文本')
     expect(screen.getByText('文件同步')).toBeInTheDocument()
     expect(screen.getByText('文件中转')).toBeInTheDocument()
     expect(screen.queryByText('READ ONLY / FRP')).not.toBeInTheDocument()
@@ -187,6 +189,32 @@ describe('administrator Files workspace', () => {
     await waitFor(() => expect(screen.getByRole('progressbar', { name: '上传进度' })).toHaveValue(50))
     resolveUpload()
     await waitFor(() => expect(screen.queryByRole('progressbar', { name: '上传进度' })).not.toBeInTheDocument())
+  })
+
+  it('autosaves the administrator-only text and supports multiple transfer files', async () => {
+    const user = userEvent.setup()
+    const firstFile = new File(['one'], 'one.txt', { type: 'text/plain' })
+    const secondFile = new File(['two'], 'two.txt', { type: 'text/plain' })
+    apiClient.put.mockImplementation((endpoint) => {
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: '管理员新文本' } })
+      if (endpoint === '/api/transfers/current-token') return Promise.resolve({ data: { id: 7, name: 'one.txt', size: 3, token: 'token-two' } })
+      if (endpoint === '/api/transfers/token-two') return Promise.resolve({ data: { id: 8, name: 'two.txt', size: 3, token: 'token-three' } })
+      return Promise.reject(new Error(`unexpected PUT ${endpoint}`))
+    })
+
+    render(<AdminFilesPage />)
+
+    const note = await screen.findByRole('textbox', { name: '管理员纯文本' })
+    await user.clear(note)
+    await user.type(note, '管理员新文本')
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_NOTE, { content: '管理员新文本' }))
+
+    const picker = screen.getByLabelText('选择文件上传')
+    expect(picker).toHaveAttribute('multiple')
+    await user.upload(picker, [firstFile, secondFile])
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/current-token', firstFile, expect.any(Object)))
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/token-two', secondFile, expect.any(Object)))
+    expect(apiClient.put.mock.calls.filter(([endpoint]) => endpoint.startsWith('/api/transfers/'))).toHaveLength(2)
   })
 
   it('deletes individual transfer files', async () => {

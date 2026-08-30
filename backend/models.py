@@ -81,6 +81,17 @@ class TransferFile(Base):
 
     session = relationship("TransferSession", back_populates="files")
 
+
+class AdminTransferNote(Base):
+    __tablename__ = "admin_transfer_notes"
+
+    id = Column(Integer, primary_key=True)
+    content = Column(Text, nullable=False, default="")
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    updater = relationship("User")
+
 class AdminAuditLog(Base):
     __tablename__ = "admin_audit_logs"
 
