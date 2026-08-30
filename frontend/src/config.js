@@ -4,6 +4,9 @@ const fromEnv = (key) => import.meta.env[key] || ''
 const fallbackOrigin = window?.location?.origin || ''
 const API_BASE_URL = fromEnv('VITE_API_BASE_URL') || fallbackOrigin
 const WS_BASE_URL = fromEnv('VITE_WS_BASE_URL') || API_BASE_URL
+export const TRANSFER_HOST = fromEnv('VITE_TRANSFER_HOST') || 'send.elysiumm.top'
+export const TRANSFER_PUBLIC_BASE_URL = `https://${TRANSFER_HOST}`
+export const isTransferHost = (hostname = typeof window !== 'undefined' ? window.location.hostname : '') => hostname === TRANSFER_HOST
 
 export const API_ENDPOINTS = {
   // 认证
@@ -28,6 +31,7 @@ export const API_ENDPOINTS = {
   ADMIN_FILE_SYNC_BROWSE: `${API_BASE_URL}/api/admin/file-sync/browse`,
   ADMIN_FILE_SYNC_DOWNLOAD: `${API_BASE_URL}/api/admin/file-sync/download`,
   ADMIN_TRANSFERS: `${API_BASE_URL}/api/admin/transfers`,
+  ADMIN_TRANSFER_FILES: `${API_BASE_URL}/api/admin/transfers/files`,
   ADMIN_TRANSFER: (id) => `${API_BASE_URL}/api/admin/transfers/${id}`,
   ADMIN_ROOMS: `${API_BASE_URL}/api/admin/sync-rooms`,
   ADMIN_ROOM_LOCK: (id) => `${API_BASE_URL}/api/admin/sync-rooms/${id}/lock`,

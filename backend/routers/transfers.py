@@ -81,6 +81,69 @@ def list_transfers(_admin: models.User = Depends(admin_user), db: Session = Depe
     return [serialize_session(item) for item in db.query(models.TransferSession).order_by(models.TransferSession.created_at.desc()).all()]
 
 
+@router.get("/api/admin/transfers/files")
+def list_transfer_files(_admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    transfer_service.cleanup_expired(db)
+    records = (
+        db.query(models.TransferFile, models.TransferSession)
+        .join(models.TransferSession, models.TransferFile.session_id == models.TransferSession.id)
+        .order_by(models.TransferFile.created_at.desc(), models.TransferFile.id.desc())
+        .all()
+    )
+    return [
+        {
+            "id": item.id,
+            "name": item.original_name,
+            "size": item.file_size,
+            "sha256": item.sha256,
+            "created_at": item.created_at,
+            "transfer_id": session.id,
+            "expires_at": session.expires_at,
+            "download_url": f"/api/admin/transfers/files/{item.id}/download",
+        }
+        for item, session in records
+    ]
+
+
+@router.get("/api/admin/transfers/files/{file_id}/download")
+def download_admin_transfer(file_id: int, request: Request, _admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
+    transfer_service.cleanup_expired(db)
+    item, session = (
+        db.query(models.TransferFile, models.TransferSession)
+        .join(models.TransferSession, models.TransferFile.session_id == models.TransferSession.id)
+        .filter(models.TransferFile.id == file_id)
+        .first()
+        or (None, None)
+    )
+    if not item or session.expires_at <= transfer_service.utcnow():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件不存在或已清理")
+    path = Path(item.storage_path).resolve()
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件已清理")
+
+    size = path.stat().st_size
+    start = 0
+    end = size - 1
+    range_header = request.headers.get("range")
+    if range_header and range_header.startswith("bytes="):
+        start_text, _, end_text = range_header[6:].partition("-")
+        start = int(start_text or 0)
+        end = min(int(end_text) if end_text else size - 1, size - 1)
+        if start > end or start >= size:
+            raise HTTPException(status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE, "无效的 Range")
+    transfer_service.refresh_expiry(session)
+    db.commit()
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(end - start + 1),
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(item.original_name)}",
+        "Content-Type": mimetypes.guess_type(item.original_name)[0] or "application/octet-stream",
+    }
+    if range_header:
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+    return StreamingResponse(iter_file(path, start, end), status_code=206 if range_header else 200, headers=headers)
+
+
 @router.delete("/api/admin/transfers/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transfer(session_id: int, _admin: models.User = Depends(admin_user), db: Session = Depends(get_db)):
     session = db.query(models.TransferSession).filter(models.TransferSession.id == session_id).first()

@@ -79,12 +79,13 @@ describe('administrator Files workspace', () => {
     await user.upload(screen.getByLabelText('选择文件上传'), file)
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFERS))
-    expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/one-time-token', file, {
+    expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/one-time-token', file, expect.objectContaining({
       timeout: 0,
       params: { filename: '中文资料.txt' },
       headers: { 'Content-Type': 'application/octet-stream' },
-    })
-    expect(await screen.findByDisplayValue(/\/transfer\/one-time-token$/)).toBeInTheDocument()
+    }))
+    expect(apiClient.put.mock.calls[0][2].onUploadProgress).toEqual(expect.any(Function))
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/one-time-token')).toBeInTheDocument()
   })
 
   it('keeps a failed transfer available for retry without exposing its link', async () => {
@@ -101,17 +102,37 @@ describe('administrator Files workspace', () => {
     await user.upload(screen.getByLabelText('选择文件上传'), firstFile)
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('alert')).toHaveTextContent('上传被拒绝。')
-    expect(screen.queryByDisplayValue(/\/transfer\/retryable-token$/)).not.toBeInTheDocument()
+    expect(screen.queryByDisplayValue('https://send.elysiumm.top/retryable-token')).not.toBeInTheDocument()
 
     await user.upload(screen.getByLabelText('选择文件上传'), retryFile)
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(2))
     expect(apiClient.post).toHaveBeenCalledTimes(1)
-    expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/retryable-token', retryFile, {
+    expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/retryable-token', retryFile, expect.objectContaining({
       timeout: 0,
       params: { filename: 'retry.txt' },
       headers: { 'Content-Type': 'application/octet-stream' },
+    }))
+    expect(apiClient.put.mock.calls[1][2].onUploadProgress).toEqual(expect.any(Function))
+    expect(await screen.findByDisplayValue('https://send.elysiumm.top/retryable-token')).toBeInTheDocument()
+  })
+
+  it('shows live upload progress while the transfer request is in flight', async () => {
+    const user = userEvent.setup()
+    const file = new File(['hello'], 'progress.txt', { type: 'text/plain' })
+    let resolveUpload
+    apiClient.post.mockResolvedValue({ data: { token: 'progress-token' } })
+    apiClient.put.mockImplementation(async (_url, _file, options) => {
+      options.onUploadProgress({ loaded: 5, total: 10 })
+      await new Promise((resolve) => { resolveUpload = resolve })
+      return { data: { id: 6, name: 'progress.txt', size: 5 } }
     })
-    expect(await screen.findByDisplayValue(/\/transfer\/retryable-token$/)).toBeInTheDocument()
+
+    render(<AdminFilesPage />)
+    await user.upload(screen.getByLabelText('选择文件上传'), file)
+
+    await waitFor(() => expect(screen.getByRole('progressbar', { name: '上传进度' })).toHaveValue(50))
+    resolveUpload()
+    await waitFor(() => expect(screen.queryByRole('progressbar', { name: '上传进度' })).not.toBeInTheDocument())
   })
 
   it('destroys anonymous transfer links', async () => {

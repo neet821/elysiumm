@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { HomeNavigationContext, HomeSidebarContext } from '../../contexts/HomeSidebarContext.jsx'
 import HomeNavigation from './HomeNavigation.jsx'
+import { isTransferHost } from '../../config.js'
 
 function homeNavigationView(pathname) {
   if (pathname === '/') return 'home'
@@ -27,11 +28,12 @@ export function AppShell({ children }) {
     || location.pathname.startsWith('/music/')
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
+  const isTransferDomain = isTransferHost()
   const hasWideNavigation = isHome || isRoom || isLive
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const auth = useAuth()
-  const showHeader = !isAuthPage && !isHome && !isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute
-  const showFooter = !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
+  const showHeader = !isTransferDomain && !isAuthPage && !isHome && !isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute
+  const showFooter = !isTransferDomain && !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
   const [homeSidebarOpen, setHomeSidebarOpen] = useState(false)
 
   useEffect(() => {

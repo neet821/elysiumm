@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 
 import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
+import { isTransferHost } from './config.js'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ContentHomePage, { ArticleFlowHome, LegacyArticlePage } from './pages/ContentHomePage.jsx'
@@ -22,6 +23,7 @@ const MineradioPage = lazy(() => import('./pages/MineradioPage'))
 const MusicLobbyPage = lazy(() => import('./pages/MusicLobbyPage'))
 const LivePage = lazy(() => import('./pages/LivePage'))
 const TransferPage = lazy(() => import('./pages/TransferPage'))
+const TransferInboxPage = lazy(() => import('./pages/TransferInboxPage'))
 
 export const RouteLoadingFallback = () => <div className="route-loading" role="status" aria-label="正在载入页面" aria-live="polite" aria-busy="true"><span className="route-loading__spinner" aria-hidden="true" /><span>正在载入页面…</span></div>
 export const RouteSuspense = ({ children }) => <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
@@ -38,10 +40,14 @@ function SharedRoomListRedirect() {
   return <Navigate replace to={{ pathname: '/rooms/watch', search: location.search }} />
 }
 
+function TransferTokenRoute() {
+  return isTransferHost() ? <TransferPage /> : <NotFoundPage styles={LIGHT_STYLES} />
+}
+
 const AppRoutes = () => (
   <RouteSuspense>
     <Routes>
-      <Route path="/" element={<ArticleFlowHome />} />
+      <Route path="/" element={isTransferHost() ? withAuth(<TransferInboxPage />, true) : <ArticleFlowHome />} />
       <Route path="/article/*" element={<LegacyArticlePage />} />
       <Route path="/content/*" element={<ContentHomePage />} />
       <Route path="/login" element={withUserProps(LoginPage)} />
@@ -53,6 +59,7 @@ const AppRoutes = () => (
       <Route path="/live" element={<LivePage />} />
       <Route path="/account" element={withAuth(withUserProps(AccountPage))} />
       <Route path="/transfer/:token" element={<TransferPage />} />
+      <Route path="/:token" element={<TransferTokenRoute />} />
 
       <Route path="/admin/*" element={withAuth(<AdminShell />, true)}>
         <Route index element={<Navigate replace to="homepage" />} />

@@ -40,6 +40,18 @@ class ReleaseConfigTest(unittest.TestCase):
         ):
             self.assertIn(expected, source)
 
+    def test_send_subdomain_separates_admin_inbox_and_public_token_routes(self):
+        source = self.read("deployment/nginx/send.elysiumm.conf")
+        for expected in (
+            "server_name send.elysiumm.top;",
+            "ssl_certificate /etc/letsencrypt/live/send.elysiumm.top/fullchain.pem;",
+            "location ~ ^/api/transfers/[^/]+$",
+            "client_max_body_size 2g;",
+            "proxy_request_buffering off;",
+            "try_files $uri $uri/ /index.html;",
+        ):
+            self.assertIn(expected, source)
+
     def test_container_runtime_versions_and_reproducible_install_are_current(self):
         backend = self.read("backend/Dockerfile")
         frontend = self.read("frontend/Dockerfile")

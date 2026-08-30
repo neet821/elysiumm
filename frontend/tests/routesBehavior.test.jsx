@@ -20,6 +20,7 @@ vi.mock('../src/pages/LoginPage.jsx', () => ({ default: () => <div>Login page</d
 vi.mock('../src/pages/RegisterPage.jsx', () => ({ default: () => <div>Register page</div> }))
 
 import AppRoutes from '../src/routes.jsx'
+import { isTransferHost } from '../src/config.js'
 
 function LocationProbe() {
   const location = useLocation()
@@ -38,6 +39,16 @@ function renderAppRoute(path) {
 describe('current route contract', () => {
   beforeEach(() => {
     authState = { isAdmin: true, isAuthenticated: true, loading: false, user: { id: 1 } }
+  })
+
+  it('recognizes the fixed transfer host as the administrator inbox host', () => {
+    expect(isTransferHost('send.elysiumm.top')).toBe(true)
+    expect(isTransferHost('elysiumm.top')).toBe(false)
+  })
+
+  it('does not turn arbitrary main-site paths into transfer links', async () => {
+    renderAppRoute('/not-a-transfer-token')
+    expect(await screen.findByRole('heading', { name: '这个页面不存在' })).toBeInTheDocument()
   })
 
   it('keeps the current public, room, live, and administrator routes', () => {

@@ -12,7 +12,7 @@ const styles = readFileSync(new URL("../src/index.css", import.meta.url), "utf8"
 for (const label of ["文件同步", "文件中转", "READ ONLY / FRP"]) {
   assert.match(source, new RegExp(label), `Files workspace must include ${label}`);
 }
-for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFERS", "ADMIN_TRANSFER"]) {
+for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFERS", "ADMIN_TRANSFER", "ADMIN_TRANSFER_FILES"]) {
   assert.match(config, new RegExp(`${endpoint}:`), `config must expose ${endpoint}`);
 }
 assert.match(source, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");
@@ -21,6 +21,9 @@ assert.match(source, /URL\.revokeObjectURL/, "download must release the Blob URL
 assert.match(source, /apiClient\.put\(/, "admin transfer uploads must use the transfer API");
 assert.match(source, /type=["']file["']/, "admin transfer workspace must expose a file picker");
 assert.match(source, /transfer\?\.ready/, "the share link must wait for a successful upload");
+assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fixed public host");
+assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
+assert.match(routes, /TransferInboxPage/, "the fixed transfer host must render the admin inbox");
 assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
 assert.doesNotMatch(source, /device_token_hash|storage_path/, "private sync fields must never be consumed");
