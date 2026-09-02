@@ -32,9 +32,6 @@ prepare_staged_frontend() {
   fi
   STAGE_DIR=$(mktemp -d "$parent/.blue-album-stage-${release_id}-XXXXXX")
   cp -a "$source_dir/." "$STAGE_DIR/"
-  if [[ -d "$STAGED_WEB_ROOT/movie-rank" ]]; then
-    cp -a "$STAGED_WEB_ROOT/movie-rank" "$STAGE_DIR/movie-rank"
-  fi
   FRONTEND_SWITCHED=0
 }
 

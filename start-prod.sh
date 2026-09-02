@@ -369,7 +369,19 @@ server {
     }
 
     location = /movie-rank {
-        return 301 /movie-rank/;
+        return 404;
+    }
+
+    location ^~ /movie-rank/ {
+        return 404;
+    }
+
+    location = /movie-rank-api {
+        return 404;
+    }
+
+    location ^~ /movie-rank-api/ {
+        return 404;
     }
 
     location ^~ /mineradio-api/ {
@@ -386,15 +398,6 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location ^~ /movie-rank/ {
-        proxy_pass http://127.0.0.1:18080/;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     location / {
@@ -452,7 +455,19 @@ server {
     }
 
     location = /movie-rank {
-        return 301 /movie-rank/;
+        return 404;
+    }
+
+    location ^~ /movie-rank/ {
+        return 404;
+    }
+
+    location = /movie-rank-api {
+        return 404;
+    }
+
+    location ^~ /movie-rank-api/ {
+        return 404;
     }
 
     location ^~ /mineradio-api/ {
@@ -469,38 +484,6 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-
-    location ^~ /movie-rank/ {
-        proxy_pass http://127.0.0.1:18080/;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-
-    location = /_movie_rank_auth {
-        internal;
-        proxy_pass http://127.0.0.1:${PORT}/api/users/me;
-        proxy_pass_request_body off;
-        proxy_set_header Content-Length "";
-        proxy_set_header Authorization \$http_authorization;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-
-    location ^~ /movie-rank-api/ {
-        auth_request /_movie_rank_auth;
-        proxy_pass http://127.0.0.1:18080/;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header Authorization \$http_authorization;
     }
 
     location / {

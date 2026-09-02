@@ -142,16 +142,15 @@ class ReleaseScriptsTest(unittest.TestCase):
         self.assertNotIn('source "$PROD_ENV_FILE"', source)
         self.assertIn("shlex.quote", source)
 
-    def test_staged_frontend_restores_previous_tree_after_failed_health(self):
+    def test_staged_frontend_restores_previous_tree_without_retired_movie_rank(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "dist"
             web = root / "www"
             source.mkdir()
-            (web / "movie-rank").mkdir(parents=True)
+            web.mkdir()
             (source / "index.html").write_text("new release\n", encoding="utf-8")
             (web / "index.html").write_text("old release\n", encoding="utf-8")
-            (web / "movie-rank" / "index.html").write_text("preserved\n", encoding="utf-8")
             result = subprocess.run(
                 [
                     "bash", "-c",
@@ -171,10 +170,8 @@ class ReleaseScriptsTest(unittest.TestCase):
             self.assertEqual((web / "index.html").read_text(encoding="utf-8"), "old release\n")
             failed = root / ".blue-album-failed-test"
             self.assertEqual((failed / "index.html").read_text(encoding="utf-8"), "new release\n")
-            self.assertEqual(
-                (web / "movie-rank" / "index.html").read_text(encoding="utf-8"),
-                "preserved\n",
-            )
+            self.assertFalse((web / "movie-rank").exists())
+            self.assertFalse((failed / "movie-rank").exists())
 
     def test_verify_only_accepts_intact_bundle_without_mutating_it(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -304,11 +301,15 @@ class ReleaseScriptsTest(unittest.TestCase):
         main = (ROOT / "backend/main.py").read_text(encoding="utf-8")
         self.assertIn('os.getenv("BACKEND_LOG_FILE"', main)
 
-    def test_deploy_proxies_movierank_frontend_from_its_live_service(self):
+    def test_deploy_tombstones_retired_movierank_routes(self):
         deploy = (ROOT / "start-prod.sh").read_text(encoding="utf-8")
-        proxy = "proxy_pass http://127.0.0.1:18080/;"
-        self.assertEqual(deploy.count(proxy), 3)
-        self.assertNotIn("alias ${WEB_ROOT}/movie-rank/;", deploy)
+        self.assertEqual(deploy.count("location = /movie-rank {"), 2)
+        self.assertEqual(deploy.count("location ^~ /movie-rank/ {"), 2)
+        self.assertEqual(deploy.count("location = /movie-rank-api {"), 2)
+        self.assertEqual(deploy.count("location ^~ /movie-rank-api/ {"), 2)
+        self.assertNotIn("movie_rank", deploy)
+        self.assertNotIn("18080", deploy)
+        self.assertEqual(deploy.count("return 404;"), 12)
 
     def test_environment_examples_cover_release_storage_without_weak_secrets(self):
         backend = (ROOT / "backend/.env.example").read_text(encoding="utf-8")
