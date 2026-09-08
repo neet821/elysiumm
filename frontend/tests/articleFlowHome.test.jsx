@@ -263,6 +263,15 @@ describe('ArticleFlowHome', () => {
     expect(within(card).queryByRole('region', { name: '完整评论' })).not.toBeInTheDocument()
   })
 
+  it('keeps fixed-size record cards from letting long text escape into the next card', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\s*\{[^}]*overflow:\s*hidden;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card h2 > span:last-child\s*\{[^}]*-webkit-line-clamp:\s*2;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\.is-review-expanded\s*\{[^}]*overflow:\s*visible;/s)
+  })
+
   it('refreshes record comments when the homepage regains focus', async () => {
     let requestCount = 0
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {

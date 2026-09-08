@@ -186,7 +186,7 @@ function RecordCard({ item }) {
   }, [reviewExpanded])
 
   return (
-    <article className="record-card record-card--priority">
+    <article className={`record-card record-card--priority${reviewExpanded ? ' is-review-expanded' : ''}`}>
       <div className="record-cover">{image}</div>
       <div className="record-info">
         <h2><RecordTypeIcon type={item.type} /><span>{item.title}</span></h2>

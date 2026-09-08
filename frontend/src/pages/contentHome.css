@@ -1723,3 +1723,33 @@
   }
   .legacy-old-home--flat .home-nav--local { display: none; }
 }
+
+/* Fixed rail rows must contain long titles and comments without changing card size. */
+.legacy-old-home--flat .home-sidebar .record-card {
+  overflow: hidden;
+}
+.legacy-old-home--flat .home-sidebar .record-card.is-review-expanded {
+  overflow: visible;
+  z-index: 1;
+}
+.legacy-old-home--flat .home-sidebar .record-card h2 {
+  min-width: 0;
+}
+.legacy-old-home--flat .home-sidebar .record-card h2 > span:last-child {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.legacy-old-home--flat .home-sidebar .record-review-summary {
+  max-height: 2.7em;
+  overflow: hidden;
+}
+.legacy-old-home--flat .home-sidebar .record-review-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
