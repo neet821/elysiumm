@@ -263,6 +263,18 @@ describe('ArticleFlowHome', () => {
     expect(within(card).queryByRole('region', { name: '完整评论' })).not.toBeInTheDocument()
   })
 
+  it('keeps a full-comment control for short reviews that can still clip in a narrow card', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ articles: [{ slug: 'record', title: '窄卡片评论', type: 'album', contentType: 'record', createdAt: '2026-08-22', review: '成都的数学摇滚乐队，23年第一次听还以为是日本的。' }] }),
+    })
+
+    const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('窄卡片评论')).toBeInTheDocument())
+    expect(within(container.querySelector('.record-card')).getByRole('button', { name: '展开完整评论' })).toBeInTheDocument()
+  })
+
   it('keeps fixed-size record cards from letting long text escape into the next card', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
 

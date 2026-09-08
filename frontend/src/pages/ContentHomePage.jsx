@@ -165,8 +165,8 @@ function RecordCard({ item }) {
     ? <img src={coverUrl(item)} alt={item.title} loading="lazy" />
     : <span className="cover-missing">暂无封面</span>
   const review = String(item.review || '').trim()
-  const hasLongReview = review.length > RECORD_REVIEW_PREVIEW_LENGTH
-  const reviewPreview = hasLongReview
+  const hasReview = Boolean(review)
+  const reviewPreview = review.length > RECORD_REVIEW_PREVIEW_LENGTH
     ? `${review.slice(0, RECORD_REVIEW_PREVIEW_LENGTH).trimEnd()}…`
     : review || '—'
   const fields = [
@@ -196,7 +196,7 @@ function RecordCard({ item }) {
           <div className="record-review-summary">
             <span className="record-review-label">个人评论：</span>
             <span className="record-review-text">{reviewPreview}</span>
-            {hasLongReview && (
+            {hasReview && (
               <button
                 className="record-review-toggle"
                 type="button"
@@ -208,7 +208,7 @@ function RecordCard({ item }) {
               </button>
             )}
           </div>
-          {hasLongReview && reviewExpanded && (
+          {hasReview && reviewExpanded && (
             <div className="record-review-popover" role="region" aria-label="完整评论">
               <p>{review}</p>
             </div>
