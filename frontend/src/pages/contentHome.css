@@ -1753,3 +1753,14 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.legacy-old-home--flat .home-sidebar .record-review-summary {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  max-height: none;
+  overflow: visible;
+}
+.legacy-old-home--flat .home-sidebar .record-review-toggle {
+  align-self: start;
+  margin: -.1rem 0 0;
+}

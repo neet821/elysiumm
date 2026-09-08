@@ -272,6 +272,14 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\.is-review-expanded\s*\{[^}]*overflow:\s*visible;/s)
   })
 
+  it('keeps the full-comment toggle visible beside the clipped preview', () => {
+    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-toggle\s*\{[^}]*align-self:\s*start;/s)
+  })
+
   it('refreshes record comments when the homepage regains focus', async () => {
     let requestCount = 0
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
