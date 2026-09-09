@@ -290,6 +290,7 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-toggle\s*\{[^}]*align-self:\s*start;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review-popover\s*\{[^}]*position:\s*fixed;/s)
   })
 
   it('refreshes record comments when the homepage regains focus', async () => {

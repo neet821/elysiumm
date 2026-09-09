@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { BookOpen, ChevronDown, Clapperboard, Disc3, Gamepad2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
@@ -160,6 +160,7 @@ function LegacyPhotoCard({ item }) {
 
 function RecordCard({ item }) {
   const [reviewExpanded, setReviewExpanded] = useState(false)
+  const [reviewPopoverStyle, setReviewPopoverStyle] = useState(null)
   const reviewRegionRef = useRef(null)
   const image = item.cover
     ? <img src={coverUrl(item)} alt={item.title} loading="lazy" />
@@ -183,6 +184,32 @@ function RecordCard({ item }) {
     }
     document.addEventListener('pointerdown', closeOnOutsidePointer)
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [reviewExpanded])
+
+  useLayoutEffect(() => {
+    if (!reviewExpanded) {
+      setReviewPopoverStyle(null)
+      return undefined
+    }
+
+    const updateReviewPopoverPosition = () => {
+      const reviewRegion = reviewRegionRef.current
+      if (!reviewRegion) return
+      const rect = reviewRegion.getBoundingClientRect()
+      const width = Math.min(352, Math.max(0, window.innerWidth - 32))
+      const maxHeight = Math.min(256, window.innerHeight * 0.5)
+      const left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16))
+      const top = Math.max(16, Math.min(rect.bottom + 6, window.innerHeight - maxHeight - 16))
+      setReviewPopoverStyle({ left: `${left}px`, top: `${top}px`, width: `${width}px` })
+    }
+
+    updateReviewPopoverPosition()
+    window.addEventListener('resize', updateReviewPopoverPosition)
+    window.addEventListener('scroll', updateReviewPopoverPosition, true)
+    return () => {
+      window.removeEventListener('resize', updateReviewPopoverPosition)
+      window.removeEventListener('scroll', updateReviewPopoverPosition, true)
+    }
   }, [reviewExpanded])
 
   return (
@@ -209,7 +236,7 @@ function RecordCard({ item }) {
             )}
           </div>
           {hasReview && reviewExpanded && (
-            <div className="record-review-popover" role="region" aria-label="完整评论">
+            <div className="record-review-popover" role="region" aria-label="完整评论" style={reviewPopoverStyle || undefined}>
               <p>{review}</p>
             </div>
           )}
