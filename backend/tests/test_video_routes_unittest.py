@@ -639,6 +639,22 @@ class VideoRoutesTest(unittest.TestCase):
         self.assertFalse(managed.exists())
         self.assertTrue(outside.exists())
 
+    def test_managed_path_recovers_files_from_a_previous_private_storage_root(self):
+        current_root = Path(self.temporary_directory.name) / "private-storage" / "video_rooms"
+        current_root.mkdir(parents=True)
+        managed = current_root / "legacy-video.mp4"
+        managed.write_bytes(b"managed")
+
+        legacy = Path("/old-release/private-storage/video_rooms/legacy-video.mp4")
+
+        self.assertEqual(video_router._managed_path(legacy, current_root), managed)
+        self.assertIsNone(
+            video_router._managed_path(
+                Path("/untrusted/legacy-video.mp4"),
+                current_root,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

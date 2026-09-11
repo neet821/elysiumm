@@ -381,9 +381,23 @@ def _managed_path(value, root):
         return None
     candidate = Path(value).expanduser().resolve()
     root = Path(root).resolve()
-    if not candidate.is_relative_to(root):
-        return None
-    return candidate
+    if candidate.is_relative_to(root):
+        return candidate
+
+    # Uploads used to be stored under a release-specific absolute path. Keep
+    # those records readable after the private storage root is moved, but only
+    # when the old path has the same managed directory suffix and the matching
+    # file already exists under the current root. Arbitrary outside paths are
+    # still rejected, preserving the path traversal boundary.
+    if (
+        len(root.parts) >= 2
+        and candidate.parent.name == root.name
+        and candidate.parent.parent.name == root.parent.name
+    ):
+        relocated = root / candidate.name
+        if relocated.is_file():
+            return relocated
+    return None
 
 
 def _unlink_managed(value, root):
