@@ -305,7 +305,7 @@ describe('video room page', () => {
     await waitFor(() => expect(mocks.applySnapshot).toHaveBeenCalledWith(
       mocks.adapter,
       expect.objectContaining({ state: 'playing', version: 6 }),
-      expect.objectContaining({ id: 'video:7:file:subtitles:11:1' }),
+      expect.objectContaining({ id: 'video:7:file:source:/api/video/items/7/stream?access=signed:subtitles:11:1' }),
       expect.anything(),
     ))
   })
@@ -441,7 +441,21 @@ describe('video room page', () => {
     })
 
     fireEvent.error(video)
-    expect(screen.getByText('当前视频无法播放，请检查来源或稍后重试')).toHaveAttribute('role', 'status')
+    await waitFor(() => expect(mocks.api.get.mock.calls.filter(([url]) => url.endsWith('/api/video/rooms/9')).length).toBeGreaterThan(1))
+    expect(await screen.findByText('视频源已刷新，请再次点击播放')).toHaveAttribute('role', 'status')
+  })
+
+  it('refreshes signed media after playback rejects for a non-autoplay reason', async () => {
+    renderRoom()
+    const play = await screen.findByRole('button', { name: /播放 Shared film/ })
+    const initialVideoCalls = mocks.api.get.mock.calls.filter(([url]) => url.endsWith('/api/video/rooms/9')).length
+    const error = Object.assign(new Error('media source failed'), { name: 'NotSupportedError' })
+    mocks.adapter.play.mockRejectedValueOnce(error)
+
+    fireEvent.click(play)
+
+    await waitFor(() => expect(mocks.api.get.mock.calls.filter(([url]) => url.endsWith('/api/video/rooms/9')).length).toBeGreaterThan(initialVideoCalls))
+    expect(await screen.findByText('视频源已刷新，请再次点击播放')).toHaveAttribute('role', 'status')
   })
 
   it('automatically refreshes and recovers an unlocked player after buffering', async () => {

@@ -73,11 +73,31 @@ describe('VideoPlayerAdapter', () => {
       { default: true, kind: 'subtitles', label: 'English', language: 'en', src: '/subtitles/12' },
     ])
     expect(video.load).toHaveBeenCalledTimes(1)
-    expect(adapter.snapshot().track.id).toBe('video:7:file:subtitles:11:0,12:1')
+    expect(adapter.snapshot().track.id).toBe('video:7:file:source:/api/video/items/7/stream?access=signed:subtitles:11:0,12:1')
 
     adapter.load(videoItemToAdapterTrack(item({ id: 8, playback_url: 'https://media.example/next.mp4' })))
     expect(video.getAttribute('src')).toBe('https://media.example/next.mp4')
-    expect(adapter.snapshot().track.id).toBe('video:8:file:subtitles:11:0,12:0')
+    expect(adapter.snapshot().track.id).toBe('video:8:file:source:https://media.example/next.mp4:subtitles:11:0,12:0')
+  })
+
+  it('reloads the media source when a signed playback URL is refreshed', async () => {
+    const video = document.createElement('video')
+    const adapter = createVideoPlayerAdapter(video)
+    const originalTrack = videoItemToAdapterTrack(item({ playback_url: '/api/video/items/7/stream?access=expired' }))
+    const refreshedTrack = videoItemToAdapterTrack(item({ playback_url: '/api/video/items/7/stream?access=refreshed' }))
+    const syncState = createRoomSyncState()
+
+    adapter.load(originalTrack)
+    video.load.mockClear()
+
+    await applyVideoSnapshot(adapter, snapshot({ version: 2 }), refreshedTrack, {
+      clientNowMs: 10_000,
+      receivedAtMs: 10_000,
+      syncState,
+    })
+
+    expect(video.getAttribute('src')).toBe('/api/video/items/7/stream?access=refreshed')
+    expect(video.load).toHaveBeenCalledTimes(1)
   })
 
   it('accepts browser blob URLs for local video playback', () => {

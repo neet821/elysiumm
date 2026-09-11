@@ -39,7 +39,7 @@ export function videoItemToAdapterTrack(item, selectedSubtitleId = null) {
     .map((subtitle) => `${subtitle.id}:${subtitle.default ? 1 : 0}`)
     .join(',') || 'none'
   return {
-    id: `video:${Number(item.id)}:${item.playback_kind === 'hls' ? 'hls' : 'file'}:subtitles:${subtitleSignature}`,
+    id: `video:${Number(item.id)}:${item.playback_kind === 'hls' ? 'hls' : 'file'}:source:${playbackUrl}:subtitles:${subtitleSignature}`,
     mediaId: Number(item.id),
     playbackKind: item.playback_kind === 'hls' ? 'hls' : 'file',
     playbackUrl,

@@ -63,6 +63,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
   const presenceJoinedRef = useRef(false)
   const playbackUnlockedRef = useRef(false)
   const lastPlaybackRecoveryRef = useRef(0)
+  const mediaRefreshKeyRef = useRef(null)
   const transientNoticeTimerRef = useRef(null)
 
   const showTransientNotice = useCallback((message) => {
@@ -459,7 +460,20 @@ export function useVideoRoom({ navigate, roomId, user }) {
     bufferReportedRef.current = false
     endedKeyRef.current = null
     metadataKeyRef.current = null
+    mediaRefreshKeyRef.current = null
   }, [currentItem?.id])
+
+  const refreshMediaSource = useCallback(async () => {
+    if (!currentItem || mediaRefreshKeyRef.current === String(currentItem.id)) return false
+    mediaRefreshKeyRef.current = String(currentItem.id)
+    const refreshed = await refreshVideoDetail({ quiet: true })
+    if (refreshed) {
+      setNotice('视频源已刷新，请再次点击播放')
+      return true
+    }
+    setNotice('视频源刷新失败，请点击重新同步')
+    return false
+  }, [currentItem, refreshVideoDetail])
 
   const emitControl = useCallback((action, extra = {}) => {
     if (!canControl || !latestSnapshotRef.current || !socketRef.current) return false
@@ -489,12 +503,17 @@ export function useVideoRoom({ navigate, roomId, user }) {
       playbackUnlockedRef.current = true
       setNeedsUserGesture(false)
       setNotice((current) => current === '房间正在播放，请点击播放按钮开始' ? '' : current)
-    }).catch(() => {
-      setNeedsUserGesture(true)
-      setNotice('浏览器阻止了播放，请再次点击播放按钮')
+    }).catch((error) => {
+      if (error?.name === 'NotAllowedError') {
+        setNeedsUserGesture(true)
+        setNotice('浏览器阻止了播放，请再次点击播放按钮')
+        return
+      }
+      setNeedsUserGesture(false)
+      refreshMediaSource()
     })
     emitControl('play', { time })
-  }, [emitControl, needsUserGesture])
+  }, [emitControl, needsUserGesture, refreshMediaSource])
 
   const seek = useCallback((time) => {
     emitControl('seek', { time: Math.max(0, Number(time) || 0) })
@@ -595,7 +614,10 @@ export function useVideoRoom({ navigate, roomId, user }) {
         room_id: numericRoomId,
       })
     },
-    onError: () => setNotice('当前视频无法播放，请检查来源或稍后重试'),
+    onError: () => {
+      setNotice('视频源加载失败，正在刷新播放凭据…')
+      refreshMediaSource()
+    },
     onLoadedMetadata: (event) => {
       if (!canControl || !currentItem) return
       const duration = Number(event.currentTarget.duration)
@@ -626,7 +648,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     },
     onStalled: recoverPlayback,
     onWaiting: recoverPlayback,
-  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, recoverPlayback, reportBuffering])
+  }), [canControl, currentItem, handleNativePlaybackControl, numericRoomId, recoverPlayback, refreshMediaSource, reportBuffering])
 
   const runMutation = useCallback(async (operation, fallback) => {
     setBusy(true)
