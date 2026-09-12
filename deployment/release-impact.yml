@@ -1,0 +1,70 @@
+version: 1
+
+# Keep matching rules in one versioned file. The resolver evaluates every
+# changed path against every rule and unions the selected components and
+# validation profiles.
+rules:
+  - id: frontend-source
+    paths:
+      - frontend/**
+    components: [frontend]
+    validation: [frontend]
+
+  - id: backend-source
+    paths:
+      - backend/**
+    components: [backend]
+    validation: [backend]
+
+  - id: dependency-locks
+    paths:
+      - requirements*.txt
+      - backend/requirements*.txt
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - frontend/package.json
+      - frontend/package-lock.json
+      - frontend/pnpm-lock.yaml
+      - frontend/yarn.lock
+    components: [backend, frontend]
+    validation: [dependency-lock, migration-analysis, api-contract]
+
+  - id: api-schema
+    paths:
+      - openapi/**
+      - schemas/**
+      - backend/openapi/**
+      - backend/schemas.py
+      - shared-config/**
+    components: [backend, frontend]
+    validation: [api-contract, full]
+
+  - id: nginx-infrastructure
+    paths:
+      - deployment/nginx/**
+      - deployment/nginx-*.conf
+    components: [infra]
+    validation: [nginx, frontend-smoke, backend-smoke]
+
+  - id: systemd-infrastructure
+    paths:
+      - deployment/systemd/**
+      - deployment/*.service
+      - deployment/*.timer
+    components: [backend, infra]
+    validation: [systemd, backend-smoke]
+
+  - id: release-tooling
+    paths:
+      - scripts/release-*.sh
+      - scripts/release-*.py
+      - scripts/deploy-*.sh
+      - scripts/deploy-*.py
+      - scripts/resolve-release-impact.py
+      - deployment/release-impact.yml
+    components: [frontend, backend, infra]
+    validation: [full]
+
+defaults:
+  components: [frontend, backend, infra]
+  validation: [full]
