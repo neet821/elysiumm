@@ -10,6 +10,7 @@ import path from 'node:path'
 const root = path.resolve(import.meta.dirname, '..')
 const require = createRequire(path.join(root, 'frontend', 'package.json'))
 const { io } = require('socket.io-client')
+const { WebSocket: NodeWebSocket } = require('ws')
 const python = path.join(root, 'backend', '.venv', 'bin', 'python')
 const chromeBinary = process.env.CHROME_BINARY || '/usr/bin/google-chrome-stable'
 const ffmpegBinary = process.env.FFMPEG_BINARY || '/usr/bin/ffmpeg'
@@ -28,7 +29,7 @@ class CdpClient {
   }
 
   async connect() {
-    this.socket = new WebSocket(this.target.webSocketDebuggerUrl)
+    this.socket = new NodeWebSocket(this.target.webSocketDebuggerUrl)
     this.socket.addEventListener('message', (event) => {
       const message = JSON.parse(event.data)
       if (message.id) {

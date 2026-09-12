@@ -2,12 +2,15 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 
 
 const root = path.resolve(import.meta.dirname, '..')
+const require = createRequire(path.join(root, 'frontend', 'package.json'))
+const { WebSocket: NodeWebSocket } = require('ws')
 const python = path.join(root, 'backend', '.venv', 'bin', 'python')
 const chromeBinary = process.env.CHROME_BINARY || '/usr/bin/google-chrome-stable'
 const screenshotDir = process.env.BLUE_ALBUM_SCREENSHOT_DIR || '/tmp/elysium-phase10-admin-files-browser'
@@ -28,7 +31,7 @@ class CdpClient {
   }
 
   async connect() {
-    this.socket = new WebSocket(this.target.webSocketDebuggerUrl)
+    this.socket = new NodeWebSocket(this.target.webSocketDebuggerUrl)
     this.socket.addEventListener('message', (event) => {
       const message = JSON.parse(event.data)
       if (message.id) {

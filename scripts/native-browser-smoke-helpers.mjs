@@ -1,8 +1,11 @@
 import { spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 
+const require = createRequire(path.join(path.resolve(import.meta.dirname, '..'), 'frontend', 'package.json'))
+const { WebSocket: NodeWebSocket } = require('ws')
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 export class CdpClient {
@@ -17,7 +20,7 @@ export class CdpClient {
   }
 
   async connect() {
-    this.socket = new WebSocket(this.target.webSocketDebuggerUrl)
+    this.socket = new NodeWebSocket(this.target.webSocketDebuggerUrl)
     this.socket.addEventListener('message', (event) => {
       const message = JSON.parse(event.data)
       if (message.id) {
