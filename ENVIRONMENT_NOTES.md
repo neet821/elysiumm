@@ -12,7 +12,8 @@
 - `SECRET_KEY`、`ALGORITHM`、令牌有效期
 - `HOST`、`PORT`、无通配符的 `CORS_ORIGINS`
 - `VITE_API_BASE_URL`、`VITE_WS_BASE_URL`、`DOMAIN`（可选 `DOMAIN_WWW`）
-- 绝对路径 `PUBLIC_SYNC_STORAGE`、`PRIVATE_STORAGE_DIR`、`ADMIN_FILES_STORAGE_DIR`、`BACKUP_OUTPUT_DIR`
+- 绝对路径 `UPLOAD_DIR`、`PUBLIC_SYNC_STORAGE`、`PRIVATE_STORAGE_DIR`、`ADMIN_FILES_STORAGE_DIR`、`TRANSFER_STORAGE_DIR`、`BACKUP_OUTPUT_DIR`、`MUSIC_PROVIDER_CREDENTIAL_DIR`
+- `NETEASE_API_BASE_URL`、`QQ_API_BASE_URL`、`AUDIUS_API_BASE_URL`；生产默认不启用旧 Mineradio HTTP bridge
 - 可选、无凭据的 `KAVITA_PUBLIC_BASE_URL`
 - 用于校验外部视频真实公网地址的 `EXTERNAL_MEDIA_DOH_URL`；默认使用 Cloudflare 公共 DNS，可替换为兼容 DNS JSON 的可信服务
 
@@ -48,25 +49,36 @@ cp frontend/.env.example frontend/.env
 
 ## Debian 裸机生产
 
-生产拓扑是 Nginx 静态前端、MariaDB/MySQL、Mineradio 和一个 Uvicorn 后端进程。必须保持**单进程**，因为 Socket.IO 房间、在线状态和部分限速状态尚未共享到外部存储。
+生产拓扑是 Nginx 静态前端、MariaDB/MySQL 和一个 Uvicorn 后端进程；Articles 与音乐 provider 都在 FastAPI 内。必须保持**单进程**，因为 Socket.IO 房间、在线状态和部分限速状态尚未共享到外部存储。
 
-生产脚本不选择或下载代码。操作者先签出已审查提交并保持工作树干净，准备数据库、证书、目录和 `backend/prod.env`，再运行：
+生产脚本不在可变 checkout 中选择或下载代码。操作者先完成 `/srv/services/elysium` 布局、数据库、证书、目录和 `/etc/elysium/backend.env`，再运行：
 
 ```bash
+sudo scripts/install-release-layout.sh --root /srv/services/elysium
 sudo scripts/release-preflight.sh \
-  --env-file backend/prod.env \
+  --env-file /etc/elysium/backend.env \
   --health-url http://127.0.0.1:8000/api/health
-sudo PROD_ENV_FILE="$PWD/backend/prod.env" ./start-prod.sh
+sudo /srv/services/elysium/backend-current/.venv/bin/python \
+  scripts/deploy-production.py --root /srv/services/elysium \
+  --commit <reviewed-commit> --deployment-id <deployment-id> \
+  --repository /srv/services/elysium/repository.git \
+  --path <changed-path>
 ```
 
-发布先执行不写入的工具、配置、仓库、空间、数据库和健康检查；随后创建带校验清单的**迁移前发布包**，才允许安装依赖、执行迁移、更新服务和切换前端。失败停止并保留包。第一次接管已有服务需显式提供 `PREVIOUS_RELEASE_REVISION`；真正空白主机才可使用 `ALLOW_COLD_START=1`。
+正常 CI 流程是本地提交并 push 到 GitHub；受保护的 `main` workflow 在服务器
+`repository.git` 中 fetch 精确 commit，再从该裸仓库生成 immutable release。服务器
+不执行 `git pull` 到运行目录，也不把生产环境文件放进 Git。
 
-回滚不是自动数据库降级。先 `--verify-only` 验证指定发布包，再以精确确认字符串执行**显式回滚**，同时恢复数据库、上一代码提交、配置、服务和前端。完整命令与停止条件见 [部署与回滚](./docs/deployment.md)。
+发布先执行不写入的工具、配置、仓库、空间、数据库和健康检查；随后创建独立 frontend/backend release。后端只有在 Alembic 图存在 pending revision 时才创建数据库备份并升级；失败停止并保留事务与发布目录。第一次接管已有服务必须先创建并演练 baseline；`data -> shared` 迁移另行审查。
+
+迁移前发布包只作为历史恢复证据保存，不作为后续部署的可变运行目录。
+
+回滚不是自动数据库降级。先验证指定 transaction/release，再以精确确认字符串执行**显式回滚**；组件回滚只切换对应 current，后端同步重启单 worker。若事务执行过 migration，数据库恢复必须由数据库负责人按记录的校验和备份或 baseline 流程单独批准。完整命令与停止条件见 [部署与回滚](./docs/deployment.md)。
 
 ## 隔离与日志
 
 - `.env`、`backend/prod.env`、上传、私密存储、同步存储、备份、虚拟环境、`node_modules` 和构建产物不入 Git。
-- 裸机服务日志用 `journalctl -u blue-backend.service` 与 `journalctl -u blue-mineradio.service`；Nginx 使用系统日志。
+- 裸机服务日志用 `journalctl -u elysiumm-backend.service` 与 `journalctl -u elysiumm-health-guard.service`；Nginx 使用系统日志。
 - Docker 日志用 `docker compose logs`；业务持久数据在命名卷，不在容器可写层。
 - 自动测试创建 temporary SQLite/文件/浏览器状态，不读取生产配置。
 

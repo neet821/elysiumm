@@ -25,6 +25,8 @@ The current linear revisions are:
   `0021_live_viewer_ip_identity`, `0022_sync_room_lock` and
   `0023_remove_game_platform`: upload, transfer, live identity, room locking and
   game-removal compatibility revisions.
+- `0024_transfer_public_token` and `0025_admin_transfer_note`: transfer sharing
+  and administrator transfer-note fields.
 
 The Books ORM and the `books`, `book_lists` and `book_list_items` tables remain
 active because homepage/media/admin services still consume them. No destructive
@@ -45,9 +47,19 @@ cd backend
 DATABASE_URL='<validated URL>' .venv/bin/alembic upgrade head
 ```
 
-Every supported backend start path invokes the safe runner. The bare-metal release script additionally creates a backup before migration and runs the migration explicitly before service publication. Re-running at head is expected to be safe.
+Ordinary backend service startup does not invoke the migration runner. The
+bare-metal release transaction loads the same production environment as
+systemd, reads the current revision and target heads through the Alembic graph,
+and creates a backup followed by `alembic upgrade heads` only when pending
+revisions exist. A missing environment, divergent graph, ahead production
+revision or failed post-upgrade readback aborts publication. The standalone
+`run_migrations.py` entrypoint remains available for isolated development and
+explicit operator/CI diagnostics; re-running it at head is expected to be safe.
 
 ## Pre-migration evidence
+
+The release transaction records **backup before migration** whenever the
+target graph has unapplied revisions.
 
 Before any live upgrade, require all of the following:
 
@@ -62,7 +74,7 @@ No test in this repository points at production data. Migration tests create tem
 
 ## Downgrade policy
 
-`alembic downgrade -1` is a development/compatibility diagnostic, not the production rollback procedure. A production failure can involve code, data and static assets together; guessing one schema step can lose data or leave code/schema mismatch. Use the verified release bundle and `scripts/rollback-prod.sh`, which restores the pre-migration database and recorded previous code revision together.
+`alembic downgrade -1` is a development/compatibility diagnostic, not the production rollback procedure. A production failure can involve code, data and static assets together; guessing one schema step can lose data or leave code/schema mismatch. Use the verified deployment transaction and `scripts/rollback-production.py` for component links; if migration was attempted, database restoration is a separately approved baseline/backup operation.
 
 To test one reversible step only on a disposable database:
 

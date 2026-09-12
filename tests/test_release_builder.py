@@ -6,7 +6,12 @@ import sys
 import tempfile
 import unittest
 
-from deployment.release_builder import assemble_backend_release, assemble_frontend_release, atomic_component_link
+from deployment.release_builder import (
+    ReleaseBuildError,
+    assemble_backend_release,
+    assemble_frontend_release,
+    atomic_component_link,
+)
 
 
 SHA = "b" * 64
@@ -38,6 +43,8 @@ class ReleaseBuilderTests(unittest.TestCase):
             self.assertEqual((root / "frontend-current").resolve(), assembly.path)
             self.assertFalse((root / "backend-current").exists())
             self.assertFalse((assembly.path / "dist/index.html").is_symlink())
+            self.assertEqual(stat.S_IMODE(assembly.path.stat().st_mode), 0o555)
+            self.assertEqual(stat.S_IMODE((assembly.path / "dist/index.html").stat().st_mode), 0o444)
 
     def test_backend_release_has_its_own_virtualenv(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -61,7 +68,9 @@ class ReleaseBuilderTests(unittest.TestCase):
             )
             self.assertTrue((assembly.path / ".venv/pyvenv.cfg").is_file())
             self.assertTrue((assembly.path / "RELEASE.json").is_file())
-            self.assertEqual(stat.S_IMODE((assembly.path / "RELEASE.json").stat().st_mode), 0o644)
+            self.assertEqual(stat.S_IMODE(assembly.path.stat().st_mode), 0o555)
+            self.assertEqual(stat.S_IMODE((assembly.path / "backend/main.py").stat().st_mode), 0o444)
+            self.assertEqual(stat.S_IMODE((assembly.path / "RELEASE.json").stat().st_mode), 0o444)
 
     def test_current_link_is_atomic_and_validates_component(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -70,6 +79,25 @@ class ReleaseBuilderTests(unittest.TestCase):
             release.mkdir(parents=True)
             link = atomic_component_link(root, "frontend", "abcdef1-r1")
             self.assertEqual(link.resolve(), release)
+
+    def test_current_link_refuses_regular_file_or_external_release_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "frontend-releases/abcdef1-r1"
+            release.mkdir(parents=True)
+            current = root / "frontend-current"
+            current.write_text("must not be replaced", encoding="utf-8")
+            with self.assertRaises(ReleaseBuildError):
+                atomic_component_link(root, "frontend", release.name)
+
+            current.unlink()
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "index.html").write_text("outside", encoding="utf-8")
+            release.rmdir()
+            release.symlink_to(outside)
+            with self.assertRaises(ReleaseBuildError):
+                atomic_component_link(root, "frontend", "abcdef1-r1")
 
 
 if __name__ == "__main__":

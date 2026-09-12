@@ -18,7 +18,10 @@ from config import config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-UPLOAD_DIR = "uploads/sync_room_videos"
+# Legacy database rows may still name `/uploads/sync_room_videos/*`.  Resolve
+# that compatibility path below the shared mutable root, never relative to an
+# immutable release's working directory.
+LEGACY_VIDEO_UPLOAD_ROOT = config.UPLOAD_DIR / "sync_room_videos"
 MUSIC_UPLOAD_ROOT = config.UPLOAD_DIR / "music_rooms"
 VIDEO_UPLOAD_ROOT = config.PRIVATE_STORAGE_DIR / "video_rooms"
 VIDEO_SUBTITLE_ROOT = config.PRIVATE_STORAGE_DIR / "video_subtitles"
@@ -30,7 +33,7 @@ def delete_video_file(file_path: str):
     if not file_path:
         return
 
-    full_path = os.path.join(UPLOAD_DIR, os.path.basename(file_path))
+    full_path = LEGACY_VIDEO_UPLOAD_ROOT / os.path.basename(file_path)
     if os.path.exists(full_path):
         try:
             os.remove(full_path)

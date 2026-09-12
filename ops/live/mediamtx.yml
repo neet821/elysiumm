@@ -38,10 +38,10 @@ paths:
     source: publisher
     overridePublisher: false
     record: true
-    recordPath: /srv/blue-album/live/recordings/%path/%Y-%m-%d/%H-%M-%S-%f
+    recordPath: /srv/services/elysium/shared/uploads/live-recordings/%path/%Y-%m-%d/%H-%M-%S-%f
     recordFormat: fmp4
     recordPartDuration: 1s
     recordMaxPartSize: 50M
     recordSegmentDuration: 1h
     recordDeleteAfter: 0s
-    runOnRecordSegmentComplete: /usr/bin/python3 /home/blue-album/blue-album/backend/live_recording_hook.py
+    runOnRecordSegmentComplete: /srv/services/elysium/backend-current/.venv/bin/python /srv/services/elysium/backend-current/backend/live_recording_hook.py %path %segment_path

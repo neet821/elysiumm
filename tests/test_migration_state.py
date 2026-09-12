@@ -10,14 +10,18 @@ from alembic.script import ScriptDirectory
 from deployment.migration_state import MigrationStateError, analyze_revision_graph
 
 
-def script_directory(versions: dict[str, str | tuple[str, ...] | None]):
+def script_directory(
+    versions: dict[str, str | tuple[str, ...] | None],
+    dependencies: dict[str, str | tuple[str, ...] | None] | None = None,
+):
     root = Path(tempfile.mkdtemp())
     version_dir = root / "versions"
     version_dir.mkdir()
     for revision, down_revision in versions.items():
         value = repr(down_revision)
+        dependency = repr((dependencies or {}).get(revision))
         (version_dir / f"{revision}_migration.py").write_text(
-            f"revision = {revision!r}\ndown_revision = {value}\nbranch_labels = None\ndepends_on = None\n",
+            f"revision = {revision!r}\ndown_revision = {value}\nbranch_labels = None\ndepends_on = {dependency}\n",
             encoding="utf-8",
         )
     config = Config()
@@ -57,6 +61,16 @@ class MigrationStateTests(unittest.TestCase):
         directory = script_directory({"b001": None, "head": "b001"})
         with self.assertRaises(MigrationStateError):
             analyze_revision_graph(directory, ["missing"])
+
+    def test_depends_on_is_part_of_reachability_and_effective_heads(self):
+        directory = script_directory({"b001": None, "b002": None}, {"b002": "b001"})
+        self.assertEqual(analyze_revision_graph(directory, ["b001"]).pending_revisions, ("b002",))
+        self.assertEqual(analyze_revision_graph(directory, ["b002"]).pending_revisions, ())
+
+    def test_ancestor_and_descendant_current_revisions_abort(self):
+        directory = script_directory({"base": None, "head": "base"})
+        with self.assertRaises(MigrationStateError):
+            analyze_revision_graph(directory, ["base", "head"], ["head"])
 
 
 if __name__ == "__main__":

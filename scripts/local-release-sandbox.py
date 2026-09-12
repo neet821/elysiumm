@@ -21,7 +21,6 @@ from deployment.release_metadata import (  # noqa: E402
     deployment_transaction,
     finalize_transaction,
     utc_now,
-    write_transaction,
 )
 
 
@@ -56,6 +55,11 @@ def main() -> int:
         (root / "frontend-releases").mkdir(parents=True, exist_ok=True)
         (root / "backend-releases").mkdir(parents=True, exist_ok=True)
         (root / "deployment-history").mkdir(parents=True, exist_ok=True)
+        before = {}
+        for component in ("frontend", "backend"):
+            link = root / f"{component}-current"
+            if link.is_symlink():
+                before[f"{component}_current"] = str(link.readlink())
         if args.component == "frontend":
             if args.package_lock is None or args.budget_json is None:
                 raise ValueError("frontend requires --package-lock and --budget-json")
@@ -90,11 +94,6 @@ def main() -> int:
                 python_executable=Path(sys.executable),
                 activate=args.activate,
             )
-        before = {}
-        for component in ("frontend", "backend"):
-            link = root / f"{component}-current"
-            if link.is_symlink():
-                before[f"{component}_current"] = str(link.readlink())
         transaction = deployment_transaction(
             deployment_id=args.deployment_id,
             git_commit=args.commit,

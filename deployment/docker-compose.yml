@@ -31,21 +31,26 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
       EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
-      MUSIC_PROVIDER_BASE_URL: http://mineradio:3000
-      MUSIC_PROVIDER_ADMIN_TOKEN: ${MUSIC_PROVIDER_ADMIN_TOKEN:?set MUSIC_PROVIDER_ADMIN_TOKEN in .env}
+      MUSIC_PROVIDER_LEGACY_COMPAT: "0"
+      MUSIC_PROVIDER_TIMEOUT_SECONDS: ${MUSIC_PROVIDER_TIMEOUT_SECONDS:-5}
+      NETEASE_API_BASE_URL: ${NETEASE_API_BASE_URL:-https://music.163.com}
+      QQ_API_BASE_URL: ${QQ_API_BASE_URL:-https://u.y.qq.com}
+      AUDIUS_API_BASE_URL: ${AUDIUS_API_BASE_URL:-https://api.audius.co/v1}
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       DOCKER_ENV: "true"
-      PRIVATE_STORAGE_DIR: /app/private_storage
-      ADMIN_FILES_STORAGE_DIR: /app/private_storage/admin_files
-      PUBLIC_SYNC_STORAGE: /app/sync-storage
-      BACKUP_OUTPUT_DIR: /app/backups
-      TRANSFER_STORAGE_DIR: /app/transfers
+      UPLOAD_DIR: /app/shared/uploads
+      PRIVATE_STORAGE_DIR: /app/shared/private-storage
+      ADMIN_FILES_STORAGE_DIR: /app/shared/private-storage/admin-files
+      PUBLIC_SYNC_STORAGE: /app/shared/sync-storage
+      TRANSFER_STORAGE_DIR: /app/shared/transfers
+      BACKUP_OUTPUT_DIR: /app/shared/backups
+      MUSIC_PROVIDER_CREDENTIAL_DIR: /app/shared/private-storage/music
     volumes:
-      - backend_uploads:/app/uploads
-      - private_storage:/app/private_storage
-      - public_sync_storage:/app/sync-storage
-      - backup_storage:/app/backups
-      - transfer_storage:/app/transfers
+      - shared_uploads:/app/shared/uploads
+      - shared_private_storage:/app/shared/private-storage
+      - shared_sync_storage:/app/shared/sync-storage
+      - shared_transfers:/app/shared/transfers
+      - shared_backups:/app/shared/backups
     networks:
       - app-network
     healthcheck:
@@ -54,26 +59,6 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-
-  mineradio:
-    build:
-      context: ./mineradio
-    container_name: elysiumm-mineradio
-    restart: always
-    environment:
-      HOST: 0.0.0.0
-      PORT: "3000"
-      COOKIE_FILE: /data/.cookie
-      QQ_COOKIE_FILE: /data/.qq-cookie
-      BEATMAP_CACHE_DIR: /data/beatmaps
-      MINERADIO_SESSION_DIR: /data/users
-      BLUE_ALBUM_SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-      MUSIC_PROVIDER_ADMIN_TOKEN: ${MUSIC_PROVIDER_ADMIN_TOKEN:?set MUSIC_PROVIDER_ADMIN_TOKEN in .env}
-      MINERADIO_CHROMIUM_PATH: /usr/bin/chromium
-    volumes:
-      - mineradio_data:/data
-    networks:
-      - app-network
 
   frontend:
     build:
@@ -85,19 +70,16 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-      mineradio:
-        condition: service_started
     networks:
       - app-network
 
 volumes:
   db_data:
-  backend_uploads:
-  private_storage:
-  public_sync_storage:
-  backup_storage:
-  transfer_storage:
-  mineradio_data:
+  shared_uploads:
+  shared_private_storage:
+  shared_sync_storage:
+  shared_transfers:
+  shared_backups:
 
 networks:
   app-network:

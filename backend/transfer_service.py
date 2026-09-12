@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import models
+from config import config
 
 
 TRANSFER_TTL_SECONDS = int(os.getenv("TRANSFER_TTL_SECONDS", "300"))
@@ -15,7 +16,7 @@ TRANSFER_MAX_FILE_BYTES = int(os.getenv("TRANSFER_MAX_FILE_BYTES", str(2 * 1024*
 TRANSFER_MAX_SESSION_BYTES = int(os.getenv("TRANSFER_MAX_SESSION_BYTES", str(2 * 1024**3)))
 TRANSFER_MAX_ACTIVE = int(os.getenv("TRANSFER_MAX_ACTIVE", "3"))
 TRANSFER_DISK_RESERVE_BYTES = int(os.getenv("TRANSFER_DISK_RESERVE_BYTES", str(5 * 1024**3)))
-TRANSFER_ROOT = Path(os.getenv("TRANSFER_STORAGE_DIR", "/var/lib/elysiumm/transfers")).expanduser().resolve()
+TRANSFER_ROOT = config.TRANSFER_STORAGE_DIR
 
 
 def utcnow() -> datetime:

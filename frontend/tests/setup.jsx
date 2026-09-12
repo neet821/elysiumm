@@ -4,6 +4,24 @@ import { afterEach } from 'vitest'
 
 configure({ asyncUtilTimeout: 3000 })
 
+Object.defineProperty(window.HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  value: () => null,
+})
+
+Object.defineProperty(window.HTMLMediaElement.prototype, 'load', {
+  configurable: true,
+  value: () => {},
+})
+Object.defineProperty(window.HTMLMediaElement.prototype, 'pause', {
+  configurable: true,
+  value: () => {},
+})
+Object.defineProperty(window.HTMLMediaElement.prototype, 'play', {
+  configurable: true,
+  value: () => Promise.resolve(),
+})
+
 const storageValues = new Map()
 Object.defineProperty(window, 'localStorage', {
   configurable: true,

@@ -9,7 +9,10 @@ from pathlib import Path, PurePosixPath
 import subprocess
 from typing import Iterable, Mapping
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - exercised on minimal servers
+    yaml = None
 
 
 _COMPONENT_ORDER = ("frontend", "backend", "infra")
@@ -36,10 +39,98 @@ def _as_string_tuple(value: object, *, field: str, rule_id: str) -> tuple[str, .
     return tuple(value)
 
 
+def _inline_list(value: str, *, field: str) -> list[str]:
+    value = value.strip()
+    if not (value.startswith("[") and value.endswith("]")):
+        raise ImpactMapError(f"{field} must use an inline YAML list")
+    items = [item.strip().strip("'\"") for item in value[1:-1].split(",") if item.strip()]
+    if not items or not all(items):
+        raise ImpactMapError(f"{field} must be a non-empty string list")
+    return items
+
+
+def _minimal_yaml_load(text: str) -> dict[str, object]:
+    """Parse this deliberately small impact-map shape without PyYAML.
+
+    Production frontend-only deploys are allowed to use the host Python and
+    must not depend on the backend virtualenv.  The checked-in map is limited
+    to scalar version values, rule ids, and string lists, so a strict fallback
+    is safer than silently treating a malformed map as empty.
+    """
+
+    document: dict[str, object] = {"rules": []}
+    section = ""
+    current: dict[str, object] | None = None
+    list_field: str | None = None
+    for line_number, raw in enumerate(text.splitlines(), 1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        line = raw.strip()
+        if indent == 0 and line == "rules:":
+            section = "rules"
+            current = None
+            list_field = None
+            continue
+        if indent == 0 and line == "defaults:":
+            section = "defaults"
+            current = None
+            list_field = None
+            document["defaults"] = {}
+            continue
+        if section == "rules" and indent == 2 and line.startswith("- id:"):
+            rule_id = line.split(":", 1)[1].strip().strip("'\"")
+            if not rule_id:
+                raise ImpactMapError(f"impact map line {line_number} has an empty rule id")
+            current = {"id": rule_id}
+            rules = document.setdefault("rules", [])
+            if not isinstance(rules, list):
+                raise ImpactMapError("impact map rules must be a list")
+            rules.append(current)
+            list_field = None
+            continue
+        if section == "rules" and indent == 4 and current is not None and line.endswith(":"):
+            list_field = line[:-1]
+            current[list_field] = []
+            continue
+        if section == "rules" and indent == 4 and current is not None and ":" in line:
+            key, value = line.split(":", 1)
+            current[key.strip()] = _inline_list(value, field=key.strip()) if value.strip().startswith("[") else value.strip().strip("'\"")
+            list_field = None
+            continue
+        if section == "rules" and indent == 6 and line.startswith("-") and current is not None and list_field:
+            values = current.get(list_field)
+            if not isinstance(values, list):
+                raise ImpactMapError(f"impact map line {line_number} has an invalid list")
+            values.append(line[1:].strip().strip("'\""))
+            continue
+        if section == "defaults" and indent == 2 and ":" in line:
+            key, value = line.split(":", 1)
+            defaults = document["defaults"]
+            if not isinstance(defaults, dict):
+                raise ImpactMapError("impact map defaults must be a mapping")
+            defaults[key.strip()] = _inline_list(value, field=f"defaults.{key.strip()}")
+            continue
+        if indent == 0 and line.startswith("version:"):
+            try:
+                document["version"] = int(line.split(":", 1)[1].strip())
+            except ValueError as exc:
+                raise ImpactMapError("impact map version must be an integer") from exc
+            section = ""
+            current = None
+            list_field = None
+            continue
+        raise ImpactMapError(f"unsupported impact map syntax at line {line_number}")
+    return document
+
+
 def load_impact_map(path: Path) -> tuple[int, tuple[ImpactRule, ...], ImpactRule]:
     try:
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
+        source = path.read_text(encoding="utf-8")
+        document = yaml.safe_load(source) if yaml is not None else _minimal_yaml_load(source)
+    except (OSError, UnicodeError, ValueError, ImpactMapError) as exc:
+        raise ImpactMapError(f"cannot load impact map {path}: {exc}") from exc
+    except Exception as exc:
         raise ImpactMapError(f"cannot load impact map {path}: {exc}") from exc
     if not isinstance(document, dict) or not isinstance(document.get("version"), int):
         raise ImpactMapError("impact map must contain an integer version")
@@ -135,7 +226,10 @@ def resolve_impact(
 
 def changed_paths_from_git(root: Path, base: str, head: str) -> list[str]:
     completed = subprocess.run(
-        ["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", f"{base}...{head}"],
+        # Keep deletions in the impact set.  A deleted unit/config still needs
+        # an explicit production target so deployment cannot silently leave
+        # the old file installed.
+        ["git", "diff", "--name-only", "--diff-filter=ACDMRTUXB", f"{base}...{head}"],
         cwd=root,
         check=True,
         capture_output=True,

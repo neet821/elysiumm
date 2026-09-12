@@ -1,5 +1,7 @@
 import subprocess
+import tempfile
 import unittest
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 
@@ -16,7 +18,7 @@ class ReleaseConfigTest(unittest.TestCase):
             self.assertIn(f"${{{variable}:?", source)
         for weak_default in ("rootpassword", "password}", "your-secret-key", "change-this"):
             self.assertNotIn(weak_default, source)
-        for volume in ("backend_uploads", "private_storage", "public_sync_storage", "backup_storage"):
+        for volume in ("shared_uploads", "shared_private_storage", "shared_sync_storage", "shared_backups"):
             self.assertIn(f"{volume}:", source)
         self.assertIn("DOCKER_ENV: \"true\"", source)
         self.assertIn("healthcheck:", source)
@@ -24,9 +26,44 @@ class ReleaseConfigTest(unittest.TestCase):
     def test_compose_persists_transfer_storage(self):
         for relative_path in ("docker-compose.yml", "deployment/docker-compose.yml"):
             source = self.read(relative_path)
-            self.assertIn("TRANSFER_STORAGE_DIR: /app/transfers", source)
-            self.assertIn("- transfer_storage:/app/transfers", source)
-            self.assertIn("  transfer_storage:", source)
+            self.assertIn("TRANSFER_STORAGE_DIR: /app/shared/transfers", source)
+            self.assertIn("- shared_transfers:/app/shared/transfers", source)
+            self.assertIn("  shared_transfers:", source)
+
+    def test_release_environment_accepts_direct_music_providers_without_legacy_bridge(self):
+        checker_path = ROOT / "scripts" / "check-release-config.py"
+        spec = spec_from_file_location("release_config", checker_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        checker = module_from_spec(spec)
+        spec.loader.exec_module(checker)
+        with tempfile.TemporaryDirectory() as directory:
+            environment = Path(directory) / "release.env"
+            environment.write_text(
+                "\n".join(
+                    (
+                        "DB_ROOT_PASSWORD=fixture_root_database_password_123",
+                        "DB_NAME=blue_album",
+                        "DB_USER=blue_album",
+                        "DB_PASSWORD=fixture_database_password_123",
+                        "SECRET_KEY=fixture_application_secret_that_is_long_enough_123",
+                        "CORS_ORIGINS=https://album.example.test",
+                        "UPLOAD_DIR=/srv/elysiumm/shared/uploads",
+                        "PRIVATE_STORAGE_DIR=/srv/elysiumm/shared/private-storage",
+                        "ADMIN_FILES_STORAGE_DIR=/srv/elysiumm/shared/private-storage/admin_files",
+                        "PUBLIC_SYNC_STORAGE=/srv/elysiumm/shared/sync-storage",
+                        "TRANSFER_STORAGE_DIR=/srv/elysiumm/shared/transfers",
+                        "BACKUP_OUTPUT_DIR=/srv/elysiumm/shared/backups",
+                        "MUSIC_PROVIDER_CREDENTIAL_DIR=/srv/elysiumm/shared/private-storage/music",
+                        "NETEASE_API_BASE_URL=https://music.163.com",
+                        "QQ_API_BASE_URL=https://u.y.qq.com",
+                        "AUDIUS_API_BASE_URL=https://api.audius.co/v1",
+                        "",
+                    )
+                ),
+                encoding="utf-8",
+            )
+            self.assertEqual(checker.validate_environment(environment), [])
 
     def test_nginx_streams_transfer_uploads_with_the_backend_limits(self):
         source = self.read("deployment/nginx/elysiumm.conf")

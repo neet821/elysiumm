@@ -150,6 +150,7 @@ def deployment_transaction(
             "pending_revisions": [],
             "backup": None,
             "upgrade": None,
+            "error": None,
         },
         "stages": [],
         "health_checks": [],

@@ -1,11 +1,11 @@
 # Blue Album Docker guide
 
-Docker Compose runs **four services** on one private network:
+Docker Compose runs **three application services** plus the database on one
+private network:
 
 1. `db`: MariaDB 10.6 with a database health check.
 2. `backend`: Python 3.12 FastAPI, migrations before serving, then `/api/health` checks.
-3. `mineradio`: private Node music adapter and state.
-4. `frontend`: production Vite build served by Nginx; starts only after backend health.
+3. `frontend`: production Vite build served by Nginx; starts only after backend health. Articles and direct music providers are served by FastAPI.
 
 This is a local/self-hosted topology. Public internet use still requires operator-managed TLS, firewall, host updates and off-host backups.
 
@@ -45,23 +45,25 @@ docker compose down
 
 Required `.env` values are `DB_ROOT_PASSWORD`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SECRET_KEY` and `CORS_ORIGINS`. `KAVITA_PUBLIC_BASE_URL` is optional and must not contain credentials. The compose file has no working secret defaults; missing values stop interpolation.
 
-Backend storage paths inside the container are explicit:
+Backend storage paths inside the container are explicit and remain outside
+replaceable application layers:
 
-- uploads: `/app/uploads`
-- private files: `/app/private_storage`
-- Public Sync: `/app/sync-storage`
-- backups: `/app/backups`
+- uploads: `/app/shared/uploads`
+- private files: `/app/shared/private-storage`
+- Public Sync: `/app/shared/sync-storage`
+- transfers: `/app/shared/transfers`
+- backups: `/app/shared/backups`
 
 ## Persistence
 
 Six named volumes keep data outside replaceable containers:
 
 - `db_data`: MariaDB files
-- `backend_uploads`: intentionally public uploads
-- `private_storage`: video, subtitle and administrator private files
-- `public_sync_storage`: device sync files and chunks
-- `backup_storage`: application-created database/Collection backup artifacts
-- `mineradio_data`: provider cookies/cache/user state owned by Mineradio
+- `shared_uploads`: intentionally public uploads
+- `shared_private_storage`: video, subtitle, administrator files and root-managed provider credentials
+- `shared_sync_storage`: device sync files and Articles mirror data
+- `shared_transfers`: device transfer files and chunks
+- `shared_backups`: application-created database/Collection backup artifacts
 
 Volume contents may include secrets or private files. Do not expose, commit or copy them into a public archive. A database dump plus the required file volumes is the minimum meaningful backup; verify restoration in an isolated host before relying on it.
 

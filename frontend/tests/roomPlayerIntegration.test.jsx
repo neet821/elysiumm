@@ -174,11 +174,12 @@ describe('room player integration boundary', () => {
     })).toBeNull()
   })
 
-  it('keeps room synchronization behind the original Mineradio embed adapter', () => {
+  it('keeps room synchronization behind the native React player adapter', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
 
-    expect(source).toMatch(/MineradioRoomEmbed/)
+    expect(source).toMatch(/MusicRoomPlayer/)
     expect(source).toMatch(/applyRoomSnapshot/)
     expect(source).not.toMatch(/<iframe|postMessage|frameRef|frameReadyRef|blue-album-mineradio|blue-album-room/)
+    expect(source).not.toContain('/mineradio-api')
   })
 })

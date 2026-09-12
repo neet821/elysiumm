@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../src/utils/request.js', () => ({
@@ -22,56 +22,23 @@ const providerStatus = {
   },
 }
 
-describe('shared music provider login', () => {
+describe('root-managed shared music provider status', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
-    apiClient.delete.mockReset()
     apiClient.get.mockReset()
-    apiClient.post.mockReset()
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:netease-login')
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
-  it('continues checking the NetEase login after the QR image appears', async () => {
-    const sessionId = 'netease-session-1'
-    let loginChecks = 0
-    apiClient.get.mockImplementation((endpoint) => {
-      if (endpoint === API_ENDPOINTS.MUSIC_PROVIDER_STATUS) {
-        return Promise.resolve({ data: providerStatus })
-      }
-      if (endpoint === API_ENDPOINTS.MUSIC_PROVIDER_LOGIN_IMAGE('netease', sessionId)) {
-        return Promise.resolve({ data: new Blob(['qr'], { type: 'image/png' }) })
-      }
-      if (endpoint === API_ENDPOINTS.MUSIC_PROVIDER_LOGIN_STATUS('netease', sessionId)) {
-        loginChecks += 1
-        return Promise.resolve({
-          data: loginChecks === 1
-            ? { session_id: sessionId, provider: 'netease', status: 'pending', message: '请扫码' }
-            : { session_id: sessionId, provider: 'netease', status: 'ready', message: '网易云共享账号已登录' },
-        })
-      }
-      return Promise.reject(new Error(`Unexpected endpoint: ${endpoint}`))
-    })
-    apiClient.post.mockResolvedValue({
-      data: { session_id: sessionId, provider: 'netease', status: 'pending', message: '请扫码' },
-    })
+  it('shows status and does not expose a web login or unlink action', async () => {
+    apiClient.get.mockResolvedValue({ data: providerStatus })
 
     render(<MusicProvidersAdminPage />)
     await act(async () => {})
-    fireEvent.click(screen.getAllByRole('button', { name: /重新登录/ })[0])
-    await act(async () => {})
-
-    expect(screen.getByRole('img', { name: '登录二维码' })).toBeInTheDocument()
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1600)
-    })
-
-    expect(screen.getByText(/网易云共享账号已登录/)).toBeInTheDocument()
+    expect(screen.getAllByText(/凭据轮换由运维流程执行/)).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /重新登录/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /退出/ })).not.toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.MUSIC_PROVIDER_STATUS)
   })
 })

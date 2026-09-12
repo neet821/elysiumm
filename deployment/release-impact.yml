@@ -16,18 +16,27 @@ rules:
     components: [backend]
     validation: [backend]
 
-  - id: dependency-locks
+  - id: backend-dependency-locks
     paths:
       - requirements*.txt
+      - requirements*.lock
+      - requirements*.in
       - backend/requirements*.txt
+      - backend/requirements*.lock
+      - backend/requirements*.in
       - backend/pyproject.toml
       - backend/uv.lock
+    components: [backend]
+    validation: [dependency-lock, migration-analysis]
+
+  - id: frontend-dependency-locks
+    paths:
       - frontend/package.json
       - frontend/package-lock.json
       - frontend/pnpm-lock.yaml
       - frontend/yarn.lock
-    components: [backend, frontend]
-    validation: [dependency-lock, migration-analysis, api-contract]
+    components: [frontend]
+    validation: [dependency-lock]
 
   - id: api-schema
     paths:
@@ -35,7 +44,11 @@ rules:
       - schemas/**
       - backend/openapi/**
       - backend/schemas.py
+      - backend/config.py
+      - frontend/src/config.js
+      - config/**
       - shared-config/**
+      - deployment/shared-config/**
     components: [backend, frontend]
     validation: [api-contract, full]
 

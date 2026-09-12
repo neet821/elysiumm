@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class DocumentationTest(unittest.TestCase):
     REQUIRED = {
         "docs/architecture.md": (
-            "FastAPI", "React", "MariaDB", "Mineradio", "Socket.IO",
+            "FastAPI", "React", "MariaDB", "Articles", "Socket.IO",
             "single worker", "Room Core", "Books", "Public Sync", "Kavita",
         ),
         "docs/security.md": (
@@ -26,9 +26,9 @@ class DocumentationTest(unittest.TestCase):
             "alembic downgrade", "backup before migration", "Schema drift",
         ),
         "docs/deployment.md": (
-            "release-preflight.sh", "start-prod.sh", "rollback-prod.sh",
-            "--verify-only", "SHA256SUMS", "PREVIOUS_RELEASE_REVISION",
-            "ALLOW_COLD_START", "Production is not modified by tests",
+            "release-preflight.sh", "install-release-layout.sh", "deploy-production.py",
+            "rollback-production.py", "baseline", "SHA256SUMS",
+            "PRODUCTION_DEPLOY_ENABLED", "Production is not modified by tests",
         ),
         "docs/testing.md": (
             "scripts/check-all.sh", "scripts/check-release-config.py",
@@ -130,10 +130,10 @@ class DocumentationTest(unittest.TestCase):
         self.assertIn("单进程", environment)
         self.assertIn("迁移前发布包", environment)
         self.assertIn("显式回滚", environment)
-        self.assertIn("four services", docker.lower())
+        self.assertIn("three application services", docker.lower())
         for volume in (
-            "db_data", "backend_uploads", "private_storage",
-            "public_sync_storage", "backup_storage", "mineradio_data",
+            "db_data", "shared_uploads", "shared_private_storage",
+            "shared_sync_storage", "shared_transfers", "shared_backups",
         ):
             self.assertIn(volume, docker)
         self.assertNotIn("./backend/uploads", docker)
@@ -142,8 +142,8 @@ class DocumentationTest(unittest.TestCase):
     def test_documented_release_commands_point_to_tracked_executables(self):
         for relative in (
             "scripts/check-all.sh", "scripts/check-release-config.py",
-            "scripts/release-preflight.sh", "scripts/rollback-prod.sh",
-            "start-prod.sh", "start-docker.sh",
+            "scripts/release-preflight.sh", "scripts/deploy-production.py",
+            "scripts/rollback-production.py", "start-docker.sh",
         ):
             path = ROOT / relative
             self.assertTrue(path.is_file(), relative)

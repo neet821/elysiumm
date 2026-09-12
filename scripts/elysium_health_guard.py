@@ -23,8 +23,6 @@ WEBSITE_URL = "http://127.0.0.1/api/health"
 MONITORED_UNITS = (
     "nginx.service",
     "elysiumm-backend.service",
-    "elysiumm-articles.service",
-    "elysiumm-mineradio.service",
     "elysiumm-mediamtx.service",
 )
 

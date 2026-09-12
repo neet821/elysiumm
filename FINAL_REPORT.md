@@ -15,9 +15,9 @@ Scope: 当前 `main` 的死代码移出、归档索引、Archive API 退役；�
 
 ## Architecture and delivered scope
 
-当前正式入口是 React 前端的文章首页、文章阅读、认证、音乐房、观影房、直播、账户、传输和 `/admin/*` 管理壳；文章 API 由根目录 `server/` 提供，FastAPI 后端继续承载认证、内容、文件、同步、媒体和实时协议，Mineradio、MediaMTX、FRP 文件同步和发布/回滚链保持独立运行边界。
+当前正式入口是 React 前端的文章首页、文章阅读、认证、音乐房、观影房、直播、账户、传输和 `/admin/*` 管理壳；文章 API、直接音乐 provider、认证、内容、文件、同步、媒体和实时协议均由 FastAPI 承载，MediaMTX、FRP 文件同步和发布/回滚链保持明确边界。
 
-本次没有触碰以下保护边界：文章 `server/` 及其测试、Mineradio、MediaMTX、FRP 文件同步、同步代理、认证和实时房间、首页书签/媒体供给链、Alembic 历史、生产数据、部署与回滚脚本。旧 3D 房间、旧首页/Archive/Collection/Books/Tools 页面、旧独立播放器、专属测试、旧素材和构建快照被移出；原代码仍可由归档标签精确恢复。
+本次没有触碰 MediaMTX、FRP 文件同步、同步代理、认证和实时房间、首页书签/媒体供给链、Alembic 历史、生产数据；旧 3D 房间、旧首页/Archive/Collection/Books/Tools 页面、旧独立服务和专属测试被移出，原代码仍可由归档标签精确恢复。
 
 ## Phase delivery summary
 
@@ -74,7 +74,7 @@ autogenerate 报告无新操作。Books 表和历史迁移保持不变，生产�
 | CSS budget | PASS — 170,190 B 已低于 230,000 B 阈值 |
 | JavaScript budget | **BLOCKED** — initial JS 423,764 B > 360,000 B，gzip 134,918 B > 120,000 B；保留真实失败，不提高阈值 |
 | Archive 404 contract | PASS — 后端测试与 OpenAPI 检查 |
-| Chrome browser acceptance | PASS — `scripts/phase11-accessibility-compat-smoke.mjs`，Chrome 152 via CDP，8 个视口、50 个页面检查，含文章服务、房间 iframe、键盘焦点、44px 控件、溢出和第三方请求检查 |
+| Chrome browser acceptance | PASS — `scripts/phase11-accessibility-compat-smoke.mjs`，Chrome 152 via CDP，8 个视口、50 个页面检查，含 FastAPI Articles、原生音乐房、键盘焦点、44px 控件、溢出和第三方请求检查 |
 | Patch format | PASS — `git diff --check` |
 
 `scripts/release-gate.sh` 会在资源预算步骤保留上述 JavaScript 失败并停止；其余已修改的浏览器脚本使用当前路由，Phase 11 已单独以真实 Chrome 重跑。完整命令和解释见 [testing](docs/testing.md)。
@@ -93,7 +93,7 @@ Mineradio 的运行边界和归属保留在 `mineradio/LICENSE`、`mineradio/NOT
 ## Deployment and rollback
 
 本次只提交代码、文档和标签，**没有部署生产**。部署前应先审阅干净提交、执行 [release checklist](docs/release-checklist.md)、运行
-`scripts/release-preflight.sh`、制作带 `SHA256SUMS` 的迁移前发布包，并由授权运维执行显式回滚链；不可把本地测试结果当作生产健康证明。生产回滚仍使用匹配的数据库/代码/静态资产发布包和 `scripts/rollback-prod.sh`，不猜测 Alembic downgrade。
+`scripts/release-preflight.sh`、制作带 `SHA256SUMS` 的迁移前发布包，并由授权运维执行显式回滚链；不可把本地测试结果当作生产健康证明。生产回滚使用 `scripts/rollback-production.py` 的组件事务入口，不猜测 Alembic downgrade；历史 `scripts/rollback-prod.sh` 仅作为兼容别名。
 
 任一归档组可恢复，例如：
 

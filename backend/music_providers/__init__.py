@@ -1,15 +1,31 @@
-"""Unified lawful music provider adapters."""
+"""Compatibility facade for the retired Mineradio HTTP provider bridge.
+
+Production imports use :mod:`music` directly.  The legacy adapter classes are
+loaded lazily only by an explicitly enabled rollback/test profile so importing
+the application cannot accidentally import or contact the old standalone
+service.
+"""
 
 import httpx
 
-from music_providers.audius import AudiusProviderAdapter
-from music_providers.base import (
+from music.audius import AudiusProviderAdapter
+from music.base import (
     MusicProviderAdapter,
     ProviderError,
     ProviderLyrics,
     ProviderResolution,
 )
-from music_providers.mineradio import NeteaseProviderAdapter, QQProviderAdapter
+
+
+def __getattr__(name: str):
+    if name in {"NeteaseProviderAdapter", "QQProviderAdapter"}:
+        from music_providers.mineradio import NeteaseProviderAdapter, QQProviderAdapter
+
+        return {
+            "NeteaseProviderAdapter": NeteaseProviderAdapter,
+            "QQProviderAdapter": QQProviderAdapter,
+        }[name]
+    raise AttributeError(name)
 
 
 async def provider_configuration_status(
@@ -63,12 +79,18 @@ async def provider_configuration_status(
 
 
 def build_provider_registry(config) -> dict[str, MusicProviderAdapter]:
+    if not getattr(config, "MUSIC_PROVIDER_LEGACY_COMPAT", False):
+        from music import build_provider_registry as build_direct_provider_registry
+
+        return build_direct_provider_registry(config)
     timeout = float(config.MUSIC_PROVIDER_TIMEOUT_SECONDS)
     mineradio_base = str(config.MUSIC_PROVIDER_BASE_URL)
     internal_token = str(getattr(config, "MUSIC_PROVIDER_ADMIN_TOKEN", ""))
     audius_base = str(
         getattr(config, "AUDIUS_API_BASE_URL", "https://api.audius.co/v1")
     )
+    from music_providers.mineradio import NeteaseProviderAdapter, QQProviderAdapter
+
     return {
         "netease": NeteaseProviderAdapter(mineradio_base, timeout, internal_token=internal_token),
         "qq": QQProviderAdapter(mineradio_base, timeout, internal_token=internal_token),

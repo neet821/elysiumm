@@ -74,7 +74,9 @@ export const API_ENDPOINTS = {
   VIDEO_SUBTITLE: (roomId, subtitleId) => `${API_BASE_URL}/api/video/rooms/${roomId}/subtitles/${subtitleId}`,
 
   // 音乐房
+  MUSIC_SEARCH: `${API_BASE_URL}/api/music/search`,
   MUSIC_AUDIO: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/audio`,
+  MUSIC_LYRICS: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/lyrics`,
   MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
   MUSIC_HISTORY_REQUEUE: (roomId, eventId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history/${eventId}/queue`,
   MUSIC_QUEUE: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/queue`,

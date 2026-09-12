@@ -1,26 +1,38 @@
 # Elysium 服务器布局
 
-这份文件是切换前的安装模板，不会自动修改服务器。
+这份文件描述规范化后的目标布局。安装脚本只创建缺失目录；首次接管
+已有服务前必须完成 baseline 创建、恢复演练和人工切换审批。
 
-| 内容 | 新位置 |
+| 内容 | 位置 |
 | --- | --- |
-| 单仓代码 | `/home/elysiumm/app` |
-| 前端静态文件 | `/var/www/elysiumm` |
-| 生产配置 | `/etc/elysiumm` |
-| 后端服务 | `elysiumm-backend.service` |
-| 音乐服务 | `elysiumm-mineradio.service` |
+| 裸 Git 仓库 | `/srv/services/elysium/repository.git` |
+| 不可变基线 | `/srv/services/elysium/baseline/<baseline-id>/` |
+| 后端 release/current | `/srv/services/elysium/backend-releases/<release>`、`backend-current` |
+| 前端 release/current | `/srv/services/elysium/frontend-releases/<release>`、`frontend-current` |
+| 发布事务 | `/srv/services/elysium/deployment-history/<deployment-id>.json` |
+| 共享上传、私有、同步、传输、备份 | `/srv/services/elysium/shared/{uploads,private-storage,sync-storage,transfers,backups}` |
+| 兼容链接 | `/srv/services/elysium/data -> shared`，完成清单前不删除 |
+| 生产配置 | `/etc/elysium/backend.env`、`/etc/elysium/mediamtx.*` |
+| 后端服务 | `elysiumm-backend.service`，单 worker |
 | 直播服务 | `elysiumm-mediamtx.service` |
-| 原用户数据、上传、录像、备份 | 保留在原 `/home/blue-album`、`/var/lib/blue-album` 路径 |
-| CouchDB | 保留原服务和数据库，不改库名 |
+| Nginx 静态根 | `/srv/services/elysium/frontend-current/dist` |
+
+Articles Markdown/媒体镜像和上传内容属于 `shared` 外部依赖；它们不重复
+冻结进普通 release，baseline 只在 `BASELINE.json` 中记录依赖。Mineradio
+播放器、provider 和 Articles API 在前端/FastAPI 内，不再启动独立 3000/3100
+服务。
 
 ## 安装顺序
 
-1. 先完成最终备份并保存校验值。
-2. 将仓库发布到 `/home/elysiumm/app`，配置放到 `/etc/elysiumm`，权限设为 `600`。
-3. 先执行只读预检，再安装三个 systemd 服务和 Nginx 模板。
-4. 依次验证 `/api/health`、登录、管理员权限、音乐、直播、WebSocket 和同步服务。
-5. DNS、证书和 Obsidian 同步验证全部通过后，才停用旧域名。
+1. 以当前真实运行状态创建并校验永久 baseline，不切换 current。
+2. 运行 `scripts/install-release-layout.sh` 创建目录、裸仓库和 `data -> shared`。
+3. 将审查过的 commit fetch 到 `repository.git`，由 release CLI 生成前后端独立快照。
+4. 只在目标 Alembic head 存在 pending migration 时备份并升级数据库。
+5. 依次验证后端、前端、Nginx、Socket.IO、音乐、Articles、直播和共享数据。
 
 ## 回滚原则
 
-回滚只恢复程序、网页和配置；数据库、上传、录像和备份目录保留原位置。任何数据数量异常减少都中止切换，不删除旧备份。
+组件回滚只切换对应 immutable current，并记录新的 rollback transaction；后端
+回滚会重启单 worker。已执行 migration 不自动猜测 downgrade，必须由数据库负责人
+按事务中记录的校验和备份或 baseline 恢复。MediaMTX、FlClash/FlClashCore 和
+未受影响的服务不随普通应用发布重启。

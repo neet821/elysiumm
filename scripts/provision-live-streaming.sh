@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEDIAMTX_VERSION="v1.18.2"
 CONFIG_SOURCE="$ROOT_DIR/ops/live/mediamtx.yml"
-UNIT_SOURCE="$ROOT_DIR/ops/live/blue-album-mediamtx.service"
+UNIT_SOURCE="$ROOT_DIR/ops/live/elysiumm-mediamtx.service"
 NGINX_SOURCE="$ROOT_DIR/ops/live/nginx-live.conf"
 
 check_assets() {
@@ -42,9 +42,9 @@ case "$(uname -m)" in
 esac
 
 archive="mediamtx_${MEDIAMTX_VERSION}_linux_${release_arch}.tar.gz"
-download_root="$(mktemp -d /tmp/blue-album-live.XXXXXX)"
+download_root="$(mktemp -d /tmp/elysium-mediamtx.XXXXXX)"
 cleanup() {
-  if [[ "$download_root" == /tmp/blue-album-live.* ]]; then
+  if [[ "$download_root" == /tmp/elysium-mediamtx.* ]]; then
     rm -rf -- "$download_root"
   fi
 }
@@ -76,20 +76,20 @@ if ! id www-data >/dev/null 2>&1; then
 fi
 usermod -a -G blue-album-live www-data
 
-install -d -o root -g blue-album-live -m 0750 /etc/blue-album
+install -d -o root -g blue-album-live -m 0750 /etc/elysium
 install -d -o blue-album-live -g blue-album-live -m 0750 \
-  /srv/blue-album/live/recordings
+  /srv/services/elysium/shared/uploads/live-recordings
 install -o root -g blue-album-live -m 0640 \
-  "$CONFIG_SOURCE" /etc/blue-album/mediamtx.yml
+  "$CONFIG_SOURCE" /etc/elysium/mediamtx.yml
 install -o root -g root -m 0644 \
-  "$UNIT_SOURCE" /etc/systemd/system/blue-album-mediamtx.service
+  "$UNIT_SOURCE" /etc/systemd/system/elysiumm-mediamtx.service
 install -o root -g root -m 0644 \
-  "$NGINX_SOURCE" /etc/nginx/snippets/blue-album-live.conf
-if [[ ! -e /etc/blue-album/live.env ]]; then
-  install -o root -g blue-album-live -m 0600 /dev/null /etc/blue-album/live.env
+  "$NGINX_SOURCE" /etc/nginx/snippets/elysium-live.conf
+if [[ ! -e /etc/elysium/mediamtx.env ]]; then
+  install -o root -g blue-album-live -m 0600 /dev/null /etc/elysium/mediamtx.env
 fi
 
 systemctl daemon-reload
-systemctl enable --now blue-album-mediamtx.service
+systemctl enable --now elysiumm-mediamtx.service
 
-echo "MediaMTX installed. Include /etc/nginx/snippets/blue-album-live.conf in the Blue Album server block, then validate and reload Nginx."
+echo "MediaMTX installed. Include /etc/nginx/snippets/elysium-live.conf in the Elysium server block, then validate and reload Nginx."

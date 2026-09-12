@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import catalog_repository
 import models
 from catalog_domain import TrackAvailability
-from music_providers import MusicProviderAdapter, ProviderError
+from music import MusicProviderAdapter, ProviderError
 
 
 class CanonicalTrackNotFound(LookupError):
@@ -28,7 +28,6 @@ _PROVIDER_PRIORITY = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
 _RELATIVE_AUDIO_PREFIXES = (
     "/api/music/",
     "/uploads/music_rooms/",
-    "/mineradio-api/room/audio",
 )
 _DEFAULT_CACHE_TTL = timedelta(minutes=15)
 

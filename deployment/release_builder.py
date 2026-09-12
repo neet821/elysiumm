@@ -7,8 +7,8 @@ import hashlib
 from pathlib import Path
 import os
 import shutil
+import subprocess
 import tempfile
-import venv
 
 from deployment.release_metadata import (
     BACKEND_SCOPE,
@@ -22,6 +22,29 @@ from deployment.release_metadata import (
 
 class ReleaseBuildError(RuntimeError):
     """A component release could not be assembled safely."""
+
+
+def freeze_release(root: Path) -> None:
+    """Make a completed release tree read-only while preserving executability."""
+
+    root = root.resolve()
+    if not root.is_dir():
+        raise ReleaseBuildError(f"release directory does not exist: {root}")
+    for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        if path.is_symlink():
+            try:
+                path.resolve(strict=False).relative_to(root)
+            except ValueError as exc:
+                raise ReleaseBuildError(
+                    f"immutable release contains an external symlink: {path}"
+                ) from exc
+            continue
+        if path.is_file():
+            mode = path.stat().st_mode
+            os.chmod(path, 0o555 if mode & 0o111 else 0o444)
+        elif path.is_dir():
+            os.chmod(path, 0o555)
+    os.chmod(root, 0o555)
 
 
 def sha256_tree(root: Path) -> str:
@@ -43,9 +66,16 @@ def atomic_component_link(root: Path, component: str, release_id: str) -> Path:
     if scope is None:
         raise ReleaseBuildError(f"unsupported component: {component}")
     target = release_path(root, component, release_id)
-    if not target.is_dir():
+    release_root = (root / scope.release_root_name).resolve()
+    if target.is_symlink() or not target.is_dir():
         raise ReleaseBuildError(f"release directory does not exist: {target}")
+    try:
+        target.resolve().relative_to(release_root)
+    except ValueError as exc:
+        raise ReleaseBuildError(f"release directory escapes release root: {target}") from exc
     link = root / scope.current_link_name
+    if link.exists() and not link.is_symlink():
+        raise ReleaseBuildError(f"current path is not a symlink: {link}")
     temporary = root / f".{scope.current_link_name}.{os.getpid()}.tmp"
     temporary.unlink(missing_ok=True)
     os.symlink(target.relative_to(root), temporary)
@@ -73,6 +103,7 @@ def assemble_frontend_release(
     api_schema_sha256: str,
     compatible_backend_api: str,
     build_budget: dict[str, object],
+    freeze: bool = True,
     activate: bool = False,
 ) -> ReleaseAssembly:
     source = dist_source.resolve()
@@ -103,6 +134,8 @@ def assemble_frontend_release(
         )
         write_release_manifest(temporary / "RELEASE.json", manifest)
         os.replace(temporary, destination)
+        if freeze:
+            freeze_release(destination)
         if activate:
             atomic_component_link(root, "frontend", release_id)
         return ReleaseAssembly("frontend", release_id, destination, manifest)
@@ -125,6 +158,7 @@ def assemble_backend_release(
     target_alembic_heads: list[str],
     python_executable: Path,
     create_virtualenv: bool = True,
+    freeze: bool = True,
     activate: bool = False,
 ) -> ReleaseAssembly:
     source = backend_source.resolve()
@@ -139,8 +173,25 @@ def assemble_backend_release(
         shutil.copytree(source, temporary / "backend", symlinks=False, ignore=shutil.ignore_patterns(".venv", "__pycache__", "*.pyc"))
         virtualenv_path = temporary / ".venv"
         if create_virtualenv:
-            builder = venv.EnvBuilder(with_pip=False, clear=False, symlinks=False)
-            builder.create(virtualenv_path)
+            # Use the requested interpreter explicitly.  EnvBuilder otherwise
+            # follows the interpreter that runs this module, which is unsafe
+            # when a deployment host has several Python versions installed.
+            subprocess.run(
+                [
+                    str(python_executable.resolve()),
+                    "-m",
+                    "venv",
+                    "--copies",
+                    str(virtualenv_path),
+                ],
+                check=True,
+                cwd=temporary,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        elif virtualenv_path.exists():
+            shutil.rmtree(virtualenv_path)
         manifest = release_manifest(
             "backend",
             release_id=release_id,
@@ -158,6 +209,8 @@ def assemble_backend_release(
         )
         write_release_manifest(temporary / "RELEASE.json", manifest)
         os.replace(temporary, destination)
+        if freeze:
+            freeze_release(destination)
         if activate:
             atomic_component_link(root, "backend", release_id)
         return ReleaseAssembly("backend", release_id, destination, manifest)

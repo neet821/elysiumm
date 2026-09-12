@@ -1,65 +1,71 @@
-import re
 import unittest
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
 class DeploymentConfigTest(unittest.TestCase):
-    def test_socket_io_uses_single_backend_worker_without_shared_manager(self):
-        script = (Path(__file__).resolve().parents[2] / "start-prod.sh").read_text(encoding="utf-8")
-        self.assertRegex(script, r"BACKEND_WORKERS=1\b")
-        self.assertNotRegex(script, r"BACKEND_WORKERS=\$\{BACKEND_WORKERS")
-
-    def test_deploy_script_preserves_required_runtime_permissions(self):
-        script = (Path(__file__).resolve().parents[2] / "start-prod.sh").read_text(encoding="utf-8")
-        self.assertIn('"$ROOT_DIR/backups/bookmarks"', script)
-        self.assertNotIn("/etc/sudoers.d/blue-album-frp", script)
-        self.assertNotIn("frps.service", script)
-
-    def test_deploy_persists_live_runtime_and_nginx_media_authorization(self):
-        root = Path(__file__).resolve().parents[2]
-        script = (root / "start-prod.sh").read_text(encoding="utf-8")
-        example = (root / "backend" / "prod.env.example").read_text(encoding="utf-8")
-        for variable in (
-            "LIVE_GEOIP_DATABASE",
-            "LIVE_MEDIAMTX_API_URL",
-            "LIVE_RECORDING_ROOT",
-            "LIVE_COOKIE_SECURE",
-            "LIVE_RTMP_PUBLIC_URL",
-            "LIVE_PUBLIC_BASE_URL",
-        ):
-            self.assertIn(f"{variable}=", script)
-            self.assertIn(f"{variable}=", example)
-        self.assertEqual(
-            script.count("include /etc/nginx/snippets/blue-album-live.conf;"),
-            2,
+    def test_backend_systemd_declares_shared_article_and_media_roots(self):
+        source = (ROOT / "deployment/systemd/elysiumm-backend.service").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "Environment=ARTICLE_ROOT=/srv/services/elysium/shared/sync-storage/articles",
+            source,
+        )
+        self.assertIn(
+            "Environment=MEDIA_ROOT=/srv/services/elysium/shared/sync-storage/media",
+            source,
         )
 
-    def test_every_backend_start_path_runs_migrations_before_serving(self):
-        root = Path(__file__).resolve().parents[2]
-        production = (root / "start-prod.sh").read_text(encoding="utf-8")
-        codespace = (root / "start-codespace.sh").read_text(encoding="utf-8")
-        wsl = (root / "start-wsl.sh").read_text(encoding="utf-8")
-        dockerfile = (root / "backend" / "Dockerfile").read_text(encoding="utf-8")
-        entrypoint = root / "backend" / "entrypoint.sh"
+    def test_backend_systemd_uses_only_the_immutable_backend_current(self):
+        source = (ROOT / "deployment/systemd/elysiumm-backend.service").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("WorkingDirectory=/srv/services/elysium/backend-current/backend", source)
+        self.assertIn(
+            "ExecStart=/srv/services/elysium/backend-current/.venv/bin/python -m uvicorn",
+            source,
+        )
+        self.assertIn("--workers 1", source)
+        self.assertIn("ReadWritePaths=/srv/services/elysium/shared", source)
+        self.assertNotIn("ExecStartPre=", source)
+        self.assertNotIn("run_migrations.py", source)
 
-        self.assertIn("ExecStartPre", production)
-        self.assertIn("run_migrations.py", production)
-        self.assertIn("run_migrations.py", codespace)
-        self.assertIn("run_migrations.py", wsl)
-        self.assertIn("entrypoint.sh", dockerfile)
-        self.assertTrue(entrypoint.is_file())
-        self.assertIn("run_migrations.py", entrypoint.read_text(encoding="utf-8"))
+    def test_nginx_uses_the_frontend_current_and_fastapi_media_contract(self):
+        source = (ROOT / "deployment/nginx/elysiumm.conf").read_text(encoding="utf-8")
+        self.assertIn("root /srv/services/elysium/frontend-current/dist;", source)
+        self.assertIn("location /media/", source)
+        self.assertIn("location /ws/", source)
+        self.assertNotIn("location /socket.io/", source)
+        self.assertNotIn("/mineradio/", source)
+        self.assertNotIn("/mineradio-api/", source)
 
-    def test_production_bootstraps_a_missing_or_broken_virtualenv_before_dependencies(self):
-        script = (Path(__file__).resolve().parents[2] / "start-prod.sh").read_text(encoding="utf-8")
-        self.assertIn('if [[ ! -x "$VENV_DIR/bin/python" ]]; then', script)
-        self.assertIn('mv -- "$VENV_DIR"', script)
-        self.assertIn('python3 -m venv "$VENV_DIR"', script)
+    def test_dev_proxy_exposes_only_the_canonical_socket_path(self):
+        source = (ROOT / "frontend/vite.config.js").read_text(encoding="utf-8")
+        self.assertIn("'/ws/socket.io'", source)
+        self.assertNotIn("'/socket.io'", source)
+
+    def test_live_streaming_assets_use_shared_storage_and_elysium_units(self):
+        root = ROOT / "ops/live"
+        mediamtx = (root / "mediamtx.yml").read_text(encoding="utf-8")
+        unit = (root / "elysiumm-mediamtx.service").read_text(encoding="utf-8")
+        expected_path = "/srv/services/elysium/shared/uploads/live-recordings"
+        self.assertIn(expected_path, mediamtx)
+        self.assertIn("/srv/services/elysium/backend-current/.venv/bin/python", mediamtx)
+        self.assertIn(expected_path, unit)
+        self.assertIn("/etc/elysium/mediamtx.env", unit)
+
+    def test_legacy_production_entrypoint_is_non_mutating(self):
+        source = (ROOT / "start-prod.sh").read_text(encoding="utf-8")
+        self.assertIn("is retired", source)
+        self.assertIn("exit 2", source)
+        for retired in ("blue-mineradio", "3000", "3100", "/var/www/blue-album", "/srv/blue-album"):
+            self.assertNotIn(retired, source)
 
     def test_production_import_does_not_run_legacy_schema_mutation(self):
-        main_source = (
-            Path(__file__).resolve().parents[1] / "main.py"
-        ).read_text(encoding="utf-8")
+        main_source = (ROOT / "backend/main.py").read_text(encoding="utf-8")
         self.assertNotRegex(main_source, r"\nauto_migrate_database\(\)\s*\n")
         self.assertIn('engine.dialect.name == "sqlite"', main_source)
 

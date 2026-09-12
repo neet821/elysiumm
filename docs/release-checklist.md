@@ -18,7 +18,7 @@
 | CSS budget | PASS | 清理旧样式后 170,190 B，低于 230,000 B 阈值。 |
 | Backup/recovery | PASS | 隔离数据库迁移、备份、修改、恢复、完整性和摘要校验完成；临时目录已清理。 |
 | Archive API contract | PASS | `/api/archive` 返回 404，专属 schema/router 已移出，后端契约测试通过。 |
-| Browser acceptance | PASS | Phase 11 用 Chrome 152 via CDP 检查 8 个视口、50 个页面状态，包含文章 API、认证、首页侧栏、音乐房 iframe、404、焦点、溢出和第三方请求。 |
+| Browser acceptance | PASS | Phase 11 用 Chrome 152 via CDP 检查 8 个视口、50 个页面状态，包含 FastAPI Articles API、认证、首页侧栏、原生音乐房、404、焦点、溢出和第三方请求。 |
 | Production deploy | BLOCKED | 本次明确不部署；没有修改 Aliyun、Nginx、systemd、FRP、静态目录或数据库。 |
 
 ## Homepage and navigation
@@ -42,9 +42,9 @@
 
 | Target | Status | Evidence |
 | --- | --- | --- |
-| 当前 Mineradio embed、房间同步和视频播放器可达 | PASS | `MineradioRoomEmbed`、`playerTrack`、`roomPlayerIntegration`、视频房间测试和 Phase 11 iframe 验收。 |
+| 原生音乐房、房间同步和视频播放器可达 | PASS | `MusicRoomPlayer`、`playerTrack`、`roomPlayerIntegration`、视频房间测试和 Phase 7/11 原生播放器验收。 |
 | 旧独立播放器和专属样式/测试移出 | PASS | 当前入口图无消费者；恢复命令见归档索引。 |
-| Mineradio 许可和上游边界保留 | PASS | `mineradio/LICENSE`、`NOTICE.md`、`BLUE_ALBUM_INTEGRATION.md` 继续跟踪。 |
+| Mineradio 许可和上游边界保留 | PASS | `mineradio/LICENSE`、`NOTICE.md`、`BLUE_ALBUM_INTEGRATION.md` 继续跟踪；独立服务已退役。 |
 | 曲库 provider、签名音频、歌词和失败降级 | PASS | 当前音乐服务/路由/适配器测试。 |
 
 ## Music rooms
@@ -53,7 +53,7 @@
 | --- | --- | --- |
 | JWT 身份、成员/主持权限和服务端快照 | PASS | realtime、music-room service/protocol 测试。 |
 | 队列、投票、聊天、历史、重连和漂移校正 | PASS | Phase 7 当前 `/rooms/music/:roomId` 脚本及多客户端测试。 |
-| Mineradio 原版页面可在隔离浏览器中嵌入 | PASS | Phase 11 Chrome 视口验收；本地依赖由锁文件安装到 ignored `node_modules`，未改生产。 |
+| 原生音乐房在隔离浏览器中运行 | PASS | Phase 7/11 Chrome 视口验收；无 iframe、无 3000 端口依赖，本地依赖由前端锁文件安装到 ignored `node_modules`。 |
 
 ## Video rooms
 

@@ -34,7 +34,7 @@ OBS 设置如下：
 
 ## 自动录像
 
-录像保存在 `/srv/blue-album/live/recordings`，不放在 Git 仓库中。每段完成后会计算摘要并出现在管理员页面，可直接播放、下载、改名或删除。磁盘剩余空间接近 5 GiB 保留线时，系统只暂停新录像，不中断直播。
+录像保存在 `/srv/services/elysium/shared/uploads/live-recordings`，不放在 Git 仓库中。每段完成后会计算摘要并出现在管理员页面，可直接播放、下载、改名或删除。磁盘剩余空间接近 5 GiB 保留线时，系统只暂停新录像，不中断直播。
 
 录像不会自动公开，也不会自动删除。未来接入网盘时，以数据库中的 `remote_provider` 和 `remote_file_id` 为边界增加后台上传器；本地录像在远端确认完整之前不得删除。
 
@@ -51,15 +51,15 @@ OBS 设置如下：
 scripts/provision-live-streaming.sh --check
 ```
 
-安装时先完成生产备份，再运行 `sudo scripts/provision-live-streaming.sh --install`，把 `/etc/nginx/snippets/blue-album-live.conf` 包含进现有 Blue Album 站点，执行 `nginx -t` 后再重载。后端运行环境必须同时包含 `backend/prod.env.example` 中的全部 `LIVE_*` 项。
+安装时先完成生产备份，再运行 `sudo scripts/provision-live-streaming.sh --install`，把 `/etc/nginx/snippets/elysium-live.conf` 包含进 Elysium 站点，执行 `nginx -t` 后再重载。后端运行环境必须同时包含 `backend/prod.env.example` 中的全部 `LIVE_*` 项。
 
 ## 故障处理
 
 - 推流被拒绝：在管理员页更换密钥，将新密钥完整粘贴进 OBS；旧密钥立即失效。
 - 需要立即停播：点击“强制断流”，然后停止 OBS；若 OBS 自动重连且密钥仍有效，它可能再次接入。
 - 画面规格异常：确认 OBS 输出为 H.264 + AAC，关键帧 2 秒，不要使用 AV1、HEVC 或仅视频输出。
-- 网页无画面：依次检查网站健康、`blue-album-mediamtx` 状态、本机 HLS、Nginx 授权路径和 1935 监听。
+- 网页无画面：依次检查网站健康、`elysiumm-mediamtx` 状态、本机 HLS、Nginx 授权路径和 1935 监听。
 - 磁盘不足：下载或迁移旧录像后在管理员页删除；空间恢复到保留线以上时录像会自动恢复。
-- 媒体服务重启：`systemctl restart blue-album-mediamtx`。重启不会删除已完成录像，但当前观看会短暂重连。
+- 媒体服务重启：`systemctl restart elysiumm-mediamtx`。重启不会删除已完成录像，但当前观看会短暂重连。
 
 本功能不包含服务器转码、多码率自适应、向第三方平台转推或自动公开录像。

@@ -1,33 +1,26 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-const root = path.basename(process.cwd()) === 'frontend' ? path.resolve(process.cwd(), '..') : process.cwd()
-const bridge = fs.readFileSync(path.join(root, 'mineradio/public/blue-album-room-bridge.js'), 'utf8')
-const queueActions = fs.readFileSync(path.join(root, 'mineradio/public/js/modules/05-playback/10-queue-actions.js'), 'utf8')
-const search = fs.readFileSync(path.join(root, 'mineradio/public/js/modules/05-playback/07-search.js'), 'utf8')
+const player = readFileSync(new URL('../src/features/music/MusicRoomPlayer.jsx', import.meta.url), 'utf8')
+const page = readFileSync(new URL('../src/pages/MineradioPage.jsx', import.meta.url), 'utf8')
+const config = readFileSync(new URL('../src/config.js', import.meta.url), 'utf8')
 
-test('room mode keeps Mineradio native search visible with disabled placeholders', () => {
-  assert.doesNotMatch(bridge, /blue-album-room-mode #search-area[^}]*display:\s*none/)
-  assert.match(bridge, /#search-area[^}]*display:\s*(?:flex|block)/)
-  for (const id of ['search-mode-kugou', 'search-mode-qishui', 'search-mode-spotify', 'search-mode-podcast']) {
-    assert.match(bridge, new RegExp(`#${id}[^}]*display\\s*:\\s*none`))
-  }
-  assert.match(bridge, /qq\.disabled = true/)
-  assert.match(bridge, /blue-room-search-mode-other/)
+test('room search is rendered by the native React player and calls the FastAPI catalog', () => {
+  assert.match(player, /function SearchPanel\s*\(/)
+  assert.match(player, /API_ENDPOINTS\.MUSIC_SEARCH/)
+  assert.match(player, /provider: provider/)
+  assert.match(player, /propose-native-search/)
+  assert.match(player, /网易云/)
+  assert.match(player, /QQ 音乐/)
+  assert.match(config, /MUSIC_SEARCH/)
 })
 
-test('native search selection is routed to the room instead of Mineradio local playback', () => {
-  assert.match(queueActions, /__BLUE_ROOM_NATIVE_SEARCH_SELECT/)
-  assert.match(bridge, /propose-native-search/)
-  assert.match(bridge, /provider_track_id/)
+test('native search selection only proposes a room queue item', () => {
+  assert.match(player, /onAction\(\{\s*action: 'propose-native-search'/s)
+  assert.match(page, /action === 'propose-native-search'/)
+  assert.doesNotMatch(player, /postMessage|contentWindow|<iframe/i)
+  assert.doesNotMatch(page, /\/mineradio-api|postMessage|contentWindow|<iframe/i)
 })
 
-test('room search results keep the native renderer but hide personal actions', () => {
-  assert.match(search, /blue-album-room-mode/)
-  assert.match(search, /roomMode \? '' : .*toggleLikeSearchResult/s)
-  assert.match(search, /roomMode \? '' : .*collectSearchResult/s)
-  assert.match(search, /\(roomMode \? '' : '<button class="add-btn"/)
-  assert.doesNotMatch(search, /roomMode \? '加入房间公共歌单'/)
-})
+console.log('native music search source checks passed')

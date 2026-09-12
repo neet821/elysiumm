@@ -6,8 +6,8 @@
 
 ## Current chain
 
-空库验证已从 `0001_legacy_baseline` 升级到
-`0023_remove_game_platform`，包含 `0009_phase10_books_files_admin` 和
+空库验证已从 `0001_legacy_baseline` 升级到当前仓库 head
+`0025_admin_transfer_note`，包含 `0009_phase10_books_files_admin` 和
 `0010_repair_legacy_gaps`；autogenerate 无新操作，历史迁移保持不可变。
 
 ## Preserved schema boundary
@@ -25,4 +25,7 @@ backend/.venv/bin/python -m unittest discover -s backend/tests -p 'test_*_unitte
 git diff --check
 ```
 
-生产升级仍须先运行迁移前备份和 [deployment](../deployment.md) 中的显式回滚流程。
+普通 systemd 启动不执行迁移。生产发布由
+`scripts/deploy-production.py` 比较当前 revision 与目标 heads；只有存在
+pending migration 时才执行已校验的迁移前备份和 `alembic upgrade heads`。
+生产升级仍须遵循 [deployment](../deployment.md) 中的显式回滚流程。

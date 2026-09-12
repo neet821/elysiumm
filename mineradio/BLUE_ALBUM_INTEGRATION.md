@@ -1,25 +1,19 @@
-# Mineradio in Blue Album
+# Mineradio attribution boundary
 
-This directory vendors the browser-capable player from XxHuberrr/Mineradio v1.1.1.
-The upstream GPL-3.0 license and visual-identity notice are preserved in `LICENSE`
+The historical standalone Mineradio browser/server integration has been
+retired from Elysium. The live website does not start a Mineradio process, open
+port 3000, render an iframe, or proxy `/mineradio/` routes.
+
+The maintained Elysium implementation is split into:
+
+- `frontend/src/features/music/`: native room player, lyrics, cover, particles
+  and room controls;
+- `backend/music/`: direct NetEase, QQ Music and Audius provider adapters;
+- `backend/music_providers/`: an opt-in rollback/test facade for the retired
+  HTTP bridge; production imports the contracts from `backend/music/`.
+
+The remaining upstream material in this directory is retained only as a
+licensing/attribution reference for the migration. It is not part of the
+production release payload and must not be used as a service entrypoint.
+The upstream GPL-3.0 license and visual-identity notice remain in `LICENSE`
 and `NOTICE.md`.
-
-Blue Album embeds the original browser application in music-room mode. The
-standalone upstream application remains intact; the room query parameter adds a
-narrow same-origin bridge without replacing its cover stage, lyrics, particles,
-or visual-effects console.
-
-The current extraction boundary is:
-
-- `/music/rooms/:roomId` loads `/mineradio/?blue-room=:roomId` from the vendored
-  v1.1.1 server;
-- room mode hides upstream account, login, personal library, home, search, and
-  weather surfaces while preserving its player and effects;
-- the same-origin bridge translates Blue Album snapshots into original
-  Mineradio playback and lyric state;
-- room membership, catalog search, voting, queue, upload, member, chat, and
-  reconnect logic remain owned by Blue Album and are shown in the embedded room
-  drawer;
-- provider credentials remain server-side and are never posted into the frame.
-
-No upstream copyright or license file has been removed or replaced.

@@ -358,6 +358,7 @@ class MusicProviderAdaptersTest(unittest.IsolatedAsyncioTestCase):
 
     def test_registry_builds_independent_adapters_with_five_second_default(self):
         config = SimpleNamespace(
+            MUSIC_PROVIDER_LEGACY_COMPAT=True,
             MUSIC_PROVIDER_BASE_URL="http://127.0.0.1:18181",
             MUSIC_PROVIDER_TIMEOUT_SECONDS=5,
         )

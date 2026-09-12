@@ -15,7 +15,6 @@ export default defineConfig(({ mode }) => {
   const devPort = Number(env.VITE_DEV_PORT || 5173);
   const previewHost = env.VITE_PREVIEW_HOST || "0.0.0.0";
   const previewPort = Number(env.VITE_PREVIEW_PORT || 4173);
-  const mineradioTarget = env.VITE_MINERADIO_PROXY_TARGET || "http://127.0.0.1:18181";
   const backendTarget = env.VITE_BACKEND_PROXY_TARGET || "http://127.0.0.1:8000";
   const liveMediaTarget = env.VITE_LIVE_MEDIA_PROXY_TARGET || "http://127.0.0.1:8888";
 
@@ -26,31 +25,6 @@ export default defineConfig(({ mode }) => {
       port: devPort,
       allowedHosts: allowedHosts.length ? allowedHosts : true,
       proxy: {
-        '/api/content': {
-          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
-          changeOrigin: true,
-          secure: false,
-        },
-        '/api/articles': {
-          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
-          changeOrigin: true,
-          secure: false,
-        },
-        '/media': {
-          target: env.VITE_ARTICLE_PROXY_TARGET || 'http://127.0.0.1:3100',
-          changeOrigin: true,
-          secure: false,
-        },
-        '/mineradio-api': {
-          target: mineradioTarget,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/mineradio-api/, '/api'),
-        },
-        '/mineradio': {
-          target: mineradioTarget,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/mineradio/, ''),
-        },
         '/api': {
           target: backendTarget,
           changeOrigin: true,
@@ -65,11 +39,6 @@ export default defineConfig(({ mode }) => {
           target: backendTarget,
           changeOrigin: true,
           secure: false,
-        },
-        '/socket.io': {
-          target: backendTarget,
-          ws: true,
-          changeOrigin: true,
         },
         '/ws/socket.io': {
           target: backendTarget,

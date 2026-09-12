@@ -122,3 +122,15 @@ class MusicProviderAdapter(ABC):
         language: str = "original",
     ) -> ProviderLyrics:
         raise NotImplementedError
+
+
+# The standalone Mineradio bridge is retained only as an explicit rollback/test
+# facade.  Re-export the direct contracts so compatibility failures and direct
+# provider failures use one public exception/type identity.
+from music.base import (  # noqa: E402  (compatibility aliases follow legacy definitions)
+    MAX_PROVIDER_RESPONSE_BYTES as MAX_PROVIDER_RESPONSE_BYTES,
+    MusicProviderAdapter as MusicProviderAdapter,
+    ProviderError as ProviderError,
+    ProviderLyrics as ProviderLyrics,
+    ProviderResolution as ProviderResolution,
+)

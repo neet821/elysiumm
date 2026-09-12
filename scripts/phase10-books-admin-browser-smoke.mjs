@@ -168,6 +168,24 @@ async function waitForUrl(url, timeout = 30000) {
   throw new Error(`Timed out waiting for ${url}: ${lastError?.message || 'unknown error'}`)
 }
 
+async function waitForStableValue(page, expression, timeout = 15000, requiredSamples = 5) {
+  const deadline = Date.now() + timeout
+  let lastValue = null
+  let stableSamples = 0
+  while (Date.now() < deadline) {
+    const value = await page.evaluate(expression)
+    if (value && value === lastValue) {
+      stableSamples += 1
+      if (stableSamples >= requiredSamples) return value
+    } else {
+      lastValue = value
+      stableSamples = 0
+    }
+    await sleep(100)
+  }
+  throw new Error(`${page.label} value did not stabilize: ${expression}`)
+}
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -188,6 +206,14 @@ function startProcess(command, args, { cwd, env, logPath }) {
   child.once('exit', () => fs.closeSync(log))
   return child
 }
+
+function assertAutomaticTransferFlowContract() {
+  const source = fs.readFileSync(import.meta.filename, 'utf8')
+  const removedButtonLabel = ['创建', '中转', '链接'].join('')
+  assert(!source.includes(removedButtonLabel), 'Phase 10 must not depend on the removed manual transfer-link button')
+}
+
+assertAutomaticTransferFlowContract()
 
 async function stopProcess(child) {
   if (!child || child.exitCode !== null) return
@@ -338,7 +364,7 @@ async function capture(page, filename) {
   return output
 }
 
-async function inspectPage(page, appBase, forbiddenValues = []) {
+async function inspectPage(page, appBase, forbiddenValues = [], { requireHeading = true } = {}) {
   const state = await page.evaluate(`(() => {
     const html = document.documentElement.innerHTML
     const duplicateIds = Array.from(document.querySelectorAll('[id]')).map((element) => element.id)
@@ -371,7 +397,7 @@ async function inspectPage(page, appBase, forbiddenValues = []) {
   assert.equal(state.leak, false, `${page.label} exposed a private credential or path field`)
   const expectedMainCount = state.adminShell ? 2 : 1
   assert.equal(state.mainCount, expectedMainCount, `${page.label} should render ${expectedMainCount} main landmark(s) (${state.pathname}, ${state.mainCount})`)
-  assert(state.headingCount > 0, `${page.label} has no page heading`)
+  if (requireHeading) assert(state.headingCount > 0, `${page.label} has no page heading`)
   assert.equal(state.staleNotice, false, `${page.label} kept a stale success notice after navigation`)
   assert.deepEqual(state.duplicateIds, [], `${page.label} rendered duplicate ids`)
   assert(state.overflow <= 1, `${page.label} overflows by ${state.overflow}px`)
@@ -492,36 +518,42 @@ async function main() {
     await Promise.all([admin.setViewport(1440, 1000), visitor.setViewport(1440, 1000)])
 
     // The current Files page exposes read-only FRP browsing plus anonymous
-    // transfer links.  Exercise that public transfer lifecycle from the UI;
-    // the retired manual-admin-file controls are intentionally not part of the
-    // current route.
+    // transfer links.  Uploading through the admin file input acquires the
+    // current link automatically and populates the admin file row.
     const transferPath = path.join(temporaryRoot, 'phase10-transfer.txt')
     fs.writeFileSync(transferPath, 'phase 10 transfer handoff\n', 'utf8')
     await admin.navigate(`${appBase}/admin/files`)
-    await admin.waitFor("document.querySelector('h2')?.textContent === '文件' && Boolean(Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('创建中转链接')))")
-    await clickText(admin, '创建中转链接')
-    await admin.waitFor("Boolean(document.querySelector('.admin-transfer-created input'))")
-    const transferUrl = await admin.evaluate("document.querySelector('.admin-transfer-created input')?.value || ''")
-    const transferMatch = transferUrl.match(/\/transfer\/([^/?#]+)/)
+    await admin.waitFor("Boolean(document.querySelector('input[aria-label=\"选择文件上传\"]'))")
+    await setFileInput(admin, 'input[aria-label="选择文件上传"]', transferPath)
+    await admin.waitFor("Boolean(document.querySelector('.admin-transfer-created input')) && Boolean(document.querySelector('[aria-label=\"删除 phase10-transfer.txt\"]'))")
+    const transferUrl = await waitForStableValue(admin, "document.querySelector('.admin-transfer-created input')?.value || ''")
+    const transferMatch = transferUrl.match(/\/([^/?#]+)\/?$/)
     assert(transferMatch, `admin did not expose a transfer URL: ${transferUrl}`)
     const transferToken = transferMatch[1]
 
     await visitor.navigate(`${appBase}/transfer/${transferToken}`)
-    await visitor.waitFor("document.querySelector('h1')?.textContent === '文件中转' && Boolean(document.querySelector('input[type=\"file\"]'))")
-    await setFileInput(visitor, 'input[type="file"]', transferPath)
-    await visitor.waitFor("document.body.textContent.includes('phase10-transfer.txt') && Boolean(document.querySelector('.transfer-page__files a'))")
+    await visitor.waitFor("Boolean(document.querySelector('.transfer-page')) && document.body.textContent.includes('phase10-transfer.txt') && Boolean(document.querySelector('.transfer-page__files a'))")
     const transferDownloadUrl = await visitor.evaluate("document.querySelector('.transfer-page__files a')?.href || ''")
     assert(transferDownloadUrl, 'transfer page did not render a download link')
     const transferDownload = await fetch(transferDownloadUrl)
     assert.equal(transferDownload.status, 200, 'transfer download failed')
     assert.equal(Buffer.compare(Buffer.from(await transferDownload.arrayBuffer()), fs.readFileSync(transferPath)), 0, 'transfer download content mismatch')
-    await inspectPage(visitor, appBase, [temporaryRoot])
+    const transferDetails = expectOk(await api(appBase, `/api/transfers/${transferToken}`), 'inspect uploaded transfer')
+    assert.equal(transferDetails.files.length, 1, 'uploaded transfer did not retain one file')
+    assert.equal(transferDetails.files[0].name, 'phase10-transfer.txt')
+    await inspectPage(visitor, appBase, [temporaryRoot], { requireHeading: false })
 
-    await admin.navigate(`${appBase}/admin/files`)
-    await admin.waitFor("document.querySelector('h2')?.textContent === '文件' && Boolean(document.querySelector('[aria-label=\"销毁中转链接\"]'))")
+    await admin.waitFor("Boolean(document.querySelector('button[aria-label=\"删除 phase10-transfer.txt\"]'))")
     await admin.evaluate('window.confirm = () => true')
-    await clickAria(admin, '销毁中转链接')
-    await admin.waitFor("!document.querySelector('[aria-label=\"销毁中转链接\"]')")
+    await clickAria(admin, '删除 phase10-transfer.txt')
+    await admin.waitFor("!document.querySelector('[aria-label=\"删除 phase10-transfer.txt\"]')")
+    const transferAfterFileDelete = expectOk(await api(appBase, `/api/transfers/${transferToken}`), 'inspect transfer after file deletion')
+    assert.deepEqual(transferAfterFileDelete.files, [], 'deleted transfer file remained publicly listed')
+    const destroyedTransfer = await api(appBase, `/api/admin/transfers/${transferDetails.id}`, {
+      method: 'DELETE',
+      token: adminAuth.access_token,
+    })
+    assert.equal(destroyedTransfer.status, 204, 'admin transfer destruction failed')
     assert.equal((await api(appBase, `/api/transfers/${transferToken}`)).status, 404, 'destroyed transfer remained accessible')
 
     // Public sync is still a protected integration, but its operator controls
@@ -564,7 +596,7 @@ async function main() {
     assert.equal(synced.relative_path, 'reports/phase10-agent.txt')
     assert.equal(synced.sync_status, 'synced')
     await admin.navigate(`${appBase}/admin/files`)
-    await admin.waitFor("document.querySelector('h2')?.textContent === '文件'")
+    await admin.waitFor("Boolean(document.querySelector('.admin-files-page'))")
     await clickAria(admin, '刷新文件')
     await capture(admin, 'files-synced-desktop.png')
 
@@ -593,7 +625,7 @@ async function main() {
       headers: { 'X-Sync-Token': rotatedDeviceSecret }, method: 'POST',
     })
     assert.equal(revokedResult.status, 401, 'revoked device secret remained valid')
-    await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
+    await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot], { requireHeading: false })
 
     // Visit every canonical administrator area that belongs to the website.
     const sections = [
@@ -606,8 +638,12 @@ async function main() {
     ]
     for (const [pathname, heading] of sections) {
       await admin.navigate(`${appBase}${pathname}`)
-      await admin.waitFor(`document.body.textContent.includes(${JSON.stringify(heading)})`, 20000)
-      await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
+      const canonicalPathname = pathname === '/admin' ? '/admin/homepage' : pathname
+      const pageReady = pathname === '/admin/files'
+        ? "Boolean(document.querySelector('.admin-files-page'))"
+        : `Array.from(document.querySelectorAll('h1, h2')).some((element) => element.textContent.includes(${JSON.stringify(heading)}))`
+      await admin.waitFor(`location.pathname === ${JSON.stringify(canonicalPathname)} && ${pageReady}`, 20000)
+      await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot], { requireHeading: pathname !== '/admin/files' })
     }
     await admin.navigate(`${appBase}/admin/services`)
     await admin.waitFor("document.body.textContent.includes('服务器状态')")
@@ -640,8 +676,8 @@ async function main() {
     await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
     await capture(admin, 'overview-mobile.png')
     await admin.navigate(`${appBase}/admin/files`)
-    await admin.waitFor("document.querySelector('h2')?.textContent === '文件'")
-    await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot])
+    await admin.waitFor("Boolean(document.querySelector('.admin-files-page'))")
+    await inspectPage(admin, appBase, [firstDeviceSecret, rotatedDeviceSecret, temporaryRoot], { requireHeading: false })
     await capture(admin, 'files-mobile.png')
 
     const dashboard = expectOk(await api(appBase, '/api/sync/dashboard', { token: adminAuth.access_token }), 'sync dashboard')

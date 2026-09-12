@@ -25,8 +25,16 @@ REQUIRED_ENV = (
     "DB_PASSWORD",
     "SECRET_KEY",
     "CORS_ORIGINS",
-    "MUSIC_PROVIDER_BASE_URL",
-    "MUSIC_PROVIDER_ADMIN_TOKEN",
+    "UPLOAD_DIR",
+    "PRIVATE_STORAGE_DIR",
+    "ADMIN_FILES_STORAGE_DIR",
+    "PUBLIC_SYNC_STORAGE",
+    "TRANSFER_STORAGE_DIR",
+    "BACKUP_OUTPUT_DIR",
+    "MUSIC_PROVIDER_CREDENTIAL_DIR",
+    "NETEASE_API_BASE_URL",
+    "QQ_API_BASE_URL",
+    "AUDIUS_API_BASE_URL",
 )
 
 
@@ -78,12 +86,23 @@ def validate_environment(path: Path) -> list[str]:
         parsed = urlparse(origin)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             errors.append(f"CORS_ORIGINS contains an invalid origin: {origin}")
-    provider_url = values.get("MUSIC_PROVIDER_BASE_URL", "")
-    parsed_provider = urlparse(provider_url)
-    if provider_url and (parsed_provider.scheme not in {"http", "https"} or not parsed_provider.netloc):
-        errors.append("MUSIC_PROVIDER_BASE_URL must be an absolute HTTP URL")
-    if values.get("MUSIC_PROVIDER_ADMIN_TOKEN", "") and len(values["MUSIC_PROVIDER_ADMIN_TOKEN"]) < 24:
-        errors.append("MUSIC_PROVIDER_ADMIN_TOKEN must contain at least 24 characters")
+    for name in (
+        "UPLOAD_DIR",
+        "PRIVATE_STORAGE_DIR",
+        "ADMIN_FILES_STORAGE_DIR",
+        "PUBLIC_SYNC_STORAGE",
+        "TRANSFER_STORAGE_DIR",
+        "BACKUP_OUTPUT_DIR",
+        "MUSIC_PROVIDER_CREDENTIAL_DIR",
+    ):
+        value = values.get(name, "")
+        if value and not Path(value).is_absolute():
+            errors.append(f"{name} must be an absolute path")
+    for name in ("NETEASE_API_BASE_URL", "QQ_API_BASE_URL", "AUDIUS_API_BASE_URL"):
+        provider_url = values.get(name, "")
+        parsed_provider = urlparse(provider_url)
+        if provider_url and (parsed_provider.scheme not in {"http", "https"} or not parsed_provider.netloc):
+            errors.append(f"{name} must be an absolute HTTP URL")
     return errors
 
 
@@ -99,13 +118,18 @@ def validate_repository() -> list[str]:
     require(
         compose,
         "docker-compose.yml",
-        tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS", "MUSIC_PROVIDER_ADMIN_TOKEN"))
+        tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"))
         + (
             'DOCKER_ENV: "true"',
-            "backend_uploads:/app/uploads",
-            "private_storage:/app/private_storage",
-            "public_sync_storage:/app/sync-storage",
-            "backup_storage:/app/backups",
+            "MUSIC_PROVIDER_LEGACY_COMPAT: \"0\"",
+            "NETEASE_API_BASE_URL:",
+            "QQ_API_BASE_URL:",
+            "AUDIUS_API_BASE_URL:",
+            "shared_uploads:/app/shared/uploads",
+            "shared_private_storage:/app/shared/private-storage",
+            "shared_sync_storage:/app/shared/sync-storage",
+            "shared_transfers:/app/shared/transfers",
+            "shared_backups:/app/shared/backups",
             "healthcheck:",
         ),
         errors,
@@ -113,6 +137,9 @@ def validate_repository() -> list[str]:
     for weak_default in ("rootpassword", "your-secret-key", "change-this-in-prod"):
         if weak_default in compose:
             errors.append(f"docker-compose.yml contains a weak default: {weak_default}")
+    for retired in ("mineradio:", "MUSIC_PROVIDER_BASE_URL", "MUSIC_PROVIDER_ADMIN_TOKEN", "3000"):
+        if retired in compose:
+            errors.append(f"docker-compose.yml retains retired standalone music topology: {retired}")
 
     require(read("backend/Dockerfile"), "backend/Dockerfile", ("FROM python:3.12-slim",), errors)
     frontend_dockerfile = read("frontend/Dockerfile")
@@ -176,7 +203,7 @@ def validate_live_streaming() -> list[str]:
             pattern = rf"(?m)^\s*{re.escape(key)}:\s*[\"']?{re.escape(value)}[\"']?\s*$"
             if not re.search(pattern, source):
                 errors.append(f"ops/live/mediamtx.yml must set {key} to {value}")
-        for required in ("paths:", "  live/stream:", "recordPath: /srv/blue-album/live/recordings/", "runOnRecordSegmentComplete:"):
+        for required in ("paths:", "  live/stream:", "recordPath: /srv/services/elysium/shared/uploads/live-recordings/", "runOnRecordSegmentComplete:"):
             if required not in source:
                 errors.append(f"ops/live/mediamtx.yml is missing {required.strip()}")
         return errors
@@ -198,14 +225,14 @@ def validate_live_streaming() -> list[str]:
             errors.append(f"ops/live/mediamtx.yml must disable {key}")
     live_path = (config.get("paths") or {}).get("live/stream") or {}
     record_path = str(live_path.get("recordPath", ""))
-    if not record_path.startswith("/srv/blue-album/live/recordings/"):
-        errors.append("live recording path must stay under /srv/blue-album/live/recordings")
+    if not record_path.startswith("/srv/services/elysium/shared/uploads/live-recordings/"):
+        errors.append("live recording path must stay under /srv/services/elysium/shared/uploads/live-recordings")
     if live_path.get("recordDeleteAfter") != "0s":
         errors.append("live recordings must not be automatically deleted")
 
     for path in (
         "ops/live/nginx-live.conf",
-        "ops/live/blue-album-mediamtx.service",
+        "ops/live/elysiumm-mediamtx.service",
         "scripts/provision-live-streaming.sh",
         "backend/live_recording_hook.py",
     ):

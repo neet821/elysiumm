@@ -10,6 +10,16 @@ import elysium_health_guard as guard
 
 
 class HealthGuardTests(unittest.TestCase):
+    def test_monitored_units_exclude_retired_articles_and_mineradio_services(self):
+        self.assertEqual(
+            guard.MONITORED_UNITS,
+            (
+                "nginx.service",
+                "elysiumm-backend.service",
+                "elysiumm-mediamtx.service",
+            ),
+        )
+
     def test_finds_kavita_process_from_docker_top_output(self):
         output = "PID                 COMMAND\n1247                Kavita\n"
         self.assertEqual(guard.find_kavita_pid(output), "1247")

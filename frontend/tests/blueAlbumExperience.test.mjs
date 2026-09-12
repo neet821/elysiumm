@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const roomList = readFileSync(new URL('../src/pages/SyncRoomList.jsx', import.meta.url), 'utf8')
-const sidebar = readFileSync(new URL('../src/features/video/VideoRoomSidebar.jsx', import.meta.url), 'utf8')
-const shell = readFileSync(new URL('../src/components/layout/AppShell.jsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
-const bridge = readFileSync(new URL('../../mineradio/public/blue-album-room-bridge.js', import.meta.url), 'utf8')
+const read = (relativePath) => readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
+const roomList = read('src/pages/SyncRoomList.jsx')
+const sidebar = read('src/features/video/VideoRoomSidebar.jsx')
+const shell = read('src/components/layout/AppShell.jsx')
+const css = read('src/index.css')
+const player = read('src/features/music/MusicRoomPlayer.jsx')
+const page = read('src/pages/MineradioPage.jsx')
 
 assert.match(roomList, /const payload = \{ room_name: roomName \}/, '创建观影房必须只提交房间名称')
 assert.doesNotMatch(roomList.match(/const handleCreateRoom[\s\S]*?const handleJoinRoom/)?.[0] || '', /video_source|control_mode|password/, '创建表单不得提交房内设置')
@@ -16,9 +18,15 @@ assert.match(shell, /const showFooter = !isTransferDomain && !isHome && !isToolb
 assert.match(shell, /const hasWideNavigation = !isTransferDomain &&/)
 assert.match(css, /--surface-page:\s*#fff/)
 assert.match(css, /--shadow-card:\s*none/)
-assert.doesNotMatch(bridge, />ONLINE<|>PRIVATE SYNC<|>ROOMS<|USER ID/)
-for (const label of ['返回首页', '离开房间', '重新同步', '房间成员', '实时聊天', '搜索点歌', '上传共享音频', '房间公共歌单']) {
-  assert.match(bridge, new RegExp(label), `Mineradio 房间桥接必须包含 ${label}`)
-}
 
-console.log('plain service experience source checks passed')
+assert.match(player, /class NativeAudioAdapter/)
+assert.match(player, /function ParticleField\s*\(/)
+assert.match(player, /normalizeLyrics/)
+assert.match(player, /听歌房音频播放器/)
+assert.match(player, /在线成员与聊天/)
+assert.match(player, /历史听歌记录/)
+assert.match(page, /<MusicRoomPlayer/)
+assert.doesNotMatch(player, /postMessage|contentWindow|<iframe/i)
+assert.doesNotMatch(page, /\/mineradio-api|postMessage|contentWindow|<iframe/i)
+
+console.log('native music room experience source checks passed')

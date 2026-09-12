@@ -4,7 +4,7 @@ import { io } from 'socket.io-client'
 
 import { API_ENDPOINTS, WS_BASE_URL } from '../config'
 import { useAuth } from '../contexts/AuthContext'
-import MineradioRoomEmbed from '../features/player/MineradioRoomEmbed.jsx'
+import MusicRoomPlayer from '../features/music/MusicRoomPlayer.jsx'
 import {
   cancelRoomSync,
   createRoomSyncState,
@@ -106,8 +106,8 @@ export default function MineradioPage() {
 
   useEffect(() => {
     // A room route can change without remounting this page. Clear every
-    // room-scoped playback value before the next room is fetched so the new
-    // iframe cannot briefly receive the previous room's track.
+    // room-scoped playback value before the next room is fetched so the
+    // native player cannot briefly continue the previous room's track.
     setLoading(true)
     setRoom(null)
     setQueue([])
@@ -425,20 +425,6 @@ export default function MineradioPage() {
     navigate(`/rooms/music/${targetRoomId}`)
   }
 
-  const voteForTrack = async (itemId) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.MUSIC_PROPOSAL_VOTE(roomId, itemId))
-      setQueue(response.data.queue || [])
-      loadHistory({ quiet: true })
-      const item = (response.data.queue || []).find((entry) => entry.id === itemId)
-      setNotice(response.data.approved
-        ? `《${item?.title || '候选歌曲'}》投票通过`
-        : `投票成功，当前 ${response.data.votes}/${response.data.required} 票`)
-    } catch (error) {
-      setNotice(error.response?.data?.detail || '投票失败')
-    }
-  }
-
   const likeTrack = async (itemId) => {
     try {
       const response = await apiClient.post(API_ENDPOINTS.MUSIC_QUEUE_LIKE(roomId, itemId))
@@ -477,7 +463,7 @@ export default function MineradioPage() {
   }
 
   const proposeNativeSearchTrack = async (track) => {
-    if (!track || track.provider !== 'netease' || !track.provider_track_id || selectingRef.current) return
+    if (!track || !['netease', 'qq', 'audius'].includes(track.provider) || !track.provider_track_id || selectingRef.current) return
     selectingRef.current = true
     try {
       const response = await apiClient.post(API_ENDPOINTS.MUSIC_QUEUE(roomId), {
@@ -486,7 +472,7 @@ export default function MineradioPage() {
         artwork_url: track.artwork_url || null,
         duration_seconds: Math.max(0, Math.round(Number(track.duration_seconds || 0))),
         media_mid: track.media_mid || null,
-        provider: 'netease',
+        provider: track.provider,
         provider_track_id: String(track.provider_track_id),
         title: track.title || '未命名歌曲',
       })
@@ -534,12 +520,12 @@ export default function MineradioPage() {
     else if (action === 'back') await leaveRoom()
     else if (action === 'enter') await enterRoom(payload.roomId)
     else if (action === 'leave') await leaveRoom()
-    else if (action === 'vote') await voteForTrack(payload.itemId)
     else if (action === 'like') await likeTrack(payload.itemId)
     else if (action === 'vote-skip') await voteSkip()
     else if (action === 'force-skip' && (isHost || isAdmin)) await playNext()
     else if (action === 'skip') await (isHost ? playNext() : voteSkip())
     else if (action === 'resync') requestSnapshot()
+    else if (action === 'notice') setNotice(payload.message || '')
     else if (action === 'settings') await updateRoomSettings(payload.music_skip_vote_percent)
     else if (action === 'propose-native-search') await proposeNativeSearchTrack(payload.track)
     else if (action === 'readd-history') await requeueHistoryTrack(payload.eventId)
@@ -575,12 +561,14 @@ export default function MineradioPage() {
     <div className="music-room-immersive" data-room-id={roomId}>
         <h1 className="sr-only">听歌房</h1>
         <section className="music-room-shell__stage" aria-label="房间播放器">
-          <MineradioRoomEmbed
+          <MusicRoomPlayer
             onAdapterReady={handleAdapterReady}
             onEvent={handlePlayerEvent}
             onRoomAction={handleRoomAction}
+            playerTrack={playerTrack}
             roomId={roomId}
             roomState={mineradioRoomState}
+            track={resolvedCurrent}
           />
         </section>
 

@@ -31,10 +31,8 @@ The following is a change-controlled recovery exercise, not part of the automate
 3. Locate the exact pre-migration release bundle and verify it without changing state:
 
    ```bash
-   sudo scripts/rollback-prod.sh \
-     --backup-root /home/blue-album/backups \
-     --bundle /home/blue-album/backups/releases/<timestamp> \
-     --verify-only
+   sudo python3 scripts/verify-baseline.py \
+     --baseline /srv/services/elysium/baseline/<baseline-id>
    ```
 
 4. Copy the verified database artifact to an isolated host or isolated database instance. Restore there using the same database engine version; never point the rehearsal command at production.
@@ -42,7 +40,7 @@ The following is a change-controlled recovery exercise, not part of the automate
 6. Start an isolated application against the restored copy. Check `/api/health`, public pages, login, one protected route, one administrator guard and Socket.IO reconnect without public DNS or third-party writes.
 7. Record timings, hashes, counts and discrepancies. Destroy the isolated copy only after evidence is retained.
 
-If an actual production rollback is approved, first preserve the current failed state, then use the verified release bundle and exact confirmation described in [Deployment and rollback](deployment.md). The rollback restores database, prior code, configuration, services and frontend as one reviewed recovery operation; do not improvise an Alembic downgrade.
+If an actual production rollback is approved, first preserve the current failed state, then use the verified deployment transaction and exact component confirmation described in [Deployment and rollback](deployment.md). Database restoration is an explicit, database-owner-approved baseline/backup operation; do not improvise an Alembic downgrade.
 
 ## Abort conditions
 

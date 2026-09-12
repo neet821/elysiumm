@@ -6,9 +6,11 @@ import { THEME } from './theme'
 import { isTransferHost } from './config.js'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import ContentHomePage, { ArticleFlowHome, LegacyArticlePage } from './pages/ContentHomePage.jsx'
 
 const LIGHT_STYLES = THEME.light
+const ContentHomePage = lazy(() => import('./pages/ContentHomePage.jsx'))
+const ArticleFlowHome = lazy(() => import('./pages/ContentHomePage.jsx').then((module) => ({ default: module.ArticleFlowHome })))
+const LegacyArticlePage = lazy(() => import('./pages/ContentHomePage.jsx').then((module) => ({ default: module.LegacyArticlePage })))
 const AdminShell = lazy(() => import('./components/admin/AdminShell'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))

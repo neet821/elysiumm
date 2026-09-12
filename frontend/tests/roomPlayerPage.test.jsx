@@ -41,14 +41,9 @@ const playingTrack = {
 }
 
 beforeAll(() => {
-  Object.defineProperty(window.HTMLMediaElement.prototype, 'load', {
-    configurable: true,
-    value: vi.fn(),
-  })
-  Object.defineProperty(window.HTMLMediaElement.prototype, 'pause', {
-    configurable: true,
-    value: vi.fn(),
-  })
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'load', { configurable: true, value: vi.fn() })
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'pause', { configurable: true, value: vi.fn() })
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn(() => Promise.resolve()) })
 })
 
 beforeEach(() => {
@@ -59,9 +54,7 @@ beforeEach(() => {
   mocks.io.mockClear()
   mocks.api.post.mockReset().mockResolvedValue({ data: {} })
   mocks.api.get.mockReset().mockImplementation((url) => {
-    if (url.endsWith('/api/sync-rooms')) {
-      return Promise.resolve({ data: [{ id: 9, mode: 'music', room_name: 'Blue room' }] })
-    }
+    if (url.endsWith('/api/sync-rooms')) return Promise.resolve({ data: [{ id: 9, mode: 'music', room_name: 'Blue room' }] })
     if (url.endsWith('/api/sync-rooms/9/messages')) return Promise.resolve({ data: [] })
     if (url.endsWith('/api/sync-rooms/9')) {
       return Promise.resolve({
@@ -90,18 +83,15 @@ beforeEach(() => {
       })
     }
     if (url.endsWith('/api/music/tracks/101/audio')) {
-      return Promise.resolve({ data: { availability: 'playable', playback_url: '/mineradio-api/room/audio?provider=qq&id=fallback', provider: 'qq' } })
+      return Promise.resolve({ data: { availability: 'playable', playback_url: '/uploads/music_rooms/9/shared.mp3', provider: 'upload' } })
     }
-    if (url.endsWith('/api/music/tracks/101/lyrics')) {
-      return Promise.resolve({ data: { lines: [{ time: 0, text: '一起听见蓝色时刻' }], translation: [] } })
-    }
-    if (url.endsWith('/api/music/trending')) return Promise.resolve({ data: { items: [] } })
+    if (url.endsWith('/api/music/rooms/9/history')) return Promise.resolve({ data: { items: [] } })
     return Promise.reject(new Error(`Unexpected request: ${url}`))
   })
 })
 
 describe('Mineradio listening room page', () => {
-  it('embeds the uploaded Mineradio application and keeps shared room controls', async () => {
+  it('renders the native player and keeps shared room controls in one React surface', async () => {
     render(
       <MemoryRouter initialEntries={['/music/rooms/9']} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <Routes>
@@ -110,16 +100,16 @@ describe('Mineradio listening room page', () => {
       </MemoryRouter>,
     )
 
-    const frame = await screen.findByTitle('Mineradio 原版房间播放器')
-    expect(frame).toHaveAttribute('src', '/mineradio/?blue-room=9')
-    expect(document.querySelector('.room-player-immersive')).not.toBeInTheDocument()
-    expect(document.querySelector('.music-room-immersive')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '退出房间' })).not.toBeInTheDocument()
-    expect(screen.queryByText('房间号 9')).not.toBeInTheDocument()
-    expect(screen.queryByRole('complementary', { name: '听歌房控制台' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/登录|账号中心|个人歌单/)).not.toBeInTheDocument()
-    expect(document.querySelector('audio')).not.toBeInTheDocument()
-    expect(document.querySelector('.mineradio-room-stage')).not.toBeInTheDocument()
+    const audio = await screen.findByLabelText('听歌房音频播放器')
+    expect(audio).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Shared song' })).toBeInTheDocument()
+    expect(document.querySelector('.music-room-native')).toHaveAttribute('data-room-id', '9')
+    expect(document.querySelector('.music-room-native__particles')).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '听歌房控制台' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '退出房间' })).toBeInTheDocument()
+    expect(document.querySelector('iframe')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain('Mineradio 原版房间播放器')
+    expect(document.body.textContent).not.toContain('/mineradio/')
     await waitFor(() => expect(mocks.io).toHaveBeenCalledOnce())
   })
 })

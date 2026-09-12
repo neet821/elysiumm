@@ -11,7 +11,12 @@ ENDPOINT = "http://127.0.0.1:8000/api/internal/live/recording-complete"
 
 
 def main() -> int:
+    # MediaMTX supplies `%path %segment_path` as command arguments in the
+    # production templates.  Keep the environment form for older/manual
+    # invocations, but prefer the concrete segment path when it is provided.
     path = os.getenv("MTX_SEGMENT_PATH", "")
+    if len(sys.argv) > 2 and sys.argv[2].strip():
+        path = sys.argv[2].strip()
     duration = os.getenv("MTX_SEGMENT_DURATION", "0")
     if not path:
         print("MTX_SEGMENT_PATH is missing", file=sys.stderr)

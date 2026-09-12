@@ -15,6 +15,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import asyncio
 
+from articles import router as articles
 import crud, models, schemas, security
 import homepage_service
 import room_core
@@ -57,7 +58,7 @@ logger.addHandler(console_handler)
 
 # 滚动文件日志（保留 5 个 5MB 文件），方便追踪 500 错误
 log_file = Path(
-    os.getenv("BACKEND_LOG_FILE", str(Path(__file__).parent.parent / "backend-error.log"))
+    os.getenv("BACKEND_LOG_FILE", str(config.LOGS_DIR / "backend-error.log"))
 )
 file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=5)
 file_handler.setLevel(LOG_LEVEL)
@@ -73,10 +74,6 @@ logging.getLogger("uvicorn.access").handlers = logger.handlers
 if engine.dialect.name == "sqlite" or os.getenv("BLUE_ALBUM_AUTO_CREATE_SCHEMA") == "1":
     models.Base.metadata.create_all(bind=engine)
 
-# 确保uploads目录存在
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
-
 app = FastAPI()
 
 # 启动后台清理任务
@@ -91,6 +88,7 @@ from routers import admin_dashboard, admin_files, agent_console, bookmarks, book
 from music_test_catalog import asset_dir as music_test_asset_dir
 app.include_router(admin_dashboard.router)
 app.include_router(admin_files.router)
+app.include_router(articles.router)
 app.include_router(file_sync.router)
 app.include_router(transfers.router)
 app.include_router(agent_console.router)
@@ -105,7 +103,7 @@ app.include_router(music.router)
 app.include_router(video.router)
 
 # 挂载静态文件服务
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
 app.mount("/music-test", StaticFiles(directory=str(music_test_asset_dir()), check_dir=False), name="music-test")
 
 # --- CORS 中间件 ---
@@ -911,7 +909,7 @@ async def upload_photo_file(
     # 生成唯一文件名
     file_extension = os.path.splitext(file.filename)[1]
     unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = UPLOAD_DIR / unique_filename
+    file_path = config.UPLOAD_DIR / unique_filename
 
     # 保存文件
     try:
@@ -1320,7 +1318,7 @@ async def update_sync_room(
             # 检查是否真的要更换（新视频源不是上传的文件）
             if room_update.video_source and not room_update.video_source.startswith('/uploads/sync_room_videos/'):
                 old_filename = room.video_source.split('/')[-1]
-                old_file_path = Path("uploads/sync_room_videos") / old_filename
+                old_file_path = config.UPLOAD_DIR / "sync_room_videos" / old_filename
                 if old_file_path.exists():
                     try:
                         old_file_path.unlink()
@@ -1342,9 +1340,6 @@ async def update_sync_room(
 # =====================================================
 # 视频文件上传接口
 # =====================================================
-VIDEO_UPLOAD_DIR = Path("uploads/sync_room_videos")
-VIDEO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 # 支持的视频格式
 ALLOWED_VIDEO_EXTENSIONS = {
     '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm',

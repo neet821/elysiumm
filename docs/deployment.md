@@ -2,107 +2,176 @@
 
 ## Safety boundary
 
-Production is not modified by tests. Repository tests use temporary directories, temporary SQLite databases, fake health files and static script checks. The commands in the apply sections below are operator actions; they were not executed against a live server during release preparation.
+Production is not modified by tests. The canonical bare-metal layout is
+`/srv/services/elysium`; the deployment scripts use temporary roots in tests and
+never read the production environment unless a production command explicitly
+receives its `EnvironmentFile`. FlClash and FlClashCore are outside this
+workflow and must never be restarted or modified.
 
-The supported bare-metal target is Debian with Nginx, systemd, MariaDB/MySQL, Python 3.12, Node 20 and one backend worker. Docker Compose is a separate local/self-hosted path described in [DOCKER_GUIDE](../DOCKER_GUIDE.md).
+## Host layout
 
-## Prepare the host
-
-The operator must provision DNS/TLS certificates, database/user grants, Nginx/systemd packages and these existing writable roots before first use:
-
-- `/var/www/blue-album`
-- `/home/blue-album/backups`
-- the absolute `PUBLIC_SYNC_STORAGE`, `PRIVATE_STORAGE_DIR` and `BACKUP_OUTPUT_DIR` roots
-- `/var/lib/blue-album/mineradio`
-
-Copy `backend/.env.example` to the server-only `backend/prod.env`, replace every `CHANGE_ME`, fill the public HTTPS origins and paths, and set mode `600`. Keep the database URL password URL-encoded where required. `frontend/.env.example` documents the Vite values that are also present in `prod.env`.
-
-The script does not fetch, pull, merge, create a database user, issue a certificate or choose a release commit. The operator checks out the reviewed commit first. The working tree must be clean.
-
-## Read-only preflight
-
-Run before any mutation:
+Initialize an empty or separately audited root with:
 
 ```bash
-sudo scripts/release-preflight.sh \
-  --env-file backend/prod.env \
-  --health-url http://127.0.0.1:8000/api/health
+sudo scripts/install-release-layout.sh --root /srv/services/elysium \
+  --origin https://github.com/<org>/<repo>.git
 ```
 
-It validates required tools/files, clean Git state, strict environment-file permissions, non-placeholder secrets, production CORS/URLs, absolute storage roots, writable web/backup roots, at least 1 GiB free, database reachability and current application health. A failure is an abort, not a warning.
+The script creates `repository.git`, `baseline/`,
+`backend-releases/`, `frontend-releases/`, `deployment-history/`, the
+`backend-current`/`frontend-current` link locations, and `shared/` storage. It
+does not move `/data`, stop services, switch a current link, or delete a legacy
+checkout. The compatibility link `data -> shared` is a separately reviewed
+migration tracked in [data-to-shared.md](migrations/data-to-shared.md).
 
-For a genuinely new host with no running application, use `--allow-cold-start` only after verifying that no prior release or user data exists. The deployment equivalent is `ALLOW_COLD_START=1`; it records `NONE` as the previous revision, so that first bundle cannot roll back to nonexistent code.
+Each component release is immutable and contains a component-specific
+`RELEASE.json`. A deployment writes an atomically updated transaction to
+`deployment-history/<deployment-id>.json`; finalized transactions are mode
+0444 and are retained independently of release cleanup.
 
-When first bringing an existing untracked deployment under this workflow, provide the commit that is actually running:
+## Baseline prerequisite
+
+Before enabling automatic deployment, create a baseline from the actually
+running production stack. It must contain dereferenced backend, frontend,
+Mineradio and Articles runtime trees, the complete backend `.venv`, a
+consistent database backup, original and baseline-internal restore
+configuration, `BASELINE.json`, `SHA256SUMS`, and restore/verify/rollback
+scripts. Shared uploads and the Articles mirror remain external data
+dependencies and must be listed in the manifest. The baseline must not depend
+on old release paths or compatibility links.
+
+Create it from the paths that are actually serving traffic. The example keeps
+the old runtime trees as read-only sources, copies the live backend virtualenv,
+and rewrites those source paths in the generated restore configuration; replace
+the Articles/Mineradio paths if the host uses different locations:
 
 ```bash
-sudo PREVIOUS_RELEASE_REVISION='<full previous commit>' ./start-prod.sh
+sudo install -d -m 0755 /srv/services/elysium/baseline
+sudo python3 scripts/create-baseline.py \
+  --baseline-root /srv/services/elysium/baseline \
+  --baseline-id current-production-<timestamp> \
+  --component backend=/srv/services/elysium/current/backend \
+  --component frontend=/srv/services/elysium/web-current/dist \
+  --component mineradio=/srv/services/elysium/mineradio \
+  --component articles=/srv/services/elysium/articles \
+  --dependency backend/.venv=/srv/services/elysium/current/.venv \
+  --config env/backend.env=/etc/elysium/backend.env \
+  --config systemd/backend.service=/etc/systemd/system/elysiumm-backend.service \
+  --config systemd/mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
+  --config nginx/elysium.conf=/etc/nginx/sites-available/elysium \
+  --replace /srv/services/elysium/current=/srv/services/elysium/baseline/current-production-<timestamp> \
+  --replace /srv/services/elysium/web-current=/srv/services/elysium/baseline/current-production-<timestamp>/frontend \
+  --replace /srv/services/elysium/mineradio=/srv/services/elysium/baseline/current-production-<timestamp>/mineradio \
+  --replace /srv/services/elysium/articles=/srv/services/elysium/baseline/current-production-<timestamp>/articles \
+  --replace /srv/services/elysium/data=/srv/services/elysium/shared \
+  --forbidden-reference /srv/services/elysium/current \
+  --forbidden-reference /srv/services/elysium/web-current \
+  --forbidden-reference /srv/services/elysium/mineradio \
+  --forbidden-reference /srv/services/elysium/articles \
+  --shared-path /srv/services/elysium/shared/uploads \
+  --shared-path /srv/services/elysium/shared/sync-storage/articles \
+  --service elysiumm-backend.service \
+  --service elysiumm-mediamtx.service \
+  --service-command '/srv/services/elysium/current/.venv/bin/python -m uvicorn main:app --app-dir /srv/services/elysium/current/backend --host 127.0.0.1 --port 8000 --workers 1'
 ```
 
-After a successful release, `/var/lib/blue-album/release-state/current-revision` supplies this automatically.
+The command always makes a consistency backup because baseline creation is a
+one-time snapshot operation. It does not switch either current link or stop
+the live services. Confirm the resulting `BASELINE.json` and backup checksum,
+then run the restore rehearsal on an isolated host/port before deleting or
+migrating any old runtime directory.
 
-## Apply a bare-metal release
-
-After preflight and change approval:
+Verify it without changing production:
 
 ```bash
-sudo PROD_ENV_FILE="$PWD/backend/prod.env" ./start-prod.sh
+sudo python3 scripts/verify-baseline.py \
+  --baseline /srv/services/elysium/baseline/<baseline-id>
 ```
 
-The script executes in this order:
+Run the restore rehearsal on an isolated port and database before moving or
+deleting any old runtime directory. Keep the baseline permanently; it is not a
+candidate for ordinary release cleanup.
 
-1. repeats read-only preflight and validates the recorded previous revision;
-2. creates `/home/blue-album/backups/releases/<timestamp>` with database, prior runtime configuration, service configuration, frontend, candidate/previous revisions and `SHA256SUMS`;
-3. writes restricted runtime environment files and installs locked dependencies;
-4. runs `backend/run_migrations.py` only after the bundle exists;
-5. updates one-worker backend and Mineradio services;
-6. builds the frontend, prepares it beside the current web root, and swaps directories;
-7. validates Nginx and checks backend, Mineradio and Nginx health;
-8. records the successful revision and removes only the redundant old frontend tree.
+## CI/CD release path
 
-If a command after bundle creation fails, the script stops and prints the bundle path. If the frontend has switched, it restores the old frontend and previous Nginx configuration while retaining the failed tree for inspection. Database/code recovery remains explicit because it is destructive.
+The versioned `deployment/release-impact.yml` is read by
+`scripts/resolve-release-impact.py`. Matching rules choose `frontend`,
+`backend`, `infra`, and validation profiles; unknown paths and changes to the
+impact map require full validation. The GitHub workflow builds only the
+affected component artifact, stores hashes and the decision, and enables
+production only for a successful push to `main`, the `production` environment
+approval, and `PRODUCTION_DEPLOY_ENABLED=true`.
 
-## Verify and apply rollback
+The remote deployment uses the exact commit and pinned SSH host keys. It first
+fetches that commit into `repository.git` and materializes backend source from
+the bare repository without a mutable checkout. It uses a trusted
+existing/baseline Python runtime to create the target release `.venv`,
+and does not put secrets in manifests, arguments or logs.
 
-First verify the exact bundle without changing state:
+## Migration gate
+
+For a backend release, the script loads the exact environment file used by the
+backend systemd unit. Failure to load the production database environment
+aborts the deployment. It reads `alembic_version`, reads target heads from the
+release's Alembic graph, and computes the graph delta:
+
+- no pending revision: no database backup and no `alembic upgrade`;
+- pending descendants: create and checksum a backup first, then run
+  `alembic upgrade heads`, and require exact target heads afterward;
+- ahead, divergent, unknown, missing, or indeterminate state: abort before
+  switching `backend-current`.
+
+Frontend-only deployment never reads the production environment, database or
+backend `.venv`; it creates and switches only `frontend-current`. Backend-only
+deployment never builds or switches the frontend. Full/infra deployment
+prepares the backend first, switches the frontend next, then validates and
+applies only the explicitly mapped Nginx/systemd candidates. MediaMTX is not
+restarted by ordinary application releases.
+
+## Deploy and rollback commands
+
+The GitHub workflow invokes the same command used for a reviewed manual
+deployment:
 
 ```bash
-sudo scripts/rollback-prod.sh \
-  --backup-root /home/blue-album/backups \
-  --bundle /home/blue-album/backups/releases/<timestamp> \
-  --verify-only
+sudo /srv/services/elysium/backend-current/.venv/bin/python \
+  scripts/deploy-production.py \
+  --root /srv/services/elysium \
+  --commit <commit> \
+  --deployment-id <deployment-id> \
+  --repository /srv/services/elysium/repository.git \
+  --frontend-dist <staged-frontend-dist> \
+  --path <changed-path>
 ```
 
-Review `previous-revision.txt`, the incident and the recovery window. Then apply with the exact bundle-name confirmation:
+For a component rollback, review the immutable transaction and use an exact
+confirmation string:
 
 ```bash
-sudo scripts/rollback-prod.sh \
-  --backup-root /home/blue-album/backups \
-  --bundle /home/blue-album/backups/releases/<timestamp> \
-  --env-file backend/prod.env \
-  --confirm 'ROLLBACK:<timestamp>'
+sudo python3 scripts/rollback-production.py \
+  --root /srv/services/elysium \
+  --deployment-id <deployment-id> \
+  --component frontend \
+  --confirm 'ROLLBACK:<deployment-id>:frontend'
 ```
 
-Rollback rejects an outside path, symlink/traversal archive entry, altered checksum, missing prior revision, dirty repository, unknown commit, missing runtime state and omitted/mismatched confirmation. Before mutation it creates another restricted safety bundle. It stops the backend, restores the pre-migration database, switches to the recorded previous code, restores dependencies/config/services/frontend, restarts services and checks health. It does not run an inferred Alembic downgrade.
+Backend rollback restarts the one-worker backend after switching its link.
+Rollback does not guess a database downgrade. If a migration was performed,
+database restoration is a manual, database-owner-approved operation using the
+recorded checksum-bearing backup or the tested baseline restore procedure.
+Combined failures roll back switched components in reverse order and restore
+only the Nginx/systemd candidates changed by that transaction.
 
-## Abort conditions
+## Preflight and acceptance
 
-Do not continue when the tree is dirty, the current commit is unreviewed, secrets are placeholders, storage is relative, backup space is low, current health is unexplained, the database backup fails, SHA checks fail, the migration reports drift, Nginx validation fails or post-release health fails. Preserve the release/safety bundle and logs; never paste credentials into an issue.
+Run `scripts/check-release-config.py`,
+`scripts/release-preflight.sh`, the release gate, and the isolated baseline
+restore rehearsal before production. Afterward verify the actual backend
+health, public routes, `/api/articles/**`, `/api/content/**`, `/media/**`,
+Socket.IO, native music playback, Nginx/systemd state, shared data access and
+the deployment transaction. A single HTTP 200 or a successful SSH command is
+not production acceptance.
 
-## Docker deployment
-
-Copy `.env.docker` to `.env`, replace every placeholder, then run:
-
-```bash
-./start-docker.sh
-```
-
-The launcher validates configuration before Compose. Database, uploads, private files, sync files, backups and Mineradio state use named volumes. The frontend waits for backend health. Docker deployment still requires an operator-managed TLS/reverse-proxy strategy for public internet use.
-
-## Post-release verification
-
-Confirm `/api/health`, public navigation, login, one protected route, one administrator guard, Socket.IO reconnect and the expected content counts. Check `systemctl is-active`, Nginx configuration, recent service logs and free disk. Do not treat one HTTP 200 as proof that migrations, private files and real-time flows are correct.
-
-For the optional single-room live service, follow [live-streaming.md](live-streaming.md). Back up the existing release first, validate the repository assets with `scripts/provision-live-streaming.sh --check`, then install MediaMTX and include the generated Nginx snippet. Only TCP 1935 is public; its API, HLS and playback listeners stay on loopback. The current direct-IP HTTP deployment requires `LIVE_COOKIE_SECURE=0`; switch it to `1` as soon as HTTPS is available.
-
-Post-release live verification must cover a real H.264/AAC stream, `/live`, all three access modes, invite revocation, visitor metadata, recording creation/playback/download and a stopped-stream final state. The local equivalent is `node scripts/live-stream-smoke.mjs`.
+Docker remains a local/self-hosted three-application-service path (`db`,
+`backend`, `frontend`) with named shared persistence volumes. It is separate
+from the immutable bare-metal release path and does not alter production.

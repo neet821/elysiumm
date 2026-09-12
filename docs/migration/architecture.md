@@ -2,7 +2,7 @@
 
 ## System overview
 
-Blue Album is one React application backed by one FastAPI application. The production data store is MariaDB/MySQL through SQLAlchemy and Alembic; isolated tests use SQLite. Nginx serves the built frontend and forwards `/api/` and `/ws/` to the backend. Mineradio is a separate Node service that normalizes supported music-provider operations without sending provider cookies to browsers.
+Blue Album is one React application backed by one FastAPI application. The production data store is MariaDB/MySQL through SQLAlchemy and Alembic; isolated tests use SQLite. Nginx serves the built frontend and forwards `/api/`, `/media/` and `/ws/` to the backend. Articles and music providers are backend modules rather than standalone Node services.
 
 The supported real-time topology is a **single worker** backend. Socket.IO room membership, connection presence, sliding-window limits, buffering telemetry, and some short-lived coordination state live in process. Running several workers without a shared manager would split rooms and is not supported by this release.
 
@@ -13,7 +13,8 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 - Socket.IO is mounted at `/ws/socket.io` and carries authenticated room changes; REST snapshots remain the recovery source of truth.
 - MariaDB stores users, content, rooms, canonical music, Books metadata, Public Sync state, audit rows and backup records.
 - Managed filesystem roots hold public uploads, private video/subtitle files, administrator files, sync files and backup artifacts. Private roots are never mounted as public static directories.
-- Mineradio runs privately on port 3000 in the supplied deployment definitions. The browser reaches it through a same-origin reverse proxy.
+- Music room UI, lyrics, covers and particles are native React features. NetEase, QQ and Audius adapters are direct backend providers; provider credentials never reach browsers.
+- Articles Markdown and media delivery are implemented by the FastAPI `/api/articles/**`, `/api/content/**` and `/media/**` routes.
 
 ## Domain boundaries
 
@@ -33,11 +34,11 @@ Real-time clients authenticate during the Socket.IO handshake. A successful muta
 
 ## Persistence and migrations
 
-The Alembic chain is `0001` through `0009`. Every supported backend start path runs `backend/run_migrations.py` before accepting traffic. Release deployment creates a database/config/frontend bundle before migration. See [migrations](./migrations.md) and [data formats](./data-formats.md).
+The Alembic chain is `0001` through the current repository head. Ordinary service startup does not perform an implicit migration. The release transaction reads production `alembic_version`, computes the graph delta against the target backend heads, and only then performs a verified backup and `alembic upgrade heads` when pending revisions exist. See [migrations](./migrations.md) and [data formats](./data-formats.md).
 
 ## Deployment boundary
 
-Bare-metal production uses Nginx, systemd, one Uvicorn worker, MariaDB and a versioned release bundle. Docker Compose supplies database, backend, Mineradio and frontend containers with named persistence volumes. Neither path provisions DNS, TLS certificates, production credentials, monitoring, Redis or a distributed queue. See [deployment](./deployment.md), [security](./security.md) and [testing](./testing.md).
+Bare-metal production uses Nginx, systemd, one Uvicorn worker, MariaDB, independent immutable frontend/backend releases and a retained self-contained baseline. Docker Compose supplies database, backend and frontend containers with named shared persistence volumes. Neither path provisions DNS, TLS certificates, production credentials, monitoring, Redis or a distributed queue. See [deployment](./deployment.md), [security](./security.md) and [testing](./testing.md).
 
 ## External dependencies
 

@@ -1,16 +1,53 @@
+import json
 import os
 import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "backend"))
 
 
 class LiveDeploymentConfigTest(unittest.TestCase):
+    def test_recording_hook_uses_mediamtx_segment_argument(self):
+        import live_recording_hook
+
+        captured = {}
+
+        class Response:
+            status = 204
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        def fake_urlopen(outgoing, timeout):
+            captured["body"] = outgoing.data
+            captured["timeout"] = timeout
+            return Response()
+
+        with patch.object(
+            live_recording_hook.request, "urlopen", fake_urlopen
+        ), patch.object(
+            live_recording_hook.sys,
+            "argv",
+            ["live_recording_hook.py", "live/stream", "/srv/services/elysium/shared/uploads/live-recordings/live/stream/segment.mp4"],
+        ), patch.dict(live_recording_hook.os.environ, {"MTX_SEGMENT_DURATION": "12.5s"}, clear=False):
+            self.assertEqual(live_recording_hook.main(), 0)
+
+        self.assertEqual(captured["timeout"], 10)
+        self.assertEqual(
+            json.loads(captured["body"].decode("utf-8"))["absolute_path"],
+            "/srv/services/elysium/shared/uploads/live-recordings/live/stream/segment.mp4",
+        )
+
     def test_mediamtx_is_loopback_except_rtmp_and_records_only_the_live_path(self):
         config_path = ROOT / "ops" / "live" / "mediamtx.yml"
         self.assertTrue(config_path.is_file())
@@ -27,7 +64,7 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         self.assertTrue(live_path["record"])
         self.assertTrue(
             live_path["recordPath"].startswith(
-                "/srv/blue-album/live/recordings/"
+                "/srv/services/elysium/shared/uploads/live-recordings/"
             )
         )
         self.assertEqual(live_path["recordDeleteAfter"], "0s")
@@ -51,14 +88,14 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         ):
             self.assertIn(expected, nginx)
 
-        unit = (
-            ROOT / "ops" / "live" / "blue-album-mediamtx.service"
-        ).read_text(encoding="utf-8")
+        unit = (ROOT / "ops" / "live" / "elysiumm-mediamtx.service").read_text(
+            encoding="utf-8"
+        )
         for expected in (
             "User=blue-album-live",
             "NoNewPrivileges=true",
             "ProtectSystem=strict",
-            "ReadWritePaths=/srv/blue-album/live/recordings",
+            "ReadWritePaths=/srv/services/elysium/shared/uploads/live-recordings",
             "MemoryMax=384M",
         ):
             self.assertIn(expected, unit)
@@ -90,6 +127,10 @@ class LiveDeploymentConfigTest(unittest.TestCase):
             "usermod -a -G blue-album-live www-data",
             provision_source,
         )
+        self.assertIn("/etc/systemd/system/elysiumm-mediamtx.service", provision_source)
+        self.assertIn("/srv/services/elysium/shared/uploads/live-recordings", provision_source)
+        self.assertNotIn("/srv/blue-album/live/recordings", provision_source)
+        self.assertNotIn("blue-album-mediamtx.service", provision_source.split("UNIT_SOURCE=", 1)[-1].splitlines()[0])
 
 
 if __name__ == "__main__":

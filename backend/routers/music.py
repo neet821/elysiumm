@@ -1,12 +1,11 @@
 import json
 import uuid
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from typing import Literal
 
-import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -18,7 +17,11 @@ import catalog_repository
 import music_service
 import sync_room_crud
 from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks
-from music_providers import build_provider_registry, provider_configuration_status
+from music import (
+    build_provider_registry,
+    provider_configuration_status,
+)
+from music import ProviderError
 from rate_limit import SlidingWindowRateLimiter
 from database import get_db
 from dependencies import get_current_user
@@ -28,7 +31,7 @@ from config import config
 
 router = APIRouter(prefix="/api/music", tags=["music"])
 
-CATALOG_PROVIDERS = ("netease", "qq")
+CATALOG_PROVIDERS = ("netease", "qq", "audius")
 CATALOG_SEARCH_RATE_LIMIT_MAX = 30
 CATALOG_SEARCH_RATE_LIMIT_WINDOW_SECONDS = 60
 catalog_search_rate_limiter = SlidingWindowRateLimiter()
@@ -44,36 +47,10 @@ def _require_music_admin(user):
         raise HTTPException(403, "只有管理员可以管理共享曲库账号")
 
 
-async def _provider_internal_request(method: str, path: str, *, params=None) -> httpx.Response:
-    token = str(config.MUSIC_PROVIDER_ADMIN_TOKEN or "").strip()
-    if not token:
-        raise HTTPException(503, "共享曲库管理令牌未配置")
-    try:
-        async with httpx.AsyncClient(
-            base_url=config.MUSIC_PROVIDER_BASE_URL,
-            timeout=config.MUSIC_PROVIDER_TIMEOUT_SECONDS,
-            follow_redirects=False,
-            trust_env=False,
-        ) as client:
-            response = await client.request(
-                method,
-                path,
-                params=params,
-                headers={"X-Music-Provider-Token": token},
-            )
-    except httpx.HTTPError as exc:
-        raise HTTPException(502, "共享曲库服务暂时无法连接") from exc
-    return response
-
-
 @router.get("/providers/status")
 async def music_provider_status(user=Depends(get_current_user)):
     _require_music_admin(user)
-    return await provider_configuration_status(
-        config.MUSIC_PROVIDER_BASE_URL,
-        config.MUSIC_PROVIDER_TIMEOUT_SECONDS,
-        internal_token=config.MUSIC_PROVIDER_ADMIN_TOKEN,
-    )
+    return await provider_configuration_status(music_provider_registry)
 
 
 @router.post("/providers/{provider}/login/start")
@@ -81,16 +58,7 @@ async def start_music_provider_login(provider: str, user=Depends(get_current_use
     _require_music_admin(user)
     if provider not in CATALOG_PROVIDERS:
         raise HTTPException(404, "不支持的曲库来源")
-    response = await _provider_internal_request("POST", f"/api/internal/provider/{provider}/login/start")
-    if response.status_code >= 400:
-        raise HTTPException(response.status_code, "登录任务无法启动")
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise HTTPException(502, "共享曲库返回了无效状态") from exc
-    # 二维码只允许通过专用 image endpoint 读取，避免把图片数据混入普通状态响应。
-    payload.pop("image", None)
-    return payload
+    raise HTTPException(501, "共享曲库凭据由服务器 root 配置文件管理，暂不支持网页扫码登录")
 
 
 @router.get("/providers/{provider}/login/{session_id}/image")
@@ -98,10 +66,7 @@ async def music_provider_login_image(provider: str, session_id: str, user=Depend
     _require_music_admin(user)
     if provider not in CATALOG_PROVIDERS or not session_id or len(session_id) > 100:
         raise HTTPException(404, "登录任务不存在")
-    response = await _provider_internal_request("GET", f"/api/internal/provider/{provider}/login/{session_id}/image")
-    if response.status_code >= 400:
-        raise HTTPException(response.status_code, "二维码暂不可用")
-    return Response(content=response.content, media_type=response.headers.get("content-type", "image/png"), headers={"Cache-Control": "no-store"})
+    raise HTTPException(501, "共享曲库凭据由服务器 root 配置文件管理，暂不支持网页扫码登录")
 
 
 @router.get("/providers/{provider}/login/{session_id}")
@@ -109,10 +74,7 @@ async def music_provider_login_status(provider: str, session_id: str, user=Depen
     _require_music_admin(user)
     if provider not in CATALOG_PROVIDERS or not session_id or len(session_id) > 100:
         raise HTTPException(404, "登录任务不存在")
-    response = await _provider_internal_request("GET", f"/api/internal/provider/{provider}/login/{session_id}")
-    if response.status_code >= 400:
-        raise HTTPException(response.status_code, "登录任务不存在或已过期")
-    return response.json()
+    raise HTTPException(501, "共享曲库凭据由服务器 root 配置文件管理，暂不支持网页扫码登录")
 
 
 @router.delete("/providers/{provider}/credential")
@@ -120,25 +82,21 @@ async def delete_music_provider_credential(provider: str, user=Depends(get_curre
     _require_music_admin(user)
     if provider not in CATALOG_PROVIDERS:
         raise HTTPException(404, "不支持的曲库来源")
-    response = await _provider_internal_request("DELETE", f"/api/internal/provider/{provider}/credential")
-    if response.status_code >= 400:
-        raise HTTPException(response.status_code, "退出登录失败")
-    return response.json()
+    raise HTTPException(501, "共享曲库凭据由服务器 root 配置文件管理，请通过运维流程轮换")
 
 
 @router.get("/providers/capabilities")
 async def music_provider_capabilities(user=Depends(get_current_user)):
-    configured = await provider_configuration_status(
-        config.MUSIC_PROVIDER_BASE_URL,
-        config.MUSIC_PROVIDER_TIMEOUT_SECONDS,
-        internal_token=config.MUSIC_PROVIDER_ADMIN_TOKEN,
-    )
+    configured = await provider_configuration_status(music_provider_registry)
     configured_providers = configured.get("providers") or {}
     netease_ready = bool((configured_providers.get("netease") or {}).get("configured"))
+    qq_ready = bool((configured_providers.get("qq") or {}).get("configured"))
+    audius_ready = music_provider_registry.get("audius") is not None
     return {
         "providers": [
             {"provider": "netease", "label": "网易云", "searchable": True, "playable": netease_ready, "reason": None if netease_ready else "歌曲播放地址会按曲目实时验证"},
-            {"provider": "qq", "label": "QQ 音乐", "searchable": False, "playable": False, "reason": "暂未开放"},
+            {"provider": "qq", "label": "QQ 音乐", "searchable": True, "playable": qq_ready, "reason": None if qq_ready else "服务器尚未配置 QQ 音乐凭据"},
+            {"provider": "audius", "label": "Audius", "searchable": True, "playable": audius_ready, "reason": None if audius_ready else "Audius 播放适配器尚未配置"},
         ],
     }
 
@@ -235,7 +193,7 @@ async def search_music(
         if any(item not in ("netease", "qq", "audius") for item in requested):
             raise HTTPException(422, "旧版曲库参数包含未知来源")
     elif len(requested) != 1 or requested[0] not in CATALOG_PROVIDERS:
-        raise HTTPException(422, "一次只能搜索网易云或 QQ 音乐中的一个来源")
+        raise HTTPException(422, "一次只能搜索网易云、QQ 音乐或 Audius 中的一个来源")
     try:
         return await catalog_service.search_catalog(db, query, requested, limit, music_provider_registry)
     except catalog_service.AllProvidersUnavailable as exc:
@@ -244,16 +202,38 @@ async def search_music(
 
 @router.get("/trending")
 async def trending_music(limit: int = Query(default=18, ge=1, le=30), user=Depends(get_current_user)):
+    del user
+    adapter = music_provider_registry.get("audius")
+    trending = getattr(adapter, "trending", None)
+    if adapter is None or not callable(trending):
+        raise HTTPException(503, "Audius 播放适配器尚未配置")
     try:
-        return {"provider": "audius", "items": await music_service.trending_tracks(limit)}
-    except httpx.HTTPError as exc:
+        tracks = await trending(limit)
+    except ProviderError as exc:
         raise HTTPException(502, "曲库暂时无法连接，请稍后重试") from exc
+    return {
+        "provider": "audius",
+        "items": [
+            {
+                "provider": track.provider,
+                "provider_track_id": track.provider_track_id,
+                "title": track.title,
+                "artist": track.artist,
+                "album": track.album,
+                "artwork_url": track.artwork_url,
+                "duration_seconds": track.duration_seconds,
+                "stream_url": f"/api/music/stream/audius/{track.provider_track_id}",
+                "is_streamable": track.availability is not TrackAvailability.UNAVAILABLE,
+            }
+            for track in tracks
+        ],
+    }
 
 
 @router.get("/tracks/{canonical_id}/audio")
 async def get_catalog_audio(
     canonical_id: int,
-    provider: str | None = Query(default=None, pattern="^(netease|qq)$"),
+    provider: str | None = Query(default=None, pattern="^(netease|qq|audius)$"),
     provider_track_id: str | None = Query(default=None, max_length=120),
     refresh: bool = Query(default=False),
     db: Session = Depends(get_db),
@@ -277,7 +257,7 @@ async def get_catalog_audio(
 @router.get("/tracks/{canonical_id}/lyrics")
 async def get_catalog_lyrics(
     canonical_id: int,
-    provider: str | None = Query(default=None, pattern="^(netease|qq)$"),
+    provider: str | None = Query(default=None, pattern="^(netease|qq|audius)$"),
     provider_track_id: str | None = Query(default=None, max_length=120),
     language: str = Query(
         default="original",
@@ -305,7 +285,46 @@ async def get_catalog_lyrics(
 async def stream_audius(track_id: str):
     if not track_id.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(400, "歌曲编号无效")
-    return RedirectResponse(f"{music_service.AUDIUS_API}/tracks/{track_id}/stream", status_code=307)
+    adapter = music_provider_registry.get("audius")
+    if adapter is None:
+        raise HTTPException(503, "Audius 播放适配器尚未配置")
+    try:
+        resolution = await adapter.resolve({"provider_track_id": track_id})
+    except ProviderError as exc:
+        raise HTTPException(502, "曲库暂时无法提供播放地址") from exc
+    if resolution.availability is TrackAvailability.UNAVAILABLE or not resolution.playback_url:
+        raise HTTPException(409, "当前歌曲没有可播放地址")
+    return RedirectResponse(resolution.playback_url, status_code=307, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/stream/{provider}/{track_id}")
+async def stream_catalog_provider(
+    provider: str,
+    track_id: str,
+    media_mid: str | None = Query(default=None, max_length=120),
+):
+    """Resolve a short-lived provider URL without exposing provider cookies.
+
+    The browser only follows this same-origin redirect. Provider credentials
+    are read by the direct adapter and never become part of the response.
+    """
+    if provider not in CATALOG_PROVIDERS:
+        raise HTTPException(404, "不支持的曲库来源")
+    adapter = music_provider_registry.get(provider)
+    fetch_stream_url = getattr(adapter, "fetch_stream_url", None)
+    if adapter is None or not callable(fetch_stream_url):
+        raise HTTPException(503, "曲库播放适配器尚未配置")
+    try:
+        if provider == "qq":
+            upstream, _expires_at, _trial = await fetch_stream_url(track_id, media_mid)
+        else:
+            upstream, _expires_at, _trial = await fetch_stream_url(track_id)
+    except ProviderError as exc:
+        raise HTTPException(502, "曲库暂时无法提供播放地址") from exc
+    parsed = urlparse(str(upstream or ""))
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+        raise HTTPException(409, "当前歌曲没有可播放地址")
+    return RedirectResponse(str(upstream), status_code=307, headers={"Cache-Control": "no-store"})
 
 
 def _catalog_track(payload: MineradioTrack):
@@ -313,12 +332,9 @@ def _catalog_track(payload: MineradioTrack):
     if payload.provider == "audius":
         stream_url = f"/api/music/stream/audius/{payload.provider_track_id}"
     elif payload.provider in ("netease", "qq"):
-        stream_url = (
-            "/mineradio-api/room/audio"
-            f"?provider={payload.provider}&id={quote(payload.provider_track_id, safe='')}"
-        )
+        stream_url = f"/api/music/stream/{payload.provider}/{quote(payload.provider_track_id, safe='')}"
         if payload.provider == "qq" and payload.media_mid:
-            stream_url += f"&mediaMid={quote(payload.media_mid, safe='')}"
+            stream_url += f"?media_mid={quote(payload.media_mid, safe='')}"
     result = {
         "canonical_track_id": payload.canonical_track_id,
         "provider": payload.provider,
@@ -691,20 +707,26 @@ async def add_favorite(payload: TrackReference, db: Session = Depends(get_db), u
     ).first()
     if existing:
         return music_service.favorite_payload(existing)
+    adapter = music_provider_registry.get(payload.provider)
+    get_track = getattr(adapter, "get_track", None)
+    if adapter is None or not callable(get_track):
+        raise HTTPException(503, "该曲库来源暂不支持收藏")
     try:
-        track = await music_service.get_track(payload.provider_track_id)
-    except (httpx.HTTPError, ValueError) as exc:
+        track = await get_track(payload.provider_track_id)
+    except (ProviderError, ValueError) as exc:
         raise HTTPException(502, "歌曲信息获取失败") from exc
+    if track is None or track.availability is TrackAvailability.UNAVAILABLE:
+        raise HTTPException(409, "这首歌暂时不允许在线播放")
     item = models.MusicFavorite(
         user_id=user.id,
-        provider=track["provider"],
-        provider_track_id=track["provider_track_id"],
-        title=track["title"],
-        artist=track["artist"],
-        album=track.get("album"),
-        artwork_url=track.get("artwork_url"),
-        duration_seconds=track.get("duration_seconds", 0),
-        source_url=track.get("source_url"),
+        provider=track.provider,
+        provider_track_id=track.provider_track_id,
+        title=track.title,
+        artist=track.artist,
+        album=track.album,
+        artwork_url=track.artwork_url,
+        duration_seconds=track.duration_seconds,
+        source_url=track.metadata.get("source_url"),
     )
     db.add(item)
     db.commit()

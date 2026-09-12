@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 import re
-import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -26,19 +26,41 @@ def backup_filename(
     current_revisions: tuple[str, ...],
     target_heads: tuple[str, ...],
     suffix: str,
+    *,
+    checksum: str | None = None,
 ) -> str:
     current = "+".join(_safe_part(item) for item in current_revisions) or "unknown"
     target = "+".join(_safe_part(item) for item in target_heads) or "unknown"
-    return f"{_safe_part(database_name)}-{_safe_part(deployment_id)}-from-{current}-to-{target}{suffix}"
+    checksum_part = f"-sha256-{_safe_part(checksum)[:16]}" if checksum else ""
+    return (
+        f"{_safe_part(database_name)}-{_safe_part(deployment_id)}-"
+        f"from-{current}-to-{target}{checksum_part}{suffix}"
+    )
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _database_parts(database_url: str) -> tuple[str, object]:
     parsed = urlsplit(database_url)
     driver = parsed.scheme.split("+", 1)[0].lower()
     if driver == "sqlite":
-        if parsed.path in ("", "/:memory:"):
+        if parsed.netloc:
+            raise DatabaseBackupError("SQLite database URL must not contain a host")
+        raw_path = unquote(parsed.path)
+        if raw_path in ("", "/:memory:"):
             raise DatabaseBackupError("memory SQLite database cannot be backed up")
-        return driver, Path(unquote(parsed.path))
+        # SQLAlchemy treats sqlite:///relative.db as a path relative to the
+        # process working directory, while sqlite:////absolute.db is absolute.
+        path = Path(raw_path.lstrip("/")) if not raw_path.startswith("//") else Path("/" + raw_path.lstrip("/"))
+        if not path.name or path.name == ".":
+            raise DatabaseBackupError("SQLite database URL has no file path")
+        return driver, path.resolve()
     if driver in {"mysql", "mariadb"}:
         database = unquote(parsed.path.lstrip("/"))
         if not database:
@@ -106,6 +128,8 @@ def _backup_mysql(parts: dict[str, object], destination: Path) -> None:
 def backup_database(database_url: str, destination: Path) -> dict[str, object]:
     driver, parts = _database_parts(database_url)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() or destination.is_symlink():
+        raise DatabaseBackupError(f"database backup destination already exists: {destination}")
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{destination.name}.", dir=destination.parent)
     os.close(descriptor)
     temporary = Path(temporary_name)
@@ -117,7 +141,15 @@ def backup_database(database_url: str, destination: Path) -> dict[str, object]:
             _backup_mysql(parts, temporary)
             summary = {"driver": driver, "database": parts["database"], "size": temporary.stat().st_size}
         os.chmod(temporary, 0o600)
-        os.replace(temporary, destination)
+        # Hard-linking an invocation-owned temporary file publishes without
+        # the overwrite semantics of os.replace.  Both paths are in the same
+        # backup directory, so this is atomic and fails if a name won the race.
+        try:
+            os.link(temporary, destination)
+        except FileExistsError as exc:
+            raise DatabaseBackupError(f"database backup destination already exists: {destination}") from exc
+        temporary.unlink(missing_ok=True)
+        summary["sha256"] = file_sha256(destination)
         return summary
     finally:
         temporary.unlink(missing_ok=True)

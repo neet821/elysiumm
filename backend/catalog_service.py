@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 import catalog_repository
 from catalog_domain import ProviderTrack, canonicalize_tracks, normalize_identity
 import models
-from music_providers import MusicProviderAdapter, ProviderError
+from music import MusicProviderAdapter, ProviderError
 
 
 class AllProvidersUnavailable(RuntimeError):

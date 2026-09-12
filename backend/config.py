@@ -21,6 +21,18 @@ else:
     SOURCE_BACKEND_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SOURCE_BACKEND_DIR.parent
 
+
+def _deployment_root() -> Path:
+    """Find the mutable-data root when code runs from an immutable release."""
+
+    for ancestor in (PROJECT_ROOT, *PROJECT_ROOT.parents):
+        if ancestor.name in {"backend-releases", "baseline"}:
+            return ancestor.parent
+    return PROJECT_ROOT
+
+
+DEPLOYMENT_ROOT = _deployment_root()
+
 # Environment type detection
 def get_environment() -> Literal["development", "production", "docker"]:
     """Auto-detect environment type"""
@@ -41,10 +53,12 @@ class PlatformConfig:
     PROJECT_ROOT = PROJECT_ROOT
     BACKEND_DIR = SOURCE_BACKEND_DIR
     FRONTEND_DIR = PROJECT_ROOT / "frontend"
-    # Keep uploads under backend/uploads so FastAPI static mount and storage are aligned
-    UPLOAD_DIR = BACKEND_DIR / "uploads"
+    # Mutable user data must live outside immutable backend/frontend releases.
+    UPLOAD_DIR = Path(
+        os.getenv("UPLOAD_DIR", str(DEPLOYMENT_ROOT / "shared" / "uploads"))
+    ).expanduser().resolve()
     PRIVATE_STORAGE_DIR = Path(
-        os.getenv("PRIVATE_STORAGE_DIR", str(BACKEND_DIR / "private_storage"))
+        os.getenv("PRIVATE_STORAGE_DIR", str(DEPLOYMENT_ROOT / "shared" / "private-storage"))
     ).expanduser().resolve()
     ADMIN_FILES_STORAGE_DIR = Path(
         os.getenv(
@@ -53,7 +67,8 @@ class PlatformConfig:
         )
     ).expanduser().resolve()
     # 日志文件直接放在仓库根目录，避免额外 logs/ 目录
-    LOGS_DIR = PROJECT_ROOT
+    LOGS_DIR = DEPLOYMENT_ROOT / "shared" / "logs"
+    RUNTIME_DATA_ROOT = DEPLOYMENT_ROOT
 
     # Database configuration (environment-based)
     if ENV == "docker":
@@ -108,7 +123,7 @@ class PlatformConfig:
     LIVE_GEOIP_DATABASE = Path(
         os.getenv(
             "LIVE_GEOIP_DATABASE",
-            str(PROJECT_ROOT / "runtime" / "geoip" / "city.mmdb"),
+            str(PRIVATE_STORAGE_DIR / "geoip" / "city.mmdb"),
         )
     ).expanduser().resolve()
     LIVE_VIEWER_RETENTION_DAYS = int(
@@ -128,7 +143,7 @@ class PlatformConfig:
     LIVE_RECORDING_ROOT = Path(
         os.getenv(
             "LIVE_RECORDING_ROOT",
-            str(PROJECT_ROOT / "runtime" / "live-recordings"),
+            str(UPLOAD_DIR / "live-recordings"),
         )
     ).expanduser().resolve()
     LIVE_DISK_RESERVE_BYTES = int(
@@ -146,7 +161,10 @@ class PlatformConfig:
         "http://127.0.0.1:5173",
     ).strip().rstrip("/")
     PUBLIC_SYNC_STORAGE_DIR = Path(
-        os.getenv("PUBLIC_SYNC_STORAGE", str(PROJECT_ROOT / "sync-storage"))
+        os.getenv("PUBLIC_SYNC_STORAGE", str(DEPLOYMENT_ROOT / "shared" / "sync-storage"))
+    ).expanduser().resolve()
+    TRANSFER_STORAGE_DIR = Path(
+        os.getenv("TRANSFER_STORAGE_DIR", str(DEPLOYMENT_ROOT / "shared" / "transfers"))
     ).expanduser().resolve()
     MAX_PUBLIC_SYNC_FILE_SIZE = int(
         os.getenv("MAX_PUBLIC_SYNC_FILE_SIZE", str(100 * 1024 * 1024))
@@ -179,10 +197,17 @@ class PlatformConfig:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if ENV == "production" else "DEBUG")
 
     # Provider-neutral music catalog. Player clients never receive provider cookies.
-    MUSIC_PROVIDER_BASE_URL = os.getenv(
-        "MUSIC_PROVIDER_BASE_URL",
-        "http://127.0.0.1:3000",
-    ).rstrip("/")
+    # Direct provider adapters live in backend/music. The old Mineradio HTTP
+    # bridge is opt-in compatibility for an explicit rollback/test profile only.
+    MUSIC_PROVIDER_LEGACY_COMPAT = os.getenv("MUSIC_PROVIDER_LEGACY_COMPAT", "0").lower() in {"1", "true", "yes"}
+    NETEASE_API_BASE_URL = os.getenv("NETEASE_API_BASE_URL", "https://music.163.com").rstrip("/")
+    QQ_API_BASE_URL = os.getenv("QQ_API_BASE_URL", "https://u.y.qq.com").rstrip("/")
+    MUSIC_PROVIDER_CREDENTIAL_DIR = Path(
+        os.getenv("MUSIC_PROVIDER_CREDENTIAL_DIR", str(PRIVATE_STORAGE_DIR / "music"))
+    ).expanduser().resolve()
+    # Deprecated names are deliberately empty by default; no production code
+    # should discover a local Mineradio service through an implicit default.
+    MUSIC_PROVIDER_BASE_URL = os.getenv("MUSIC_PROVIDER_BASE_URL", "").rstrip("/")
     MUSIC_PROVIDER_ADMIN_TOKEN = os.getenv("MUSIC_PROVIDER_ADMIN_TOKEN", "").strip()
     MUSIC_PROVIDER_TIMEOUT_SECONDS = float(
         os.getenv("MUSIC_PROVIDER_TIMEOUT_SECONDS", "5")
@@ -213,6 +238,9 @@ class PlatformConfig:
             cls.UPLOAD_DIR,
             cls.AVATAR_UPLOAD_DIR,
             cls.ADMIN_FILES_STORAGE_DIR,
+            cls.MUSIC_PROVIDER_CREDENTIAL_DIR,
+            cls.TRANSFER_STORAGE_DIR,
+            cls.LOGS_DIR,
         ]:
             dir_path.mkdir(parents=True, exist_ok=True)
 

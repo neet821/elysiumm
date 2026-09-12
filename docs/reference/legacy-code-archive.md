@@ -27,9 +27,12 @@ The following are deliberately not archived or removed:
 - Reachable modules under `frontend/src`, the current route table, article flow,
   authentication, account, music/video rooms, live stream, transfer and active
   administrator screens.
-- `server/` article service and its tests, all active FastAPI routers/services,
-  Mineradio and MediaMTX integrations, `deployment/` release/preflight/rollback
-  chain, `ops/live/`, `sync-agent/`, Nginx/systemd definitions and FRP file sync.
+- Active FastAPI routers/services, the direct music provider boundary, MediaMTX
+  integration, `deployment/` release/preflight/rollback chain, `ops/live/`,
+  `sync-agent/`, Nginx/systemd definitions and FRP file sync.
+- The former root `server/` Articles service and standalone Mineradio server
+  are retired by the release refactor; recover them from the annotated tag only
+  for historical comparison, never as a production entrypoint.
 - `PUBLIC_FRP_FILE_URL`, bookmark-import backups, release backups, production
   data, all Alembic history and existing database tables. Removing an ORM model
   never authorizes dropping its production table.

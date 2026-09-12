@@ -1,8 +1,6 @@
-import asyncio
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -105,7 +103,7 @@ class MusicServiceTest(unittest.TestCase):
         self.assertEqual(first.status, "played")
         self.assertEqual(selected.status, "playing")
         self.assertEqual(selected.provider, "netease")
-        self.assertEqual(self.room.video_source, "mineradio://netease/5257138")
+        self.assertEqual(self.room.video_source, "/api/music/stream/netease/5257138")
         self.assertTrue(self.room.is_playing)
 
     def test_mineradio_selection_is_direct_queue(self):
@@ -150,24 +148,11 @@ class MusicServiceTest(unittest.TestCase):
         queued = [item for item in music_service.queue_payload(self.db, self.room.id) if item["status"] == "queued"]
         self.assertEqual([item["provider_track_id"] for item in queued], ["high", "low"])
 
-    def test_audius_search_filters_unstreamable_tracks(self):
-        payload = [{
-            "id": "ok", "title": "Playable", "duration": 42, "is_streamable": True,
-            "user": {"name": "Artist"}, "artwork": {"480x480": "https://example.com/a.jpg"},
-            "permalink": "/artist/playable",
-        }, {
-            "id": "blocked", "title": "Blocked", "is_streamable": False, "user": {"name": "Artist"},
-        }]
-        with patch.object(music_service, "_audius_get", new=AsyncMock(return_value=payload)):
-            result = asyncio.run(music_service.search_tracks("playable"))
-        self.assertEqual([item["provider_track_id"] for item in result], ["ok"])
-        self.assertEqual(result[0]["stream_url"], "/api/music/stream/audius/ok")
-
     def test_room_netease_track_uses_shared_anonymous_stream(self):
         track = _catalog_track(MineradioTrack(
             provider="netease", provider_track_id="12345", title="测试", artist="歌手",
         ))
-        self.assertEqual(track["stream_url"], "/mineradio-api/room/audio?provider=netease&id=12345")
+        self.assertEqual(track["stream_url"], "/api/music/stream/netease/12345")
 
     def test_room_qq_track_keeps_media_mid_in_shared_stream(self):
         track = _catalog_track(MineradioTrack(
@@ -176,7 +161,7 @@ class MusicServiceTest(unittest.TestCase):
         ))
         self.assertEqual(
             track["stream_url"],
-            "/mineradio-api/room/audio?provider=qq&id=song-mid&mediaMid=media-mid",
+            "/api/music/stream/qq/song-mid?media_mid=media-mid",
         )
         self.assertEqual(track["source_url"], "media-mid")
 

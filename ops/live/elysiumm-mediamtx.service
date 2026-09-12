@@ -1,15 +1,15 @@
 [Unit]
-Description=Blue Album MediaMTX live streaming
-After=network-online.target blue-album.service
+Description=Elysium MediaMTX live streaming
+After=network-online.target elysiumm-backend.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=blue-album-live
 Group=blue-album-live
-WorkingDirectory=/srv/blue-album/live
-EnvironmentFile=-/etc/blue-album/live.env
-ExecStart=/usr/local/bin/mediamtx /etc/blue-album/mediamtx.yml
+WorkingDirectory=/srv/services/elysium
+EnvironmentFile=/etc/elysium/mediamtx.env
+ExecStart=/usr/local/bin/mediamtx /etc/elysium/mediamtx.yml
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -24,7 +24,7 @@ LockPersonality=true
 MemoryMax=384M
 TasksMax=96
 UMask=0027
-ReadWritePaths=/srv/blue-album/live/recordings
+ReadWritePaths=/srv/services/elysium/shared/uploads/live-recordings
 
 [Install]
 WantedBy=multi-user.target

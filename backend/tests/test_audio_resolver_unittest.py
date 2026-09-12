@@ -178,7 +178,7 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 canonical_track_id=canonical.id,
                 provider_mapping_id=netease_mapping.id,
                 source_type="anonymous_full",
-                playback_url="/mineradio-api/room/audio?provider=netease&id=ne-expired",
+                playback_url="/api/music/stream/netease/ne-expired",
                 availability="playable",
                 expires_at=now - timedelta(seconds=1),
             )
@@ -190,7 +190,7 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 resolution=ProviderResolution(
                     provider="qq",
                     availability=TrackAvailability.PREVIEW,
-                    playback_url="/mineradio-api/room/audio?provider=qq&id=qq-preview",
+                    playback_url="/api/music/stream/qq/qq-preview",
                     source_type="public_preview",
                     expires_at=now + timedelta(minutes=10),
                 )
@@ -253,7 +253,7 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(audio_resolver.is_safe_playback_url(value, allowed))
         self.assertTrue(
             audio_resolver.is_safe_playback_url(
-                "/mineradio-api/room/audio?provider=qq&id=safe",
+                "/api/music/stream/qq/safe",
                 allowed,
             )
         )

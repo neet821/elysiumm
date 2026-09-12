@@ -1,15 +1,13 @@
 import math
 import json
 from datetime import datetime
+from urllib.parse import quote
 
-import httpx
 from sqlalchemy import func
 
 import models
 import sync_room_crud
 
-
-AUDIUS_API = "https://api.audius.co/v1"
 
 ROOM_EVENT_SUMMARY_KEYS = {
     "chat_message": {"is_private", "message_id"},
@@ -163,52 +161,6 @@ def _stage_track_transition(
     return snapshot
 
 
-def _normalize_audius_track(item):
-    user = item.get("user") or {}
-    artwork = item.get("artwork") or {}
-    track_id = str(item.get("id") or "")
-    return {
-        "provider": "audius",
-        "provider_track_id": track_id,
-        "title": item.get("title") or "未命名歌曲",
-        "artist": user.get("name") or user.get("handle") or "未知音乐人",
-        "album": item.get("genre") or item.get("mood"),
-        "artwork_url": artwork.get("480x480") or artwork.get("150x150"),
-        "duration_seconds": int(item.get("duration") or 0),
-        "source_url": f"https://audius.co{item.get('permalink')}" if item.get("permalink") else None,
-        "stream_url": f"/api/music/stream/audius/{track_id}",
-        "is_streamable": bool(item.get("is_streamable", True)),
-        "play_count": int(item.get("play_count") or 0),
-    }
-
-
-async def _audius_get(path, params=None):
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        response = await client.get(f"{AUDIUS_API}{path}", params=params)
-        response.raise_for_status()
-        return response.json().get("data")
-
-
-async def search_tracks(query, limit=20):
-    items = await _audius_get("/tracks/search", {"query": query, "limit": limit})
-    return [track for item in (items or []) if (track := _normalize_audius_track(item))["is_streamable"]]
-
-
-async def trending_tracks(limit=18):
-    items = await _audius_get("/tracks/trending", {"limit": limit, "time": "week"})
-    return [track for item in (items or []) if (track := _normalize_audius_track(item))["is_streamable"]]
-
-
-async def get_track(track_id):
-    item = await _audius_get(f"/tracks/{track_id}")
-    if not item:
-        raise ValueError("歌曲不存在或暂时无法播放")
-    track = _normalize_audius_track(item)
-    if not track["is_streamable"]:
-        raise ValueError("这首歌暂时不允许在线播放")
-    return track
-
-
 def queue_payload(db, room_id):
     items = db.query(models.MusicQueueItem).filter(
         models.MusicQueueItem.room_id == room_id,
@@ -310,12 +262,17 @@ def _approve_proposal(db, room, item, actor_user_id=None):
 def _track_stream_url(track):
     if track.get("provider") in ("upload", "audius") and track.get("stream_url"):
         return track["stream_url"]
-    if (
-        track.get("provider") in ("netease", "qq")
-        and str(track.get("stream_url") or "").startswith("/mineradio-api/room/audio?")
-    ):
-        return track["stream_url"]
-    return f"mineradio://{track['provider']}/{track['provider_track_id']}"
+    provider = str(track.get("provider") or "").strip().lower()
+    provider_track_id = quote(str(track.get("provider_track_id") or ""), safe="")
+    if provider in ("netease", "qq") and provider_track_id:
+        stream_url = str(track.get("stream_url") or "")
+        if stream_url.startswith(f"/api/music/stream/{provider}/"):
+            return stream_url
+        suffix = ""
+        if provider == "qq" and track.get("media_mid"):
+            suffix = f"?media_mid={quote(str(track['media_mid']), safe='')}"
+        return f"/api/music/stream/{provider}/{provider_track_id}{suffix}"
+    raise ValueError("歌曲缺少可播放的内部地址")
 
 
 def _canonical_track_id(track):
