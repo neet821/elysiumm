@@ -341,8 +341,10 @@ def _publish_record(
     size: int,
     digest: str,
     mtime: datetime | None,
+    record=None,
 ):
-    record = _file_record(db, device.id, relative_path)
+    if record is None:
+        record = _file_record(db, device.id, relative_path)
     if not record:
         record = models.SyncFile(
             device_id=device.id,
@@ -602,6 +604,7 @@ def save_chunk(
                     size=size,
                     digest=final_digest,
                     mtime=mtime,
+                    record=record,
                 )
                 session.status = "completed"
                 session.received_bytes = size

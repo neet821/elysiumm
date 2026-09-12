@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { get } from 'node:http';
+import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createArticleStore } from '../server/article-store.js';
@@ -57,5 +58,41 @@ describe('article HTTP app', () => {
         expect.objectContaining({ id: 'record', label: '记录' }),
       ]),
     }));
+  });
+
+  it('keeps serving after a client aborts a media response', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'elysiumm-http-app-'));
+    roots.push(root);
+    const mediaFile = join(root, 'large-media.bin');
+    const handle = await open(mediaFile, 'w');
+    await handle.truncate(64 * 1024 * 1024);
+    await handle.close();
+
+    const baseUrl = await start({ articleStore: { resolveMedia: async () => mediaFile } });
+    let unhandledRejection;
+    const captureUnhandled = (error) => {
+      unhandledRejection = error;
+    };
+    process.on('unhandledRejection', captureUnhandled);
+
+    try {
+      await new Promise((resolve, reject) => {
+        const request = get(`${baseUrl}/media/article/large-media.bin`, (response) => {
+          response.once('data', () => {
+            response.destroy();
+            resolve();
+          });
+        });
+        request.once('error', reject);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(unhandledRejection).toBeUndefined();
+      const health = await fetch(`${baseUrl}/api/health`);
+      expect(health.status).toBe(200);
+      await expect(health.json()).resolves.toEqual({ status: 'ok' });
+    } finally {
+      process.off('unhandledRejection', captureUnhandled);
+    }
   });
 });

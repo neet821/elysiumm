@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""只扫描 /home/neet821/Public，并把变化主动上传到 Blue Album。"""
+"""只扫描 /home/neet821/Public，并把变化主动上传到 Elysium。"""
 
 import hashlib
 import json
@@ -17,8 +17,14 @@ STATE = Path(
         Path.home() / ".local/state/blue-album-public-sync.json",
     )
 )
-SERVER = os.environ["BLUE_ALBUM_URL"].rstrip("/")
-TOKEN = os.environ["BLUE_ALBUM_SYNC_TOKEN"]
+SERVER = os.environ.get("PUBLIC_SYNC_URL", os.environ.get("BLUE_ALBUM_URL", "")).rstrip("/")
+TOKEN = os.environ.get("PUBLIC_SYNC_TOKEN", os.environ.get("BLUE_ALBUM_SYNC_TOKEN", ""))
+PROXY = os.getenv("PUBLIC_SYNC_PROXY", "").strip()
+
+if not SERVER:
+    raise RuntimeError("PUBLIC_SYNC_URL or BLUE_ALBUM_URL is required")
+if not TOKEN:
+    raise RuntimeError("PUBLIC_SYNC_TOKEN or BLUE_ALBUM_SYNC_TOKEN is required")
 
 
 def files():
@@ -38,7 +44,11 @@ def call(method, endpoint, data=None, headers=None, timeout=30):
         method=method,
         headers={"X-Sync-Token": TOKEN, **(headers or {})},
     )
-    with request.urlopen(req, timeout=timeout) as response:
+    proxy_handler = request.ProxyHandler(
+        {"http": PROXY, "https": PROXY} if PROXY else {}
+    )
+    opener = request.build_opener(proxy_handler)
+    with opener.open(req, timeout=timeout) as response:
         return response.read()
 
 

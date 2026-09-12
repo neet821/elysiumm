@@ -1,0 +1,20 @@
+[Unit]
+Description=Elysium local health guard and limited recovery
+After=network-online.target docker.service nginx.service
+Wants=network-online.target
+Requires=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/elysium-health-guard
+Restart=always
+RestartSec=15
+User=root
+Environment=PYTHONUNBUFFERED=1
+PrivateTmp=true
+ProtectHome=true
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

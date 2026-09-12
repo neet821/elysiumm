@@ -52,7 +52,13 @@ export function createHttpApp({ articleStore, publicDir }) {
         const mediaPath = remainder.slice(slash + 1);
         const file = await articleStore.resolveMedia(slug, mediaPath);
         response.writeHead(200, { 'content-type': MIME[extname(file).toLowerCase()] || 'application/octet-stream', 'cache-control': 'public, max-age=300' });
-        return pipeline(createReadStream(file), response);
+        try {
+          await pipeline(createReadStream(file), response);
+        } catch (error) {
+          if (response.destroyed && ['ERR_STREAM_PREMATURE_CLOSE', 'ECONNRESET'].includes(error.code)) return;
+          throw error;
+        }
+        return;
       }
       const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
       const staticFile = resolve(staticRoot, requested);

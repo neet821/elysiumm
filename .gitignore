@@ -11,3 +11,8 @@ coverage/
 backend/.venv/
 **/__pycache__/
 *.py[cod]
+
+# Local editor, release-sandbox, and imported binary artifacts
+.idea/
+.local-deploy/
+/sqlite3

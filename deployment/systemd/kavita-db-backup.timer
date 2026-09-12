@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Kavita SQLite backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=false
+RandomizedDelaySec=15m
+Unit=kavita-db-backup.service
+
+[Install]
+WantedBy=timers.target

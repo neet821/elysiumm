@@ -288,6 +288,29 @@ class PublicSyncServiceTest(unittest.TestCase):
             1,
         )
 
+    def test_single_chunk_new_file_does_not_insert_duplicate_sync_record(self):
+        content = b"one chunk"
+        digest = hashlib.sha256(content).hexdigest()
+        with self.upload_limits(file_size=32, chunk_size=32, quota=64):
+            record = public_sync_service.save_chunk(
+                self.db,
+                self.device,
+                "single.bin",
+                "upload-single",
+                0,
+                1,
+                len(content),
+                io.BytesIO(content),
+                expected_sha256=digest,
+            )
+
+        self.assertEqual(record.sync_status, "synced")
+        self.assertEqual(record.sha256, digest)
+        self.assertEqual(
+            (self.storage_root / str(self.device.id) / "single.bin").read_bytes(),
+            content,
+        )
+
     def test_failed_chunk_completion_preserves_previous_file_and_cleans_session(self):
         destination = self.storage_root / str(self.device.id) / "data.bin"
         destination.parent.mkdir(parents=True)
