@@ -49,6 +49,7 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
             "python -m venv backend/.venv",
             "backend/.venv/bin/pip install -r backend/requirements-dev.txt",
             "npm --prefix frontend ci",
+            "sudo apt-get install -y --no-install-recommends ffmpeg",
             "scripts/resolve-release-impact.py",
             "python -m unittest discover",
             "npm --prefix frontend run check",
