@@ -59,7 +59,7 @@ describe('music room lobby', () => {
 
     expect(await screen.findByText('同步听歌室管理')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建听歌房' })).toBeInTheDocument()
-    expect(screen.getByText('所有活跃房间 (1)')).toBeInTheDocument()
+    expect(await screen.findByText('所有活跃房间 (1)')).toBeInTheDocument()
     expect(screen.queryByText('音乐大厅')).not.toBeInTheDocument()
   })
 
