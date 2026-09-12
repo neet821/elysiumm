@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (requestPath) => requestPath.replace(/^\/live-media/, ''),
         },
+        '/media': {
+          target: backendTarget,
+          changeOrigin: true,
+          secure: false,
+        },
         '/uploads': {
           target: backendTarget,
           changeOrigin: true,

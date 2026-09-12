@@ -25,6 +25,18 @@ class BaselineError(RuntimeError):
 REQUIRED_COMPONENTS = frozenset({"backend", "frontend", "mineradio", "articles"})
 BACKEND_VENV = Path("backend/.venv")
 BASELINE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+BROAD_RESTORE_DIRECTORIES = frozenset(
+    {
+        Path("/"),
+        Path("/etc"),
+        Path("/etc/nginx"),
+        Path("/etc/nginx/conf.d"),
+        Path("/etc/nginx/sites-enabled"),
+        Path("/etc/systemd"),
+        Path("/etc/systemd/system"),
+        Path("/etc/elysium"),
+    }
+)
 
 
 def _resolved(path: Path) -> Path:
@@ -171,6 +183,35 @@ def _safe_relative_path(value: str) -> Path:
     return candidate
 
 
+def _config_restore_targets(inputs: "BaselineInputs") -> dict[str, Path]:
+    config_names = set(inputs.config_files)
+    target_names = set(inputs.config_restore_targets)
+    if config_names != target_names:
+        missing = sorted(config_names - target_names)
+        unexpected = sorted(target_names - config_names)
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if unexpected:
+            details.append("unexpected=" + ",".join(unexpected))
+        raise BaselineError("config restore targets must match config files: " + " ".join(details))
+    targets: dict[str, Path] = {}
+    for relative_name, raw_target in inputs.config_restore_targets.items():
+        relative_path = _safe_relative_path(relative_name)
+        target = Path(raw_target).expanduser()
+        if not target.is_absolute():
+            raise BaselineError(f"config restore target must be an absolute file path: {raw_target}")
+        normalized = Path(os.path.normpath(str(target)))
+        if normalized in BROAD_RESTORE_DIRECTORIES or normalized.name in {"", ".", "/"}:
+            raise BaselineError(f"config restore target must be an exact file path: {normalized}")
+        if target.is_symlink():
+            raise BaselineError(f"config restore target must not be a symlink: {target}")
+        if target.exists() and not target.is_file():
+            raise BaselineError(f"config restore target must be an exact file path: {target}")
+        targets[relative_path.as_posix()] = normalized
+    return targets
+
+
 def _validate_complete_backend_venv(root: Path) -> None:
     virtualenv = root / BACKEND_VENV
     required = (virtualenv / "pyvenv.cfg", virtualenv / "bin/python")
@@ -269,6 +310,7 @@ class BaselineInputs:
     production_revisions: tuple[str, ...]
     target_heads: tuple[str, ...]
     database_backup: Mapping[str, object]
+    config_restore_targets: Mapping[str, Path] = field(default_factory=dict)
     database_backup_path: Path | None = None
     runtime_dependencies: Mapping[str, Path] = field(default_factory=dict)
     path_replacements: Mapping[str, str] = field(default_factory=dict)
@@ -308,6 +350,7 @@ def create_baseline(inputs: BaselineInputs) -> Path:
         raise BaselineError("baseline service commands must not reference FlClash")
     if not BASELINE_ID_RE.fullmatch(inputs.baseline_id):
         raise BaselineError(f"unsafe baseline id: {inputs.baseline_id!r}")
+    config_restore_targets = _config_restore_targets(inputs)
     destination = root / inputs.baseline_id
     if destination.exists() or destination.is_symlink():
         raise BaselineError(f"baseline already exists: {destination}")
@@ -430,6 +473,13 @@ def create_baseline(inputs: BaselineInputs) -> Path:
                 }
                 for relative_name, source in sorted(inputs.runtime_dependencies.items())
             },
+            "config_files": {
+                relative_name: {
+                    "source_path": str(_resolved(source)),
+                    "restore_target": str(config_restore_targets[relative_name]),
+                }
+                for relative_name, source in sorted(inputs.config_files.items())
+            },
             "service_commands": list(baseline_service_commands),
             "restore_order": list(inputs.restore_order),
             "production_current_revisions": list(inputs.production_revisions),
@@ -549,8 +599,22 @@ if __name__ == "__main__":
         service_start_commands = "\n".join(
             f"systemctl start {shlex.quote(service)}" for service in inputs.services
         ) or ":"
+        restore_config_commands = []
+        for relative_name, target in sorted(config_restore_targets.items()):
+            relative_path = _safe_relative_path(relative_name)
+            source = f'"$BASELINE_DIR/config/restore/{relative_path.as_posix()}"'
+            target_text = shlex.quote(str(target))
+            parent_text = shlex.quote(str(target.parent))
+            mode = "0600" if "env" in relative_path.parts else "0644"
+            restore_config_commands.extend(
+                (
+                    f"if [[ -L {target_text} ]]; then echo 'refusing symlink restore target' >&2; exit 1; fi",
+                    f"ensure_restore_parent {parent_text}",
+                    f"install -m {mode} {source} {target_text}",
+                )
+            )
         (restore / "restore.sh").write_text(
-            "#!/usr/bin/env bash\nset -euo pipefail\nBASELINE_DIR=$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd)\nif [[ \"$(id -u)\" -ne 0 ]]; then echo 'baseline restore requires root' >&2; exit 1; fi\n\"$BASELINE_DIR/restore/verify.sh\"\nrestore_database=false\nif [[ \"${1:-}\" == '--restore-database' ]]; then restore_database=true; elif [[ -n \"${1:-}\" ]]; then echo \"unknown option: $1\" >&2; exit 2; fi\n# Stop application services before changing their configuration or database.\nPLACEHOLDER_STOP_SERVICES\nif [[ \"$restore_database\" == true ]]; then\n  \"$BASELINE_DIR/backend/.venv/bin/python\" \"$BASELINE_DIR/restore/restore_database.py\" --env-file \"$BASELINE_DIR/config/restore/PLACEHOLDER_BACKEND_ENV\" --backup \"$BASELINE_DIR/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"database_backup\"][\"path\"])' \"$BASELINE_DIR/BASELINE.json\")\"\nfi\ninstall -d -m 0755 /etc/elysium\nfor file in \"$BASELINE_DIR/config/restore/env\"/*; do [[ -f \"$file\" ]] || continue; install -m 0600 \"$file\" \"/etc/elysium/$(basename \"$file\")\"; done\nfor file in \"$BASELINE_DIR/config/restore/systemd\"/*; do [[ -f \"$file\" ]] || continue; install -m 0644 \"$file\" \"/etc/systemd/system/$(basename \"$file\")\"; done\nfor file in \"$BASELINE_DIR/config/restore/nginx\"/*; do [[ -f \"$file\" ]] || continue; install -m 0644 \"$file\" \"/etc/nginx/sites-enabled/$(basename \"$file\")\"; done\nnginx -t\nsystemctl daemon-reload\nPLACEHOLDER_START_SERVICES\nsystemctl reload nginx\nprintf '%s\\n' \"baseline restored from $BASELINE_DIR\"\n",
+            "#!/usr/bin/env bash\nset -euo pipefail\nBASELINE_DIR=$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd)\nensure_restore_parent() {\n  local parent=$1 probe=$1\n  while [[ \"$probe\" != / ]]; do\n    if [[ -L \"$probe\" ]]; then echo \"refusing symlink restore parent: $probe\" >&2; exit 1; fi\n    probe=$(dirname \"$probe\")\n  done\n  install -d -m 0755 \"$parent\"\n}\nif [[ \"$(id -u)\" -ne 0 ]]; then echo 'baseline restore requires root' >&2; exit 1; fi\n\"$BASELINE_DIR/restore/verify.sh\"\nrestore_database=false\nif [[ \"${1:-}\" == '--restore-database' ]]; then restore_database=true; elif [[ -n \"${1:-}\" ]]; then echo \"unknown option: $1\" >&2; exit 2; fi\n# Stop application services before changing their configuration or database.\nPLACEHOLDER_STOP_SERVICES\nif [[ \"$restore_database\" == true ]]; then\n  \"$BASELINE_DIR/backend/.venv/bin/python\" \"$BASELINE_DIR/restore/restore_database.py\" --env-file \"$BASELINE_DIR/config/restore/PLACEHOLDER_BACKEND_ENV\" --backup \"$BASELINE_DIR/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"database_backup\"][\"path\"])' \"$BASELINE_DIR/BASELINE.json\")\"\nfi\nPLACEHOLDER_RESTORE_CONFIGS\nnginx -t\nsystemctl daemon-reload\nPLACEHOLDER_START_SERVICES\nsystemctl reload nginx\nprintf '%s\\n' \"baseline restored from $BASELINE_DIR\"\n",
             encoding="utf-8",
         )
         restore_script = restore / "restore.sh"
@@ -559,6 +623,8 @@ if __name__ == "__main__":
                 "PLACEHOLDER_STOP_SERVICES", service_stop_commands
             ).replace("PLACEHOLDER_START_SERVICES", service_start_commands).replace(
                 "PLACEHOLDER_BACKEND_ENV", str(backend_env_relative)
+            ).replace(
+                "PLACEHOLDER_RESTORE_CONFIGS", "\n".join(restore_config_commands)
             ).replace(
                 "$(python3 -c",
                 '$(\"$BASELINE_DIR/backend/.venv/bin/python\" -c',

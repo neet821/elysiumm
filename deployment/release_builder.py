@@ -105,6 +105,7 @@ def assemble_frontend_release(
     build_budget: dict[str, object],
     freeze: bool = True,
     activate: bool = False,
+    git_ref: str = "refs/heads/main",
 ) -> ReleaseAssembly:
     source = dist_source.resolve()
     if not source.is_dir():
@@ -122,7 +123,7 @@ def assemble_frontend_release(
             release_id=release_id,
             deployment_id=deployment_id,
             git_commit=git_commit,
-            git_ref="refs/heads/main",
+            git_ref=git_ref,
             created_at=utc_now(),
             artifact_sha256=artifact_sha,
             source_tree_sha256=sha256_tree(source),
@@ -160,6 +161,7 @@ def assemble_backend_release(
     create_virtualenv: bool = True,
     freeze: bool = True,
     activate: bool = False,
+    git_ref: str = "refs/heads/main",
 ) -> ReleaseAssembly:
     source = backend_source.resolve()
     if not source.is_dir():
@@ -197,7 +199,7 @@ def assemble_backend_release(
             release_id=release_id,
             deployment_id=deployment_id,
             git_commit=git_commit,
-            git_ref="refs/heads/main",
+            git_ref=git_ref,
             created_at=utc_now(),
             source_tree_sha256=sha256_tree(source),
             python_version=python_version,

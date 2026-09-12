@@ -37,9 +37,14 @@ class ReleaseBuilderTests(unittest.TestCase):
                 api_schema_sha256=SHA,
                 compatible_backend_api="^1",
                 build_budget={"passed": True},
+                git_ref="refs/heads/codex/release-cicd-2026-09-12",
                 activate=True,
             )
             self.assertTrue((assembly.path / "dist/index.html").is_file())
+            self.assertEqual(
+                assembly.manifest["git_ref"],
+                "refs/heads/codex/release-cicd-2026-09-12",
+            )
             self.assertEqual((root / "frontend-current").resolve(), assembly.path)
             self.assertFalse((root / "backend-current").exists())
             self.assertFalse((assembly.path / "dist/index.html").is_symlink())

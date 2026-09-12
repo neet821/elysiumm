@@ -59,6 +59,20 @@ rules:
     components: [infra]
     validation: [nginx, frontend-smoke, backend-smoke]
 
+  - id: mediamtx-infrastructure
+    paths:
+      - deployment/mediamtx/**
+      - ops/live/mediamtx.yml
+      - ops/live/elysiumm-mediamtx.service
+    components: [infra]
+    validation: [systemd, backend-smoke, live-smoke]
+
+  - id: health-guard-infrastructure
+    paths:
+      - scripts/elysium_health_guard.py
+    components: [infra]
+    validation: [systemd, backend-smoke]
+
   - id: systemd-infrastructure
     paths:
       - deployment/systemd/**

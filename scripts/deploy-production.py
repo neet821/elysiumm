@@ -33,6 +33,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Deploy Elysium using immutable component releases")
     parser.add_argument("--root", type=_path, default=Path("/srv/services/elysium"))
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--git-ref", default="refs/heads/main")
     parser.add_argument("--deployment-id", required=True)
     parser.add_argument("--trigger", default="github-actions")
     parser.add_argument("--github-run-id", default="")
@@ -52,7 +53,7 @@ def main() -> int:
         help="candidate Nginx config, optionally with an explicit target",
     )
     parser.add_argument("--systemd-source", action="append", default=[], metavar="UNIT=PATH")
-    parser.add_argument("--nginx-target", type=_path, default=Path("/etc/nginx/sites-available/elysium"))
+    parser.add_argument("--nginx-target", type=_path, default=Path("/etc/nginx/sites-available/elysiumm"))
     parser.add_argument(
         "--remove-nginx-target",
         action="append",
@@ -66,6 +67,21 @@ def main() -> int:
         action="append",
         default=[],
         help="remove an explicitly mapped systemd service/timer for a deleted source",
+    )
+    parser.add_argument(
+        "--mediamtx-config-source",
+        type=_path,
+        help="replace the managed /etc/elysium/mediamtx.yml config",
+    )
+    parser.add_argument(
+        "--health-guard-source",
+        type=_path,
+        help="replace the managed /usr/local/sbin/elysium-health-guard script",
+    )
+    parser.add_argument(
+        "--defer-health-guard-restart",
+        action="store_true",
+        help="leave the health guard stopped for a controlled maintenance window",
     )
     parser.add_argument("--backend-service", default="elysiumm-backend.service")
     parser.add_argument("--health-url", default="http://127.0.0.1:8000/api/health")
@@ -120,6 +136,7 @@ def main() -> int:
             DeploymentOptions(
                 root=root,
                 commit=args.commit,
+                git_ref=args.git_ref,
                 deployment_id=args.deployment_id,
                 trigger=args.trigger,
                 github_run_id=args.github_run_id,
@@ -137,6 +154,9 @@ def main() -> int:
                 nginx_remove_targets=tuple(item.resolve() for item in args.remove_nginx_target),
                 systemd_target_dir=args.systemd_target_dir,
                 systemd_remove_units=tuple(args.remove_systemd_unit),
+                mediamtx_config_source=args.mediamtx_config_source.resolve() if args.mediamtx_config_source else None,
+                health_guard_source=args.health_guard_source.resolve() if args.health_guard_source else None,
+                defer_health_guard_restart=args.defer_health_guard_restart,
                 backend_service=args.backend_service,
                 health_url=args.health_url,
                 node_version=args.node_version,

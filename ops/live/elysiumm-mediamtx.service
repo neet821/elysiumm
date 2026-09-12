@@ -5,11 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=blue-album-live
-Group=blue-album-live
-WorkingDirectory=/srv/services/elysium
-EnvironmentFile=/etc/elysium/mediamtx.env
-ExecStart=/usr/local/bin/mediamtx /etc/elysium/mediamtx.yml
+User=elysium-live
+Group=elysium-live
+WorkingDirectory=/srv/services/elysium/ops
+EnvironmentFile=-/etc/elysium/mediamtx.env
+ExecStart=/srv/services/elysium/ops/mediamtx /etc/elysium/mediamtx.yml
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

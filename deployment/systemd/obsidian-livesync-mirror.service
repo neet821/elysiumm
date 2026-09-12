@@ -1,0 +1,19 @@
+[Unit]
+Description=Obsidian LiveSync file mirror for Elysium website
+After=network-online.target docker.service obsidian-livesync-couchdb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/srv/services/obsidian-livesync/mirror
+ExecStartPre=/usr/bin/cp -f /srv/services/obsidian-livesync/mirror/state/mirror-settings-all.json /srv/services/obsidian-livesync/mirror/state/mirror-settings.json
+ExecStart=/srv/services/obsidian-livesync/tools/livesync-cli /srv/services/elysium/shared/sync-storage/media --settings /srv/services/obsidian-livesync/mirror/state/mirror-settings.json --vault /srv/services/elysium/shared/sync-storage/articles --interval 10 daemon
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

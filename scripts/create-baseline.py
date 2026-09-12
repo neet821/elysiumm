@@ -84,6 +84,13 @@ def main() -> int:
         help="copy an external runtime dependency below a component, for example backend/.venv=/srv/.../.venv",
     )
     parser.add_argument("--config", action="append", default=[], metavar="NAME=PATH")
+    parser.add_argument(
+        "--restore-target",
+        action="append",
+        default=[],
+        metavar="NAME=ABS_PATH",
+        help="exact absolute production file path restored for a --config entry",
+    )
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--forbidden-reference", action="append", default=[])
     parser.add_argument("--replace", action="append", default=[], metavar="OLD=NEW")
@@ -123,6 +130,10 @@ def main() -> int:
         config_files = {
             key: Path(value).expanduser()
             for key, value in parse_pairs(args.config, "--config").items()
+        }
+        config_restore_targets = {
+            key: Path(value).expanduser()
+            for key, value in parse_pairs(args.restore_target, "--restore-target").items()
         }
         backend_env = config_files.get("env/backend.env")
         if backend_env is None or backend_env.expanduser().resolve() != args.env_file.expanduser().resolve():
@@ -172,6 +183,7 @@ def main() -> int:
             baseline_id=args.baseline_id,
             components=components,
             config_files=config_files,
+            config_restore_targets=config_restore_targets,
             forbidden_references=tuple(args.forbidden_reference),
             external_shared_paths=tuple(args.shared_path),
             production_revisions=current,

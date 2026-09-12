@@ -12,6 +12,7 @@ from deployment.production_deploy import (
     DeploymentOptions,
     ProductionDeployError,
     _infra_change_requested,
+    _apply_infrastructure,
     _restart_changed_systemd_units,
     _validate_infrastructure,
     deploy,
@@ -236,6 +237,71 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertEqual(restarted, ["elysiumm-backend.service"])
         systemctl.assert_called_once_with("restart", "elysiumm-backend.service")
+
+    def test_backend_switch_defers_restart_until_new_unit_is_applied(self):
+        new_release = self.root / "backend-releases/abcdef1-backend-new"
+        new_release.mkdir(parents=True)
+        assembly = ReleaseAssembly(
+            "backend",
+            new_release.name,
+            new_release,
+            {"source_tree_sha256": "3" * 64},
+        )
+        candidate_unit = self.root / "backend.service"
+        candidate_unit.write_text("[Service]\nExecStart=/new/backend\n", encoding="utf-8")
+        options = self.options(
+            "backend-unit-order",
+            ("backend/main.py", "deployment/systemd/elysiumm-backend.service"),
+        )
+        options = DeploymentOptions(
+            **{
+                **options.__dict__,
+                "systemd_sources": {"elysiumm-backend.service": candidate_unit},
+                "legacy_systemd_root": self.root / "systemd",
+                "legacy_nginx_root": self.root / "nginx",
+                "legacy_proc_root": None,
+            }
+        )
+        events: list[str] = []
+
+        with (
+            patch(
+                "deployment.production_deploy.require_production_database_environment",
+                return_value=({}, "sqlite:////tmp/unused.sqlite3"),
+            ),
+            patch("deployment.production_deploy._backend_release", return_value=(assembly, object())),
+            patch("deployment.production_deploy._validate_infrastructure"),
+            patch("deployment.production_deploy._apply_infrastructure", side_effect=lambda *_args: events.append("apply") or {}),
+            patch("deployment.production_deploy._systemctl", side_effect=lambda *_args: events.append("restart")),
+            patch("deployment.production_deploy.subprocess.run"),
+        ):
+            transaction = deploy(options)
+
+        self.assertEqual(transaction["status"], "succeeded")
+        self.assertEqual(events, ["apply", "restart"])
+
+    def test_health_guard_install_is_executable(self):
+        source = self.root / "health-guard.py"
+        source.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        source.chmod(0o644)
+        target = self.root / "usr/local/sbin/elysium-health-guard"
+        options = DeploymentOptions(
+            **{
+                **self.options("health-guard-install", ("scripts/elysium_health_guard.py",)).__dict__,
+                "health_guard_source": source,
+                "health_guard_target": target,
+                "health_guard_service": "elysiumm-health-guard.service",
+            }
+        )
+        transaction = {"rollback": {}}
+
+        with (
+            patch("deployment.production_deploy._validate_infrastructure"),
+            patch("deployment.production_deploy._systemd_state", return_value={"enabled": True, "active": True}),
+        ):
+            _apply_infrastructure(options, transaction)
+
+        self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o755)
 
     def test_infrastructure_preflights_candidate_nginx_config(self):
         bin_dir = self.root / "fake-bin"

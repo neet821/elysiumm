@@ -92,7 +92,10 @@ class LiveDeploymentConfigTest(unittest.TestCase):
             encoding="utf-8"
         )
         for expected in (
-            "User=blue-album-live",
+            "User=elysium-live",
+            "Group=elysium-live",
+            "WorkingDirectory=/srv/services/elysium/ops",
+            "ExecStart=/srv/services/elysium/ops/mediamtx /etc/elysium/mediamtx.yml",
             "NoNewPrivileges=true",
             "ProtectSystem=strict",
             "ReadWritePaths=/srv/services/elysium/shared/uploads/live-recordings",
@@ -123,12 +126,11 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         provision_source = (
             ROOT / "scripts" / "provision-live-streaming.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn(
-            "usermod -a -G blue-album-live www-data",
-            provision_source,
-        )
+        self.assertIn("MEDIAMTX_INSTALL_DIR=\"/srv/services/elysium/ops/mediamtx\"", provision_source)
+        self.assertNotIn("blue-album-live", provision_source)
         self.assertIn("/etc/systemd/system/elysiumm-mediamtx.service", provision_source)
         self.assertIn("/srv/services/elysium/shared/uploads/live-recordings", provision_source)
+        self.assertIn("install -o root -g root -m 0600 /dev/null /etc/elysium/mediamtx.env", provision_source)
         self.assertNotIn("/srv/blue-album/live/recordings", provision_source)
         self.assertNotIn("blue-album-mediamtx.service", provision_source.split("UNIT_SOURCE=", 1)[-1].splitlines()[0])
 

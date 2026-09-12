@@ -35,6 +35,15 @@ def _relative_path(value: object, label: str) -> Path:
     return path
 
 
+def _restore_target(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.startswith("/"):
+        raise BaselineError(f"baseline manifest {label} must be an absolute file path")
+    target = Path(value)
+    if target == Path("/") or target.name in {"", ".", "/"}:
+        raise BaselineError(f"baseline manifest {label} must name an exact file")
+    return str(target)
+
+
 def _verify_manifest_paths(baseline: Path, manifest: dict[str, object]) -> tuple[str, ...]:
     components = manifest.get("components")
     if not isinstance(components, dict) or set(components) != REQUIRED_COMPONENTS:
@@ -45,6 +54,18 @@ def _verify_manifest_paths(baseline: Path, manifest: dict[str, object]) -> tuple
         relative = _relative_path(record.get("baseline_path"), f"components.{name}.baseline_path")
         if relative.as_posix() != name or not (baseline / relative).is_dir():
             raise BaselineError(f"baseline component path is missing: {name}")
+    config_files = manifest.get("config_files")
+    if not isinstance(config_files, dict) or not config_files:
+        raise BaselineError("baseline manifest config files are missing")
+    for name, record in config_files.items():
+        relative = _relative_path(name, f"config_files.{name}")
+        if not isinstance(record, dict):
+            raise BaselineError(f"baseline manifest config file is invalid: {name}")
+        _restore_target(record.get("restore_target"), f"config_files.{name}.restore_target")
+        for prefix in ("config/original", "config/restore"):
+            config_path = baseline / prefix / relative
+            if not config_path.is_file() or config_path.is_symlink():
+                raise BaselineError(f"baseline config file is missing: {prefix}/{relative}")
     dependencies = manifest.get("runtime_dependencies")
     if not isinstance(dependencies, dict):
         raise BaselineError("baseline manifest runtime dependencies are missing")

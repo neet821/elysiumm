@@ -28,25 +28,43 @@ if [[ ${EUID:-0} -ne 0 ]]; then
   echo "install-release-layout: root is required" >&2
   exit 1
 fi
+for principal in www-data elysium-live; do
+  if ! getent group "$principal" >/dev/null 2>&1; then
+    echo "install-release-layout: required account/group is missing: $principal" >&2
+    exit 1
+  fi
+done
 
-install -d -o root -g root -m 0755 \
-  "$ROOT_DIR" \
-  "$ROOT_DIR/baseline" \
-  "$ROOT_DIR/backend-releases" \
-  "$ROOT_DIR/frontend-releases" \
-  "$ROOT_DIR/deployment-history" \
-  "$ROOT_DIR/shared" \
-  "$ROOT_DIR/shared/uploads" \
-  "$ROOT_DIR/shared/private-storage" \
-  "$ROOT_DIR/shared/sync-storage" \
-  "$ROOT_DIR/shared/transfers" \
-  "$ROOT_DIR/shared/backups" \
-  "$ROOT_DIR/shared/backups/database" \
-  "$ROOT_DIR/shared/logs"
+ensure_directory() {
+  local path=$1 owner=$2 group=$3 mode=$4
+  if [[ -e "$path" || -L "$path" ]]; then
+    if [[ -L "$path" || ! -d "$path" ]]; then
+      echo "install-release-layout: expected directory, refusing: $path" >&2
+      exit 1
+    fi
+    return
+  fi
+  install -d -o "$owner" -g "$group" -m "$mode" "$path"
+}
 
-install -d -o root -g www-data -m 0750 \
-  "$ROOT_DIR/shared/sync-storage/articles" \
-  "$ROOT_DIR/shared/sync-storage/media"
+# Existing directories may hold production data.  Their ownership and mode are
+# intentionally preserved; only missing paths receive the live service policy.
+ensure_directory "$ROOT_DIR" root root 0755
+ensure_directory "$ROOT_DIR/baseline" root root 0755
+ensure_directory "$ROOT_DIR/backend-releases" root root 0755
+ensure_directory "$ROOT_DIR/frontend-releases" root root 0755
+ensure_directory "$ROOT_DIR/deployment-history" root root 0755
+ensure_directory "$ROOT_DIR/shared" root root 0755
+ensure_directory "$ROOT_DIR/shared/uploads" www-data www-data 0775
+ensure_directory "$ROOT_DIR/shared/uploads/live-recordings" elysium-live elysium-live 0755
+ensure_directory "$ROOT_DIR/shared/private-storage" www-data www-data 0750
+ensure_directory "$ROOT_DIR/shared/sync-storage" www-data www-data 0755
+ensure_directory "$ROOT_DIR/shared/sync-storage/articles" root www-data 2750
+ensure_directory "$ROOT_DIR/shared/sync-storage/media" root www-data 2750
+ensure_directory "$ROOT_DIR/shared/transfers" www-data www-data 0750
+ensure_directory "$ROOT_DIR/shared/backups" www-data www-data 0750
+ensure_directory "$ROOT_DIR/shared/backups/database" www-data www-data 0750
+ensure_directory "$ROOT_DIR/shared/logs" www-data www-data 0750
 
 if [[ -e "$ROOT_DIR/data" && ! -L "$ROOT_DIR/data" ]]; then
   echo "install-release-layout: legacy data directory exists; run the separately reviewed data-to-shared migration before creating data -> shared" >&2

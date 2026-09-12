@@ -50,29 +50,64 @@ sudo install -d -m 0755 /srv/services/elysium/baseline
 sudo python3 scripts/create-baseline.py \
   --baseline-root /srv/services/elysium/baseline \
   --baseline-id current-production-<timestamp> \
-  --component backend=/srv/services/elysium/current/backend \
-  --component frontend=/srv/services/elysium/web-current/dist \
-  --component mineradio=/srv/services/elysium/mineradio \
+  --component backend=/srv/services/elysium/releases/66d1b0b-20260911-160920/backend \
+  --component frontend=/srv/services/elysium/web-releases/071f14d-20260911-1550 \
+  --component mineradio=/srv/services/elysium/releases/93e8188/mineradio \
   --component articles=/srv/services/elysium/articles \
-  --dependency backend/.venv=/srv/services/elysium/current/.venv \
+  --dependency backend/runtime/mediamtx=/srv/services/elysium/ops/mediamtx \
   --config env/backend.env=/etc/elysium/backend.env \
-  --config systemd/backend.service=/etc/systemd/system/elysiumm-backend.service \
-  --config systemd/mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
-  --config nginx/elysium.conf=/etc/nginx/sites-available/elysium \
+  --config env/articles.env=/etc/elysium/articles.env \
+  --config env/mineradio.env=/etc/elysium/mineradio.env \
+  --config env/mediamtx.env=/etc/elysium/mediamtx.env \
+  --config systemd/elysiumm-backend.service=/etc/systemd/system/elysiumm-backend.service \
+  --config systemd/elysiumm-articles.service=/etc/systemd/system/elysiumm-articles.service \
+  --config systemd/elysiumm-mineradio.service=/etc/systemd/system/elysiumm-mineradio.service \
+  --config systemd/elysiumm-mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
+  --config systemd/obsidian-livesync-mirror.service=/etc/systemd/system/obsidian-livesync-mirror.service \
+  --config systemd/elysiumm-health-guard.service=/etc/systemd/system/elysiumm-health-guard.service \
+  --config nginx/sites-available/elysiumm=/etc/nginx/sites-available/elysiumm \
+  --config nginx/conf.d/send-elysiumm.conf=/etc/nginx/conf.d/send-elysiumm.conf \
+  --config nginx/sites-available/elysiumm-sync=/etc/nginx/sites-available/elysiumm-sync \
+  --config usr/local/sbin/elysium-health-guard=/usr/local/sbin/elysium-health-guard \
+  --restore-target env/backend.env=/etc/elysium/backend.env \
+  --restore-target env/articles.env=/etc/elysium/articles.env \
+  --restore-target env/mineradio.env=/etc/elysium/mineradio.env \
+  --restore-target env/mediamtx.env=/etc/elysium/mediamtx.env \
+  --restore-target systemd/elysiumm-backend.service=/etc/systemd/system/elysiumm-backend.service \
+  --restore-target systemd/elysiumm-articles.service=/etc/systemd/system/elysiumm-articles.service \
+  --restore-target systemd/elysiumm-mineradio.service=/etc/systemd/system/elysiumm-mineradio.service \
+  --restore-target systemd/elysiumm-mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
+  --restore-target systemd/obsidian-livesync-mirror.service=/etc/systemd/system/obsidian-livesync-mirror.service \
+  --restore-target systemd/elysiumm-health-guard.service=/etc/systemd/system/elysiumm-health-guard.service \
+  --restore-target nginx/sites-available/elysiumm=/etc/nginx/sites-available/elysiumm \
+  --restore-target nginx/conf.d/send-elysiumm.conf=/etc/nginx/conf.d/send-elysiumm.conf \
+  --restore-target nginx/sites-available/elysiumm-sync=/etc/nginx/sites-available/elysiumm-sync \
+  --restore-target usr/local/sbin/elysium-health-guard=/usr/local/sbin/elysium-health-guard \
   --replace /srv/services/elysium/current=/srv/services/elysium/baseline/current-production-<timestamp> \
   --replace /srv/services/elysium/web-current=/srv/services/elysium/baseline/current-production-<timestamp>/frontend \
   --replace /srv/services/elysium/mineradio=/srv/services/elysium/baseline/current-production-<timestamp>/mineradio \
   --replace /srv/services/elysium/articles=/srv/services/elysium/baseline/current-production-<timestamp>/articles \
   --replace /srv/services/elysium/data=/srv/services/elysium/shared \
+  --replace /srv/services/obsidian-livesync/mirror/vault=/srv/services/elysium/shared/sync-storage/articles \
+  --replace /srv/services/obsidian-livesync/mirror/database=/srv/services/elysium/shared/sync-storage/media \
+  --replace /srv/services/elysium/ops=/srv/services/elysium/baseline/current-production-<timestamp>/backend/runtime \
+  --replace '/srv/services/elysium/current/backend/.venv/bin/uvicorn=/srv/services/elysium/baseline/current-production-<timestamp>/backend/.venv/bin/python -m uvicorn' \
   --forbidden-reference /srv/services/elysium/current \
   --forbidden-reference /srv/services/elysium/web-current \
   --forbidden-reference /srv/services/elysium/mineradio \
   --forbidden-reference /srv/services/elysium/articles \
+  --forbidden-reference /srv/services/elysium/ops \
+  --forbidden-reference /srv/services/elysium/data \
   --shared-path /srv/services/elysium/shared/uploads \
   --shared-path /srv/services/elysium/shared/sync-storage/articles \
+  --shared-path /srv/services/elysium/shared/sync-storage/media \
   --service elysiumm-backend.service \
+  --service elysiumm-articles.service \
+  --service elysiumm-mineradio.service \
   --service elysiumm-mediamtx.service \
-  --service-command '/srv/services/elysium/current/.venv/bin/python -m uvicorn main:app --app-dir /srv/services/elysium/current/backend --host 127.0.0.1 --port 8000 --workers 1'
+  --service obsidian-livesync-mirror.service \
+  --service elysiumm-health-guard.service \
+  --service-command '/srv/services/elysium/current/backend/.venv/bin/python -m uvicorn main:app --app-dir /srv/services/elysium/current/backend --host 127.0.0.1 --port 8000 --workers 1'
 ```
 
 The command always makes a consistency backup because baseline creation is a

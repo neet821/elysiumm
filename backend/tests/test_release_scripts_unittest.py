@@ -65,12 +65,9 @@ class ReleaseScriptsTest(unittest.TestCase):
 
     def test_install_layout_declares_private_article_and_media_directories(self):
         source = (ROOT / "scripts/install-release-layout.sh").read_text(encoding="utf-8")
-        self.assertIn(
-            'install -d -o root -g www-data -m 0750 \\\n'
-            '  "$ROOT_DIR/shared/sync-storage/articles" \\\n'
-            '  "$ROOT_DIR/shared/sync-storage/media"',
-            source,
-        )
+        self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/articles"', source)
+        self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/media"', source)
+        self.assertIn('ensure_directory "$ROOT_DIR/shared/uploads/live-recordings"', source)
         self.assertIn('ln -s shared "$ROOT_DIR/data"', source)
         self.assertIn("legacy data directory exists", source)
         self.assertIn("refusing unexpected data link", source)
@@ -236,6 +233,46 @@ class ReleaseScriptsTest(unittest.TestCase):
                     str(backup_root),
                     "--health-url",
                     health.as_uri(),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_first_cutover_preflight_allows_missing_current_links_with_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, _web_root, backup_root, _health = self.fixture(root)
+            _web_root.rmdir()
+            (root / "frontend-current").rmdir()
+            (root / "repository.git").mkdir()
+            (root / "repository.git" / "HEAD").write_text(
+                "ref: refs/heads/codex/release-cicd-2026-09-12\n", encoding="utf-8"
+            )
+            for path in (
+                root / "baseline" / "current-production-test",
+                root / "backend-releases",
+                root / "frontend-releases",
+                root / "shared",
+                root / "shared" / "sync-storage" / "articles",
+                root / "shared" / "sync-storage" / "media",
+            ):
+                path.mkdir(parents=True, exist_ok=True)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(ROOT / "scripts/release-preflight.sh"),
+                    "--fixture-root",
+                    str(root),
+                    "--root",
+                    str(root),
+                    "--env-file",
+                    str(root / "backend.env"),
+                    "--backup-root",
+                    str(backup_root),
+                    "--allow-empty-current",
                 ],
                 cwd=ROOT,
                 capture_output=True,

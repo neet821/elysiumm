@@ -203,8 +203,10 @@ jobs:
             deployment \
             scripts/install-release-layout.sh \
             scripts/deploy-production.py \
+            scripts/bootstrap-production.py \
             scripts/release-preflight.sh \
             scripts/verify-baseline.py \
+            scripts/elysium_health_guard.py \
             | tar -xf - -C "$payload"
           mkdir -p "$payload/frontend"
           if [[ "$deploy_frontend" == true ]]; then
@@ -344,6 +346,11 @@ jobs:
             # database health gate and migration analysis below.
             preflight_args+=(--skip-database)
           fi
+          if [[ ! -L "$root/backend-current" || ! -L "$root/frontend-current" ]]; then
+            # The first manually approved cutover has a verified baseline and
+            # release layout but no component current links yet.
+            preflight_args+=(--allow-empty-current)
+          fi
           sudo -n bash "$stage/scripts/release-preflight.sh" "${preflight_args[@]}"
           sudo -n install -d -m 0755 "$root/deployment"
           sudo -n install -m 0644 "$stage/deployment/release-impact.yml" \
@@ -407,6 +414,7 @@ jobs:
             sudo -n "$deployment_python" "$stage/scripts/deploy-production.py"
             --root "$root"
             --commit "$commit"
+            --git-ref "refs/heads/main"
             --deployment-id "$deployment_id"
             --trigger github-actions
             --github-run-id "$run_id"
@@ -429,16 +437,16 @@ jobs:
             case "$path" in
               deployment/nginx/elysiumm.conf)
                 if [[ -f "$stage/deployment/nginx/elysiumm.conf" ]]; then
-                  deploy_command+=(--nginx-source "$stage/deployment/nginx/elysiumm.conf")
+                  deploy_command+=(--nginx-source "/etc/nginx/sites-available/elysiumm=$stage/deployment/nginx/elysiumm.conf")
                 else
-                  deploy_command+=(--remove-nginx-target /etc/nginx/sites-available/elysium)
+                  deploy_command+=(--remove-nginx-target /etc/nginx/sites-available/elysiumm)
                 fi
                 ;;
               deployment/nginx/send.elysiumm.conf)
                 if [[ -f "$stage/deployment/nginx/send.elysiumm.conf" ]]; then
-                  deploy_command+=(--nginx-source "/etc/nginx/sites-available/send.elysiumm=$stage/deployment/nginx/send.elysiumm.conf")
+                  deploy_command+=(--nginx-source "/etc/nginx/conf.d/send-elysiumm.conf=$stage/deployment/nginx/send.elysiumm.conf")
                 else
-                  deploy_command+=(--remove-nginx-target /etc/nginx/sites-available/send.elysiumm)
+                  deploy_command+=(--remove-nginx-target /etc/nginx/conf.d/send-elysiumm.conf)
                 fi
                 ;;
               deployment/nginx-elysiumm-articles.conf)
@@ -451,6 +459,22 @@ jobs:
               deployment/nginx/*)
                 echo "no production target is defined for changed Nginx file: $path" >&2
                 exit 1
+                ;;
+              deployment/mediamtx/*.yml|deployment/mediamtx/*.yaml)
+                if [[ -f "$stage/$path" ]]; then
+                  deploy_command+=(--mediamtx-config-source "$stage/$path")
+                else
+                  echo "MediaMTX config cannot be deleted without an explicit rollback plan: $path" >&2
+                  exit 1
+                fi
+                ;;
+              scripts/elysium_health_guard.py)
+                if [[ -f "$stage/scripts/elysium_health_guard.py" ]]; then
+                  deploy_command+=(--health-guard-source "$stage/scripts/elysium_health_guard.py")
+                else
+                  echo "health guard source cannot be deleted without an explicit rollback plan" >&2
+                  exit 1
+                fi
                 ;;
               deployment/systemd/*.service|deployment/systemd/*.timer)
                 unit="${path#deployment/systemd/}"

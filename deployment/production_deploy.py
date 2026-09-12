@@ -61,7 +61,7 @@ class ProductionDeployError(RuntimeError):
 class InfrastructureApplyError(ProductionDeployError):
     """Infrastructure application failed after changing one or more targets."""
 
-    def __init__(self, message: str, *, previous: Mapping[str, Path | None]) -> None:
+    def __init__(self, message: str, *, previous: Mapping[str, object]) -> None:
         super().__init__(message)
         self.previous = dict(previous)
 
@@ -73,6 +73,7 @@ class DeploymentOptions:
     deployment_id: str
     trigger: str
     changed_paths: tuple[str, ...]
+    git_ref: str = "refs/heads/main"
     backend_source: Path | None = None
     frontend_source: Path | None = None
     frontend_dist: Path | None = None
@@ -81,11 +82,17 @@ class DeploymentOptions:
     python_executable: Path = Path("/usr/bin/python3")
     nginx_source: Path | None = None
     systemd_sources: Mapping[str, Path] | None = None
-    nginx_target: Path = Path("/etc/nginx/sites-available/elysium")
+    nginx_target: Path = Path("/etc/nginx/sites-available/elysiumm")
     nginx_sources: Mapping[Path, Path] | None = None
     nginx_remove_targets: tuple[Path, ...] = ()
     systemd_target_dir: Path = Path("/etc/systemd/system")
     systemd_remove_units: tuple[str, ...] = ()
+    mediamtx_config_source: Path | None = None
+    mediamtx_config_target: Path = Path("/etc/elysium/mediamtx.yml")
+    health_guard_source: Path | None = None
+    health_guard_target: Path = Path("/usr/local/sbin/elysium-health-guard")
+    health_guard_service: str = "elysiumm-health-guard.service"
+    defer_health_guard_restart: bool = False
     backend_service: str = "elysiumm-backend.service"
     nginx_service: str = "nginx.service"
     health_url: str = "http://127.0.0.1:8000/api/health"
@@ -263,7 +270,31 @@ def _run_health(url: str) -> tuple[bool, str]:
 def _systemctl(action: str, service: str) -> None:
     if "flclash" in service.casefold():
         raise ProductionDeployError(f"deployment must not control FlClash service: {service}")
-    subprocess.run(["systemctl", action, service], check=True)
+    if action == "disable --now":
+        command = ["systemctl", "disable", "--now", service]
+    else:
+        command = ["systemctl", action, service]
+    subprocess.run(command, check=True)
+
+
+def _systemd_state(unit: str) -> dict[str, bool]:
+    """Capture state before a unit file is replaced or removed."""
+
+    if "flclash" in unit.casefold():
+        raise ProductionDeployError(f"deployment must not inspect FlClash unit: {unit}")
+    enabled = subprocess.run(
+        ["systemctl", "is-enabled", "--quiet", unit],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+    active = subprocess.run(
+        ["systemctl", "is-active", "--quiet", unit],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode == 0
+    return {"enabled": enabled, "active": active}
 
 
 @contextmanager
@@ -372,6 +403,7 @@ def _backend_release(
             python_executable=options.python_executable,
             freeze=False,
             activate=False,
+            git_ref=options.git_ref,
         )
         try:
             _install_backend_dependencies(assembly, assembly.path / "backend/requirements.txt", environment)
@@ -519,6 +551,7 @@ def _frontend_release(options: DeploymentOptions, *, deployment_id: str) -> Rele
             api_schema_sha256=api_schema_sha256,
             compatible_backend_api=options.compatible_backend_api,
             build_budget=dict(options.build_budget),
+            git_ref=options.git_ref,
             activate=False,
         )
     except (ReleaseBuildError, OSError) as exc:
@@ -568,6 +601,8 @@ def _has_infrastructure_changes(options: DeploymentOptions) -> bool:
         or _nginx_remove_targets(options)
         or options.systemd_sources
         or _systemd_remove_units(options)
+        or options.mediamtx_config_source
+        or options.health_guard_source
     )
 
 
@@ -588,7 +623,8 @@ def _infra_change_requested(impact: Mapping[str, Any], options: DeploymentOption
         return False
     return any(
         isinstance(rule, Mapping)
-        and rule.get("id") in {"nginx-infrastructure", "systemd-infrastructure"}
+        and isinstance(rule.get("id"), str)
+        and rule["id"].endswith("-infrastructure")
         for rule in matched_rules
     )
 
@@ -602,19 +638,47 @@ def _within(path: Path, root: Path) -> bool:
 
 
 def _validate_nginx_target(options: DeploymentOptions, target: Path) -> None:
-    # Production writes are constrained to the Nginx site directory.  A
-    # temporary root is also allowed for isolated rehearsals and unit tests.
+    # Production writes are constrained to the explicit Nginx configuration
+    # directories.  A temporary root is also allowed for isolated rehearsals
+    # and unit tests.
     allowed = (
         Path("/etc/nginx/sites-available"),
         Path("/etc/nginx/sites-enabled"),
+        Path("/etc/nginx/conf.d"),
         options.root,
     )
     if not any(_within(target, candidate) for candidate in allowed) or target in {
         Path("/etc/nginx/sites-available"),
         Path("/etc/nginx/sites-enabled"),
+        Path("/etc/nginx/conf.d"),
         options.root,
     }:
         raise ProductionDeployError(f"Nginx target must be a site file: {target}")
+
+
+def _validate_fixed_file_target(
+    options: DeploymentOptions,
+    target: Path,
+    expected: Path,
+    label: str,
+) -> None:
+    """Allow one production target plus a path below the isolated test root."""
+
+    target = target.expanduser()
+    if not target.is_absolute() or target == Path("/") or target.is_symlink():
+        raise ProductionDeployError(f"unsafe {label} target: {target}")
+    if target.exists() and not target.is_file():
+        raise ProductionDeployError(f"{label} target must be a regular file: {target}")
+    if target != expected and not _within(target, options.root):
+        raise ProductionDeployError(f"{label} target is not the managed production file: {target}")
+
+
+def _validate_regular_source(source: Path, label: str) -> Path:
+    raw_source = source.expanduser()
+    resolved = raw_source.resolve()
+    if raw_source.is_symlink() or not resolved.is_file():
+        raise ProductionDeployError(f"candidate {label} is not a regular file: {raw_source}")
+    return resolved
 
 
 def _validate_systemd_target_dir(options: DeploymentOptions) -> None:
@@ -692,9 +756,7 @@ def _validate_infrastructure(options: DeploymentOptions) -> None:
         if "flclash" in unit.casefold():
             raise ProductionDeployError(f"deployment must not control FlClash unit: {unit}")
         raw_source = source.expanduser()
-        source = raw_source.resolve()
-        if raw_source.is_symlink() or not source.is_file():
-            raise ProductionDeployError(f"candidate systemd unit is not a regular file: {raw_source}")
+        source = _validate_regular_source(raw_source, "systemd unit")
         if (options.systemd_target_dir / unit).is_symlink():
             raise ProductionDeployError(
                 f"refusing to overwrite symlinked systemd unit: {options.systemd_target_dir / unit}"
@@ -703,17 +765,37 @@ def _validate_infrastructure(options: DeploymentOptions) -> None:
             result = subprocess.run(["systemd-analyze", "verify", str(source)], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode:
                 raise ProductionDeployError((result.stderr or result.stdout).strip() or f"systemd verification failed: {source}")
+    if options.mediamtx_config_source is not None:
+        _validate_fixed_file_target(
+            options,
+            options.mediamtx_config_target,
+            Path("/etc/elysium/mediamtx.yml"),
+            "MediaMTX config",
+        )
+        _validate_regular_source(options.mediamtx_config_source, "MediaMTX config")
+    if options.health_guard_source is not None:
+        _validate_fixed_file_target(
+            options,
+            options.health_guard_target,
+            Path("/usr/local/sbin/elysium-health-guard"),
+            "health guard",
+        )
+        _validate_regular_source(options.health_guard_source, "health guard")
+        if "flclash" in options.health_guard_service.casefold():
+            raise ProductionDeployError(
+                f"deployment must not control FlClash service: {options.health_guard_service}"
+            )
 
 
 def _apply_infrastructure(
     options: DeploymentOptions,
     transaction: dict[str, Any],
-) -> dict[str, Path | None]:
+) -> dict[str, object]:
     _validate_infrastructure(options)
     history_dir = options.root / "deployment-history" / f"{options.deployment_id}.rollback"
     history_dir.mkdir(parents=True, exist_ok=False)
     transaction["rollback"]["config_backup"] = str(history_dir.relative_to(options.root))
-    previous: dict[str, Path | None] = {}
+    previous: dict[str, object] = {}
     try:
         nginx_candidates = _nginx_candidates(options)
         for index, (target, source) in enumerate(nginx_candidates):
@@ -742,10 +824,45 @@ def _apply_infrastructure(
                 diff = ""
             (history_dir / f"nginx-{index}.diff").write_text(diff, encoding="utf-8")
             _unlink_if_present(target)
+        if options.mediamtx_config_source is not None:
+            target = options.mediamtx_config_target
+            key = f"mediamtx-config:{target}"
+            previous[key] = None
+            if target.is_file():
+                backup = history_dir / "mediamtx.conf.before"
+                shutil.copy2(target, backup)
+                previous[key] = backup
+            source = _validate_regular_source(options.mediamtx_config_source, "MediaMTX config")
+            before = previous[key] if isinstance(previous[key], Path) else None
+            (history_dir / "mediamtx.conf.diff").write_text(
+                _config_diff(before, source), encoding="utf-8"
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+        if options.health_guard_source is not None:
+            target = options.health_guard_target
+            key = f"health-guard:{target}"
+            previous[key] = None
+            previous[f"health-guard-state:{options.health_guard_service}"] = _systemd_state(
+                options.health_guard_service
+            )
+            if target.is_file():
+                backup = history_dir / "health-guard.before"
+                shutil.copy2(target, backup)
+                previous[key] = backup
+            source = _validate_regular_source(options.health_guard_source, "health guard")
+            before = previous[key] if isinstance(previous[key], Path) else None
+            (history_dir / "health-guard.diff").write_text(
+                _config_diff(before, source), encoding="utf-8"
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            os.chmod(target, 0o755)
         for unit, source in (options.systemd_sources or {}).items():
             target = options.systemd_target_dir / unit
             key = f"systemd:{unit}"
             previous[key] = None
+            previous[f"systemd-state:{unit}"] = _systemd_state(unit)
             if target.is_file():
                 backup = history_dir / f"{unit}.before"
                 shutil.copy2(target, backup)
@@ -758,6 +875,7 @@ def _apply_infrastructure(
             target = options.systemd_target_dir / unit
             key = f"systemd:{unit}"
             previous[key] = None
+            previous[f"systemd-state:{unit}"] = _systemd_state(unit)
             if target.exists():
                 if not target.is_file() or target.is_symlink():
                     raise ProductionDeployError(f"systemd removal target is not a regular file: {target}")
@@ -769,12 +887,35 @@ def _apply_infrastructure(
             else:
                 diff = ""
             (history_dir / f"{unit}.diff").write_text(diff, encoding="utf-8")
+            state = previous[f"systemd-state:{unit}"]
+            if isinstance(state, Mapping) and (state.get("enabled") or state.get("active")):
+                # Disable before deleting the unit so systemd cannot leave a
+                # dangling wants link or immediately respawn the retired app.
+                _systemctl("disable --now", unit)
             _unlink_if_present(target)
     except Exception as exc:
+        transaction["rollback"]["infrastructure_state"] = {
+            key.removeprefix("systemd-state:"): dict(value)
+            for key, value in previous.items()
+            if key.startswith("systemd-state:") and isinstance(value, Mapping)
+        }
+        if options.health_guard_source is not None:
+            state = previous.get(f"health-guard-state:{options.health_guard_service}")
+            if isinstance(state, Mapping):
+                transaction["rollback"]["health_guard_state"] = dict(state)
         raise InfrastructureApplyError(
             f"infrastructure apply failed: {exc}",
             previous=previous,
         ) from exc
+    transaction["rollback"]["infrastructure_state"] = {
+        key.removeprefix("systemd-state:"): dict(value)
+        for key, value in previous.items()
+        if key.startswith("systemd-state:") and isinstance(value, Mapping)
+    }
+    if options.health_guard_source is not None:
+        state = previous.get(f"health-guard-state:{options.health_guard_service}")
+        if isinstance(state, Mapping):
+            transaction["rollback"]["health_guard_state"] = dict(state)
     return previous
 
 
@@ -785,7 +926,10 @@ def _restart_changed_systemd_units(
     skip_backend: bool = False,
 ) -> list[str]:
     restarted: list[str] = []
-    for unit in units if units is not None else (options.systemd_sources or {}):
+    selected = list(units if units is not None else (options.systemd_sources or {}))
+    if options.health_guard_source is not None and not options.defer_health_guard_restart:
+        selected.append(options.health_guard_service)
+    for unit in dict.fromkeys(selected):
         # A backend unit-file change must be restarted after daemon-reload so
         # the new unit is actually active.  Callers may skip it only when they
         # have independently proven that the unit file was not changed.
@@ -806,10 +950,12 @@ def _stop_removed_systemd_units(options: DeploymentOptions, units: list[str]) ->
 
 def _restore_infrastructure(
     options: DeploymentOptions,
-    previous: Mapping[str, Path | None],
+    previous: Mapping[str, object],
 ) -> None:
     nginx_was_changed = False
     for key, backup in previous.items():
+        if not isinstance(backup, (Path, type(None))):
+            continue
         if not key.startswith("nginx:"):
             continue
         nginx_was_changed = True
@@ -820,6 +966,30 @@ def _restore_infrastructure(
         else:
             _unlink_if_present(target)
     for key, backup in previous.items():
+        if not isinstance(backup, (Path, type(None))):
+            continue
+        if not key.startswith("mediamtx-config:"):
+            continue
+        target = Path(key.removeprefix("mediamtx-config:"))
+        if backup is None:
+            _unlink_if_present(target)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(backup, target)
+    for key, backup in previous.items():
+        if not isinstance(backup, (Path, type(None))):
+            continue
+        if not key.startswith("health-guard:"):
+            continue
+        target = Path(key.removeprefix("health-guard:"))
+        if backup is None:
+            _unlink_if_present(target)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(backup, target)
+    for key, backup in previous.items():
+        if not isinstance(backup, (Path, type(None))):
+            continue
         if not key.startswith("systemd:"):
             continue
         target = options.systemd_target_dir / key.split(":", 1)[1]
@@ -827,16 +997,44 @@ def _restore_infrastructure(
             _unlink_if_present(target)
         else:
             shutil.copy2(backup, target)
-    if any(key.startswith("systemd:") for key in previous):
+    systemd_units = [
+        key.split(":", 1)[1]
+        for key, backup in previous.items()
+        if key.startswith("systemd:") and isinstance(backup, (Path, type(None)))
+    ]
+    if systemd_units:
         subprocess.run(["systemctl", "daemon-reload"], check=True)
-        _restart_changed_systemd_units(
-            options,
-            [
-                key.split(":", 1)[1]
-                for key, backup in previous.items()
-                if key.startswith("systemd:") and backup is not None
-            ],
-        )
+        for unit in systemd_units:
+            state = previous.get(f"systemd-state:{unit}")
+            if not isinstance(state, Mapping):
+                if previous.get(f"systemd:{unit}") is not None:
+                    _systemctl("restart", unit)
+                continue
+            if bool(state.get("enabled")):
+                _systemctl("enable", unit)
+            else:
+                _systemctl("disable", unit)
+            if bool(state.get("active")):
+                _systemctl("restart", unit)
+            else:
+                _systemctl("stop", unit)
+    health_state = next(
+        (
+            value
+            for key, value in previous.items()
+            if key.startswith("health-guard-state:") and isinstance(value, Mapping)
+        ),
+        None,
+    )
+    if health_state is not None:
+        if bool(health_state.get("enabled")):
+            _systemctl("enable", options.health_guard_service)
+        else:
+            _systemctl("disable", options.health_guard_service)
+        if bool(health_state.get("active")):
+            _systemctl("restart", options.health_guard_service)
+        else:
+            _systemctl("stop", options.health_guard_service)
     if nginx_was_changed:
         subprocess.run(["nginx", "-t"], check=True)
         subprocess.run(["systemctl", "reload", options.nginx_service], check=True)
@@ -888,7 +1086,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     transaction_path.parent.mkdir(parents=True, exist_ok=True)
     write_transaction(transaction_path, transaction)
     switched: list[str] = []
-    previous_infra: dict[str, Path | None] = {}
+    previous_infra: dict[str, object] = {}
     environment: dict[str, str] | None = None
     try:
         legacy_audit = _legacy_path_audit(options, root)
@@ -902,6 +1100,12 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
         _write_progress(transaction_path, transaction)
         components = set(impact["components"])
         infrastructure_change_requested = _infra_change_requested(impact, options)
+        backend_restart_deferred = bool(
+            "backend" in components
+            and infrastructure_change_requested
+            and options.systemd_sources
+            and options.backend_service in options.systemd_sources
+        )
         if "infra" in components and infrastructure_change_requested:
             _validate_infrastructure(options)
             _stage(transaction, "infrastructure_preflight", "succeeded")
@@ -932,15 +1136,25 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             switched.append("backend")
             _stage(transaction, "backend_current_switch", "succeeded", release_id=assembly.release_id)
             _write_progress(transaction_path, transaction)
-            _systemctl("restart", options.backend_service)
-            _stage(transaction, "backend_service_restart", "succeeded", service=options.backend_service)
-            _write_progress(transaction_path, transaction)
-            if not options.skip_health:
-                passed, detail = _run_health(options.health_url)
-                _record_health(transaction, "backend", passed, detail=detail)
+            if backend_restart_deferred:
+                _stage(
+                    transaction,
+                    "backend_service_restart",
+                    "deferred",
+                    service=options.backend_service,
+                    reason="backend unit will be applied before restart",
+                )
                 _write_progress(transaction_path, transaction)
-                if not passed:
-                    raise ProductionDeployError("backend health check failed after current switch")
+            else:
+                _systemctl("restart", options.backend_service)
+                _stage(transaction, "backend_service_restart", "succeeded", service=options.backend_service)
+                _write_progress(transaction_path, transaction)
+                if not options.skip_health:
+                    passed, detail = _run_health(options.health_url)
+                    _record_health(transaction, "backend", passed, detail=detail)
+                    _write_progress(transaction_path, transaction)
+                    if not passed:
+                        raise ProductionDeployError("backend health check failed after current switch")
         if "frontend" in components:
             assembly = _frontend_release(options, deployment_id=options.deployment_id)
             transaction["releases"]["frontend"] = {
@@ -963,21 +1177,43 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                         raise ProductionDeployError((result.stderr or result.stdout).strip() or "nginx syntax check failed after apply")
                 if options.systemd_sources or _systemd_remove_units(options):
                     subprocess.run(["systemctl", "daemon-reload"], check=True)
-                    restarted_units = _restart_changed_systemd_units(options, list((options.systemd_sources or {})))
+                    restart_units = list((options.systemd_sources or {}))
+                    if options.health_guard_source is not None and not options.defer_health_guard_restart:
+                        restart_units.append(options.health_guard_service)
+                    restarted_units = _restart_changed_systemd_units(options, restart_units)
                     removed_units = [
                         unit
                         for unit in _systemd_remove_units(options)
                         if previous_infra.get(f"systemd:{unit}") is not None
                     ]
-                    stopped_units = _stop_removed_systemd_units(options, removed_units)
                     _stage(
                         transaction,
                         "systemd_service_restart",
                         "succeeded",
                         units=restarted_units,
-                        stopped_units=stopped_units,
+                        stopped_units=removed_units,
                     )
                     _write_progress(transaction_path, transaction)
+                    if backend_restart_deferred:
+                        if options.backend_service not in restarted_units:
+                            raise ProductionDeployError(
+                                "backend unit was not restarted after infrastructure apply"
+                            )
+                        _stage(
+                            transaction,
+                            "backend_service_restart",
+                            "succeeded",
+                            service=options.backend_service,
+                        )
+                        _write_progress(transaction_path, transaction)
+                        if not options.skip_health:
+                            passed, detail = _run_health(options.health_url)
+                            _record_health(transaction, "backend", passed, detail=detail)
+                            _write_progress(transaction_path, transaction)
+                            if not passed:
+                                raise ProductionDeployError(
+                                    "backend health check failed after infrastructure apply"
+                                )
                 if _nginx_candidates(options):
                     _systemctl("reload", options.nginx_service)
             else:
@@ -1043,6 +1279,9 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
         }
         if transaction.get("rollback", {}).get("config_backup"):
             rollback_payload["config_backup"] = transaction["rollback"]["config_backup"]
+        for key in ("infrastructure_state", "health_guard_state"):
+            if key in transaction.get("rollback", {}):
+                rollback_payload[key] = transaction["rollback"][key]
         transaction["status"] = "failed"
         safe_error = _redacted_error(exc, environment)
         transaction["error"] = safe_error

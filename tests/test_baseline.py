@@ -27,6 +27,7 @@ class BaselineTests(unittest.TestCase):
         components: dict[str, Path] | None = None,
         config_files: dict[str, Path] | None = None,
         runtime_dependencies: dict[str, Path] | None = None,
+        config_restore_targets: dict[str, Path] | None = None,
         services: tuple[str, ...] = (),
         service_commands: tuple[str, ...] = ("backend/.venv/bin/python -m uvicorn main:app --workers 1",),
     ) -> BaselineInputs:
@@ -40,6 +41,9 @@ class BaselineTests(unittest.TestCase):
             components=components or self._components(root),
             runtime_dependencies=runtime_dependencies or {},
             config_files=config_files or {"env/backend.env": environment},
+            config_restore_targets=config_restore_targets or {
+                "env/backend.env": Path("/etc/elysium/backend.env"),
+            },
             forbidden_references=(),
             external_shared_paths=("/shared",),
             production_revisions=("old",),
@@ -102,6 +106,72 @@ class BaselineTests(unittest.TestCase):
             self.assertFalse(any(path.is_symlink() for path in baseline.rglob("*")))
             self.assertEqual(stat.S_IMODE((baseline / "BASELINE.json").stat().st_mode), 0o444)
             subprocess.run(["bash", str(baseline / "restore/verify.sh")], check=True, capture_output=True, text=True)
+
+    def test_baseline_records_exact_config_restore_targets_and_uses_them(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            nginx = root / "elysiumm.conf"
+            nginx.write_text("server {}\n", encoding="utf-8")
+            virtualenv = root / "runtime-venv"
+            (virtualenv / "bin").mkdir(parents=True)
+            python = virtualenv / "bin/python"
+            python.write_text("#!/usr/bin/env bash\nexec /usr/bin/python3 \"$@\"\n", encoding="utf-8")
+            python.chmod(0o755)
+            (virtualenv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+            inputs = self._valid_inputs(
+                root,
+                runtime_dependencies={"backend/.venv": virtualenv},
+                config_files={
+                    "env/backend.env": root / "backend.env",
+                    "nginx/conf.d/elysiumm.conf": nginx,
+                },
+                config_restore_targets={
+                    "env/backend.env": Path("/etc/elysium/backend.env"),
+                    "nginx/conf.d/elysiumm.conf": Path("/etc/nginx/conf.d/elysiumm.conf"),
+                },
+            )
+
+            baseline = create_baseline(inputs)
+            manifest = json.loads((baseline / "BASELINE.json").read_text(encoding="utf-8"))
+            nginx_record = manifest["config_files"]["nginx/conf.d/elysiumm.conf"]
+            self.assertEqual(nginx_record["source_path"], str(nginx.resolve()))
+            self.assertEqual(nginx_record["restore_target"], "/etc/nginx/conf.d/elysiumm.conf")
+            restore = (baseline / "restore/restore.sh").read_text(encoding="utf-8")
+            self.assertIn('ensure_restore_parent /etc/nginx/conf.d', restore)
+            self.assertIn(
+                'install -m 0644 "$BASELINE_DIR/config/restore/nginx/conf.d/elysiumm.conf" /etc/nginx/conf.d/elysiumm.conf',
+                restore,
+            )
+            self.assertNotIn("/etc/nginx/sites-enabled", restore)
+
+    def test_baseline_rejects_unsafe_config_restore_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for target in (Path("relative.env"), Path("/etc/nginx")):
+                with self.subTest(target=target), self.assertRaisesRegex(BaselineError, "restore target"):
+                    create_baseline(self._valid_inputs(
+                        root,
+                        config_restore_targets={"env/backend.env": target},
+                    ))
+
+    def test_baseline_rejects_symlinked_config_restore_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "backend.env"
+            target.symlink_to(root / "real.env")
+            with self.assertRaisesRegex(BaselineError, "restore target must not be a symlink"):
+                create_baseline(self._valid_inputs(
+                    root,
+                    config_restore_targets={"env/backend.env": target},
+                ))
+
+    def test_installer_only_sets_owner_and_mode_for_missing_directories(self):
+        installer = (Path(__file__).resolve().parents[1] / "scripts/install-release-layout.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('if [[ -e "$path" || -L "$path" ]]', installer)
+        self.assertIn('install -d -o "$owner" -g "$group" -m "$mode" "$path"', installer)
+        self.assertNotIn('install -d -o root -g root -m 0755 \\\n  "$ROOT_DIR"', installer)
 
     def test_baseline_rejects_external_release_symlink(self):
         with tempfile.TemporaryDirectory() as directory:

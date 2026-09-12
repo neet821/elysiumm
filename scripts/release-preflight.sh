@@ -10,10 +10,11 @@ BACKUP_ROOT=""
 HEALTH_URL=""
 FIXTURE_ROOT=""
 ALLOW_COLD_START=0
+ALLOW_EMPTY_CURRENT=0
 SKIP_DATABASE=0
 
 usage() {
-  echo "usage: $0 [--root PATH] [--env-file PATH] [--web-root PATH] [--backup-root PATH] [--health-url URL] [--allow-cold-start] [--skip-database]" >&2
+  echo "usage: $0 [--root PATH] [--env-file PATH] [--web-root PATH] [--backup-root PATH] [--health-url URL] [--allow-cold-start] [--allow-empty-current] [--skip-database]" >&2
 }
 
 while (($#)); do
@@ -25,6 +26,7 @@ while (($#)); do
     --health-url) HEALTH_URL=${2:?missing --health-url value}; shift 2 ;;
     --fixture-root) FIXTURE_ROOT=${2:?missing --fixture-root value}; shift 2 ;;
     --allow-cold-start) ALLOW_COLD_START=1; shift ;;
+    --allow-empty-current) ALLOW_EMPTY_CURRENT=1; shift ;;
     --skip-database) SKIP_DATABASE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage; echo "preflight: unknown argument: $1" >&2; exit 2 ;;
@@ -79,20 +81,30 @@ PY
 fi
 
 if [[ "$RELEASE_LAYOUT" -eq 1 ]]; then
-  for required in \
-    "$ROOT_DIR/repository.git/HEAD" \
-    "$ROOT_DIR/baseline" \
-    "$ROOT_DIR/backend-releases" \
-    "$ROOT_DIR/frontend-releases" \
-    "$ROOT_DIR/backend-current/backend/requirements.txt" \
-    "$ROOT_DIR/backend-current/.venv/bin/python" \
-    "$ROOT_DIR/frontend-current/dist" \
-    "$ROOT_DIR/shared"; do
+  required_paths=(
+    "$ROOT_DIR/repository.git/HEAD"
+    "$ROOT_DIR/baseline"
+    "$ROOT_DIR/backend-releases"
+    "$ROOT_DIR/frontend-releases"
+    "$ROOT_DIR/shared"
+  )
+  if [[ "$ALLOW_EMPTY_CURRENT" -ne 1 ]]; then
+    required_paths+=(
+      "$ROOT_DIR/backend-current/backend/requirements.txt"
+      "$ROOT_DIR/backend-current/.venv/bin/python"
+      "$ROOT_DIR/frontend-current/dist"
+    )
+  fi
+  for required in "${required_paths[@]}"; do
     if [[ ! -e "$required" ]]; then
       echo "preflight: required release-layout path is missing: $required" >&2
       exit 1
     fi
   done
+  if [[ "$ALLOW_EMPTY_CURRENT" -eq 1 ]] && ! find "$ROOT_DIR/baseline" -mindepth 1 -maxdepth 1 -type d -print -quit | grep -q .; then
+    echo "preflight: --allow-empty-current requires at least one verified baseline directory" >&2
+    exit 1
+  fi
   for required_directory in \
     "$ROOT_DIR/shared/sync-storage/articles" \
     "$ROOT_DIR/shared/sync-storage/media"; do
@@ -191,11 +203,11 @@ if errors:
     raise SystemExit(1)
 PY
 
-if [[ ! -d "$WEB_ROOT" || ! -d "$BACKUP_ROOT" ]]; then
+if [[ "$ALLOW_EMPTY_CURRENT" -ne 1 && ! -d "$WEB_ROOT" ]] || [[ ! -d "$BACKUP_ROOT" ]]; then
   echo "preflight: web root and backup root must already exist" >&2
   exit 1
 fi
-if [[ ! -r "$WEB_ROOT" || ! -w "$BACKUP_ROOT" ]]; then
+if [[ "$ALLOW_EMPTY_CURRENT" -ne 1 && ! -r "$WEB_ROOT" ]] || [[ ! -w "$BACKUP_ROOT" ]]; then
   echo "preflight: web root must be readable and backup root writable" >&2
   exit 1
 fi

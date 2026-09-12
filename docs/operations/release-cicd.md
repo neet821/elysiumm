@@ -96,6 +96,24 @@ backup capacity. Run a staged deployment and rollback rehearsal against an
 isolated copy first. The baseline ID is checked again by the workflow before
 the release CLI is invoked.
 
+The first `data -> shared` cutover is tracked separately from ordinary release
+transactions. Initialize and update its atomic history with:
+
+```bash
+sudo python3 scripts/bootstrap-production.py \
+  --root /srv/services/elysium \
+  --bootstrap-id shared-cutover-<timestamp> \
+  --target-commit <release-commit> \
+  --release-deployment-id <release-deployment-id> \
+  --phase data_pre_copy --status in_progress
+```
+
+Record `data_pre_copy`, `livesync_pre_copy`, `baseline`, `maintenance_mode`,
+`final_sync`, `legacy_data_retention`, `release_layout`, and
+`release_transaction` as each reviewed operation starts and finishes. The
+transaction is finalized only after production acceptance; failed cutovers
+must record the actual rollback target and remain immutable.
+
 ## Deployment sequence
 
 The deployment job downloads only the quality artifact and checks out the exact

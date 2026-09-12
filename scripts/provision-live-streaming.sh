@@ -6,6 +6,7 @@ MEDIAMTX_VERSION="v1.18.2"
 CONFIG_SOURCE="$ROOT_DIR/ops/live/mediamtx.yml"
 UNIT_SOURCE="$ROOT_DIR/ops/live/elysiumm-mediamtx.service"
 NGINX_SOURCE="$ROOT_DIR/ops/live/nginx-live.conf"
+MEDIAMTX_INSTALL_DIR="/srv/services/elysium/ops/mediamtx"
 
 check_assets() {
   test -s "$CONFIG_SOURCE"
@@ -31,6 +32,18 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 check_assets
+
+if ! getent group elysium-live >/dev/null; then
+  groupadd --system elysium-live
+fi
+if ! id elysium-live >/dev/null 2>&1; then
+  useradd --system --gid elysium-live --home-dir /nonexistent \
+    --shell /usr/sbin/nologin elysium-live
+fi
+if ! id www-data >/dev/null 2>&1; then
+  echo "The backend service user www-data is missing" >&2
+  exit 2
+fi
 
 case "$(uname -m)" in
   x86_64) release_arch="amd64" ;;
@@ -60,33 +73,21 @@ curl --fail --location --silent --show-error \
   cd "$download_root"
   grep "\\*${archive}$" checksums.sha256 | sha256sum --check -
   tar -xzf "$archive" mediamtx
-  install -o root -g root -m 0755 mediamtx /usr/local/bin/mediamtx
+  install -d -o root -g elysium-live -m 0750 "$MEDIAMTX_INSTALL_DIR"
+  install -o root -g root -m 0755 mediamtx "$MEDIAMTX_INSTALL_DIR/mediamtx"
 )
 
-if ! getent group blue-album-live >/dev/null; then
-  groupadd --system blue-album-live
-fi
-if ! id blue-album-live >/dev/null 2>&1; then
-  useradd --system --gid blue-album-live --home-dir /nonexistent \
-    --shell /usr/sbin/nologin blue-album-live
-fi
-if ! id www-data >/dev/null 2>&1; then
-  echo "The backend service user www-data is missing" >&2
-  exit 2
-fi
-usermod -a -G blue-album-live www-data
-
-install -d -o root -g blue-album-live -m 0750 /etc/elysium
-install -d -o blue-album-live -g blue-album-live -m 0750 \
+install -d -o root -g root -m 0755 /etc/elysium
+install -d -o elysium-live -g elysium-live -m 0750 \
   /srv/services/elysium/shared/uploads/live-recordings
-install -o root -g blue-album-live -m 0640 \
+install -o root -g elysium-live -m 0640 \
   "$CONFIG_SOURCE" /etc/elysium/mediamtx.yml
 install -o root -g root -m 0644 \
   "$UNIT_SOURCE" /etc/systemd/system/elysiumm-mediamtx.service
 install -o root -g root -m 0644 \
   "$NGINX_SOURCE" /etc/nginx/snippets/elysium-live.conf
 if [[ ! -e /etc/elysium/mediamtx.env ]]; then
-  install -o root -g blue-album-live -m 0600 /dev/null /etc/elysium/mediamtx.env
+  install -o root -g root -m 0600 /dev/null /etc/elysium/mediamtx.env
 fi
 
 systemctl daemon-reload
