@@ -33,7 +33,15 @@ class ReleaseGateTest(unittest.TestCase):
                 import os
                 from pathlib import Path
                 Path(os.environ['RELEASE_GATE_TEST_LOG']).open('a').write('{label}\\n')
-            """), encoding="utf-8")
+                """), encoding="utf-8")
+
+        guard_test = scripts / "test_elysium_health_guard.py"
+        guard_test.write_text(
+            "from pathlib import Path\n"
+            "import os\n"
+            "Path(os.environ['RELEASE_GATE_TEST_LOG']).open('a').write('health-guard\\n')\n",
+            encoding="utf-8",
+        )
 
         shell = scripts / "check-all.sh"
         shell.write_text(textwrap.dedent("""\
@@ -74,9 +82,14 @@ class ReleaseGateTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(log.read_text(encoding="utf-8").splitlines(), [
-                "release-config", "repository", "recovery", "accessibility",
+                "release-config", "repository", "health-guard", "recovery", "accessibility",
                 "music", "video", "books-admin", "live",
             ])
+
+    def test_gate_runs_health_guard_regression_test(self):
+        source = GATE.read_text(encoding="utf-8")
+        self.assertIn('"${PYTHON}" "${ROOT_DIR}/scripts/test_elysium_health_guard.py"', source)
+        self.assertIn('run_step 3 "健康守护逻辑测试"', source)
 
     def test_gate_stops_at_the_first_failed_step(self):
         with tempfile.TemporaryDirectory() as tmpdir:

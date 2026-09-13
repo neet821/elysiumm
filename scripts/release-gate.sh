@@ -40,22 +40,25 @@ run_step 1 "发布配置检查" \
 run_step 2 "全仓检查、迁移、测试、构建与资源预算" \
   "${ROOT_DIR}/scripts/check-all.sh"
 
-run_step 3 "隔离备份恢复演练" \
+run_step 3 "健康守护逻辑测试" \
+  "${PYTHON}" "${ROOT_DIR}/scripts/test_elysium_health_guard.py"
+
+run_step 4 "隔离备份恢复演练" \
   "${PYTHON}" "${ROOT_DIR}/scripts/rehearse-backup-restore.py" --json
 
-run_step 4 "Phase 11 无障碍与八档浏览器验收" \
+run_step 5 "Phase 11 无障碍与八档浏览器验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase11-accessibility-compat-smoke.mjs"
 
-run_step 5 "听歌房多客户端关键验收" \
+run_step 6 "听歌房多客户端关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase7-multiclient-smoke.mjs"
 
-run_step 6 "视频房多客户端关键验收" \
+run_step 7 "视频房多客户端关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase8-video-multiclient-smoke.mjs"
 
-run_step 7 "Files、管理员与退役 API 关键验收" \
+run_step 8 "Files、管理员与退役 API 关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/phase10-books-admin-browser-smoke.mjs"
 
-run_step 8 "单直播间关键验收" \
+run_step 9 "单直播间关键验收" \
   "${NODE}" "${ROOT_DIR}/scripts/live-stream-smoke.mjs"
 
 CURRENT_STEP="最终补丁格式检查"
