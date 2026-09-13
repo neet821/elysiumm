@@ -102,6 +102,9 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         self.assertNotIn('echo "$SSH_PRIVATE_KEY"', self.run_text)
         self.assertNotIn('echo "$SSH_KNOWN_HOSTS"', self.run_text)
 
+    def test_deployment_preflight_checks_the_running_backend_health_endpoint(self):
+        self.assertIn("--health-url http://127.0.0.1:8000/api/health", self.source)
+
     def test_operations_doc_records_gate_secrets_baseline_and_rollback(self):
         self.assertTrue(OPERATIONS_DOC.is_file(), f"missing operations doc: {OPERATIONS_DOC}")
         source = OPERATIONS_DOC.read_text(encoding="utf-8")

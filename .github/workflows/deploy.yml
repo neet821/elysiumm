@@ -345,6 +345,7 @@ jobs:
             --env-file /etc/elysium/backend.env
             --web-root "$root/frontend-current/dist"
             --backup-root "$root/shared/backups"
+            --health-url http://127.0.0.1:8000/api/health
           )
           if [[ "$deploy_backend" != true && "$deploy_frontend" == true ]]; then
             # A frontend-only deployment does not inspect or ping the
