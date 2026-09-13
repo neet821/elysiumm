@@ -21,6 +21,8 @@ from deployment.production_deploy import (
     _validate_infrastructure,
     deploy,
 )
+from deployment.migration_runner import MigrationRunResult
+from deployment.migration_state import MigrationPlan
 from deployment.production_rollback import ProductionRollbackError, rollback_component
 from deployment.release_builder import ReleaseAssembly, assemble_frontend_release, atomic_component_link
 from deployment.release_metadata import deployment_transaction, write_transaction
@@ -135,6 +137,67 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertEqual(transaction["rollback"]["status"], "not_needed")
         self.assertEqual(transaction["database"]["status"], "environment_failed")
         self.assertIsNone(transaction["database"]["backup"])
+
+    def test_backend_without_pending_migrations_records_not_required(self):
+        source = self.root / "backend-release-source"
+        source.mkdir()
+        (source / "requirements.txt").write_text("example==1\n", encoding="utf-8")
+        (source / "schemas.py").write_text("schema = 1\n", encoding="utf-8")
+        release_path = self.root / "backend-releases" / "abcdef1-backend-test"
+        release_path.mkdir(parents=True)
+        assembly = ReleaseAssembly(
+            "backend",
+            "abcdef1-backend-test",
+            release_path,
+            {"source_tree_sha256": "source-hash"},
+        )
+        plan = MigrationPlan(
+            ("0025_admin_transfer_note",),
+            ("0025_admin_transfer_note",),
+            (),
+        )
+
+        with patch(
+            "deployment.production_deploy.require_production_database_environment",
+            return_value=(
+                {"DATABASE_URL": "sqlite:////tmp/elysium-test.sqlite3"},
+                "sqlite:////tmp/elysium-test.sqlite3",
+            ),
+        ), patch(
+            "deployment.production_deploy.target_heads_for_backend",
+            return_value=("0025_admin_transfer_note",),
+        ), patch(
+            "deployment.production_deploy.assemble_backend_release",
+            return_value=assembly,
+        ), patch(
+            "deployment.production_deploy._install_backend_dependencies",
+        ), patch(
+            "deployment.production_deploy.freeze_release",
+        ), patch(
+            "deployment.production_deploy.analyze_database_against_backend",
+            return_value=plan,
+        ), patch(
+            "deployment.production_deploy.run_migrations_if_needed",
+            return_value=MigrationRunResult(plan, None, None, False),
+        ), patch(
+            "deployment.production_deploy._systemctl",
+        ):
+            transaction = deploy(
+                DeploymentOptions(
+                    **{
+                        **self.options("backend-no-migration", ("backend/main.py",)).__dict__,
+                        "backend_source": source,
+                    }
+                )
+            )
+
+        self.assertEqual(transaction["status"], "succeeded")
+        migration_stage = next(
+            stage for stage in transaction["stages"] if stage["name"] == "database_migration"
+        )
+        self.assertEqual(migration_stage["migration_status"], "not_required")
+        self.assertIsNone(transaction["database"]["backup"])
+        self.assertEqual(transaction["database"]["upgrade"]["status"], "not_required")
 
     def test_manual_frontend_rollback_creates_a_new_immutable_transaction(self):
         old_dist = self.root / "old-dist"

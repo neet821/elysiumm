@@ -512,7 +512,7 @@ def _backend_release(
                 },
             }
         )
-        _stage(transaction, "database_migration", "succeeded", status=migration.plan.status)
+        _stage(transaction, "database_migration", "succeeded", migration_status=migration.plan.status)
         _write_progress(transaction_path, transaction)
         return assembly, migration
     except (EnvironmentError, MigrationStateError, MigrationRunError, ReleaseBuildError, OSError, subprocess.SubprocessError) as exc:
