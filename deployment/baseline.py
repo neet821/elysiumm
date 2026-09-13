@@ -61,10 +61,17 @@ def _symlinks(root: Path) -> Iterable[Path]:
 
 
 def assert_no_forbidden_symlinks(root: Path, forbidden_roots: Iterable[Path]) -> None:
+    source_root = _resolved(root)
     forbidden = tuple(_resolved(path) for path in forbidden_roots)
     for link in _symlinks(root):
         target = _resolved(link)
-        if any(_is_within(target, root) for root in forbidden):
+        # A live checkout may contain internal links (for example a virtualenv
+        # lib64 link or node_modules/.bin wrappers).  copytree(...,
+        # symlinks=False) dereferences those safely.  Only reject a link that
+        # escapes the copied source tree and lands in a forbidden runtime root.
+        if any(_is_within(target, forbidden_root) for forbidden_root in forbidden) and not _is_within(
+            target, source_root
+        ):
             raise BaselineError(f"baseline source contains a forbidden external symlink: {link} -> {target}")
 
 

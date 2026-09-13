@@ -187,6 +187,31 @@ class BaselineTests(unittest.TestCase):
             with self.assertRaises(BaselineError):
                 create_baseline(inputs)
 
+    def test_baseline_dereferences_internal_source_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "internal.txt").write_text("internal\n", encoding="utf-8")
+            (source / "internal-link").symlink_to("internal.txt")
+            virtualenv = root / "runtime-venv"
+            (virtualenv / "bin").mkdir(parents=True)
+            python = virtualenv / "bin/python"
+            python.write_text("#!/usr/bin/env bash\nexec /usr/bin/python3 \"$@\"\n", encoding="utf-8")
+            python.chmod(0o755)
+            (virtualenv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+            inputs = self._valid_inputs(
+                root,
+                components=self._components(root, source),
+                runtime_dependencies={"backend/.venv": virtualenv},
+            )
+            inputs = BaselineInputs(**{**inputs.__dict__, "forbidden_references": (str(source),)})
+
+            baseline = create_baseline(inputs)
+
+            self.assertEqual((baseline / "backend/internal-link").read_text(encoding="utf-8"), "internal\n")
+            self.assertFalse((baseline / "backend/internal-link").is_symlink())
+
     def test_baseline_requires_database_revision_to_match_target_heads(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
