@@ -28,7 +28,9 @@ def _deployment_root() -> Path:
     for ancestor in (PROJECT_ROOT, *PROJECT_ROOT.parents):
         if ancestor.name == "releases":
             return ancestor.parent
-        if ancestor.name in {"backend-releases", "baseline"}:
+        if ancestor.name == "backend-releases":
+            return ancestor.parent.parent if ancestor.parent.name == "releases" else ancestor.parent
+        if ancestor.name == "baseline":
             return ancestor.parent
     return PROJECT_ROOT
 
