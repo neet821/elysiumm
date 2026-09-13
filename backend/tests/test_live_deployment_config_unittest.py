@@ -49,7 +49,7 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         )
 
     def test_mediamtx_is_loopback_except_rtmp_and_records_only_the_live_path(self):
-        config_path = ROOT / "ops" / "live" / "mediamtx.yml"
+        config_path = ROOT / "deployment" / "live" / "mediamtx.yml"
         self.assertTrue(config_path.is_file())
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
@@ -75,7 +75,7 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         self.assertIn("/api/internal/live/recording-complete", hook)
 
     def test_nginx_authenticates_every_hls_request_and_systemd_is_restricted(self):
-        nginx = (ROOT / "ops" / "live" / "nginx-live.conf").read_text(
+        nginx = (ROOT / "deployment" / "live" / "nginx-live.conf").read_text(
             encoding="utf-8"
         )
         for expected in (
@@ -88,7 +88,7 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         ):
             self.assertIn(expected, nginx)
 
-        unit = (ROOT / "ops" / "live" / "elysiumm-mediamtx.service").read_text(
+        unit = (ROOT / "deployment" / "live" / "elysiumm-mediamtx.service").read_text(
             encoding="utf-8"
         )
         for expected in (

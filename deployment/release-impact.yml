@@ -62,8 +62,8 @@ rules:
   - id: mediamtx-infrastructure
     paths:
       - deployment/mediamtx/**
-      - ops/live/mediamtx.yml
-      - ops/live/elysiumm-mediamtx.service
+      - deployment/live/mediamtx.yml
+      - deployment/live/elysiumm-mediamtx.service
     components: [infra]
     validation: [systemd, backend-smoke, live-smoke]
 

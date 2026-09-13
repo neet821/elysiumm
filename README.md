@@ -11,7 +11,7 @@ Elysium 是个人网站的唯一单仓。React 前端提供文章首页、账户
 - `backend/articles/`：文章 Markdown、清洗、分类和媒体 API
 - `deployment/`：Docker、systemd、MediaMTX 和 Nginx 发布模板
 - `scripts/`：检查、发布、备份、回滚和浏览器验收脚本
-- `ops/`：MediaMTX 和直播基础设施配置
+- `deployment/live/`：MediaMTX 和直播基础设施配置
 - `public_sync/`：公共目录同步客户端
 - `docs/`：架构、迁移、部署和发布门禁说明
 

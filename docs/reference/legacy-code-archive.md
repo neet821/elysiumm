@@ -29,7 +29,7 @@ The following are deliberately not archived or removed:
   authentication, account, music/video rooms, live stream, transfer and active
   administrator screens.
 - Active FastAPI routers/services, the direct music provider boundary, MediaMTX
-  integration, `deployment/` release/preflight/rollback chain, `ops/live/`,
+  integration, `deployment/` release/preflight/rollback chain, `deployment/live/`,
   `public_sync/`, Nginx/systemd definitions and FRP file sync.
 - The former root `server/` Articles service and standalone Mineradio server
   are retired by the release refactor; recover them from the annotated tag only

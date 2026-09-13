@@ -177,9 +177,9 @@ def validate_repository() -> list[str]:
 
 def validate_live_streaming() -> list[str]:
     errors: list[str] = []
-    config_path = ROOT / "ops/live/mediamtx.yml"
+    config_path = ROOT / "deployment/live/mediamtx.yml"
     if not config_path.is_file():
-        return ["ops/live/mediamtx.yml does not exist"]
+        return ["deployment/live/mediamtx.yml does not exist"]
     source = config_path.read_text(encoding="utf-8")
     if yaml is None:
         # The release checker is also called from isolated subprocess tests.
@@ -199,15 +199,15 @@ def validate_live_streaming() -> list[str]:
         for key, value in expected_lines.items():
             pattern = rf"(?m)^\s*{re.escape(key)}:\s*[\"']?{re.escape(value)}[\"']?\s*$"
             if not re.search(pattern, source):
-                errors.append(f"ops/live/mediamtx.yml must set {key} to {value}")
+                errors.append(f"deployment/live/mediamtx.yml must set {key} to {value}")
         for required in ("paths:", "  live/stream:", "recordPath: /srv/services/elysium/shared/uploads/live-recordings/", "runOnRecordSegmentComplete:"):
             if required not in source:
-                errors.append(f"ops/live/mediamtx.yml is missing {required.strip()}")
+                errors.append(f"deployment/live/mediamtx.yml is missing {required.strip()}")
         return errors
     try:
         config = yaml.safe_load(source)
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        return [f"ops/live/mediamtx.yml is invalid: {exc}"]
+        return [f"deployment/live/mediamtx.yml is invalid: {exc}"]
     expected = {
         "rtmpAddress": ":1935",
         "apiAddress": "127.0.0.1:9997",
@@ -216,10 +216,10 @@ def validate_live_streaming() -> list[str]:
     }
     for key, value in expected.items():
         if config.get(key) != value:
-            errors.append(f"ops/live/mediamtx.yml must set {key} to {value}")
+            errors.append(f"deployment/live/mediamtx.yml must set {key} to {value}")
     for key in ("rtsp", "webrtc", "srt"):
         if config.get(key) is not False:
-            errors.append(f"ops/live/mediamtx.yml must disable {key}")
+            errors.append(f"deployment/live/mediamtx.yml must disable {key}")
     live_path = (config.get("paths") or {}).get("live/stream") or {}
     record_path = str(live_path.get("recordPath", ""))
     if not record_path.startswith("/srv/services/elysium/shared/uploads/live-recordings/"):
@@ -228,8 +228,8 @@ def validate_live_streaming() -> list[str]:
         errors.append("live recordings must not be automatically deleted")
 
     for path in (
-        "ops/live/nginx-live.conf",
-        "ops/live/elysiumm-mediamtx.service",
+        "deployment/live/nginx-live.conf",
+        "deployment/live/elysiumm-mediamtx.service",
         "scripts/provision-live-streaming.sh",
         "backend/live_recording_hook.py",
     ):

@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEDIAMTX_VERSION="v1.18.2"
-CONFIG_SOURCE="$ROOT_DIR/ops/live/mediamtx.yml"
-UNIT_SOURCE="$ROOT_DIR/ops/live/elysiumm-mediamtx.service"
-NGINX_SOURCE="$ROOT_DIR/ops/live/nginx-live.conf"
+CONFIG_SOURCE="$ROOT_DIR/deployment/live/mediamtx.yml"
+UNIT_SOURCE="$ROOT_DIR/deployment/live/elysiumm-mediamtx.service"
+NGINX_SOURCE="$ROOT_DIR/deployment/live/nginx-live.conf"
 MEDIAMTX_INSTALL_DIR="/srv/services/elysium/ops/mediamtx"
 
 check_assets() {

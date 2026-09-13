@@ -48,7 +48,7 @@ class DeploymentConfigTest(unittest.TestCase):
         self.assertNotIn("'/socket.io'", source)
 
     def test_live_streaming_assets_use_shared_storage_and_elysium_units(self):
-        root = ROOT / "ops/live"
+        root = ROOT / "deployment/live"
         mediamtx = (root / "mediamtx.yml").read_text(encoding="utf-8")
         unit = (root / "elysiumm-mediamtx.service").read_text(encoding="utf-8")
         expected_path = "/srv/services/elysium/shared/uploads/live-recordings"
