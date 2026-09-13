@@ -104,7 +104,7 @@ class ReleaseConfigTest(unittest.TestCase):
 
     def test_release_checker_and_ci_reuse_release_gate(self):
         checker = ROOT / "scripts" / "check-release-config.py"
-        workflow = ROOT / ".github" / "workflows" / "quality.yml"
+        workflow = ROOT / ".github" / "workflows" / "ci.yml"
         self.assertTrue(checker.is_file())
         self.assertTrue(workflow.is_file())
         source = workflow.read_text(encoding="utf-8")

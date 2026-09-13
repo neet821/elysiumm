@@ -118,7 +118,7 @@ class ReleaseGateTest(unittest.TestCase):
 
     def test_gate_and_ci_share_one_non_production_entrypoint(self):
         gate_source = GATE.read_text(encoding="utf-8")
-        workflow = (ROOT / ".github" / "workflows" / "quality.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
         self.assertIn("set -euo pipefail", gate_source)
         self.assertNotIn("|| true", gate_source)
@@ -149,7 +149,7 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("export GIT_PAGER=cat", source)
 
     def test_ci_handles_first_push_with_multiple_history_roots(self):
-        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn('DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}', workflow)
         self.assertIn('git merge-base "$HEAD_SHA" "origin/${DEFAULT_BRANCH}"', workflow)
         self.assertIn('git rev-list --max-parents=0 "$HEAD_SHA" | head -n 1', workflow)
