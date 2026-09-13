@@ -288,6 +288,7 @@ jobs:
           done
 
           target="${PRODUCTION_SSH_USER}@${PRODUCTION_SSH_HOST}"
+          baseline_root="${PRODUCTION_BASELINE_ROOT:-/srv/backups/elysium/baseline}"
           ssh_options=(
             -i "$ELYSIUM_SSH_KEY"
             -o IdentitiesOnly=yes
@@ -296,7 +297,7 @@ jobs:
           )
           ssh "${ssh_options[@]}" "$target" bash -s -- \
             "$PRODUCTION_ROOT" \
-            "$PRODUCTION_BASELINE_ROOT" \
+            "$baseline_root" \
             "$PRODUCTION_BASELINE_ID" \
             "$DEPLOYMENT_ID" \
             "$DEPLOY_COMMIT" \

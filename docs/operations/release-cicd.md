@@ -26,7 +26,7 @@ environment. Keep production values scoped to that environment where possible.
 | Variable | `PRODUCTION_SSH_HOST` | DNS name or address of the production SSH endpoint. |
 | Variable | `PRODUCTION_SSH_USER` | SSH account with non-interactive `sudo -n` permission for the release layout and deployment commands. |
 | Variable | `PRODUCTION_ROOT` | Release root; use `/srv/services/elysium` unless the separately reviewed server layout uses another path. |
-| Variable | `PRODUCTION_BASELINE_ROOT` | Verified baseline parent, normally `/srv/backups/elysium/baseline/`. |
+| Variable | `PRODUCTION_BASELINE_ROOT` | Optional verified baseline parent; defaults to `/srv/backups/elysium/baseline/`. |
 | Variable | `PRODUCTION_BASELINE_ID` | Verified directory name below `${PRODUCTION_BASELINE_ROOT}`. |
 | Variable | `PRODUCTION_GIT_ORIGIN` | Repository origin URL recorded by `install-release-layout.sh`. |
 | Variable | `PRODUCTION_DEPLOY_ENABLED` | Must remain unset or `false` until baseline, staging, rollback, and operator checks are accepted; set to exactly `true` to enable the path. |
