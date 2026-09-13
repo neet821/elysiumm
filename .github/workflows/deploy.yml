@@ -99,9 +99,9 @@ jobs:
           ALLOW_PREEXISTING_SCHEMA_DRIFT: '1'
         run: |
           set -euo pipefail
-          backend/.venv/bin/python -m ruff check backend sync-agent \
+          backend/.venv/bin/python -m ruff check backend tools/public-sync-agent \
             --select E9,F63,F7,F82 --exclude backend/.venv
-          backend/.venv/bin/python -m compileall -q backend sync-agent \
+          backend/.venv/bin/python -m compileall -q backend tools/public-sync-agent \
             -x 'backend/.venv'
           backend/.venv/bin/python -m unittest discover \
             -s backend/tests -p 'test_*_unittest.py' -v

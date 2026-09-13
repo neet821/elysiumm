@@ -1,0 +1,12 @@
+[Unit]
+Description=Elysium Public directory sync
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/neet821/Desktop/elysiumm/tools/public-sync-agent/public_sync_agent.py
+EnvironmentFile=%h/.config/elysium/public-sync.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

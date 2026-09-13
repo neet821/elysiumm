@@ -30,7 +30,7 @@ The following are deliberately not archived or removed:
   administrator screens.
 - Active FastAPI routers/services, the direct music provider boundary, MediaMTX
   integration, `deployment/` release/preflight/rollback chain, `ops/live/`,
-  `sync-agent/`, Nginx/systemd definitions and FRP file sync.
+  `tools/public-sync-agent/`, Nginx/systemd definitions and FRP file sync.
 - The former root `server/` Articles service and standalone Mineradio server
   are retired by the release refactor; recover them from the annotated tag only
   for historical comparison, never as a production entrypoint.

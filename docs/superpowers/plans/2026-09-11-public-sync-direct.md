@@ -21,7 +21,7 @@
 ### Task 1: Proxy transport
 
 **Files:**
-- Modify: `sync-agent/public_sync_agent.py`
+- Modify: `tools/public-sync-agent/public_sync_agent.py`
 - Test: `backend/tests/test_public_sync_agent_unittest.py`
 
 - [x] Add an explicit `PUBLIC_SYNC_PROXY` proxy handler using `http://127.0.0.1:7890`, avoiding inherited or ambient proxy ambiguity.

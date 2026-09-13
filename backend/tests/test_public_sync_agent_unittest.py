@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 
-AGENT_PATH = Path(__file__).resolve().parents[2] / "sync-agent" / "public_sync_agent.py"
+AGENT_PATH = Path(__file__).resolve().parents[2] / "tools" / "public-sync-agent" / "public_sync_agent.py"
 
 
 class PublicSyncAgentTest(unittest.TestCase):
