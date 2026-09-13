@@ -94,8 +94,8 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         for expected in (
             "User=elysium-live",
             "Group=elysium-live",
-            "WorkingDirectory=/srv/services/elysium/ops",
-            "ExecStart=/srv/services/elysium/ops/mediamtx /etc/elysium/mediamtx.yml",
+            "WorkingDirectory=/usr/local/libexec/elysium",
+            "ExecStart=/usr/local/libexec/elysium/mediamtx /etc/elysium/mediamtx.yml",
             "NoNewPrivileges=true",
             "ProtectSystem=strict",
             "ReadWritePaths=/srv/services/elysium/shared/uploads/live-recordings",
@@ -126,7 +126,8 @@ class LiveDeploymentConfigTest(unittest.TestCase):
         provision_source = (
             ROOT / "scripts" / "provision-live-streaming.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn("MEDIAMTX_INSTALL_DIR=\"/srv/services/elysium/ops/mediamtx\"", provision_source)
+        self.assertIn("MEDIAMTX_INSTALL_DIR=\"/usr/local/libexec/elysium\"", provision_source)
+        self.assertNotIn("/srv/services/elysium/ops", provision_source)
         self.assertNotIn("blue-album-live", provision_source)
         self.assertIn("/etc/systemd/system/elysiumm-mediamtx.service", provision_source)
         self.assertIn("/srv/services/elysium/shared/uploads/live-recordings", provision_source)

@@ -54,7 +54,7 @@ sudo python3 scripts/create-baseline.py \
   --component frontend=/srv/services/elysium/web-releases/071f14d-20260911-1550 \
   --component mineradio=/srv/services/elysium/releases/93e8188/mineradio \
   --component articles=/srv/services/elysium/articles \
-  --dependency backend/runtime/mediamtx=/srv/services/elysium/ops/mediamtx \
+  --dependency backend/runtime/mediamtx=/usr/local/libexec/elysium/mediamtx \
   --config env/backend.env=/etc/elysium/backend.env \
   --config env/articles.env=/etc/elysium/articles.env \
   --config env/mineradio.env=/etc/elysium/mineradio.env \
@@ -90,13 +90,13 @@ sudo python3 scripts/create-baseline.py \
   --replace /srv/services/elysium/data=/srv/services/elysium/shared \
   --replace /srv/services/obsidian-livesync/mirror/vault=/srv/services/elysium/shared/sync-storage/articles \
   --replace /srv/services/obsidian-livesync/mirror/database=/srv/services/elysium/shared/sync-storage/media \
-  --replace /srv/services/elysium/ops=/srv/services/elysium/baseline/current-production-<timestamp>/backend/runtime \
+  --replace /usr/local/libexec/elysium=/srv/services/elysium/baseline/current-production-<timestamp>/backend/runtime \
   --replace '/srv/services/elysium/current/backend/.venv/bin/uvicorn=/srv/services/elysium/baseline/current-production-<timestamp>/backend/.venv/bin/python -m uvicorn' \
   --forbidden-reference /srv/services/elysium/current \
   --forbidden-reference /srv/services/elysium/web-current \
   --forbidden-reference /srv/services/elysium/mineradio \
   --forbidden-reference /srv/services/elysium/articles \
-  --forbidden-reference /srv/services/elysium/ops \
+  --forbidden-reference /usr/local/libexec/elysium \
   --forbidden-reference /srv/services/elysium/data \
   --shared-path /srv/services/elysium/shared/uploads \
   --shared-path /srv/services/elysium/shared/sync-storage/articles \
