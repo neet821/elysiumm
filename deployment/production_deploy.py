@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 from typing import Any, Mapping
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -258,14 +259,34 @@ def _redacted_error(error: BaseException, environment: Mapping[str, str] | None 
     return message[:2000] or type(error).__name__
 
 
-def _run_health(url: str) -> tuple[bool, str]:
-    try:
-        request = Request(url, headers={"Accept": "application/json"})
-        with urlopen(request, timeout=5) as response:
-            body = response.read(4096).decode("utf-8", errors="replace")
-            return 200 <= response.status < 300, body[:500]
-    except (OSError, URLError) as exc:
-        return False, type(exc).__name__
+def _run_health(url: str, *, attempts: int = 12, delay: float = 0.5) -> tuple[bool, str]:
+    """Wait for a newly restarted local service to become ready.
+
+    systemd reports a successful start before an ASGI application has bound its
+    socket.  A bounded retry window avoids treating that normal startup race as
+    a failed release while still failing closed when the health endpoint never
+    becomes ready.
+    """
+
+    if attempts < 1:
+        raise ValueError("health check attempts must be positive")
+
+    last_detail = "health check did not run"
+    for attempt in range(attempts):
+        try:
+            request = Request(url, headers={"Accept": "application/json"})
+            with urlopen(request, timeout=2) as response:
+                body = response.read(4096).decode("utf-8", errors="replace")
+                if 200 <= response.status < 300:
+                    return True, body[:500]
+                last_detail = body[:500] or f"HTTP {response.status}"
+        except (OSError, URLError) as exc:
+            last_detail = type(exc).__name__
+
+        if attempt + 1 < attempts:
+            time.sleep(delay)
+
+    return False, last_detail
 
 
 def _systemctl(action: str, service: str) -> None:

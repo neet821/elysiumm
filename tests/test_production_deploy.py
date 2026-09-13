@@ -16,6 +16,7 @@ from deployment.production_deploy import (
     _infra_change_requested,
     _apply_infrastructure,
     _allow_initial_backend_current_verify_failure,
+    _run_health,
     _restart_changed_systemd_units,
     _safe_extract_archive,
     _validate_infrastructure,
@@ -72,6 +73,29 @@ class ProductionDeployTest(unittest.TestCase):
         transaction_path = self.root / "deployment-history/frontend-only.json"
         self.assertEqual(stat.S_IMODE(transaction_path.stat().st_mode), 0o444)
         self.assertEqual(json.loads(transaction_path.read_text(encoding="utf-8"))["status"], "succeeded")
+
+    def test_health_check_retries_during_service_startup(self):
+        class ReadyResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def read(self, _limit):
+                return b'{"status":"ok"}'
+
+        with patch(
+            "deployment.production_deploy.urlopen",
+            side_effect=[OSError("connection refused"), ReadyResponse()],
+        ) as health:
+            passed, detail = _run_health("http://127.0.0.1:8000/api/health", attempts=2, delay=0)
+
+        self.assertTrue(passed)
+        self.assertEqual(detail, '{"status":"ok"}')
+        self.assertEqual(health.call_count, 2)
 
     def test_git_archive_component_root_directory_is_safe(self):
         archive_buffer = io.BytesIO()
