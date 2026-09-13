@@ -698,26 +698,30 @@ async function main() {
     // unlock the member tab explicitly before checking shared playback.
     await click(member, 'button[aria-label^="播放 "]')
 
-    let finalSnapshot = expectOk(
-      await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }),
-      'member unlock baseline',
-    )
-    if (finalSnapshot.state !== 'playing') {
-      // The member click unlocks local media, but browser scheduling can delay
-      // its shared play event after reconnect.  Use the already-authorized
-      // host control path to make the shared state deterministic.
-      finalSnapshot = await socketControl(hostSocket, {
-        action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: finalSnapshot.position,
-      })
-    }
-    finalSnapshot = await waitForApi(async () => {
+    let finalSnapshot = await waitForApi(async () => {
       const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final snapshot')
       return current.state === 'playing' ? current : null
-    }, 'member playback unlock')
-    if (finalSnapshot.state !== 'playing') {
-      finalSnapshot = await socketControl(hostSocket, {
-        action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: 2,
-      })
+    }, 'member playback unlock', 5000).catch(() => null)
+    if (!finalSnapshot || finalSnapshot.state !== 'playing') {
+      finalSnapshot = expectOk(
+        await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }),
+        'member unlock retry baseline',
+      )
+      if (finalSnapshot.state !== 'playing') {
+        // If the member's event is still in flight, the host retry may race
+        // with it and receive a valid playback conflict. Retry from a fresh
+        // snapshot only when the room is still paused.
+        try {
+          finalSnapshot = await socketControl(hostSocket, {
+            action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: finalSnapshot.position,
+          })
+        } catch (error) {
+          finalSnapshot = await waitForApi(async () => {
+            const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final retry snapshot')
+            return current.state === 'playing' ? current : null
+          }, 'member playback unlock after retry', 5000)
+        }
+      }
     }
     // The browser timer normally emits this event every five seconds, but a
     // CI scheduler can pause that timer while the page is backgrounded during
