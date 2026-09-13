@@ -58,9 +58,11 @@ npm --prefix frontend run check:budget
 npm --prefix frontend run build
 ```
 
-The independent `quality.yml` workflow remains the full release gate. The
-`deploy.yml` quality job uses the impact map for selective checks and only
-uploads a frontend artifact when frontend validation is selected.
+The `ci.yml` workflow is the single quality and release-payload workflow. It
+runs for pull requests and pushes to `main`, and only uploads a frontend
+artifact when frontend validation is selected. The `cd.yml` workflow listens
+for a successful `main` CI run, downloads its immutable payload, and enters
+the protected `production` Environment before deployment.
 
 The artifact named `elysium-<commit>` contains `frontend/dist` when selected,
 `frontend-budget.json`, `release-impact.json`, and SHA-256 metadata. It does
