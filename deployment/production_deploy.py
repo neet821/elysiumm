@@ -177,7 +177,7 @@ def _safe_extract_archive(archive_bytes: bytes, destination: Path, component: st
         prefix = f"{component}/"
         for member in members:
             name = member.name
-            if not name.startswith(prefix) or member.issym() or member.islnk():
+            if (name != component and not name.startswith(prefix)) or member.issym() or member.islnk():
                 raise ProductionDeployError("Git archive contains an unsafe entry")
             relative = Path(name[len(prefix) :])
             if relative.is_absolute() or ".." in relative.parts:

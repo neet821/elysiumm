@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 from pathlib import Path
 import stat
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -15,6 +17,7 @@ from deployment.production_deploy import (
     _apply_infrastructure,
     _allow_initial_backend_current_verify_failure,
     _restart_changed_systemd_units,
+    _safe_extract_archive,
     _validate_infrastructure,
     deploy,
 )
@@ -67,6 +70,22 @@ class ProductionDeployTest(unittest.TestCase):
         transaction_path = self.root / "deployment-history/frontend-only.json"
         self.assertEqual(stat.S_IMODE(transaction_path.stat().st_mode), 0o444)
         self.assertEqual(json.loads(transaction_path.read_text(encoding="utf-8"))["status"], "succeeded")
+
+    def test_git_archive_component_root_directory_is_safe(self):
+        archive_buffer = io.BytesIO()
+        with tarfile.open(fileobj=archive_buffer, mode="w:") as archive:
+            root = tarfile.TarInfo("backend")
+            root.type = tarfile.DIRTYPE
+            archive.addfile(root)
+            payload = b"app = True\n"
+            source = tarfile.TarInfo("backend/main.py")
+            source.size = len(payload)
+            archive.addfile(source, io.BytesIO(payload))
+
+        destination = self.root / "materialized-backend"
+        _safe_extract_archive(archive_buffer.getvalue(), destination, "backend")
+
+        self.assertEqual((destination / "main.py").read_bytes(), b"app = True\n")
 
     def test_frontend_deploy_accepts_an_external_versioned_impact_map(self):
         with tempfile.TemporaryDirectory() as directory:
