@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local recovery guard for the Elysium and Kavita services.
+"""Local recovery guard for Elysium and its managed supporting services.
 
 The guard deliberately uses consecutive failures and cooldowns. A single slow
 health check must not cause a production restart, and a failed restart must not
@@ -16,7 +16,6 @@ from collections.abc import Callable, Sequence
 
 
 LOGGER = logging.getLogger("elysium-health-guard")
-KAVITA_URL = "http://127.0.0.1:5000/api/health"
 BACKEND_URL = "http://127.0.0.1:8000/api/health"
 WEBSITE_URL = "http://127.0.0.1/api/health"
 
@@ -65,33 +64,6 @@ def docker_container_healthy(name: str) -> bool:
         timeout=15,
     )
     return status == "true healthy"
-
-
-def kavita_healthy() -> bool:
-    return docker_container_healthy("kavita") and command_succeeds(
-        ["curl", "-fsS", "--max-time", "10", KAVITA_URL],
-        timeout=15,
-    )
-
-
-def find_kavita_pid(output: str | None) -> str | None:
-    if not output:
-        return None
-    for line in output.splitlines():
-        fields = line.split()
-        if len(fields) >= 2 and fields[0].isdigit() and fields[1] == "Kavita":
-            return fields[0]
-    return None
-
-
-def lower_kavita_io_priority() -> None:
-    process_list = command_output(
-        ["docker", "top", "kavita", "-eo", "pid,comm"],
-        timeout=10,
-    )
-    pid = find_kavita_pid(process_list)
-    if pid is not None:
-        command_succeeds(["ionice", "-c", "2", "-n", "7", "-p", pid], timeout=10)
 
 
 def couchdb_healthy() -> bool:
@@ -155,16 +127,6 @@ class HealthGuard:
 
 
 def run_once(health_guard: HealthGuard) -> None:
-    kavita_ok = kavita_healthy()
-    health_guard.observe(
-        "kavita",
-        kavita_ok,
-        ["docker", "restart", "kavita"],
-        threshold=5,
-        cooldown=900,
-    )
-    if kavita_ok:
-        lower_kavita_io_priority()
     health_guard.observe(
         "couchdb",
         couchdb_healthy(),
