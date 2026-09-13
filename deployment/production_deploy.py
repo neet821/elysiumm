@@ -682,6 +682,33 @@ def _validate_regular_source(source: Path, label: str) -> Path:
     return resolved
 
 
+def _allow_initial_backend_current_verify_failure(
+    options: DeploymentOptions,
+    unit: str,
+    detail: str,
+) -> bool:
+    """Allow only systemd's expected pre-release missing-current diagnostic.
+
+    The first production cutover intentionally starts without a
+    ``backend-current`` link.  ``systemd-analyze verify`` reports the
+    eventual Uvicorn executable as missing even though the release builder
+    creates it before the unit is installed.  Keep the exception narrow: a
+    dangling link, another unit, or any additional diagnostic must still fail
+    the infrastructure preflight.
+    """
+
+    current = options.root.expanduser().resolve() / "backend-current"
+    if unit != options.backend_service or current.exists() or current.is_symlink():
+        return False
+    expected_command = current / ".venv/bin/python"
+    expected = (
+        f"{unit}: Command {expected_command} is not executable: "
+        "No such file or directory"
+    )
+    lines = [line.strip() for line in detail.splitlines() if line.strip()]
+    return lines == [expected]
+
+
 def _validate_systemd_target_dir(options: DeploymentOptions) -> None:
     target_dir = options.systemd_target_dir
     if not any(_within(target_dir, candidate) for candidate in (Path("/etc/systemd/system"), options.root)):
@@ -765,7 +792,13 @@ def _validate_infrastructure(options: DeploymentOptions) -> None:
         if shutil.which("systemd-analyze"):
             result = subprocess.run(["systemd-analyze", "verify", str(source)], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode:
-                raise ProductionDeployError((result.stderr or result.stdout).strip() or f"systemd verification failed: {source}")
+                detail = "\n".join(
+                    part.strip()
+                    for part in (result.stderr, result.stdout)
+                    if part and part.strip()
+                )
+                if not _allow_initial_backend_current_verify_failure(options, unit, detail):
+                    raise ProductionDeployError(detail or f"systemd verification failed: {source}")
     if options.mediamtx_config_source is not None:
         _validate_fixed_file_target(
             options,

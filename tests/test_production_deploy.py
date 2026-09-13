@@ -13,6 +13,7 @@ from deployment.production_deploy import (
     ProductionDeployError,
     _infra_change_requested,
     _apply_infrastructure,
+    _allow_initial_backend_current_verify_failure,
     _restart_changed_systemd_units,
     _validate_infrastructure,
     deploy,
@@ -357,6 +358,36 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertEqual(transaction["status"], "succeeded")
         self.assertEqual(target.read_text(encoding="utf-8"), "server { listen 8080; }\n")
+
+    def test_initial_backend_unit_allows_only_the_expected_missing_current_error(self):
+        options = self.options("initial-backend-current", ("deployment/systemd/elysiumm-backend.service",))
+        expected = (
+            "elysiumm-backend.service: Command "
+            f"{self.root / 'backend-current/.venv/bin/python'} is not executable: No such file or directory"
+        )
+
+        self.assertTrue(
+            _allow_initial_backend_current_verify_failure(
+                options,
+                "elysiumm-backend.service",
+                expected,
+            )
+        )
+        self.assertFalse(
+            _allow_initial_backend_current_verify_failure(
+                options,
+                "elysiumm-backend.service",
+                f"{expected}\nother validation error",
+            )
+        )
+        (self.root / "backend-current").symlink_to("missing-release")
+        self.assertFalse(
+            _allow_initial_backend_current_verify_failure(
+                options,
+                "elysiumm-backend.service",
+                expected,
+            )
+        )
 
     def test_failed_nginx_reload_removes_newly_installed_config(self):
         bin_dir = self.root / "fake-bin"
