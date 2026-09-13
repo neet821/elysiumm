@@ -16,3 +16,8 @@ backend/.venv/
 .idea/
 .local-deploy/
 /sqlite3
+
+# Local runtime data; never commit generated uploads, recordings, or logs
+/runtime/
+/shared/
+/uploads/

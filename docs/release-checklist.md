@@ -44,7 +44,7 @@
 | --- | --- | --- |
 | 原生音乐房、房间同步和视频播放器可达 | PASS | `MusicRoomPlayer`、`playerTrack`、`roomPlayerIntegration`、视频房间测试和 Phase 7/11 原生播放器验收。 |
 | 旧独立播放器和专属样式/测试移出 | PASS | 当前入口图无消费者；恢复命令见归档索引。 |
-| Mineradio 许可和上游边界保留 | PASS | `mineradio/LICENSE`、`NOTICE.md`、`BLUE_ALBUM_INTEGRATION.md` 继续跟踪；独立服务已退役。 |
+| Mineradio 许可和上游边界保留 | PASS | 由归档标签 `archive/pre-slimming-20260913-d7d039b` 中的许可和上游文件继续跟踪；独立服务已退役。 |
 | 曲库 provider、签名音频、歌词和失败降级 | PASS | 当前音乐服务/路由/适配器测试。 |
 
 ## Music rooms

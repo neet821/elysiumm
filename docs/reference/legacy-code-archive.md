@@ -1,8 +1,9 @@
 # Elysium legacy-code archive index
 
-This index is the recovery map for the 2026-08-30 core cleanup. The main branch
-contains only the current runtime and this index; archived source is not copied
-into an `archive/` directory.
+This index is the recovery map for the 2026-08-30 core cleanup. The current
+branch contains only the current runtime and this index; archived source is not
+copied into an `archive/` directory. The later local slimming snapshot is
+`archive/pre-slimming-20260913-d7d039b`.
 
 ## Recovery point and baseline
 

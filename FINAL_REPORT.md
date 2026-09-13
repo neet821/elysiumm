@@ -87,8 +87,9 @@ Phase 11 在 360、390、430、768、1024、1366、1920、2560 宽度运行，�
 
 ## Third-party licenses
 
-Mineradio 的运行边界和归属保留在 `mineradio/LICENSE`、`mineradio/NOTICE.md` 与
-`mineradio/BLUE_ALBUM_INTEGRATION.md`；旧前端独立播放器及其专属 notice 一并归档，没有把 GPL 代码复制进当前 React 入口。npm/Python 依赖继续由各自 lockfile、requirements 和上游许可约束。
+Mineradio 的运行边界和归属由归档标签
+`archive/pre-slimming-20260913-d7d039b` 中的 `mineradio/LICENSE`、`NOTICE.md` 与
+`BLUE_ALBUM_INTEGRATION.md` 保留；当前分支不再携带旧独立播放器源码，也没有把 GPL 代码复制进当前 React 入口。npm/Python 依赖继续由各自 lockfile、requirements 和上游许可约束。
 
 ## Deployment and rollback
 
