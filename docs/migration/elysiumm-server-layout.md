@@ -6,7 +6,7 @@
 | 内容 | 位置 |
 | --- | --- |
 | 裸 Git 仓库 | `/srv/services/elysium/repository.git` |
-| 不可变基线 | `/srv/services/elysium/baseline/<baseline-id>/` |
+| 不可变基线 | `/srv/backups/elysium/baseline/<baseline-id>/` |
 | 后端 release/current | `/srv/services/elysium/backend-releases/<release>`、`backend-current` |
 | 前端 release/current | `/srv/services/elysium/frontend-releases/<release>`、`frontend-current` |
 | 发布事务 | `/srv/services/elysium/deployment-history/<deployment-id>.json` |
@@ -16,6 +16,15 @@
 | 后端服务 | `elysiumm-backend.service`，单 worker |
 | 直播服务 | `elysiumm-mediamtx.service` |
 | Nginx 静态根 | `/srv/services/elysium/frontend-current/dist` |
+
+baseline 不属于服务运行目录。服务根目录只保留 release、current、shared、裸
+仓库和发布历史；需要执行发布前检查时，显式传入：
+
+```bash
+sudo bash scripts/release-preflight.sh \
+  --root /srv/services/elysium \
+  --baseline-root /srv/backups/elysium/baseline
+```
 
 Articles Markdown/媒体镜像和上传内容属于 `shared` 外部依赖；它们不重复
 冻结进普通 release，baseline 只在 `BASELINE.json` 中记录依赖。Mineradio

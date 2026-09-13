@@ -280,6 +280,49 @@ class ReleaseScriptsTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_preflight_accepts_baseline_outside_service_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, _web_root, backup_root, _health = self.fixture(root)
+            _web_root.rmdir()
+            (root / "frontend-current").rmdir()
+            (root / "repository.git").mkdir()
+            (root / "repository.git" / "HEAD").write_text(
+                "ref: refs/heads/main\n", encoding="utf-8"
+            )
+            external_baseline = root / "backups" / "baseline" / "current-production-test"
+            external_baseline.mkdir(parents=True)
+            for path in (
+                root / "backend-releases",
+                root / "frontend-releases",
+                root / "shared",
+                root / "shared" / "sync-storage" / "articles",
+                root / "shared" / "sync-storage" / "media",
+            ):
+                path.mkdir(parents=True, exist_ok=True)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(ROOT / "scripts/release-preflight.sh"),
+                    "--fixture-root",
+                    str(root),
+                    "--root",
+                    str(root),
+                    "--baseline-root",
+                    str(root / "backups" / "baseline"),
+                    "--env-file",
+                    str(root / "backend.env"),
+                    "--backup-root",
+                    str(backup_root),
+                    "--allow-empty-current",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_legacy_production_entrypoint_refuses_mutation(self):
         result = subprocess.run(
             ["bash", str(ROOT / "start-prod.sh")],

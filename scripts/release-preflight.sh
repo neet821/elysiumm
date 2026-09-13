@@ -7,6 +7,7 @@ ROOT_DIR="$SOURCE_ROOT"
 ENV_FILE=""
 WEB_ROOT=""
 BACKUP_ROOT=""
+BASELINE_ROOT=""
 HEALTH_URL=""
 FIXTURE_ROOT=""
 ALLOW_COLD_START=0
@@ -14,12 +15,13 @@ ALLOW_EMPTY_CURRENT=0
 SKIP_DATABASE=0
 
 usage() {
-  echo "usage: $0 [--root PATH] [--env-file PATH] [--web-root PATH] [--backup-root PATH] [--health-url URL] [--allow-cold-start] [--allow-empty-current] [--skip-database]" >&2
+  echo "usage: $0 [--root PATH] [--baseline-root PATH] [--env-file PATH] [--web-root PATH] [--backup-root PATH] [--health-url URL] [--allow-cold-start] [--allow-empty-current] [--skip-database]" >&2
 }
 
 while (($#)); do
   case "$1" in
     --root) ROOT_DIR=${2:?missing --root value}; shift 2 ;;
+    --baseline-root) BASELINE_ROOT=${2:?missing --baseline-root value}; shift 2 ;;
     --env-file) ENV_FILE=${2:?missing --env-file value}; shift 2 ;;
     --web-root) WEB_ROOT=${2:?missing --web-root value}; shift 2 ;;
     --backup-root) BACKUP_ROOT=${2:?missing --backup-root value}; shift 2 ;;
@@ -34,6 +36,11 @@ while (($#)); do
 done
 
 ROOT_DIR="$(realpath -m "$ROOT_DIR")"
+if [[ -z "$BASELINE_ROOT" ]]; then
+  BASELINE_ROOT="$ROOT_DIR/baseline"
+else
+  BASELINE_ROOT="$(realpath -m "$BASELINE_ROOT")"
+fi
 if [[ -n "$FIXTURE_ROOT" ]]; then
   FIXTURE_ROOT="$(realpath -m "$FIXTURE_ROOT")"
 fi
@@ -68,7 +75,7 @@ WEB_ROOT="$(realpath -m "$WEB_ROOT")"
 BACKUP_ROOT="$(realpath -m "$BACKUP_ROOT")"
 
 if [[ -n "$FIXTURE_ROOT" ]]; then
-  python3 - "$FIXTURE_ROOT" "$ROOT_DIR" "$ENV_FILE" "$WEB_ROOT" "$BACKUP_ROOT" <<'PY'
+  python3 - "$FIXTURE_ROOT" "$ROOT_DIR" "$BASELINE_ROOT" "$ENV_FILE" "$WEB_ROOT" "$BACKUP_ROOT" <<'PY'
 import os
 import sys
 
@@ -83,7 +90,7 @@ fi
 if [[ "$RELEASE_LAYOUT" -eq 1 ]]; then
   required_paths=(
     "$ROOT_DIR/repository.git/HEAD"
-    "$ROOT_DIR/baseline"
+    "$BASELINE_ROOT"
     "$ROOT_DIR/backend-releases"
     "$ROOT_DIR/frontend-releases"
     "$ROOT_DIR/shared"
@@ -101,7 +108,7 @@ if [[ "$RELEASE_LAYOUT" -eq 1 ]]; then
       exit 1
     fi
   done
-  if [[ "$ALLOW_EMPTY_CURRENT" -eq 1 ]] && ! find "$ROOT_DIR/baseline" -mindepth 1 -maxdepth 1 -type d -print -quit | grep -q .; then
+  if [[ "$ALLOW_EMPTY_CURRENT" -eq 1 ]] && ! find "$BASELINE_ROOT" -mindepth 1 -maxdepth 1 -type d -print -quit | grep -q .; then
     echo "preflight: --allow-empty-current requires at least one verified baseline directory" >&2
     exit 1
   fi
