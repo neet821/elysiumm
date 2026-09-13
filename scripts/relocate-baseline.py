@@ -57,6 +57,40 @@ def _verify_checksums(baseline: Path) -> int:
     return checked
 
 
+def _rewrite_internal_paths(baseline: Path, old_path: Path, new_path: Path) -> None:
+    """Retarget baseline-owned absolute paths and regenerate its checksums."""
+
+    old_bytes = str(old_path).encode("utf-8")
+    new_bytes = str(new_path).encode("utf-8")
+    paths = [baseline, *sorted(baseline.rglob("*"), key=lambda item: len(item.parts))]
+    modes: dict[Path, int] = {}
+    for path in paths:
+        if path.is_symlink():
+            raise BaselineRelocationError(f"baseline contains a symlink: {path}")
+        modes[path] = os.stat(path).st_mode & 0o777
+    try:
+        for path in paths:
+            if path.is_dir():
+                os.chmod(path, modes[path] | 0o700)
+            elif path.is_file():
+                os.chmod(path, modes[path] | 0o600)
+        for path in paths:
+            if not path.is_file() or path.name == "SHA256SUMS":
+                continue
+            content = path.read_bytes()
+            if old_bytes in content:
+                path.write_bytes(content.replace(old_bytes, new_bytes))
+        checksum_lines = []
+        for path in sorted(baseline.rglob("*")):
+            if path.is_file() and not path.is_symlink() and path.name != "SHA256SUMS":
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                checksum_lines.append(f"{digest}  {path.relative_to(baseline).as_posix()}")
+        (baseline / "SHA256SUMS").write_text("\n".join(checksum_lines) + "\n", encoding="utf-8")
+    finally:
+        for path in sorted(paths, key=lambda item: len(item.parts), reverse=True):
+            os.chmod(path, modes[path])
+
+
 def _write_json(path: Path, payload: dict[str, object], *, readonly: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -118,6 +152,7 @@ def relocate_baseline(
     _write_json(transaction_path, payload, readonly=False)
     try:
         os.rename(source, destination)
+        _rewrite_internal_paths(destination, source, destination)
         _verify_checksums(destination)
         payload["status"] = "succeeded"
         payload["rollback"] = {"source": str(source), "destination": str(destination), "status": "available"}
