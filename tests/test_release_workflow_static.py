@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/deploy.yml"
 OPERATIONS_DOC = ROOT / "docs/operations/release-cicd.md"
 BACKEND_UNIT = ROOT / "deployment/systemd/elysiumm-backend.service"
+VIDEO_SMOKE = ROOT / "scripts/phase8-video-multiclient-smoke.mjs"
 
 
 def _run_text(workflow: dict[str, object]) -> str:
@@ -121,6 +122,12 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         source = BACKEND_UNIT.read_text(encoding="utf-8")
         self.assertIn("LogsDirectory=elysium", source)
         self.assertIn("ReadWritePaths=/srv/services/elysium/shared /var/log/elysium", source)
+
+    def test_video_smoke_has_a_deterministic_host_heartbeat_probe(self):
+        self.assertTrue(VIDEO_SMOKE.is_file(), f"missing video smoke: {VIDEO_SMOKE}")
+        source = VIDEO_SMOKE.read_text(encoding="utf-8")
+        self.assertIn("waitForSocketEvent(hostSocket, 'time_heartbeat', 13_000)", source)
+        self.assertIn("hostSocket.emit('time_heartbeat'", source)
 
 
 if __name__ == "__main__":

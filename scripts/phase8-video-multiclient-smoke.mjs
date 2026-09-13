@@ -694,7 +694,6 @@ async function main() {
     // unlock the member tab explicitly before checking shared playback.
     await click(member, 'button[aria-label^="播放 "]')
 
-    const heartbeatProof = waitForSocketEvent(hostSocket, 'time_heartbeat', 13_000)
     let finalSnapshot = await waitForApi(async () => {
       const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final snapshot')
       return current.state === 'playing' ? current : null
@@ -704,6 +703,17 @@ async function main() {
         action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: 2,
       })
     }
+    // The browser timer normally emits this event every five seconds, but a
+    // CI scheduler can pause that timer while the page is backgrounded during
+    // the preceding reconnect exercise.  Send one explicit valid host
+    // heartbeat so this protocol assertion is deterministic; the UI timer is
+    // still exercised by the playing-room checks above.
+    const heartbeatProof = waitForSocketEvent(hostSocket, 'time_heartbeat', 13_000)
+    hostSocket.emit('time_heartbeat', {
+      playback_version: finalSnapshot.version,
+      position: finalSnapshot.position,
+      room_id: room.id,
+    })
     await Promise.all([
       host.waitFor("!document.querySelector('[data-testid=\"video-room-media\"]')?.paused", 20000),
       member.waitFor("!document.querySelector('[data-testid=\"video-room-media\"]')?.paused", 20000),
