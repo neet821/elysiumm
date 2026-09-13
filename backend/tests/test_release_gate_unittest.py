@@ -76,7 +76,6 @@ class ReleaseGateTest(unittest.TestCase):
                 cwd=root,
                 env={
                     **os.environ,
-                    "RELEASE_GATE_NO_PREVIEW": "1",
                     "RELEASE_GATE_TEST_LOG": str(log),
                 },
                 text=True,
@@ -104,7 +103,6 @@ class ReleaseGateTest(unittest.TestCase):
                 cwd=root,
                 env={
                     **os.environ,
-                    "RELEASE_GATE_NO_PREVIEW": "1",
                     "RELEASE_GATE_REPOSITORY_EXIT": "17",
                     "RELEASE_GATE_TEST_LOG": str(log),
                 },
