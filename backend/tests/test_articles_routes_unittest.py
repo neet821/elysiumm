@@ -80,6 +80,21 @@ class ArticlesRoutesTest(unittest.TestCase):
         self.assertEqual([item["title"] for item in categories["article"]["items"]], ["公开"])
         self.assertEqual([item["title"] for item in categories["record"]["items"]], ["电影"])
 
+    def test_skips_quickadd_template_placeholders_before_parsing_yaml(self):
+        self.write(
+            "资源库/模板/Elysium-文章.md",
+            "---\ntype: article\ncreated_at: {{DATE:YYYY-MM-DDTHH:mm:ssZ}}\n---\n模板。",
+        )
+        self.write("文章/公开.md", "---\ntype: article\n同步到网站: 是\n---\n正文。")
+
+        articles = self.client.get("/api/articles")
+        self.assertEqual(articles.status_code, 200, articles.text)
+        self.assertEqual([item["title"] for item in articles.json()["articles"]], ["公开"])
+
+        content = self.client.get("/api/content")
+        self.assertEqual(content.status_code, 200, content.text)
+        self.assertEqual([item["title"] for item in content.json()["categories"][0]["items"]], ["公开"])
+
     def test_article_detail_normalizes_obsidian_markup_and_sanitizes_html(self):
         self.write(
             "文章/详情.md",

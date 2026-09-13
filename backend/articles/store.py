@@ -142,7 +142,7 @@ def _parse_note(source: str, fallback_title: str) -> tuple[dict[str, Any], str, 
 
 def _classify(relative_path: str, data: dict[str, Any]) -> tuple[str, str] | None:
     parts = [part.lower() for part in Path(relative_path).parts]
-    if any(part in {"模板", "templates", "template"} for part in parts):
+    if _is_template_path(relative_path):
         return None
     raw_type = _clean_text(data.get("type") or data.get("kind") or data.get("content_type")).lower()
     if raw_type in {"movie", "album", "book", "game"}:
@@ -164,6 +164,11 @@ def _classify(relative_path: str, data: dict[str, Any]) -> tuple[str, str] | Non
     if len(parts) == 1:
         return "article", raw_type or "article"
     return None
+
+
+def _is_template_path(relative_path: str) -> bool:
+    parts = [part.lower() for part in Path(relative_path).parts]
+    return any(part in {"模板", "templates", "template"} for part in parts)
 
 
 def _is_inside(root: Path, candidate: Path) -> bool:
@@ -287,6 +292,8 @@ class ArticleStore:
     def _read_record(self, file: Path) -> dict[str, Any] | None:
         relative_path = file.relative_to(self.article_root).as_posix()
         if not self.include_root_files and "/" not in relative_path:
+            return None
+        if _is_template_path(relative_path):
             return None
         source = file.read_text(encoding="utf-8")
         data, body, parsed_title, cover, excerpt = _parse_note(source, file.stem)
