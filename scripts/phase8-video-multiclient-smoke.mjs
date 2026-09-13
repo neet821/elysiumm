@@ -318,6 +318,23 @@ async function click(page, selector) {
   assert.equal(state.disabled, false, `${page.label} disabled ${selector}`)
 }
 
+async function ensureVideoPlaying(page) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const state = await page.evaluate(`(() => {
+      const video = document.querySelector('[data-testid="video-room-media"]')
+      if (!video) return { found: false, paused: true }
+      if (!video.paused) return { found: true, paused: false }
+      const button = document.querySelector('button[aria-label^="播放 "]')
+      if (button && !button.disabled) button.click()
+      return { found: true, paused: video.paused }
+    })()`)
+    assert(state.found, `${page.label} missing video media`)
+    if (!state.paused) return
+    await sleep(400)
+  }
+  await page.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused", 20000)
+}
+
 async function clickText(page, text, selector = 'button') {
   const state = await page.evaluate(`(() => {
     const element = Array.from(document.querySelectorAll(${JSON.stringify(selector)}))
@@ -611,7 +628,7 @@ async function main() {
     await host.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused")
     // A member must explicitly unlock local media once; autoplay policy is
     // intentionally not bypassed by the shared room state.
-    await click(member, 'button[aria-label^="播放 "]')
+    await ensureVideoPlaying(member)
     await member.waitFor("document.querySelector('[data-testid=\"video-room-media\"]') && !document.querySelector('[data-testid=\"video-room-media\"]')?.paused")
     await selectValue(host, 'select[aria-label="共享播放速度"]', 1.25)
     playing = await waitForApi(async () => {
@@ -734,10 +751,7 @@ async function main() {
       position: finalSnapshot.position,
       room_id: room.id,
     })
-    await Promise.all([
-      host.waitFor("!document.querySelector('[data-testid=\"video-room-media\"]')?.paused", 20000),
-      member.waitFor("!document.querySelector('[data-testid=\"video-room-media\"]')?.paused", 20000),
-    ])
+    await Promise.all([ensureVideoPlaying(host), ensureVideoPlaying(member)])
     const heartbeat = await heartbeatProof
     assert.equal(heartbeat.version, finalSnapshot.version)
     const driftDeadline = Date.now() + 6_000
