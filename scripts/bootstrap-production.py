@@ -23,6 +23,7 @@ from deployment.bootstrap_transaction import (  # noqa: E402
     finalize_bootstrap_transaction,
     load_bootstrap_transaction,
     new_bootstrap_transaction,
+    update_bootstrap_release,
     update_bootstrap_phase,
     write_bootstrap_transaction,
 )
@@ -70,7 +71,15 @@ def main() -> int:
             )
             write_bootstrap_transaction(path, payload)
         elif args.target_commit or args.release_deployment_id:
-            load_bootstrap_transaction(path)
+            if not args.target_commit or not args.release_deployment_id:
+                raise ValueError(
+                    "updating bootstrap transactions requires --target-commit and --release-deployment-id"
+                )
+            update_bootstrap_release(
+                path,
+                target_commit=args.target_commit,
+                release_deployment_id=args.release_deployment_id,
+            )
         if args.phase:
             if not args.status:
                 raise ValueError("--phase requires --status")

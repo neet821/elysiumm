@@ -186,6 +186,26 @@ def update_bootstrap_phase(
     return payload
 
 
+def update_bootstrap_release(
+    path: Path,
+    *,
+    target_commit: str,
+    release_deployment_id: str,
+) -> dict[str, Any]:
+    """Atomically replace the release identity on an unfinished bootstrap."""
+    if not isinstance(target_commit, str) or not target_commit:
+        raise BootstrapTransactionError("target_commit must be a non-empty string")
+    _validate_id(release_deployment_id, "release_deployment_id")
+    payload = load_bootstrap_transaction(path)
+    if path.stat().st_mode & 0o222 == 0:
+        raise BootstrapTransactionError(f"bootstrap transaction is finalized: {path}")
+    payload["target_commit"] = target_commit
+    payload["release_deployment_id"] = release_deployment_id
+    payload["updated_at"] = _now()
+    _atomic_write(path, payload)
+    return payload
+
+
 def finalize_bootstrap_transaction(
     path: Path,
     *,
@@ -216,6 +236,7 @@ __all__ = [
     "finalize_bootstrap_transaction",
     "load_bootstrap_transaction",
     "new_bootstrap_transaction",
+    "update_bootstrap_release",
     "update_bootstrap_phase",
     "validate_bootstrap_transaction",
     "write_bootstrap_transaction",

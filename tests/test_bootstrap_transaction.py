@@ -11,12 +11,36 @@ from deployment.bootstrap_transaction import (
     finalize_bootstrap_transaction,
     load_bootstrap_transaction,
     new_bootstrap_transaction,
+    update_bootstrap_release,
     update_bootstrap_phase,
     write_bootstrap_transaction,
 )
 
 
 class BootstrapTransactionTests(unittest.TestCase):
+    def test_existing_transaction_can_atomically_update_release_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bootstrap.json"
+            write_bootstrap_transaction(
+                path,
+                new_bootstrap_transaction(
+                    bootstrap_id="cutover",
+                    target_commit="a" * 40,
+                    release_deployment_id="release-old",
+                    trigger="operator",
+                ),
+            )
+
+            updated = update_bootstrap_release(
+                path,
+                target_commit="b" * 40,
+                release_deployment_id="release-new",
+            )
+
+            self.assertEqual(updated["target_commit"], "b" * 40)
+            self.assertEqual(updated["release_deployment_id"], "release-new")
+            self.assertEqual(load_bootstrap_transaction(path)["release_deployment_id"], "release-new")
+
     def test_phases_are_atomically_recorded_and_finalized_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
