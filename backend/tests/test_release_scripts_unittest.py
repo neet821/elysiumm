@@ -323,16 +323,6 @@ class ReleaseScriptsTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_legacy_production_entrypoint_refuses_mutation(self):
-        result = subprocess.run(
-            ["bash", str(ROOT / "start-prod.sh")],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("retired", result.stderr)
-
     def test_rollback_alias_delegates_to_component_cli(self):
         result = subprocess.run(
             ["bash", str(ROOT / "scripts/rollback-prod.sh"), "--help"],

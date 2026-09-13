@@ -106,7 +106,7 @@ class ReleaseGateTest(unittest.TestCase):
 
         self.assertIn("set -euo pipefail", gate_source)
         self.assertNotIn("|| true", gate_source)
-        for forbidden in ("start-prod.sh", "rollback-prod.sh", "docker compose up", "sudo "):
+        for forbidden in ("rollback-prod.sh", "docker compose up", "sudo "):
             self.assertNotIn(forbidden, gate_source)
         self.assertIn("scripts/release-gate.sh", workflow)
         self.assertNotIn("run: scripts/check-all.sh", workflow)

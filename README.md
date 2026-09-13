@@ -12,7 +12,7 @@ Elysium 是个人网站的唯一单仓。React 前端提供文章首页、账户
 - `deployment/`：Docker、systemd、MediaMTX 和 Nginx 发布模板
 - `scripts/`：检查、发布、备份、回滚和浏览器验收脚本
 - `ops/`：MediaMTX 和直播基础设施配置
-- `tools/public-sync-agent/`：公共目录同步客户端
+- `public_sync/`：公共目录同步客户端
 - `docs/`：架构、迁移、部署和发布门禁说明
 
 ## 本地运行
@@ -57,8 +57,5 @@ scripts/check-all.sh
 - [发布检查表](./docs/release-checklist.md)
 - [Elysium 服务器布局](./docs/migration/elysiumm-server-layout.md)
 - [阶段一交接记录](./docs/migration/2026-08-14-phase1-handoff.md)
-- [Docker 说明](./DOCKER_GUIDE.md)
-- [环境说明](./ENVIRONMENT_NOTES.md)
-- [最终报告](./FINAL_REPORT.md)
 
 生产发布前必须完成最终备份、校验、DNS/HTTPS、登录权限、媒体播放、实时能力和 Obsidian 同步验收；本仓库的代码清理不会自动修改生产服务或数据库。

@@ -20,12 +20,12 @@ export BACKUP_OUTPUT_DIR="${TEST_ROOT}/backups"
 export ADMIN_FILES_STORAGE_DIR="${TEST_ROOT}/admin-files"
 
 echo "[1/9] 后端代码检查"
-"${PYTHON}" -m ruff check "${ROOT_DIR}/backend" "${ROOT_DIR}/tools/public-sync-agent" \
+"${PYTHON}" -m ruff check "${ROOT_DIR}/backend" "${ROOT_DIR}/public_sync" \
   --select E9,F63,F7,F82 \
   --exclude "${ROOT_DIR}/backend/.venv"
 
 echo "[2/9] 后端编译检查"
-"${PYTHON}" -m compileall -q "${ROOT_DIR}/backend" "${ROOT_DIR}/tools/public-sync-agent" \
+"${PYTHON}" -m compileall -q "${ROOT_DIR}/backend" "${ROOT_DIR}/public_sync" \
   -x 'backend/.venv'
 
 echo "[3/9] 后端测试"

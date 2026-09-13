@@ -57,13 +57,6 @@ class DeploymentConfigTest(unittest.TestCase):
         self.assertIn(expected_path, unit)
         self.assertIn("/etc/elysium/mediamtx.env", unit)
 
-    def test_legacy_production_entrypoint_is_non_mutating(self):
-        source = (ROOT / "start-prod.sh").read_text(encoding="utf-8")
-        self.assertIn("is retired", source)
-        self.assertIn("exit 2", source)
-        for retired in ("blue-mineradio", "3000", "3100", "/var/www/blue-album", "/srv/blue-album"):
-            self.assertNotIn(retired, source)
-
     def test_production_import_does_not_run_legacy_schema_mutation(self):
         main_source = (ROOT / "backend/main.py").read_text(encoding="utf-8")
         self.assertNotRegex(main_source, r"\nauto_migrate_database\(\)\s*\n")

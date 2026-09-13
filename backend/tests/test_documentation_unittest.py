@@ -37,19 +37,6 @@ class DocumentationTest(unittest.TestCase):
         ),
     }
 
-    FINAL_REPORT_PHRASES = (
-        "Release candidate status",
-        "Architecture and delivered scope",
-        "Migrations",
-        "Security",
-        "Verification evidence",
-        "Performance and compatibility",
-        "Third-party licenses",
-        "Deployment and rollback",
-        "External blockers",
-        "Known limitations",
-    )
-
     def test_required_guides_exist_and_cover_release_boundaries(self):
         for relative, phrases in self.REQUIRED.items():
             path = ROOT / relative
@@ -62,20 +49,12 @@ class DocumentationTest(unittest.TestCase):
         source = (ROOT / "README.md").read_text(encoding="utf-8")
         for relative in self.REQUIRED:
             self.assertIn(f"./{relative}", source)
-        self.assertIn("./DOCKER_GUIDE.md", source)
-        self.assertIn("./ENVIRONMENT_NOTES.md", source)
-        self.assertIn("./FINAL_REPORT.md", source)
         self.assertIn("./docs/release-checklist.md", source)
         self.assertNotIn("DEPLOYMENT_GUIDE.md", source)
         self.assertNotIn("TESTING_GUIDE.md", source)
 
-    def test_final_report_and_acceptance_checklist_are_complete(self):
-        report = (ROOT / "FINAL_REPORT.md").read_text(encoding="utf-8")
+    def test_acceptance_checklist_is_complete(self):
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
-        for phrase in self.FINAL_REPORT_PHRASES:
-            self.assertIn(phrase, report)
-        for phase in range(12):
-            self.assertIn(f"Phase {phase}", report)
         for acceptance_area in (
             "Homepage and navigation",
             "Collection",
@@ -89,9 +68,6 @@ class DocumentationTest(unittest.TestCase):
             self.assertIn(acceptance_area, checklist)
         self.assertNotIn("| FAIL |", checklist)
         self.assertIn("| BLOCKED |", checklist)
-        self.assertIn("scripts/release-gate.sh", report)
-        self.assertIn("0009_phase10_books_files_admin", report)
-        self.assertIn("0010_repair_legacy_gaps", report)
 
     def test_testing_guide_describes_current_release_gate(self):
         source = (ROOT / "docs/testing.md").read_text(encoding="utf-8")
@@ -102,9 +78,6 @@ class DocumentationTest(unittest.TestCase):
     def test_edited_documentation_has_no_broken_local_markdown_links(self):
         paths = [
             ROOT / "README.md",
-            ROOT / "FINAL_REPORT.md",
-            ROOT / "ENVIRONMENT_NOTES.md",
-            ROOT / "DOCKER_GUIDE.md",
             ROOT / "docs/release-checklist.md",
             *(ROOT / relative for relative in self.REQUIRED),
         ]
@@ -119,31 +92,17 @@ class DocumentationTest(unittest.TestCase):
 
     def test_stale_or_unsafe_deployment_claims_are_removed(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        environment = (ROOT / "ENVIRONMENT_NOTES.md").read_text(encoding="utf-8")
-        docker = (ROOT / "DOCKER_GUIDE.md").read_text(encoding="utf-8")
-        combined = "\n".join((readme, environment))
         for stale in (
             "脚本会：git pull", "会自动拉取最新 main", "BACKEND_WORKERS=2",
             "deploy/prod.env", "certbot standalone", "静态文件 rsync",
         ):
-            self.assertNotIn(stale, combined)
-        self.assertIn("单进程", environment)
-        self.assertIn("迁移前发布包", environment)
-        self.assertIn("显式回滚", environment)
-        self.assertIn("three application services", docker.lower())
-        for volume in (
-            "db_data", "shared_uploads", "shared_private_storage",
-            "shared_sync_storage", "shared_transfers", "shared_backups",
-        ):
-            self.assertIn(volume, docker)
-        self.assertNotIn("./backend/uploads", docker)
-        self.assertNotIn("./backend/logs", docker)
+            self.assertNotIn(stale, readme)
 
     def test_documented_release_commands_point_to_tracked_executables(self):
         for relative in (
             "scripts/check-all.sh", "scripts/check-release-config.py",
             "scripts/release-preflight.sh", "scripts/deploy-production.py",
-            "scripts/rollback-production.py", "start-docker.sh",
+            "scripts/rollback-production.py",
         ):
             path = ROOT / relative
             self.assertTrue(path.is_file(), relative)

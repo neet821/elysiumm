@@ -24,7 +24,7 @@ Music uses a canonical-track catalog above provider adapters. Provider mappings 
 
 Room Core is the media-independent authority for media identity, position, play/pause, server time, playback rate and version. Music adds queue, proposals, votes, favorites and history. Video adds playlist items, managed uploads, subtitles, metadata, range streaming and transient buffering. Games use a separate deterministic turn engine, role-filtered state and hash-chained replay rather than the playback clock.
 
-Public Sync is an administrator-provisioned device channel. A device credential is shown once, stored only as a digest, and used through `X-Sync-Token`. Complete and chunked uploads are verified before atomic publication. The `tools/public-sync-agent/` client uses this API and is not a privileged filesystem bridge.
+Public Sync is an administrator-provisioned device channel. A device credential is shown once, stored only as a digest, and used through `X-Sync-Token`. Complete and chunked uploads are verified before atomic publication. The `public_sync/` client uses this API and is not a privileged filesystem bridge.
 
 ## Request and state flow
 

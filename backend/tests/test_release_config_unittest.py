@@ -13,7 +13,7 @@ class ReleaseConfigTest(unittest.TestCase):
         return (ROOT / relative_path).read_text(encoding="utf-8")
 
     def test_compose_requires_secrets_and_persists_private_state(self):
-        source = self.read("docker-compose.yml")
+        source = self.read("deployment/docker-compose.yml")
         for variable in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"):
             self.assertIn(f"${{{variable}:?", source)
         for weak_default in ("rootpassword", "password}", "your-secret-key", "change-this"):
@@ -24,7 +24,7 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertIn("healthcheck:", source)
 
     def test_compose_persists_transfer_storage(self):
-        for relative_path in ("docker-compose.yml", "deployment/docker-compose.yml"):
+        for relative_path in ("deployment/docker-compose.yml",):
             source = self.read(relative_path)
             self.assertIn("TRANSFER_STORAGE_DIR: /app/shared/transfers", source)
             self.assertIn("- shared_transfers:/app/shared/transfers", source)
@@ -101,13 +101,6 @@ class ReleaseConfigTest(unittest.TestCase):
         nginx = self.read("frontend/nginx.conf")
         self.assertIn("location /ws/", nginx)
         self.assertNotIn("location /socket.io/", nginx)
-
-    def test_docker_start_refuses_new_or_placeholder_environment(self):
-        script = self.read("start-docker.sh")
-        self.assertIn("exit 2", script)
-        self.assertIn("check-release-config.py --env-file", script)
-        self.assertNotIn("secure_root_password", self.read(".env.docker"))
-        self.assertIn("CHANGE_ME", self.read(".env.docker"))
 
     def test_release_checker_and_ci_reuse_release_gate(self):
         checker = ROOT / "scripts" / "check-release-config.py"

@@ -114,10 +114,10 @@ def require(source: str, path: str, snippets: tuple[str, ...], errors: list[str]
 
 def validate_repository() -> list[str]:
     errors: list[str] = []
-    compose = read("docker-compose.yml")
+    compose = read("deployment/docker-compose.yml")
     require(
         compose,
-        "docker-compose.yml",
+        "deployment/docker-compose.yml",
         tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"))
         + (
             'DOCKER_ENV: "true"',
@@ -136,10 +136,10 @@ def validate_repository() -> list[str]:
     )
     for weak_default in ("rootpassword", "your-secret-key", "change-this-in-prod"):
         if weak_default in compose:
-            errors.append(f"docker-compose.yml contains a weak default: {weak_default}")
+            errors.append(f"deployment/docker-compose.yml contains a weak default: {weak_default}")
     for retired in ("mineradio:", "MUSIC_PROVIDER_BASE_URL", "MUSIC_PROVIDER_ADMIN_TOKEN", "3000"):
         if retired in compose:
-            errors.append(f"docker-compose.yml retains retired standalone music topology: {retired}")
+            errors.append(f"deployment/docker-compose.yml retains retired standalone music topology: {retired}")
 
     require(read("backend/Dockerfile"), "backend/Dockerfile", ("FROM python:3.12-slim",), errors)
     frontend_dockerfile = read("frontend/Dockerfile")
@@ -151,9 +151,6 @@ def validate_repository() -> list[str]:
     require(nginx, "frontend/nginx.conf", ("location /ws/",), errors)
     if "location /socket.io/" in nginx:
         errors.append("frontend/nginx.conf proxies the wrong Socket.IO path")
-
-    launcher = read("start-docker.sh")
-    require(launcher, "start-docker.sh", ("exit 2", "check-release-config.py --env-file"), errors)
 
     workflow_path = ROOT / ".github/workflows/quality.yml"
     if not workflow_path.is_file():
