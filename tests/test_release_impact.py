@@ -19,10 +19,25 @@ from deployment.release_impact import (  # noqa: E402
 )
 
 
-IMPACT_MAP = ROOT / "deployment/release-impact.yml"
+IMPACT_MAP = ROOT / "release-impact.yml"
 
 
 class ReleaseImpactTests(unittest.TestCase):
+    def test_repository_uses_root_level_impact_map(self):
+        canonical_map = ROOT / "release-impact.yml"
+        self.assertTrue(canonical_map.is_file())
+        self.assertFalse((ROOT / "deployment/release-impact.yml").exists())
+
+    def test_cli_defaults_to_root_level_impact_map(self):
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/resolve-release-impact.py"), "--path", "frontend/src/App.jsx"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout)["impact_map"], "release-impact.yml")
+
     def test_frontend_only_does_not_select_backend(self):
         result = resolve_impact(["frontend/src/App.jsx"], impact_map=IMPACT_MAP, root=ROOT)
         self.assertEqual(result["components"], ["frontend"])
@@ -75,7 +90,7 @@ class ReleaseImpactTests(unittest.TestCase):
         self.assertTrue(result["requires_full_validation"])
 
     def test_map_change_forces_full(self):
-        result = resolve_impact(["deployment/release-impact.yml"], impact_map=IMPACT_MAP, root=ROOT)
+        result = resolve_impact(["release-impact.yml"], impact_map=IMPACT_MAP, root=ROOT)
         self.assertEqual(result["components"], ["frontend", "backend", "infra"])
         self.assertEqual(result["validation_profiles"], ["full"])
 

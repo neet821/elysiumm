@@ -28,7 +28,7 @@ def main() -> int:
     parser.add_argument("--head")
     args = parser.parse_args()
     root = args.root.resolve()
-    impact_map = (args.impact_map or root / "deployment/release-impact.yml").resolve()
+    impact_map = (args.impact_map or root / "release-impact.yml").resolve()
     try:
         paths = list(args.paths)
         if args.base or args.head:

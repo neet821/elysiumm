@@ -1124,7 +1124,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     root = options.root.expanduser().resolve()
     impact = resolve_impact(
         options.changed_paths,
-        impact_map=(options.impact_map or root / "deployment/release-impact.yml").expanduser().resolve(),
+        impact_map=(options.impact_map or root / "release-impact.yml").expanduser().resolve(),
         root=root,
     )
     transaction_path = _transaction_path(root, options.deployment_id)

@@ -33,9 +33,8 @@ class ProductionDeployTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        (self.root / "deployment").mkdir()
-        source_map = Path(__file__).resolve().parents[1] / "deployment/release-impact.yml"
-        (self.root / "deployment/release-impact.yml").write_text(source_map.read_text(encoding="utf-8"), encoding="utf-8")
+        source_map = Path(__file__).resolve().parents[1] / "release-impact.yml"
+        (self.root / "release-impact.yml").write_text(source_map.read_text(encoding="utf-8"), encoding="utf-8")
         (self.root / "backend").mkdir()
         (self.root / "backend/schemas.py").write_text("schema = 1\n", encoding="utf-8")
         self.dist = self.root / "build-dist"
@@ -117,10 +116,10 @@ class ProductionDeployTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             external_map = Path(directory) / "release-impact.yml"
             external_map.write_text(
-                (self.root / "deployment/release-impact.yml").read_text(encoding="utf-8"),
+                (self.root / "release-impact.yml").read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
-            (self.root / "deployment/release-impact.yml").unlink()
+            (self.root / "release-impact.yml").unlink()
             options = DeploymentOptions(
                 **{
                     **self.options("frontend-external-impact-map", ("frontend/src/App.jsx",)).__dict__,

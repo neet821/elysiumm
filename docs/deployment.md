@@ -127,7 +127,7 @@ candidate for ordinary release cleanup.
 
 ## CI/CD release path
 
-The versioned `deployment/release-impact.yml` is read by
+The versioned root-level `release-impact.yml` is read by
 `scripts/resolve-release-impact.py`. Matching rules choose `frontend`,
 `backend`, `infra`, and validation profiles; unknown paths and changes to the
 impact map require full validation. The GitHub workflow builds only the

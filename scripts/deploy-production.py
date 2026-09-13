@@ -37,7 +37,7 @@ def main() -> int:
     parser.add_argument(
         "--impact-map",
         type=_path,
-        help="explicit versioned impact map; defaults to <root>/deployment/release-impact.yml",
+        help="explicit versioned impact map; defaults to <root>/release-impact.yml",
     )
     parser.add_argument("--deployment-id", required=True)
     parser.add_argument("--trigger", default="github-actions")
@@ -108,7 +108,7 @@ def main() -> int:
             paths.extend(changed_paths_from_git(root, args.base_commit, args.commit))
         if not paths:
             raise ImpactMapError("at least one --path or --base-commit is required")
-        impact_map = (args.impact_map or root / "deployment/release-impact.yml").resolve()
+        impact_map = (args.impact_map or root / "release-impact.yml").resolve()
         impact = resolve_impact(paths, impact_map=impact_map, root=root)
         if args.print_impact:
             print(resolve_impact_json(impact), end="")

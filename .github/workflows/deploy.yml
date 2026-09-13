@@ -206,6 +206,7 @@ jobs:
           mkdir -p "$payload"
           tar \
             -cf - \
+            release-impact.yml \
             deployment \
             scripts/install-release-layout.sh \
             scripts/deploy-production.py \
@@ -364,9 +365,8 @@ jobs:
             preflight_args+=(--allow-empty-current)
           fi
           sudo -n bash "$stage/scripts/release-preflight.sh" "${preflight_args[@]}"
-          sudo -n install -d -m 0755 "$root/deployment"
-          sudo -n install -m 0644 "$stage/deployment/release-impact.yml" \
-            "$root/deployment/release-impact.yml"
+          sudo -n install -m 0644 "$stage/release-impact.yml" \
+            "$root/release-impact.yml"
 
           deployment_python="$(command -v python3)"
           if [[ "$deploy_backend" == true ]]; then
@@ -399,7 +399,7 @@ jobs:
           PY
           )
           if ((${#changed_paths[@]} == 0)); then
-            changed_paths=(deployment/release-impact.yml)
+            changed_paths=(release-impact.yml)
           fi
           path_args=()
           for path in "${changed_paths[@]}"; do
@@ -427,7 +427,7 @@ jobs:
             --root "$root"
             --commit "$commit"
             --git-ref "refs/heads/main"
-            --impact-map "$stage/deployment/release-impact.yml"
+            --impact-map "$stage/release-impact.yml"
             --deployment-id "$deployment_id"
             --trigger github-actions
             --github-run-id "$run_id"

@@ -3,7 +3,7 @@
 This repository-side workflow has two separate responsibilities:
 
 - `quality` installs the locked development dependencies, resolves
-  `deployment/release-impact.yml`, runs the relevant backend focused/full
+  `release-impact.yml`, runs the relevant backend focused/full
   checks, runs the frontend check/budget/build, and stores the built frontend
   artifact with non-secret release metadata.
 - `deployment` is production-only. It can run only for a successful `push` to

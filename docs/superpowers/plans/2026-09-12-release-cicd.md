@@ -12,12 +12,12 @@ Implement independent immutable frontend/backend releases, a self-contained prod
 - Database backup and `alembic upgrade` happen only when the target backend has unapplied migrations. Compare production current revisions with target heads using the Alembic graph. Unknown, divergent, or unavailable state aborts without switching `backend-current`.
 - Baseline is self-contained for runtime stack and database: it must not depend on original release paths. Shared uploads and Articles content remain external shared inputs and must be declared in the baseline manifest.
 - Release manifests are component-specific. Deployment transactions are immutable and retain complete history without secrets.
-- Impact selection is data-driven by `deployment/release-impact.yml`; unmatched paths default to full validation.
+- Impact selection is data-driven by root-level `release-impact.yml`; unmatched paths default to full validation.
 - Keep Uvicorn at one worker. Never change FlClash configuration or restart FlClashCore.
 
 ## Task 1: Impact map and data migration tracking
 
-Add `deployment/release-impact.yml`, a deterministic loader that emits JSON, focused tests, and `docs/migrations/data-to-shared.md` with the legacy-path checklist.
+Add root-level `release-impact.yml`, a deterministic loader that emits JSON, focused tests, and `docs/migrations/data-to-shared.md` with the legacy-path checklist.
 
 ## Task 2: Independent release manifests and transactions
 
