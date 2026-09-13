@@ -74,7 +74,10 @@ class ReleaseGateTest(unittest.TestCase):
             result = subprocess.run(
                 [str(gate)],
                 cwd=root,
-                env={**os.environ, "RELEASE_GATE_TEST_LOG": str(log)},
+                env={
+                    **os.environ,
+                    "RELEASE_GATE_TEST_LOG": str(log),
+                },
                 text=True,
                 capture_output=True,
                 check=False,
@@ -124,6 +127,32 @@ class ReleaseGateTest(unittest.TestCase):
         self.assertIn("scripts/release-gate.sh", workflow)
         self.assertNotIn("run: scripts/check-all.sh", workflow)
         self.assertNotIn("run: python scripts/check-release-config.py", workflow)
+
+    def test_gate_bypasses_proxy_for_local_smoke_services(self):
+        source = GATE.read_text(encoding="utf-8")
+        self.assertIn('export NO_PROXY="${NO_PROXY:+${NO_PROXY},}127.0.0.1,localhost,::1"', source)
+        self.assertIn('export no_proxy="${no_proxy:+${no_proxy},}127.0.0.1,localhost,::1"', source)
+        self.assertIn("run_without_proxy()", source)
+        self.assertIn("-u ALL_PROXY -u all_proxy", source)
+        self.assertIn('run_step 7 "视频房多客户端关键验收"', source)
+        self.assertIn(
+            'run_without_proxy "${NODE}" "${ROOT_DIR}/scripts/phase8-video-multiclient-smoke.mjs"',
+            source,
+        )
+
+    def test_backend_dependency_enables_httpx_socks_support(self):
+        requirements = (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8")
+        self.assertIn("httpx[socks]==0.28.1", requirements.splitlines())
+
+    def test_gate_disables_git_pager_for_all_nested_checks(self):
+        source = GATE.read_text(encoding="utf-8")
+        self.assertIn("export GIT_PAGER=cat", source)
+
+    def test_ci_handles_first_push_with_multiple_history_roots(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn('DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}', workflow)
+        self.assertIn('git merge-base "$HEAD_SHA" "origin/${DEFAULT_BRANCH}"', workflow)
+        self.assertIn('git rev-list --max-parents=0 "$HEAD_SHA" | head -n 1', workflow)
 
 
 if __name__ == "__main__":

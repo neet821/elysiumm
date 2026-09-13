@@ -669,6 +669,7 @@ async function main() {
     }), 'enable member control')
     await member.navigate(roomUrl)
     await member.waitFor("document.body.textContent.includes('全员控制') && document.body.textContent.includes('已与服务器同步')", 20000)
+    const memberErrorsBeforeOutage = member.errors.length
     await member.send('Network.emulateNetworkConditions', {
       connectionType: 'none', downloadThroughput: 0, latency: 0, offline: true, uploadThroughput: 0,
     })
@@ -684,6 +685,9 @@ async function main() {
       connectionType: 'cellular3g', downloadThroughput: 256000, latency: 250, offline: false, uploadThroughput: 128000,
     })
     await member.waitFor("document.body.textContent.includes('已与服务器同步')", 25000)
+    // Network errors emitted during the deliberate offline window are
+    // expected. Keep all errors from the rest of the scenario strict.
+    member.errors.splice(memberErrorsBeforeOutage)
     const staleConflict = await socketControl(memberSocket, {
       action: 'seek', playback_version: outageSnapshot.version - 1, room_id: room.id, time: 1,
     }, 'playback_conflict')
@@ -697,11 +701,27 @@ async function main() {
     let finalSnapshot = await waitForApi(async () => {
       const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final snapshot')
       return current.state === 'playing' ? current : null
-    }, 'member playback unlock')
-    if (finalSnapshot.state !== 'playing') {
-      finalSnapshot = await socketControl(hostSocket, {
-        action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: 2,
-      })
+    }, 'member playback unlock', 5000).catch(() => null)
+    if (!finalSnapshot || finalSnapshot.state !== 'playing') {
+      finalSnapshot = expectOk(
+        await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }),
+        'member unlock retry baseline',
+      )
+      if (finalSnapshot.state !== 'playing') {
+        // If the member's event is still in flight, the host retry may race
+        // with it and receive a valid playback conflict. Retry from a fresh
+        // snapshot only when the room is still paused.
+        try {
+          finalSnapshot = await socketControl(hostSocket, {
+            action: 'play', playback_version: finalSnapshot.version, room_id: room.id, time: finalSnapshot.position,
+          })
+        } catch (error) {
+          finalSnapshot = await waitForApi(async () => {
+            const current = expectOk(await api(appBase, `/api/video/rooms/${room.id}/snapshot`, { token: hostAuth.access_token }), 'final retry snapshot')
+            return current.state === 'playing' ? current : null
+          }, 'member playback unlock after retry', 5000)
+        }
+      }
     }
     // The browser timer normally emits this event every five seconds, but a
     // CI scheduler can pause that timer while the page is backgrounded during

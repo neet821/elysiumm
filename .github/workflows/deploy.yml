@@ -62,12 +62,21 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base="$PR_BASE_SHA"
           elif [[ -z "${BEFORE_SHA:-}" || "$BEFORE_SHA" =~ ^0+$ ]]; then
-            base="$(git rev-list --max-parents=0 "$HEAD_SHA")"
+            default_ref="refs/remotes/origin/${DEFAULT_BRANCH}"
+            if git show-ref --verify --quiet "$default_ref"; then
+              base="$(git merge-base "$HEAD_SHA" "origin/${DEFAULT_BRANCH}")"
+            else
+              # A repository's initial history may contain multiple roots.
+              # Keep this fallback to one revision so git diff receives a
+              # single valid base; normal branch pushes use origin/main above.
+              base="$(git rev-list --max-parents=0 "$HEAD_SHA" | head -n 1)"
+            fi
           else
             base="$BEFORE_SHA"
           fi
