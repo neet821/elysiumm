@@ -150,6 +150,12 @@ class ReleaseGateTest(unittest.TestCase):
         source = GATE.read_text(encoding="utf-8")
         self.assertIn("export GIT_PAGER=cat", source)
 
+    def test_ci_handles_first_push_with_multiple_history_roots(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn('DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}', workflow)
+        self.assertIn('git merge-base "$HEAD_SHA" "origin/${DEFAULT_BRANCH}"', workflow)
+        self.assertIn('git rev-list --max-parents=0 "$HEAD_SHA" | head -n 1', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
