@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/deploy.yml"
 OPERATIONS_DOC = ROOT / "docs/operations/release-cicd.md"
 BACKEND_UNIT = ROOT / "deployment/systemd/elysiumm-backend.service"
+MAIN_NGINX = ROOT / "deployment/nginx/elysiumm.conf"
 VIDEO_SMOKE = ROOT / "scripts/phase8-video-multiclient-smoke.mjs"
 
 
@@ -122,6 +123,11 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         source = BACKEND_UNIT.read_text(encoding="utf-8")
         self.assertIn("LogsDirectory=elysium", source)
         self.assertIn("ReadWritePaths=/srv/services/elysium/shared /var/log/elysium", source)
+
+    def test_main_nginx_config_does_not_shadow_the_dedicated_livesync_vhost(self):
+        self.assertTrue(MAIN_NGINX.is_file(), f"missing main Nginx config: {MAIN_NGINX}")
+        source = MAIN_NGINX.read_text(encoding="utf-8")
+        self.assertNotIn("server_name sync.elysiumm.top", source)
 
     def test_video_smoke_has_a_deterministic_host_heartbeat_probe(self):
         self.assertTrue(VIDEO_SMOKE.is_file(), f"missing video smoke: {VIDEO_SMOKE}")
