@@ -9,6 +9,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/deploy.yml"
 OPERATIONS_DOC = ROOT / "docs/operations/release-cicd.md"
+BACKEND_UNIT = ROOT / "deployment/systemd/elysiumm-backend.service"
 
 
 def _run_text(workflow: dict[str, object]) -> str:
@@ -114,6 +115,12 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
             "FlClash",
         ):
             self.assertIn(required, source)
+
+    def test_backend_unit_creates_its_log_directory_before_namespace_setup(self):
+        self.assertTrue(BACKEND_UNIT.is_file(), f"missing backend unit: {BACKEND_UNIT}")
+        source = BACKEND_UNIT.read_text(encoding="utf-8")
+        self.assertIn("LogsDirectory=elysium", source)
+        self.assertIn("ReadWritePaths=/srv/services/elysium/shared /var/log/elysium", source)
 
 
 if __name__ == "__main__":
