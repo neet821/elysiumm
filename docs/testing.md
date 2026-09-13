@@ -101,9 +101,11 @@ boundaries are documented in [backup and restore drill](./backup-restore-drill.m
 
 ## CI
 
-`.github/workflows/quality.yml` installs Python 3.12 and Node 20 from lockfiles,
-then runs `scripts/release-gate.sh`. CI does not carry deployment credentials and
-cannot prove a live production rollout.
+`.github/workflows/ci.yml` installs Python 3.12 and Node 20 from lockfiles,
+then runs the impact-aware checks and, for `main`, `scripts/release-gate.sh`.
+`.github/workflows/cd.yml` is the separate production delivery workflow; it
+does not repeat CI checks and cannot deploy until CI succeeds and the protected
+`production` Environment is approved.
 
 ## Interpreting results
 

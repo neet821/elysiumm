@@ -86,7 +86,7 @@
 | --- | --- | --- |
 | 归档标签可列出并恢复每个移出路径 | PASS | `git tag --list 'archive/pre-core-cleanup-2026-08-30'` 与索引中的 `git restore --source ... -- <paths>`。 |
 | 未跟踪运维文件未被写入或暂存 | PASS | 清理前后状态和摘要快照一致；只新增 `docs/reference/legacy-code-archive.md`。 |
-| CI/本地门禁复用同一 release gate | PASS | `.github/workflows/quality.yml`、`scripts/release-gate.sh` 和 `docs/testing.md`。 |
+| CI/本地门禁复用同一 release gate | PASS | `.github/workflows/ci.yml`、`scripts/release-gate.sh` 和 `docs/testing.md`。 |
 | JavaScript 预算与性能后续项 | BLOCKED | 真实预算失败已保留；不得通过提高阈值关闭门禁。 |
 | 生产部署、Nginx/systemd/FRP/数据库验收 | BLOCKED | 本次范围不含生产写操作，需后续授权窗口、迁移前备份和真实设备验收。 |
 

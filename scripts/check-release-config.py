@@ -152,13 +152,13 @@ def validate_repository() -> list[str]:
     if "location /socket.io/" in nginx:
         errors.append("frontend/nginx.conf proxies the wrong Socket.IO path")
 
-    workflow_path = ROOT / ".github/workflows/quality.yml"
+    workflow_path = ROOT / ".github/workflows/ci.yml"
     if not workflow_path.is_file():
-        errors.append(".github/workflows/quality.yml does not exist")
+        errors.append(".github/workflows/ci.yml does not exist")
     else:
         require(
             workflow_path.read_text(encoding="utf-8"),
-            ".github/workflows/quality.yml",
+            ".github/workflows/ci.yml",
             ("python-version: '3.12'", "node-version: '20'", "scripts/release-gate.sh"),
             errors,
         )
