@@ -421,6 +421,7 @@ jobs:
             --root "$root"
             --commit "$commit"
             --git-ref "refs/heads/main"
+            --impact-map "$stage/deployment/release-impact.yml"
             --deployment-id "$deployment_id"
             --trigger github-actions
             --github-run-id "$run_id"

@@ -211,9 +211,18 @@ def resolve_impact(
     if not normalized:
         components.update(defaults.components)
         validation.update(defaults.validation)
+    resolved_map = impact_map.resolve()
+    try:
+        rendered_map = str(resolved_map.relative_to(root))
+    except ValueError:
+        # A production deploy may execute a versioned payload from a staging
+        # directory while its durable root contains only the bare repository
+        # and immutable releases.  Keep that provenance explicit instead of
+        # manufacturing a relative path that cannot be resolved from root.
+        rendered_map = str(resolved_map)
     result = {
         "impact_map_version": version,
-        "impact_map": str(impact_map.resolve().relative_to(root)),
+        "impact_map": rendered_map,
         "components": [item for item in _COMPONENT_ORDER if item in components],
         "validation_profiles": sorted(validation),
         "matched_rules": matched_rules,

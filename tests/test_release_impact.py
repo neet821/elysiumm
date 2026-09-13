@@ -97,6 +97,19 @@ class ReleaseImpactTests(unittest.TestCase):
         )
         self.assertEqual(json.loads(completed.stdout)["components"], ["frontend"])
 
+    def test_external_versioned_map_is_recorded_without_fake_relative_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            external_map = Path(directory) / "release-impact.yml"
+            external_map.write_text(IMPACT_MAP.read_text(encoding="utf-8"), encoding="utf-8")
+
+            result = resolve_impact(
+                ["frontend/src/App.jsx"],
+                impact_map=external_map,
+                root=ROOT,
+            )
+
+        self.assertEqual(result["impact_map"], str(external_map.resolve()))
+
     def test_minimal_server_parser_matches_the_checked_in_map_without_pyyaml(self):
         with patch("deployment.release_impact.yaml", None):
             result = resolve_impact(

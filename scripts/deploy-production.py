@@ -34,6 +34,11 @@ def main() -> int:
     parser.add_argument("--root", type=_path, default=Path("/srv/services/elysium"))
     parser.add_argument("--commit", required=True)
     parser.add_argument("--git-ref", default="refs/heads/main")
+    parser.add_argument(
+        "--impact-map",
+        type=_path,
+        help="explicit versioned impact map; defaults to <root>/deployment/release-impact.yml",
+    )
     parser.add_argument("--deployment-id", required=True)
     parser.add_argument("--trigger", default="github-actions")
     parser.add_argument("--github-run-id", default="")
@@ -103,7 +108,8 @@ def main() -> int:
             paths.extend(changed_paths_from_git(root, args.base_commit, args.commit))
         if not paths:
             raise ImpactMapError("at least one --path or --base-commit is required")
-        impact = resolve_impact(paths, impact_map=root / "deployment/release-impact.yml", root=root)
+        impact_map = (args.impact_map or root / "deployment/release-impact.yml").resolve()
+        impact = resolve_impact(paths, impact_map=impact_map, root=root)
         if args.print_impact:
             print(resolve_impact_json(impact), end="")
             return 0
@@ -142,6 +148,7 @@ def main() -> int:
                 github_run_id=args.github_run_id,
                 changed_paths=tuple(paths),
                 backend_source=args.backend_source.resolve() if args.backend_source else None,
+                impact_map=impact_map,
                 frontend_source=args.frontend_source.resolve() if args.frontend_source else None,
                 frontend_dist=args.frontend_dist.resolve() if args.frontend_dist else None,
                 repository=args.repository.resolve() if args.repository else None,

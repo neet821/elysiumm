@@ -74,6 +74,7 @@ class DeploymentOptions:
     trigger: str
     changed_paths: tuple[str, ...]
     git_ref: str = "refs/heads/main"
+    impact_map: Path | None = None
     backend_source: Path | None = None
     frontend_source: Path | None = None
     frontend_dist: Path | None = None
@@ -1067,7 +1068,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     root = options.root.expanduser().resolve()
     impact = resolve_impact(
         options.changed_paths,
-        impact_map=root / "deployment/release-impact.yml",
+        impact_map=(options.impact_map or root / "deployment/release-impact.yml").expanduser().resolve(),
         root=root,
     )
     transaction_path = _transaction_path(root, options.deployment_id)

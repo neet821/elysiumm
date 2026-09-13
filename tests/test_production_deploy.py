@@ -67,6 +67,26 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(transaction_path.stat().st_mode), 0o444)
         self.assertEqual(json.loads(transaction_path.read_text(encoding="utf-8"))["status"], "succeeded")
 
+    def test_frontend_deploy_accepts_an_external_versioned_impact_map(self):
+        with tempfile.TemporaryDirectory() as directory:
+            external_map = Path(directory) / "release-impact.yml"
+            external_map.write_text(
+                (self.root / "deployment/release-impact.yml").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (self.root / "deployment/release-impact.yml").unlink()
+            options = DeploymentOptions(
+                **{
+                    **self.options("frontend-external-impact-map", ("frontend/src/App.jsx",)).__dict__,
+                    "impact_map": external_map,
+                }
+            )
+
+            transaction = deploy(options)
+
+        self.assertEqual(transaction["status"], "succeeded")
+        self.assertEqual(transaction["impact"]["impact_map"], str(external_map.resolve()))
+
     def test_frontend_deploy_rejects_missing_budget_report(self):
         options = DeploymentOptions(
             **{

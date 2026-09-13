@@ -87,6 +87,7 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
             "install-release-layout.sh",
             "deploy-production.py",
             "--commit",
+            "--impact-map",
             "--deployment-id",
             "--github-run-id",
             "--frontend-dist",
