@@ -18,6 +18,7 @@ from deployment.release_builder import (  # noqa: E402
     assemble_frontend_release,
 )
 from deployment.release_metadata import (  # noqa: E402
+    deployment_history_path,
     deployment_transaction,
     finalize_transaction,
     utc_now,
@@ -52,9 +53,8 @@ def main() -> int:
     args = parser.parse_args()
     root = args.root.resolve()
     try:
-        (root / "frontend-releases").mkdir(parents=True, exist_ok=True)
-        (root / "backend-releases").mkdir(parents=True, exist_ok=True)
-        (root / "deployment-history").mkdir(parents=True, exist_ok=True)
+        (root / "releases").mkdir(parents=True, exist_ok=True)
+        deployment_history_path(root).mkdir(parents=True, exist_ok=True)
         before = {}
         for component in ("frontend", "backend"):
             link = root / f"{component}-current"
@@ -111,7 +111,7 @@ def main() -> int:
         transaction["after"] = {
             f"{args.component}_current": f"{args.component}-releases/{assembly.release_id}" if args.activate else None,
         }
-        transaction_path = root / "deployment-history" / f"{args.deployment_id}.json"
+        transaction_path = deployment_history_path(root) / f"{args.deployment_id}.json"
         if transaction_path.exists():
             raise ValueError(f"deployment transaction already exists: {transaction_path}")
         finalize_transaction(transaction_path, transaction)

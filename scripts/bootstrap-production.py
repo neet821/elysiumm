@@ -27,6 +27,7 @@ from deployment.bootstrap_transaction import (  # noqa: E402
     update_bootstrap_phase,
     write_bootstrap_transaction,
 )
+from deployment.release_metadata import deployment_history_path  # noqa: E402
 
 
 def _json_object(value: str) -> dict[str, object]:
@@ -57,7 +58,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         root = args.root.expanduser().resolve()
-        path = root / "deployment-history" / f"bootstrap-{args.bootstrap_id}.json"
+        path = deployment_history_path(root) / f"bootstrap-{args.bootstrap_id}.json"
         if not path.exists():
             if not args.target_commit or not args.release_deployment_id:
                 raise ValueError(

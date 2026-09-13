@@ -26,7 +26,8 @@ environment. Keep production values scoped to that environment where possible.
 | Variable | `PRODUCTION_SSH_HOST` | DNS name or address of the production SSH endpoint. |
 | Variable | `PRODUCTION_SSH_USER` | SSH account with non-interactive `sudo -n` permission for the release layout and deployment commands. |
 | Variable | `PRODUCTION_ROOT` | Release root; use `/srv/services/elysium` unless the separately reviewed server layout uses another path. |
-| Variable | `PRODUCTION_BASELINE_ID` | Verified directory name below `${PRODUCTION_ROOT}/baseline/`. |
+| Variable | `PRODUCTION_BASELINE_ROOT` | Verified baseline parent, normally `/srv/backups/elysium/baseline/`. |
+| Variable | `PRODUCTION_BASELINE_ID` | Verified directory name below `${PRODUCTION_BASELINE_ROOT}`. |
 | Variable | `PRODUCTION_GIT_ORIGIN` | Repository origin URL recorded by `install-release-layout.sh`. |
 | Variable | `PRODUCTION_DEPLOY_ENABLED` | Must remain unset or `false` until baseline, staging, rollback, and operator checks are accepted; set to exactly `true` to enable the path. |
 
@@ -72,7 +73,7 @@ setting `PRODUCTION_DEPLOY_ENABLED=true`, provision the host and create a
 self-contained baseline at:
 
 ```text
-/srv/services/elysium/baseline/<baseline-id>/
+/srv/backups/elysium/baseline/<baseline-id>/
 ```
 
 The baseline must contain a verified `BASELINE.json`, `SHA256SUMS`, runtime and
@@ -87,7 +88,7 @@ Verify the exact baseline before enabling the gate:
 
 ```bash
 sudo python3 scripts/verify-baseline.py \
-  --baseline /srv/services/elysium/baseline/<baseline-id>
+  --baseline /srv/backups/elysium/baseline/<baseline-id>
 ```
 
 Also verify the required Python/Node/systemd/Nginx/runtime packages, writable
@@ -130,7 +131,7 @@ keys, then on the server:
    unique deployment ID, bare repository, frontend dist artifact, budget/hash
    metadata, and each changed path;
 6. removes the temporary payload and records the deployment transaction under
-   `<root>/deployment-history/`.
+   `<root>/releases/deployment-history/`.
 
 The release CLI chooses frontend/backend/infra scope from the impact map. A
 frontend-only release supplies the CI-built dist and does not create or inspect

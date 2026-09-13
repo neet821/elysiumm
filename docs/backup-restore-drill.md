@@ -32,7 +32,7 @@ The following is a change-controlled recovery exercise, not part of the automate
 
    ```bash
    sudo python3 scripts/verify-baseline.py \
-     --baseline /srv/services/elysium/baseline/<baseline-id>
+     --baseline /srv/backups/elysium/baseline/<baseline-id>
    ```
 
 4. Copy the verified database artifact to an isolated host or isolated database instance. Restore there using the same database engine version; never point the rehearsal command at production.

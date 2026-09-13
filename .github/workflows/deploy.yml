@@ -269,6 +269,7 @@ jobs:
           PRODUCTION_SSH_HOST: ${{ vars.PRODUCTION_SSH_HOST }}
           PRODUCTION_SSH_USER: ${{ vars.PRODUCTION_SSH_USER }}
           PRODUCTION_ROOT: ${{ vars.PRODUCTION_ROOT }}
+          PRODUCTION_BASELINE_ROOT: ${{ vars.PRODUCTION_BASELINE_ROOT }}
           PRODUCTION_BASELINE_ID: ${{ vars.PRODUCTION_BASELINE_ID }}
           PRODUCTION_GIT_ORIGIN: ${{ vars.PRODUCTION_GIT_ORIGIN }}
           DEPLOYMENT_ID: elysium-${{ github.sha }}-${{ github.run_id }}
@@ -279,7 +280,7 @@ jobs:
         run: |
           set -euo pipefail
           for required in PRODUCTION_SSH_HOST PRODUCTION_SSH_USER PRODUCTION_ROOT \
-            PRODUCTION_BASELINE_ID PRODUCTION_GIT_ORIGIN; do
+            PRODUCTION_BASELINE_ROOT PRODUCTION_BASELINE_ID PRODUCTION_GIT_ORIGIN; do
             test -n "${!required:-}" || {
               echo "missing required deployment variable: $required" >&2
               exit 1
@@ -295,6 +296,7 @@ jobs:
           )
           ssh "${ssh_options[@]}" "$target" bash -s -- \
             "$PRODUCTION_ROOT" \
+            "$PRODUCTION_BASELINE_ROOT" \
             "$PRODUCTION_BASELINE_ID" \
             "$DEPLOYMENT_ID" \
             "$DEPLOY_COMMIT" \
@@ -305,14 +307,15 @@ jobs:
             "$DEPLOY_BACKEND" <<'REMOTE_SCRIPT'
           set -euo pipefail
           root="$1"
-          baseline_id="$2"
-          deployment_id="$3"
-          commit="$4"
-          run_id="$5"
-          origin="$6"
-          archive="$7"
-          deploy_frontend="$8"
-          deploy_backend="$9"
+          baseline_root="$2"
+          baseline_id="$3"
+          deployment_id="$4"
+          commit="$5"
+          run_id="$6"
+          origin="$7"
+          archive="$8"
+          deploy_frontend="$9"
+          deploy_backend="${10}"
 
           if [[ ! "$baseline_id" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "invalid production baseline id" >&2
@@ -335,13 +338,14 @@ jobs:
           # allowed to create or adjust any release-layout path.  This is
           # required for frontend-only deploys too.
           sudo -n python3 "$stage/scripts/verify-baseline.py" \
-            --baseline "$root/baseline/$baseline_id"
+            --baseline "$baseline_root/$baseline_id"
           sudo -n bash "$stage/scripts/install-release-layout.sh" \
             --root "$root" --origin "$origin"
           sudo -n git --git-dir="$root/repository.git" fetch --no-tags origin "$commit"
           sudo -n git --git-dir="$root/repository.git" cat-file -e "$commit^{commit}"
           preflight_args=(
             --root "$root"
+            --baseline-root "$baseline_root"
             --env-file /etc/elysium/backend.env
             --web-root "$root/frontend-current/dist"
             --backup-root "$root/shared/backups"
@@ -368,7 +372,7 @@ jobs:
             deployment_python=''
             for candidate in \
               "$root/backend-current/.venv/bin/python" \
-              "$root/baseline/$baseline_id/backend/.venv/bin/python"; do
+              "$baseline_root/$baseline_id/backend/.venv/bin/python"; do
               if [[ -x "$candidate" ]]; then
                 deployment_python="$candidate"
                 break

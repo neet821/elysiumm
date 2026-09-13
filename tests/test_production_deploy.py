@@ -70,7 +70,7 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertTrue((self.root / "frontend-current").is_symlink())
         self.assertFalse((self.root / "backend-current").exists())
         self.assertEqual(transaction["database"]["status"], "not_evaluated")
-        transaction_path = self.root / "deployment-history/frontend-only.json"
+        transaction_path = self.root / "releases/deployment-history/frontend-only.json"
         self.assertEqual(stat.S_IMODE(transaction_path.stat().st_mode), 0o444)
         self.assertEqual(json.loads(transaction_path.read_text(encoding="utf-8"))["status"], "succeeded")
 
@@ -144,7 +144,7 @@ class ProductionDeployTest(unittest.TestCase):
             deploy(options)
 
         transaction = json.loads(
-            (self.root / "deployment-history/frontend-budget-required.json").read_text(encoding="utf-8")
+            (self.root / "releases/deployment-history/frontend-budget-required.json").read_text(encoding="utf-8")
         )
         self.assertEqual(transaction["status"], "failed")
         self.assertFalse((self.root / "frontend-current").exists())
@@ -155,7 +155,7 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertFalse((self.root / "backend-current").exists())
         transaction = json.loads(
-            (self.root / "deployment-history/backend-fails-closed.json").read_text(encoding="utf-8")
+            (self.root / "releases/deployment-history/backend-fails-closed.json").read_text(encoding="utf-8")
         )
         self.assertEqual(transaction["status"], "failed")
         self.assertEqual(transaction["rollback"]["status"], "not_needed")
@@ -167,7 +167,7 @@ class ProductionDeployTest(unittest.TestCase):
         source.mkdir()
         (source / "requirements.txt").write_text("example==1\n", encoding="utf-8")
         (source / "schemas.py").write_text("schema = 1\n", encoding="utf-8")
-        release_path = self.root / "backend-releases" / "abcdef1-backend-test"
+        release_path = self.root / "releases/backend-releases" / "abcdef1-backend-test"
         release_path.mkdir(parents=True)
         assembly = ReleaseAssembly(
             "backend",
@@ -246,12 +246,12 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertEqual(rollback["status"], "succeeded")
         self.assertEqual((self.root / "frontend-current").resolve(), old.path)
-        path = self.root / "deployment-history/rollback-new-deployment-frontend.json"
+        path = self.root / "releases/deployment-history/rollback-new-deployment-frontend.json"
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o444)
 
     def test_backend_rollback_restarts_backend_service_after_switch(self):
-        old_release = self.root / "backend-releases/1111111-old"
-        new_release = self.root / "backend-releases/2222222-new"
+        old_release = self.root / "releases/backend-releases/1111111-old"
+        new_release = self.root / "releases/backend-releases/2222222-new"
         old_release.mkdir(parents=True)
         new_release.mkdir(parents=True)
         atomic_component_link(self.root, "backend", new_release.name)
@@ -279,7 +279,7 @@ class ProductionDeployTest(unittest.TestCase):
                 "path": str(new_release.relative_to(self.root)),
             }
         }
-        write_transaction(self.root / "deployment-history/backend-deploy.json", original, finalized=True)
+        write_transaction(self.root / "releases/deployment-history/backend-deploy.json", original, finalized=True)
 
         with patch("deployment.production_rollback._systemctl") as systemctl:
             rollback = rollback_component(root=self.root, deployment_id="backend-deploy", component="backend")
@@ -299,7 +299,7 @@ class ProductionDeployTest(unittest.TestCase):
         transaction["rollback"]["targets"] = {
             "backend_current": {"release_id": "../../outside-release"},
         }
-        write_transaction(self.root / "deployment-history/unsafe-target.json", transaction, finalized=True)
+        write_transaction(self.root / "releases/deployment-history/unsafe-target.json", transaction, finalized=True)
 
         with self.assertRaises(ProductionRollbackError):
             rollback_component(root=self.root, deployment_id="unsafe-target", component="backend")
@@ -366,7 +366,7 @@ class ProductionDeployTest(unittest.TestCase):
         systemctl.assert_called_once_with("restart", "elysiumm-backend.service")
 
     def test_backend_switch_defers_restart_until_new_unit_is_applied(self):
-        new_release = self.root / "backend-releases/abcdef1-backend-new"
+        new_release = self.root / "releases/backend-releases/abcdef1-backend-new"
         new_release.mkdir(parents=True)
         assembly = ReleaseAssembly(
             "backend",
@@ -530,7 +530,7 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertFalse(target.exists())
         transaction = json.loads(
-            (self.root / "deployment-history/infra-rollback.json").read_text(encoding="utf-8")
+            (self.root / "releases/deployment-history/infra-rollback.json").read_text(encoding="utf-8")
         )
         self.assertEqual(transaction["rollback"]["status"], "succeeded")
 
@@ -561,14 +561,14 @@ class ProductionDeployTest(unittest.TestCase):
 
         self.assertFalse(first_target.exists())
         transaction = json.loads(
-            (self.root / "deployment-history/infra-partial-apply.json").read_text(encoding="utf-8")
+            (self.root / "releases/deployment-history/infra-partial-apply.json").read_text(encoding="utf-8")
         )
         self.assertEqual(transaction["rollback"]["status"], "succeeded", transaction)
         self.assertIn("config_backup", transaction["rollback"])
 
     def test_backend_restart_failure_restores_old_current_and_restarts_it(self):
-        old_release = self.root / "backend-releases/1111111-old"
-        new_release = self.root / "backend-releases/2222222-new"
+        old_release = self.root / "releases/backend-releases/1111111-old"
+        new_release = self.root / "releases/backend-releases/2222222-new"
         old_release.mkdir(parents=True)
         new_release.mkdir(parents=True)
         atomic_component_link(self.root, "backend", old_release.name)
@@ -619,7 +619,7 @@ class ProductionDeployTest(unittest.TestCase):
         )
         self.assertFalse((self.root / "frontend-current").exists())
         transaction = json.loads(
-            (self.root / "deployment-history/backend-restart-fails.json").read_text(encoding="utf-8")
+            (self.root / "releases/deployment-history/backend-restart-fails.json").read_text(encoding="utf-8")
         )
         self.assertEqual(transaction["status"], "failed")
         self.assertEqual(transaction["rollback"]["status"], "succeeded")

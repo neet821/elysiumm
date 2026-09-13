@@ -13,6 +13,7 @@ import tempfile
 from deployment.release_metadata import (
     BACKEND_SCOPE,
     FRONTEND_SCOPE,
+    release_collection_path,
     release_manifest,
     release_path,
     utc_now,
@@ -66,7 +67,7 @@ def atomic_component_link(root: Path, component: str, release_id: str) -> Path:
     if scope is None:
         raise ReleaseBuildError(f"unsupported component: {component}")
     target = release_path(root, component, release_id)
-    release_root = (root / scope.release_root_name).resolve()
+    release_root = release_collection_path(root, component).resolve()
     if target.is_symlink() or not target.is_dir():
         raise ReleaseBuildError(f"release directory does not exist: {target}")
     try:
@@ -113,8 +114,9 @@ def assemble_frontend_release(
     destination = release_path(root, "frontend", release_id)
     if destination.exists():
         raise ReleaseBuildError(f"frontend release already exists: {destination}")
-    (root / "frontend-releases").mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=f".{release_id}.", dir=root / "frontend-releases"))
+    release_root = release_collection_path(root, "frontend")
+    release_root.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=f".{release_id}.", dir=release_root))
     try:
         shutil.copytree(source, temporary / "dist", symlinks=False)
         artifact_sha = sha256_tree(temporary / "dist")
@@ -169,8 +171,9 @@ def assemble_backend_release(
     destination = release_path(root, "backend", release_id)
     if destination.exists():
         raise ReleaseBuildError(f"backend release already exists: {destination}")
-    (root / "backend-releases").mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=f".{release_id}.", dir=root / "backend-releases"))
+    release_root = release_collection_path(root, "backend")
+    release_root.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=f".{release_id}.", dir=release_root))
     try:
         shutil.copytree(source, temporary / "backend", symlinks=False, ignore=shutil.ignore_patterns(".venv", "__pycache__", "*.pyc"))
         virtualenv_path = temporary / ".venv"

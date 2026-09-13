@@ -68,9 +68,8 @@ class ReleaseScriptsTest(unittest.TestCase):
         self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/articles"', source)
         self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/media"', source)
         self.assertIn('ensure_directory "$ROOT_DIR/shared/uploads/live-recordings"', source)
-        self.assertIn('ln -s shared "$ROOT_DIR/data"', source)
-        self.assertIn("legacy data directory exists", source)
-        self.assertIn("refusing unexpected data link", source)
+        self.assertNotIn('ln -s shared "$ROOT_DIR/data"', source)
+        self.assertIn("legacy data path must be removed", source)
 
     def test_release_layout_preflight_requires_article_and_media_directories(self):
         for missing_name in ("articles", "media"):
@@ -82,9 +81,9 @@ class ReleaseScriptsTest(unittest.TestCase):
                     "ref: refs/heads/main\n", encoding="utf-8"
                 )
                 for path in (
-                    root / "baseline",
-                    root / "backend-releases",
-                    root / "frontend-releases",
+                    root / "releases" / "backend-releases",
+                    root / "releases" / "frontend-releases",
+                    root / "backups" / "baseline",
                     root / "backend-current" / "backend",
                     root / "backend-current" / ".venv" / "bin",
                     root / "shared",
@@ -106,6 +105,8 @@ class ReleaseScriptsTest(unittest.TestCase):
                     str(root),
                     "--root",
                     str(root),
+                    "--baseline-root",
+                    str(root / "backups" / "baseline"),
                     "--env-file",
                     str(root / "backend.env"),
                     "--web-root",
@@ -252,8 +253,8 @@ class ReleaseScriptsTest(unittest.TestCase):
             )
             for path in (
                 root / "baseline" / "current-production-test",
-                root / "backend-releases",
-                root / "frontend-releases",
+                root / "releases" / "backend-releases",
+                root / "releases" / "frontend-releases",
                 root / "shared",
                 root / "shared" / "sync-storage" / "articles",
                 root / "shared" / "sync-storage" / "media",
@@ -293,8 +294,8 @@ class ReleaseScriptsTest(unittest.TestCase):
             external_baseline = root / "backups" / "baseline" / "current-production-test"
             external_baseline.mkdir(parents=True)
             for path in (
-                root / "backend-releases",
-                root / "frontend-releases",
+                root / "releases" / "backend-releases",
+                root / "releases" / "frontend-releases",
                 root / "shared",
                 root / "shared" / "sync-storage" / "articles",
                 root / "shared" / "sync-storage" / "media",

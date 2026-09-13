@@ -17,12 +17,12 @@ sudo scripts/install-release-layout.sh --root /srv/services/elysium \
   --origin https://github.com/<org>/<repo>.git
 ```
 
-The script creates `repository.git`, `baseline/`,
-`backend-releases/`, `frontend-releases/`, `deployment-history/`, the
+The script creates `repository.git`, `releases/backend-releases/`,
+`releases/frontend-releases/`, `releases/deployment-history/`, the
 `backend-current`/`frontend-current` link locations, and `shared/` storage. It
-does not move `/data`, stop services, switch a current link, or delete a legacy
-checkout. The compatibility link `data -> shared` is a separately reviewed
-migration tracked in [data-to-shared.md](migrations/data-to-shared.md).
+does not move production data, stop services, switch a current link, or delete
+a legacy checkout. The former `data -> shared` compatibility link is not
+created by the installer.
 
 Each component release is immutable and contains a component-specific
 `RELEASE.json`. A deployment writes an atomically updated transaction to
@@ -46,9 +46,9 @@ and rewrites those source paths in the generated restore configuration; replace
 the Articles/Mineradio paths if the host uses different locations:
 
 ```bash
-sudo install -d -m 0755 /srv/services/elysium/baseline
+sudo install -d -m 0755 /srv/backups/elysium/baseline
 sudo python3 scripts/create-baseline.py \
-  --baseline-root /srv/services/elysium/baseline \
+  --baseline-root /srv/backups/elysium/baseline \
   --baseline-id current-production-<timestamp> \
   --component backend=/srv/services/elysium/releases/66d1b0b-20260911-160920/backend \
   --component frontend=/srv/services/elysium/web-releases/071f14d-20260911-1550 \
@@ -87,7 +87,6 @@ sudo python3 scripts/create-baseline.py \
   --replace /srv/services/elysium/web-current=/srv/services/elysium/baseline/current-production-<timestamp>/frontend \
   --replace /srv/services/elysium/mineradio=/srv/services/elysium/baseline/current-production-<timestamp>/mineradio \
   --replace /srv/services/elysium/articles=/srv/services/elysium/baseline/current-production-<timestamp>/articles \
-  --replace /srv/services/elysium/data=/srv/services/elysium/shared \
   --replace /srv/services/obsidian-livesync/mirror/vault=/srv/services/elysium/shared/sync-storage/articles \
   --replace /srv/services/obsidian-livesync/mirror/database=/srv/services/elysium/shared/sync-storage/media \
   --replace /usr/local/libexec/elysium=/srv/services/elysium/baseline/current-production-<timestamp>/backend/runtime \
@@ -97,7 +96,6 @@ sudo python3 scripts/create-baseline.py \
   --forbidden-reference /srv/services/elysium/mineradio \
   --forbidden-reference /srv/services/elysium/articles \
   --forbidden-reference /usr/local/libexec/elysium \
-  --forbidden-reference /srv/services/elysium/data \
   --shared-path /srv/services/elysium/shared/uploads \
   --shared-path /srv/services/elysium/shared/sync-storage/articles \
   --shared-path /srv/services/elysium/shared/sync-storage/media \
@@ -120,7 +118,7 @@ Verify it without changing production:
 
 ```bash
 sudo python3 scripts/verify-baseline.py \
-  --baseline /srv/services/elysium/baseline/<baseline-id>
+  --baseline /srv/backups/elysium/baseline/<baseline-id>
 ```
 
 Run the restore rehearsal on an isolated port and database before moving or

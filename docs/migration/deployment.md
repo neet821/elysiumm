@@ -5,11 +5,11 @@ The active deployment contract is documented in
 boundary for the older checkout-based launcher.
 
 The target root is `/srv/services/elysium` with independent immutable
-`backend-releases/` and `frontend-releases/`, `backend-current` and
-`frontend-current`, a permanently retained `baseline/`, atomically persisted
-`deployment-history/`, and mutable data below `shared/`. `data -> shared` is
-kept only as an explicitly tracked compatibility link until every consumer is
-converted; it is never removed automatically.
+`releases/backend-releases/` and `releases/frontend-releases/`,
+`backend-current` and `frontend-current`, a permanently retained external
+`/srv/backups/elysium/baseline/`, atomically persisted
+`releases/deployment-history/`, and mutable data below `shared/`. The old
+`data -> shared` compatibility link is no longer created.
 
 The migration order is:
 

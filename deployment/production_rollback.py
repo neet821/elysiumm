@@ -15,7 +15,9 @@ from deployment.release_metadata import (
     DEPLOYMENT_ID_RE,
     RELEASE_ID_RE,
     deployment_transaction,
+    deployment_history_path,
     finalize_transaction,
+    release_path,
 )
 
 
@@ -34,7 +36,7 @@ def _systemctl(action: str, service: str) -> None:
 def _load_transaction(root: Path, deployment_id: str) -> dict[str, Any]:
     if not re.fullmatch(DEPLOYMENT_ID_RE, deployment_id):
         raise ProductionRollbackError(f"unsafe deployment id: {deployment_id!r}")
-    path = root / "deployment-history" / f"{deployment_id}.json"
+    path = deployment_history_path(root) / f"{deployment_id}.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -56,8 +58,8 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
     release_id = str(target["release_id"])
     if not re.fullmatch(RELEASE_ID_RE, release_id):
         raise ProductionRollbackError(f"unsafe rollback release id: {release_id!r}")
-    release = root / f"{component}-releases" / release_id
-    release_root = (root / f"{component}-releases").resolve()
+    release = release_path(root, component, release_id)
+    release_root = release.parent.resolve()
     try:
         release.resolve(strict=False).relative_to(release_root)
     except ValueError as exc:
@@ -91,7 +93,7 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
     transaction["rollback_of"] = deployment_id
     transaction["rollback"]["targets"] = {f"{component}_current": target}
     transaction["status"] = "started"
-    path = root / "deployment-history" / f"{rollback_id}.json"
+    path = deployment_history_path(root) / f"{rollback_id}.json"
     if path.exists():
         raise ProductionRollbackError(f"rollback transaction already exists: {path}")
     switched = False

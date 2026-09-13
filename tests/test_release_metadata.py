@@ -80,7 +80,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             git_commit="abcdef1234567890",
             trigger="github-actions",
             impact={"components": ["frontend"], "validation_profiles": ["frontend"]},
-            before={"frontend_current": "frontend-releases/old"},
+            before={"frontend_current": "releases/frontend-releases/old"},
         )
         self.assertIsNone(transaction["releases"]["frontend"])
         self.assertIsNone(transaction["releases"]["backend"])
@@ -90,7 +90,7 @@ class ReleaseMetadataTests(unittest.TestCase):
     def test_atomic_manifest_and_final_transaction_are_readable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            manifest_path = root / "frontend-releases/abcdef1-r1/RELEASE.json"
+            manifest_path = root / "releases/frontend-releases/abcdef1-r1/RELEASE.json"
             write_release_manifest(manifest_path, frontend_manifest())
             self.assertEqual(json.loads(manifest_path.read_text())["component"], "frontend")
 
@@ -101,7 +101,7 @@ class ReleaseMetadataTests(unittest.TestCase):
                 impact={"components": ["frontend"]},
             )
             transaction["status"] = "succeeded"
-            transaction_path = root / "deployment-history/deploy-1.json"
+            transaction_path = root / "releases/deployment-history/deploy-1.json"
             finalize_transaction(transaction_path, transaction)
             self.assertEqual(json.loads(transaction_path.read_text())["status"], "succeeded")
             self.assertEqual(stat.S_IMODE(transaction_path.stat().st_mode), 0o444)
@@ -110,7 +110,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             path = release_path(root, "frontend", "abcdef1-r1")
-            self.assertEqual(path, root / "frontend-releases/abcdef1-r1")
+            self.assertEqual(path, root / "releases/frontend-releases/abcdef1-r1")
             transaction = deployment_transaction(
                 deployment_id="deploy-frontend",
                 git_commit="abcdef1234567890",
@@ -118,8 +118,8 @@ class ReleaseMetadataTests(unittest.TestCase):
                 impact={"components": ["frontend"]},
             )
             transaction["database"]["status"] = "not_required"
-            write_transaction(root / "deployment-history/deploy-frontend.json", transaction)
-            self.assertFalse((root / "backend-releases").exists())
+            write_transaction(root / "releases/deployment-history/deploy-frontend.json", transaction)
+            self.assertFalse((root / "releases/backend-releases").exists())
 
 
 if __name__ == "__main__":

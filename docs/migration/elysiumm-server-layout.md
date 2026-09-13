@@ -7,11 +7,11 @@
 | --- | --- |
 | 裸 Git 仓库 | `/srv/services/elysium/repository.git` |
 | 不可变基线 | `/srv/backups/elysium/baseline/<baseline-id>/` |
-| 后端 release/current | `/srv/services/elysium/backend-releases/<release>`、`backend-current` |
-| 前端 release/current | `/srv/services/elysium/frontend-releases/<release>`、`frontend-current` |
-| 发布事务 | `/srv/services/elysium/deployment-history/<deployment-id>.json` |
+| 后端 release/current | `/srv/services/elysium/releases/backend-releases/<release>`、`backend-current` |
+| 前端 release/current | `/srv/services/elysium/releases/frontend-releases/<release>`、`frontend-current` |
+| 发布事务 | `/srv/services/elysium/releases/deployment-history/<deployment-id>.json` |
 | 共享上传、私有、同步、传输、备份 | `/srv/services/elysium/shared/{uploads,private-storage,sync-storage,transfers,backups}` |
-| 兼容链接 | `/srv/services/elysium/data -> shared`，完成清单前不删除 |
+| 生产数据 | `/srv/services/elysium/shared/`，不再创建 `data` 兼容链接 |
 | 生产配置 | `/etc/elysium/backend.env`、`/etc/elysium/mediamtx.*` |
 | 后端服务 | `elysiumm-backend.service`，单 worker |
 | 直播服务 | `elysiumm-mediamtx.service` |
@@ -34,7 +34,7 @@ Articles Markdown/媒体镜像和上传内容属于 `shared` 外部依赖；它�
 ## 安装顺序
 
 1. 以当前真实运行状态创建并校验永久 baseline，不切换 current。
-2. 运行 `scripts/install-release-layout.sh` 创建目录、裸仓库和 `data -> shared`。
+2. 运行 `scripts/install-release-layout.sh` 创建 `releases/`、共享数据目录和裸仓库。
 3. 将审查过的 commit fetch 到 `repository.git`，由 release CLI 生成前后端独立快照。
 4. 只在目标 Alembic head 存在 pending migration 时备份并升级数据库。
 5. 依次验证后端、前端、Nginx、Socket.IO、音乐、Articles、直播和共享数据。

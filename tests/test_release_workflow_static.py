@@ -109,7 +109,7 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         self.assertTrue(OPERATIONS_DOC.is_file(), f"missing operations doc: {OPERATIONS_DOC}")
         source = OPERATIONS_DOC.read_text(encoding="utf-8")
         for required in (
-            "/srv/services/elysium/baseline/",
+            "/srv/backups/elysium/baseline/",
             "PRODUCTION_DEPLOY_ENABLED",
             "PRODUCTION_SSH_PRIVATE_KEY",
             "PRODUCTION_SSH_KNOWN_HOSTS",

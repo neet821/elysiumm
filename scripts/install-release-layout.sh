@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bootstrap only the directory contract.  It intentionally does not switch a
-# current link, stop a service, move /data, or delete a legacy checkout.
+# Bootstrap only the directory contract. It intentionally does not switch a
+# current link, stop a service, move production data, or delete a legacy
+# checkout.
 ROOT_DIR="/srv/services/elysium"
 ORIGIN=""
 
@@ -50,10 +51,10 @@ ensure_directory() {
 # Existing directories may hold production data.  Their ownership and mode are
 # intentionally preserved; only missing paths receive the live service policy.
 ensure_directory "$ROOT_DIR" root root 0755
-ensure_directory "$ROOT_DIR/baseline" root root 0755
-ensure_directory "$ROOT_DIR/backend-releases" root root 0755
-ensure_directory "$ROOT_DIR/frontend-releases" root root 0755
-ensure_directory "$ROOT_DIR/deployment-history" root root 0755
+ensure_directory "$ROOT_DIR/releases" root root 0755
+ensure_directory "$ROOT_DIR/releases/backend-releases" root root 0755
+ensure_directory "$ROOT_DIR/releases/frontend-releases" root root 0755
+ensure_directory "$ROOT_DIR/releases/deployment-history" root root 0755
 ensure_directory "$ROOT_DIR/shared" root root 0755
 ensure_directory "$ROOT_DIR/shared/uploads" www-data www-data 0775
 ensure_directory "$ROOT_DIR/shared/uploads/live-recordings" elysium-live elysium-live 0755
@@ -66,19 +67,9 @@ ensure_directory "$ROOT_DIR/shared/backups" www-data www-data 0750
 ensure_directory "$ROOT_DIR/shared/backups/database" www-data www-data 0750
 ensure_directory "$ROOT_DIR/shared/logs" www-data www-data 0750
 
-if [[ -e "$ROOT_DIR/data" && ! -L "$ROOT_DIR/data" ]]; then
-  echo "install-release-layout: legacy data directory exists; run the separately reviewed data-to-shared migration before creating data -> shared" >&2
+if [[ -e "$ROOT_DIR/data" || -L "$ROOT_DIR/data" ]]; then
+  echo "install-release-layout: legacy data path must be removed by the reviewed data-to-shared migration before installation" >&2
   exit 1
-fi
-if [[ -L "$ROOT_DIR/data" ]]; then
-  target=$(readlink -f "$ROOT_DIR/data")
-  expected=$(realpath -m "$ROOT_DIR/shared")
-  if [[ "$target" != "$expected" ]]; then
-    echo "install-release-layout: refusing unexpected data link: $target" >&2
-    exit 1
-  fi
-else
-  ln -s shared "$ROOT_DIR/data"
 fi
 
 if [[ ! -d "$ROOT_DIR/repository.git" ]]; then
@@ -93,4 +84,4 @@ if [[ -n "$ORIGIN" ]]; then
   fi
 fi
 
-echo "Release layout initialized at $ROOT_DIR. Existing current links and legacy checkouts were left untouched."
+echo "Release layout initialized at $ROOT_DIR/releases. Existing current links and legacy checkouts were left untouched."

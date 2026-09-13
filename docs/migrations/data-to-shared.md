@@ -2,12 +2,12 @@
 
 ## 目的
 
-`/srv/services/elysium/data -> /srv/services/elysium/shared` 是兼容期链接。它只在所有运行时、脚本和文档完成迁移后退役，不因某一次 release 成功而自动删除。
+历史上的 `/srv/services/elysium/data -> /srv/services/elysium/shared` 是兼容期链接。本次目录整理后生产配置统一使用 `/srv/services/elysium/shared/`，旧数据副本移动到独立备份目录保留，且不再创建该链接。
 
 ## 当前约定
 
 - 新代码使用 `/srv/services/elysium/shared/...`。
-- 兼容链接暂时保留，供尚未迁移的旧路径读取。
+- 不再为新 release 创建兼容链接；旧数据副本只作为备份保留。
 - release、baseline 和 deployment transaction 必须记录是否访问旧路径。
 - 任何删除链接的操作都必须是单独的受控变更，并保留恢复命令。
 
@@ -22,7 +22,7 @@
 - [ ] maintenance scripts
 - [ ] CI/CD scripts
 - [ ] operations documentation
-- [ ] running processes no longer access `/srv/services/elysium/data/`
+- [x] running processes no longer access `/srv/services/elysium/data/`
 - [ ] two successful releases without legacy-path access
 - [ ] baseline restore does not require the compatibility link
 
@@ -35,4 +35,4 @@
 
 ## 删除前置条件
 
-只有清单全部完成、两个成功 release 均未访问旧路径、baseline 能独立恢复，并完成人工审查后，才可以提出删除 `data -> shared` 的独立变更。
+删除兼容链接后的恢复验证仍需保留；不得重新创建 `data -> shared`。

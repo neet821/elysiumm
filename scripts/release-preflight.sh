@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$SOURCE_ROOT"
+RELEASES_ROOT=""
 ENV_FILE=""
 WEB_ROOT=""
 BACKUP_ROOT=""
@@ -36,6 +37,7 @@ while (($#)); do
 done
 
 ROOT_DIR="$(realpath -m "$ROOT_DIR")"
+RELEASES_ROOT="$ROOT_DIR/releases"
 if [[ -z "$BASELINE_ROOT" ]]; then
   BASELINE_ROOT="$ROOT_DIR/baseline"
 else
@@ -45,7 +47,7 @@ if [[ -n "$FIXTURE_ROOT" ]]; then
   FIXTURE_ROOT="$(realpath -m "$FIXTURE_ROOT")"
 fi
 if [[ -z "$ENV_FILE" ]]; then
-  if [[ -d "$ROOT_DIR/backend-releases" && -d "$ROOT_DIR/frontend-releases" ]]; then
+  if [[ -d "$RELEASES_ROOT/backend-releases" && -d "$RELEASES_ROOT/frontend-releases" ]]; then
     ENV_FILE="/etc/elysium/backend.env"
   else
     ENV_FILE="$ROOT_DIR/backend/prod.env"
@@ -54,7 +56,7 @@ fi
 ENV_FILE="$(realpath -m "$ENV_FILE")"
 
 RELEASE_LAYOUT=0
-if [[ -d "$ROOT_DIR/repository.git" && -d "$ROOT_DIR/backend-releases" && -d "$ROOT_DIR/frontend-releases" ]]; then
+if [[ -d "$ROOT_DIR/repository.git" && -d "$RELEASES_ROOT/backend-releases" && -d "$RELEASES_ROOT/frontend-releases" ]]; then
   RELEASE_LAYOUT=1
 fi
 if [[ -z "$WEB_ROOT" ]]; then
@@ -91,8 +93,8 @@ if [[ "$RELEASE_LAYOUT" -eq 1 ]]; then
   required_paths=(
     "$ROOT_DIR/repository.git/HEAD"
     "$BASELINE_ROOT"
-    "$ROOT_DIR/backend-releases"
-    "$ROOT_DIR/frontend-releases"
+    "$RELEASES_ROOT/backend-releases"
+    "$RELEASES_ROOT/frontend-releases"
     "$ROOT_DIR/shared"
   )
   if [[ "$ALLOW_EMPTY_CURRENT" -ne 1 ]]; then

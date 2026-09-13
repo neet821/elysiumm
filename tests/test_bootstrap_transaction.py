@@ -44,7 +44,7 @@ class BootstrapTransactionTests(unittest.TestCase):
     def test_phases_are_atomically_recorded_and_finalized_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            path = root / "deployment-history/bootstrap-cutover.json"
+            path = root / "releases/deployment-history/bootstrap-cutover.json"
             payload = new_bootstrap_transaction(
                 bootstrap_id="cutover",
                 target_commit="a" * 40,

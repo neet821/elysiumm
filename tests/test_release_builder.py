@@ -80,7 +80,7 @@ class ReleaseBuilderTests(unittest.TestCase):
     def test_current_link_is_atomic_and_validates_component(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            release = root / "frontend-releases/abcdef1-r1"
+            release = root / "releases/frontend-releases/abcdef1-r1"
             release.mkdir(parents=True)
             link = atomic_component_link(root, "frontend", "abcdef1-r1")
             self.assertEqual(link.resolve(), release)
@@ -88,7 +88,7 @@ class ReleaseBuilderTests(unittest.TestCase):
     def test_current_link_refuses_regular_file_or_external_release_target(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            release = root / "frontend-releases/abcdef1-r1"
+            release = root / "releases/frontend-releases/abcdef1-r1"
             release.mkdir(parents=True)
             current = root / "frontend-current"
             current.write_text("must not be replaced", encoding="utf-8")

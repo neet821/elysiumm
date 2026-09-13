@@ -49,6 +49,8 @@ from deployment.release_impact import resolve_impact
 from deployment.release_metadata import (
     COMPONENTS,
     deployment_transaction,
+    deployment_history_path,
+    release_collection_path,
     finalize_transaction,
     utc_now,
     write_transaction,
@@ -142,7 +144,7 @@ def _current_record(root: Path, component: str) -> dict[str, object] | None:
     if not link.is_symlink():
         return None
     target = link.resolve(strict=False)
-    release_root = (root / f"{component}-releases").resolve()
+    release_root = release_collection_path(root, component).resolve()
     try:
         target.relative_to(release_root)
     except ValueError as exc:
@@ -235,7 +237,7 @@ def materialize_git_component(repository: Path, commit: str, component: str, des
 
 
 def _transaction_path(root: Path, deployment_id: str) -> Path:
-    return root / "deployment-history" / f"{deployment_id}.json"
+    return deployment_history_path(root) / f"{deployment_id}.json"
 
 
 def _write_progress(path: Path, transaction: dict[str, Any]) -> None:
@@ -847,7 +849,7 @@ def _apply_infrastructure(
     transaction: dict[str, Any],
 ) -> dict[str, object]:
     _validate_infrastructure(options)
-    history_dir = options.root / "deployment-history" / f"{options.deployment_id}.rollback"
+    history_dir = deployment_history_path(options.root) / f"{options.deployment_id}.rollback"
     history_dir.mkdir(parents=True, exist_ok=False)
     transaction["rollback"]["config_backup"] = str(history_dir.relative_to(options.root))
     previous: dict[str, object] = {}

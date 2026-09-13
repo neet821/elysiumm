@@ -26,6 +26,8 @@ def _deployment_root() -> Path:
     """Find the mutable-data root when code runs from an immutable release."""
 
     for ancestor in (PROJECT_ROOT, *PROJECT_ROOT.parents):
+        if ancestor.name == "releases":
+            return ancestor.parent
         if ancestor.name in {"backend-releases", "baseline"}:
             return ancestor.parent
     return PROJECT_ROOT

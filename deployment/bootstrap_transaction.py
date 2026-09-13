@@ -10,6 +10,8 @@ import re
 import tempfile
 from typing import Any, Mapping
 
+from deployment.release_metadata import deployment_history_path
+
 
 BOOTSTRAP_SCHEMA_VERSION = 1
 BOOTSTRAP_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -59,7 +61,7 @@ def _validate_safe_details(value: object, path: str = "details") -> None:
 
 def _transaction_path(root: Path, bootstrap_id: str) -> Path:
     _validate_id(bootstrap_id, "bootstrap_id")
-    return root.expanduser().resolve() / "deployment-history" / f"bootstrap-{bootstrap_id}.json"
+    return deployment_history_path(root.expanduser().resolve()) / f"bootstrap-{bootstrap_id}.json"
 
 
 def new_bootstrap_transaction(

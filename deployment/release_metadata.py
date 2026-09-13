@@ -14,6 +14,8 @@ from typing import Any, Mapping
 
 SCHEMA_VERSION = 1
 COMPONENTS = ("frontend", "backend")
+RELEASES_DIR = "releases"
+DEPLOYMENT_HISTORY_DIR = "deployment-history"
 RELEASE_ID_RE = re.compile(r"^[0-9a-f]{7,64}-[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 DEPLOYMENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
@@ -215,11 +217,21 @@ def finalize_transaction(path: Path, payload: Mapping[str, Any]) -> None:
     write_transaction(path, finalized, finalized=True)
 
 
+def release_collection_path(root: Path, component: str) -> Path:
+    if component not in COMPONENTS:
+        raise ReleaseMetadataError(f"unsupported release component: {component!r}")
+    return root / RELEASES_DIR / f"{component}-releases"
+
+
+def deployment_history_path(root: Path) -> Path:
+    return root / RELEASES_DIR / DEPLOYMENT_HISTORY_DIR
+
+
 def release_path(root: Path, component: str, release_id: str) -> Path:
     if component not in COMPONENTS:
         raise ReleaseMetadataError(f"unsupported release component: {component!r}")
     _validate_identifier(release_id, RELEASE_ID_RE, "release_id")
-    return root / f"{component}-releases" / release_id
+    return release_collection_path(root, component) / release_id
 
 
 @dataclass(frozen=True)
