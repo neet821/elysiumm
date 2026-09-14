@@ -58,6 +58,7 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         self.assertIn("workflow_run.head_branch == 'main'", self.cd_source)
         self.assertIn("vars.PRODUCTION_DEPLOY_ENABLED == 'true'", self.cd_source)
         self.assertIn("environment: production", self.cd_source)
+        self.assertIn("github-token: ${{ github.token }}", self.cd_source)
         self.assertIn("run-id: ${{ github.event.workflow_run.id }}", self.cd_source)
         self.assertNotIn("needs.quality", self.cd_source)
         self.assertNotIn("Run the full release gate before main deployment", self.cd_source)
