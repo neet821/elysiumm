@@ -36,6 +36,7 @@ jobs:
         with:
           name: elysium-release-metadata-${{ github.event.workflow_run.head_sha }}
           path: release-metadata
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Determine deployment scope
         id: scope
