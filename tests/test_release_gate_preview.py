@@ -28,6 +28,24 @@ class ReleaseGatePreviewTest(unittest.TestCase):
         self.assertNotIn("mktemp -d /tmp/elysium-local-preview", gate_source)
         self.assertIn("xdg-open http://127.0.0.1:5173/", source)
 
+    def test_saved_mode_uses_a_persistent_database_in_the_project_root(self):
+        source = PREVIEW.read_text(encoding="utf-8")
+        self.assertIn('case "${1:-}" in', source)
+        self.assertIn("--saved", source)
+        self.assertIn("ELYSIUM_SAVED_PREVIEW_ROOT", source)
+        self.assertIn(
+            'ELYSIUM_SAVED_PREVIEW_ROOT:-${ROOT_DIR}',
+            source,
+        )
+        self.assertIn(
+            'preview_database_path="${saved_preview_root}/elysium-local.sqlite"',
+            source,
+        )
+        self.assertIn('DATABASE_URL="sqlite:///${preview_database_path}"', source)
+        self.assertIn('mkdir -p -- "${saved_preview_root}"', source)
+        self.assertIn('preview_mode="saved"', source)
+        self.assertNotIn('rm -rf -- "${preview_database_path}"', source)
+
 
 if __name__ == "__main__":
     unittest.main()
