@@ -3,11 +3,48 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="${ROOT_DIR}/backend/.venv/bin/python"
+saved_preview_root="${ELYSIUM_SAVED_PREVIEW_ROOT:-${ROOT_DIR}}"
+
+if [[ "$#" -gt 1 ]]; then
+  echo "用法：$0 [--saved]" >&2
+  exit 2
+fi
+
+preview_mode="temporary"
+case "${1:-}" in
+  "") ;;
+  --saved)
+    preview_mode="saved"
+    ;;
+  --help|-h)
+    echo "用法：$0 [--saved]"
+    echo "  默认：使用临时数据库，退出后自动删除。"
+    echo "  --saved：使用长期保存的本地测试数据库。"
+    echo "          默认位置：${saved_preview_root}/elysium-local.sqlite"
+    echo "          可用 ELYSIUM_SAVED_PREVIEW_ROOT 覆盖数据库目录。"
+    exit 0
+    ;;
+  *)
+    echo "未知参数：${1}" >&2
+    echo "用法：$0 [--saved]" >&2
+    exit 2
+    ;;
+esac
+
 preview_runtime_dir="$(mktemp -d /tmp/elysium-local-preview.XXXXXX)"
 preview_backend_log="${preview_runtime_dir}/backend.log"
 preview_frontend_log="${preview_runtime_dir}/frontend.log"
+preview_database_path="${preview_runtime_dir}/elysium-local.sqlite"
 preview_backend_pid=""
 preview_frontend_pid=""
+
+if [[ "${preview_mode}" == "saved" ]]; then
+  mkdir -p -- "${saved_preview_root}"
+  preview_database_path="${saved_preview_root}/elysium-local.sqlite"
+  echo "使用长期本地测试数据库：${preview_database_path}"
+else
+  echo "使用临时本地测试数据库：${preview_database_path}"
+fi
 
 if [[ ! -x "${PYTHON}" ]]; then
   echo "本地预览失败：后端虚拟环境不存在。" >&2
@@ -32,7 +69,7 @@ trap preview_cleanup EXIT
 trap preview_stop INT TERM
 
 echo "启动本地 backend：http://127.0.0.1:8000"
-DATABASE_URL="sqlite:///${preview_runtime_dir}/elysium-local.sqlite" \
+DATABASE_URL="sqlite:///${preview_database_path}" \
 SECRET_KEY=local-only-secret \
   "${PYTHON}" -m uvicorn main:app \
   --app-dir "${ROOT_DIR}/backend" \

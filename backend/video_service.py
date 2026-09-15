@@ -23,7 +23,11 @@ def validate_external_url(value: str) -> str:
     if not isinstance(value, str):
         raise ValueError("视频网址无效")
     value = value.strip()
-    if not value or len(value) > 2000 or any(ord(character) < 32 for character in value):
+    if (
+        not value
+        or len(value) > 2000
+        or any(ord(character) < 32 for character in value)
+    ):
         raise ValueError("视频网址无效")
     parsed = urlsplit(value)
     if (
@@ -38,7 +42,7 @@ def validate_external_url(value: str) -> str:
 
 def ensure_video_session(db, room) -> models.VideoSession:
     if room.type != "video" or room.mode == "music":
-        raise ValueError("这个房间不是观影房")
+        raise ValueError("此房间不是观影房")
     session = db.get(models.VideoSession, room.id)
     if session is None:
         session = models.VideoSession(room_id=room.id)
@@ -103,9 +107,11 @@ def create_playlist_item(
         ):
             raise ValueError(f"视频{label}无效")
 
-    last_position = db.query(func.max(models.VideoPlaylistItem.position)).filter(
-        models.VideoPlaylistItem.room_id == room.id
-    ).scalar()
+    last_position = (
+        db.query(func.max(models.VideoPlaylistItem.position))
+        .filter(models.VideoPlaylistItem.room_id == room.id)
+        .scalar()
+    )
     item = models.VideoPlaylistItem(
         room_id=room.id,
         position=0 if last_position is None else int(last_position) + 1,
@@ -135,8 +141,7 @@ def _item_cleanup_paths(item) -> list[tuple[str, str, bool]]:
     if item.storage_path:
         paths.append(("video", item.storage_path, bool(item.owned_file)))
     paths.extend(
-        ("subtitle", subtitle.storage_path, True)
-        for subtitle in item.subtitles
+        ("subtitle", subtitle.storage_path, True) for subtitle in item.subtitles
     )
     return paths
 
@@ -157,9 +162,13 @@ def replace_current_video_item(
     if not isinstance(expected_version, int) or isinstance(expected_version, bool):
         raise ValueError("替换当前视频时必须提供房间状态版本")
 
-    existing_items = db.query(models.VideoPlaylistItem).filter_by(
-        room_id=room.id,
-    ).all()
+    existing_items = (
+        db.query(models.VideoPlaylistItem)
+        .filter_by(
+            room_id=room.id,
+        )
+        .all()
+    )
     item = create_playlist_item(db, room, **item_kwargs)
     try:
         if not existing_items and int(room.playback_version or 0) == 0:
@@ -178,10 +187,14 @@ def replace_current_video_item(
         raise
 
     cleanup_paths = []
-    temporary_offset = max(
-        (int(old_item.position or 0) for old_item in existing_items),
-        default=0,
-    ) + len(existing_items) + 1
+    temporary_offset = (
+        max(
+            (int(old_item.position or 0) for old_item in existing_items),
+            default=0,
+        )
+        + len(existing_items)
+        + 1
+    )
     for index, old_item in enumerate(existing_items):
         if old_item.id == item.id:
             continue
@@ -205,10 +218,14 @@ def replace_current_video_item(
 
 
 def get_video_item(db, room_id, item_id) -> models.VideoPlaylistItem | None:
-    return db.query(models.VideoPlaylistItem).filter_by(
-        id=item_id,
-        room_id=room_id,
-    ).first()
+    return (
+        db.query(models.VideoPlaylistItem)
+        .filter_by(
+            id=item_id,
+            room_id=room_id,
+        )
+        .first()
+    )
 
 
 def current_video_snapshot(db, room, *, now_ms=None) -> room_core.RoomPlaybackSnapshot:
@@ -365,10 +382,15 @@ def apply_playback_update(
 
 
 def reorder_playlist(db, room, item_ids) -> list[models.VideoPlaylistItem]:
-    items = db.query(models.VideoPlaylistItem).filter_by(room_id=room.id).order_by(
-        models.VideoPlaylistItem.position,
-        models.VideoPlaylistItem.id,
-    ).all()
+    items = (
+        db.query(models.VideoPlaylistItem)
+        .filter_by(room_id=room.id)
+        .order_by(
+            models.VideoPlaylistItem.position,
+            models.VideoPlaylistItem.id,
+        )
+        .all()
+    )
     by_id = {item.id: item for item in items}
     if (
         len(item_ids) != len(items)
@@ -376,7 +398,9 @@ def reorder_playlist(db, room, item_ids) -> list[models.VideoPlaylistItem]:
         or set(item_ids) != set(by_id)
     ):
         raise ValueError("片单排序必须完整包含每一项且不能重复")
-    temporary_offset = max((item.position for item in items), default=0) + len(items) + 1
+    temporary_offset = (
+        max((item.position for item in items), default=0) + len(items) + 1
+    )
     for index, item_id in enumerate(item_ids):
         by_id[item_id].position = temporary_offset + index
     db.flush()
@@ -388,10 +412,15 @@ def reorder_playlist(db, room, item_ids) -> list[models.VideoPlaylistItem]:
 
 
 def _next_item(db, room_id, current_item_id=None):
-    items = db.query(models.VideoPlaylistItem).filter(
-        models.VideoPlaylistItem.room_id == room_id,
-        models.VideoPlaylistItem.availability == "available",
-    ).order_by(models.VideoPlaylistItem.position, models.VideoPlaylistItem.id).all()
+    items = (
+        db.query(models.VideoPlaylistItem)
+        .filter(
+            models.VideoPlaylistItem.room_id == room_id,
+            models.VideoPlaylistItem.availability == "available",
+        )
+        .order_by(models.VideoPlaylistItem.position, models.VideoPlaylistItem.id)
+        .all()
+    )
     if not items:
         return None
     if current_item_id is None:
@@ -461,10 +490,15 @@ def delete_playlist_item(db, room, item, *, expected_version=None):
         updated = current_video_snapshot(db, room)
     db.delete(item)
     db.flush()
-    remaining = db.query(models.VideoPlaylistItem).filter_by(room_id=room.id).order_by(
-        models.VideoPlaylistItem.position,
-        models.VideoPlaylistItem.id,
-    ).all()
+    remaining = (
+        db.query(models.VideoPlaylistItem)
+        .filter_by(room_id=room.id)
+        .order_by(
+            models.VideoPlaylistItem.position,
+            models.VideoPlaylistItem.id,
+        )
+        .all()
+    )
     temporary_offset = (
         max((remaining_item.position for remaining_item in remaining), default=0)
         + len(remaining)
@@ -640,10 +674,15 @@ def _item_payload(item) -> dict:
 
 def session_payload(db, room) -> dict:
     session = ensure_video_session(db, room)
-    items = db.query(models.VideoPlaylistItem).filter_by(room_id=room.id).order_by(
-        models.VideoPlaylistItem.position,
-        models.VideoPlaylistItem.id,
-    ).all()
+    items = (
+        db.query(models.VideoPlaylistItem)
+        .filter_by(room_id=room.id)
+        .order_by(
+            models.VideoPlaylistItem.position,
+            models.VideoPlaylistItem.id,
+        )
+        .all()
+    )
     current = next((item for item in items if item.id == session.current_item_id), None)
     # Return the complete queue. The current item is still identified by
     # current_item_id; hiding the other items makes append-to-queue uploads
