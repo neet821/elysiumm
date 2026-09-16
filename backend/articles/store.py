@@ -64,6 +64,15 @@ def _strip_obsidian_edit_panel(source: str) -> str:
     return EDIT_INFO_CALLOUT_PATTERN.sub("", source)
 
 
+def _strip_obsidian_metadata_match_panel(source: str) -> str:
+    return re.sub(
+        r"<!--\s*elysium-metadata-match:start\s*-->[\s\S]*?<!--\s*elysium-metadata-match:end\s*-->",
+        "",
+        source,
+        flags=re.I,
+    )
+
+
 def _media_reference(value: Any) -> str:
     text = _clean_text(value)
     match = re.fullmatch(r"!??\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", text)
@@ -349,7 +358,11 @@ class ArticleStore:
         record = self.cache.get(slug)
         if not record:
             raise ArticleNotFoundError()
-        markdown = _strip_obsidian_cover_area(_strip_obsidian_edit_panel(record["body"]))
+        markdown = _strip_obsidian_cover_area(
+            _strip_obsidian_edit_panel(
+                _strip_obsidian_metadata_match_panel(record["body"])
+            )
+        )
         markdown = IMAGE_WIKILINK_PATTERN.sub(lambda match: f"![image]({match.group(1).strip()})", markdown)
 
         def media_url(match: re.Match[str]) -> str:
