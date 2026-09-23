@@ -2,8 +2,6 @@
 WebSocket 服务器 - 处理实时同步和聊天
 使用 python-socketio + FastAPI
 """
-import socketio
-from typing import Dict, Set
 import logging
 import math
 from datetime import datetime
@@ -14,54 +12,18 @@ import room_core
 import room_snapshot as snapshot_domain
 import music_service
 import video_service
-from config import config
 from database import SessionLocal
 from maintenance import maintenance_controller
-from rate_limit import SlidingWindowRateLimiter
+from realtime.runtime import (
+    sio, socket_app, room_connections, last_music_time_persisted,
+    video_buffer_states, video_local_ready_states, socket_event_limiter,
+    SOCKET_EVENT_LIMITS,
+)
+from realtime.events import register_domain_events
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# 创建 Socket.IO 服务器
-SOCKET_CORS_ORIGINS = [
-    origin.strip()
-    for origin in config.CORS_ORIGINS
-    if origin.strip() and origin.strip() != '*'
-]
-sio = socketio.AsyncServer(
-    async_mode='asgi',
-    cors_allowed_origins=SOCKET_CORS_ORIGINS,
-    logger=False,
-    engineio_logger=False
-)
-
-# 存储房间和用户的连接映射
-# room_connections: {room_id: {user_id: {sid, ...}, ...}}
-room_connections: Dict[int, Dict[int, Set[str]]] = {}
-last_music_time_persisted: Dict[int, float] = {}
-# room_id -> user_id -> sid -> current buffering report. This state is
-# deliberately process-local and never contributes to a playback version.
-video_buffer_states: Dict[int, Dict[int, Dict[str, dict]]] = {}
-# Local-file readiness is intentionally process-local and contains no path or file bytes.
-video_local_ready_states: Dict[int, Dict[int, dict]] = {}
-socket_event_limiter = SlidingWindowRateLimiter()
-SOCKET_EVENT_LIMITS = {
-    'join_room': (10, 10),
-    'leave_room_event': (10, 10),
-    'playback_control': (12, 10),
-    'send_message': (8, 10),
-    'time_update': (30, 10),
-    'request_sync': (10, 10),
-    'request_snapshot': (10, 10),
-    'time_heartbeat': (12, 30),
-    'video_ended': (6, 10),
-    'music_ended': (6, 10),
-    'video_buffer_status': (20, 10),
-    'video_local_ready': (12, 10),
-    'presence_heartbeat': (12, 30),
-}
-
 
 def _is_video_room(room) -> bool:
     return room.type == 'video' and room.mode != 'music'
@@ -258,7 +220,6 @@ async def ensure_realtime_available(sid, error_event='error') -> bool:
     )
     return False
 
-@sio.event
 async def connect(sid, environ, auth=None):
     """客户端连接事件"""
     token = auth.get('token') if isinstance(auth, dict) else None
@@ -292,7 +253,6 @@ async def connect(sid, environ, auth=None):
     finally:
         db.close()
 
-@sio.event
 async def disconnect(sid):
     """客户端断开连接事件"""
     actor = await get_socket_actor(sid, emit_error=False)
@@ -378,7 +338,6 @@ async def disconnect(sid):
     finally:
         db.close()
 
-@sio.event
 async def join_room(sid, data):
     """加入房间"""
     actor = await get_socket_actor(sid)
@@ -472,7 +431,6 @@ async def join_room(sid, data):
         if db:
             db.close()
 
-@sio.event
 async def leave_room_event(sid, data):
     """离开房间"""
     actor = await get_socket_actor(sid)
@@ -553,7 +511,6 @@ async def leave_room_event(sid, data):
         if db:
             db.close()
 
-@sio.event
 async def playback_control(sid, data):
     """播放控制事件"""
     actor = await get_socket_actor(sid)
@@ -719,7 +676,6 @@ async def playback_control(sid, data):
         if db:
             db.close()
 
-@sio.event
 async def send_message(sid, data):
     """发送聊天消息（支持私信）"""
     actor = await get_socket_actor(sid)
@@ -874,7 +830,6 @@ async def send_message(sid, data):
         if db:
             db.close()
 
-@sio.event
 async def request_snapshot(sid, data):
     """Return the current authoritative snapshot to one authenticated member."""
     actor = await get_socket_actor(sid)
@@ -918,7 +873,6 @@ async def request_snapshot(sid, data):
         db.close()
 
 
-@sio.event
 async def presence_heartbeat(sid, data):
     """Refresh authenticated room presence and broadcast all member states."""
     actor = await get_socket_actor(sid)
@@ -963,7 +917,6 @@ async def presence_heartbeat(sid, data):
         db.close()
 
 
-@sio.event
 async def time_heartbeat(sid, data):
     """Broadcast a small server-projected clock heartbeat from the current host."""
     actor = await get_socket_actor(sid)
@@ -1041,7 +994,6 @@ async def time_heartbeat(sid, data):
         db.close()
 
 
-@sio.event
 async def video_ended(sid, data):
     """Advance the current video once through the shared version authority."""
     actor = await get_socket_actor(sid)
@@ -1175,7 +1127,6 @@ async def video_ended(sid, data):
         db.close()
 
 
-@sio.event
 async def music_ended(sid, data):
     """Advance one music-room item using the same versioned authority as the timer."""
     actor = await get_socket_actor(sid)
@@ -1230,7 +1181,6 @@ async def music_ended(sid, data):
         db.close()
 
 
-@sio.event
 async def video_buffer_status(sid, data):
     """Broadcast one connection's ephemeral buffering state."""
     actor = await get_socket_actor(sid)
@@ -1303,7 +1253,6 @@ async def video_buffer_status(sid, data):
         db.close()
 
 
-@sio.event
 async def video_local_ready(sid, data):
     """Broadcast whether a member selected the matching local file."""
     actor = await get_socket_actor(sid)
@@ -1343,7 +1292,6 @@ async def video_local_ready(sid, data):
         db.close()
 
 
-@sio.event
 async def time_update(sid, data):
     """Legacy lightweight clock event; the client position is never authoritative."""
     actor = await get_socket_actor(sid)
@@ -1391,7 +1339,6 @@ async def time_update(sid, data):
         if db:
             db.close()
 
-@sio.event
 async def request_sync(sid, data):
     """Legacy explicit sync request routed through the snapshot authority."""
     actor = await get_socket_actor(sid)
@@ -1456,4 +1403,4 @@ async def request_sync(sid, data):
 
 # 创建 ASGI 应用
 # 关键修复：当mount到/ws时，socketio_path应该是'/'，这样完整路径才是 /ws/socket.io/
-socket_app = socketio.ASGIApp(sio, socketio_path='/')
+register_domain_events(globals())

@@ -13,7 +13,7 @@ from admin_audit import add_admin_audit, commit_failed_admin_audit
 from api_rate_limit import enforce_user_rate_limit, high_risk_rate_limiter
 from config import config
 from database import get_db
-from dependencies import get_current_user
+from dependencies import get_current_admin
 
 
 router = APIRouter(
@@ -28,15 +28,6 @@ ADMIN_FILE_UPLOAD_RATE_LIMIT_MAX = int(
 ADMIN_FILE_UPLOAD_RATE_LIMIT_WINDOW_SECONDS = int(
     os.getenv("ADMIN_FILE_UPLOAD_RATE_LIMIT_WINDOW_SECONDS", "60")
 )
-
-
-def get_current_admin(current_user: models.User = Depends(get_current_user)):
-    if current_user.role != "admin" or not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限",
-        )
-    return current_user
 
 
 def storage_root() -> Path:

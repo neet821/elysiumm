@@ -18,6 +18,8 @@ os.environ["DATABASE_URL"] = f"sqlite:///{Path(_tmpdir.name) / 'auth.sqlite'}"
 from fastapi.testclient import TestClient  # noqa: E402
 
 import main  # noqa: E402
+from routers import auth, admin_users  # noqa: E402
+from api_rate_limit import high_risk_rate_limiter  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 from database import SessionLocal  # noqa: E402
@@ -30,8 +32,8 @@ class AuthRoutesTest(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient(main.app)
-        main.login_rate_limiter.clear()
-        main.high_risk_rate_limiter.clear()
+        auth.login_rate_limiter.clear()
+        high_risk_rate_limiter.clear()
         self.db = SessionLocal()
         self.db.query(models.AdminAuditLog).delete()
         self.db.query(models.User).delete()
@@ -172,7 +174,7 @@ class AuthRoutesTest(unittest.TestCase):
                 "/api/auth/login",
                 data={"username": "alice", "password": "wrong-password"},
             )
-            for _ in range(main.LOGIN_RATE_LIMIT_MAX + 1)
+            for _ in range(auth.LOGIN_RATE_LIMIT_MAX + 1)
         ]
 
         self.assertTrue(
@@ -181,7 +183,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertEqual(responses[-1].status_code, 429)
         self.assertIn("Retry-After", responses[-1].headers)
 
-        main.login_rate_limiter.clear()
+        auth.login_rate_limiter.clear()
         recovered = self.client.post(
             "/api/auth/login",
             data={"username": "alice", "password": "correct-password"},
@@ -205,8 +207,8 @@ class AuthRoutesTest(unittest.TestCase):
         )
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
-        original_limit = main.ADMIN_USER_MUTATION_RATE_LIMIT_MAX
-        main.ADMIN_USER_MUTATION_RATE_LIMIT_MAX = 1
+        original_limit = admin_users.ADMIN_USER_MUTATION_RATE_LIMIT_MAX
+        admin_users.ADMIN_USER_MUTATION_RATE_LIMIT_MAX = 1
         try:
             first = self.client.put(
                 f"/api/admin/users/{victim.id}",
@@ -219,7 +221,7 @@ class AuthRoutesTest(unittest.TestCase):
                 json={"is_active": True},
             )
         finally:
-            main.ADMIN_USER_MUTATION_RATE_LIMIT_MAX = original_limit
+            admin_users.ADMIN_USER_MUTATION_RATE_LIMIT_MAX = original_limit
 
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)

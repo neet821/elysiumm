@@ -10,18 +10,9 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import get_db
-from dependencies import get_current_user
+from dependencies import get_current_admin
 
 router = APIRouter(prefix="/api/admin/agent-console", tags=["agent-console"])
-
-
-def get_current_admin(current_user: models.User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限",
-        )
-    return current_user
 
 
 def read_memory_status():
@@ -47,7 +38,9 @@ def read_memory_status():
 
 
 def read_disk_status():
-    disk_total, disk_used, disk_free = shutil.disk_usage(Path(__file__).resolve().parents[2])
+    disk_total, disk_used, disk_free = shutil.disk_usage(
+        Path(__file__).resolve().parents[2]
+    )
     return {
         "total_mb": round(disk_total / 1024 / 1024),
         "used_mb": round(disk_used / 1024 / 1024),
