@@ -3,10 +3,18 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
-import re
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
@@ -18,6 +26,13 @@ import room_core
 import security
 import sync_room_crud
 import video_service
+import video_files
+from video_files import (
+    managed_path as _managed_path,
+    unlink_managed as _unlink_managed,
+    normalize_subtitle as _normalize_subtitle,
+    parse_byte_range as _parse_byte_range,
+)
 from external_media import (
     ExternalMediaError,
     open_external_stream as safe_open_external_stream,
@@ -55,77 +70,19 @@ SUBTITLE_TYPES = {
 }
 
 
-def _parse_byte_range(value: str, size: int) -> tuple[int, int]:
-    if not value.startswith("bytes=") or "," in value or size <= 0:
-        raise ValueError("请求的文件范围无效")
-    bounds = value[6:].strip()
-    if bounds.count("-") != 1:
-        raise ValueError("请求的文件范围无效")
-    start_text, end_text = bounds.split("-", 1)
-    if not start_text:
-        suffix = int(end_text)
-        if suffix <= 0:
-            raise ValueError("请求的文件范围无效")
-        return max(0, size - suffix), size - 1
-    start = int(start_text)
-    if start < 0 or start >= size:
-        raise ValueError("请求的文件范围无效")
-    end = size - 1 if not end_text else int(end_text)
-    if end < start:
-        raise ValueError("请求的文件范围无效")
-    return start, min(end, size - 1)
-
-
 def _read_file_range(path: Path, start: int, end: int):
-    with path.open("rb") as file:
-        file.seek(start)
-        remaining = end - start + 1
-        while remaining > 0:
-            chunk = file.read(min(VIDEO_CHUNK_SIZE, remaining))
-            if not chunk:
-                break
-            remaining -= len(chunk)
-            yield chunk
+    return video_files.read_file_range(path, start, end, chunk_size=VIDEO_CHUNK_SIZE)
 
 
 def _video_file_response(
-    request: Request,
-    path: Path,
-    *,
-    media_type: str,
-    filename: str,
+    request: Request, path: Path, *, media_type: str, filename: str
 ):
-    size = path.stat().st_size
-    range_header = request.headers.get("range")
-    if not range_header:
-        return FileResponse(
-            path,
-            media_type=media_type,
-            filename=filename,
-            content_disposition_type="inline",
-            headers={"Accept-Ranges": "bytes"},
-        )
-    try:
-        start, end = _parse_byte_range(range_header, size)
-    except (TypeError, ValueError):
-        raise HTTPException(
-            416,
-            "请求的视频范围无效",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Content-Range": f"bytes */{size}",
-            },
-        ) from None
-    return StreamingResponse(
-        _read_file_range(path, start, end),
-        status_code=206,
+    return video_files.video_file_response(
+        request,
+        path,
         media_type=media_type,
-        headers={
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(end - start + 1),
-            "Content-Range": f"bytes {start}-{end}/{size}",
-            "Content-Disposition": "inline",
-        },
+        filename=filename,
+        chunk_size=VIDEO_CHUNK_SIZE,
     )
 
 
@@ -260,7 +217,9 @@ def _remote_streaming_response(remote):
         value = remote.headers.get(source)
         if value:
             response_headers[target] = value
-    media_type = remote.headers.get("content-type", "application/octet-stream").split(";", 1)[0]
+    media_type = remote.headers.get("content-type", "application/octet-stream").split(
+        ";", 1
+    )[0]
     return StreamingResponse(
         body(),
         status_code=remote.status_code,
@@ -317,7 +276,9 @@ def _member_session_payload(db, room, user):
     for item in payload["playlist"]:
         if item["source_type"] in {"external", "upload"} and item["playback_url"]:
             token = _media_token("video", item["id"], user.id)
-            item["playback_url"] = f"/api/video/items/{item['id']}/stream?access={token}"
+            item["playback_url"] = (
+                f"/api/video/items/{item['id']}/stream?access={token}"
+            )
         for subtitle in item["subtitles"]:
             token = _media_token("subtitle", subtitle["id"], user.id)
             subtitle["src"] = (
@@ -374,63 +335,6 @@ def _raise_domain_error(exc):
             },
         ) from exc
     raise HTTPException(400, str(exc)) from exc
-
-
-def _managed_path(value, root):
-    if not value:
-        return None
-    candidate = Path(value).expanduser().resolve()
-    root = Path(root).resolve()
-    if candidate.is_relative_to(root):
-        return candidate
-
-    # Uploads used to be stored under a release-specific absolute path. Keep
-    # those records readable after the private storage root is moved, but only
-    # when the old path has the same managed directory suffix and the matching
-    # file already exists under the current root. Arbitrary outside paths are
-    # still rejected, preserving the path traversal boundary.
-    if (
-        len(root.parts) >= 2
-        and candidate.parent.name == root.name
-        and candidate.parent.parent.name == root.parent.name
-    ):
-        relocated = root / candidate.name
-        if relocated.is_file():
-            return relocated
-    return None
-
-
-def _unlink_managed(value, root):
-    candidate = _managed_path(value, root)
-    if candidate and candidate.is_file():
-        candidate.unlink()
-        return True
-    return False
-
-
-def _normalize_subtitle(filename, raw):
-    if b"\x00" in raw:
-        raise ValueError("字幕不是有效的 UTF-8 文本")
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise ValueError("字幕不是有效的 UTF-8 文本") from exc
-    suffix = Path(filename).suffix.lower()
-    if suffix == ".vtt":
-        if not text.lstrip().startswith("WEBVTT"):
-            raise ValueError("WebVTT 字幕缺少文件头")
-        normalized = text.lstrip("\ufeff")
-    elif suffix == ".srt":
-        normalized = "WEBVTT\n\n" + re.sub(
-            r"(\d{2}:\d{2}:\d{2}),(\d{3})",
-            r"\1.\2",
-            text,
-        )
-    else:
-        raise ValueError("仅支持 SRT 或 WebVTT 字幕")
-    if "-->" not in normalized:
-        raise ValueError("字幕没有有效时间轴")
-    return normalized.encode("utf-8")
 
 
 @router.get("/rooms/{room_id}")
@@ -540,7 +444,10 @@ async def upload_video_item(
             "file_size": size,
             "owned_file": True,
         }
-        if append_to_queue and video_service.ensure_video_session(db, room).current_item_id:
+        if (
+            append_to_queue
+            and video_service.ensure_video_session(db, room).current_item_id
+        ):
             item = video_service.create_playlist_item(db, room, **item_kwargs)
             snapshot = video_service.current_video_snapshot(db, room)
             paths = []
@@ -630,7 +537,11 @@ async def select_video_item(
             expected_version=payload.expected_version,
             autoplay=payload.autoplay,
         )
-    except (ValueError, room_core.InvalidRoomTransition, room_core.RoomPlaybackConflict) as exc:
+    except (
+        ValueError,
+        room_core.InvalidRoomTransition,
+        room_core.RoomPlaybackConflict,
+    ) as exc:
         _raise_domain_error(exc)
     await broadcast_video_state(db, room, snapshot=snapshot)
     return _snapshot_result(db, room, current_user, snapshot)
@@ -651,7 +562,11 @@ async def advance_video_playlist(
             expected_version=payload.expected_version,
             autoplay=payload.autoplay,
         )
-    except (ValueError, room_core.InvalidRoomTransition, room_core.RoomPlaybackConflict) as exc:
+    except (
+        ValueError,
+        room_core.InvalidRoomTransition,
+        room_core.RoomPlaybackConflict,
+    ) as exc:
         _raise_domain_error(exc)
     await broadcast_video_state(db, room, snapshot=snapshot)
     return _snapshot_result(db, room, current_user, snapshot)
@@ -666,7 +581,9 @@ async def delete_video_item(
     db: Session = Depends(get_db),
 ):
     room, item = _controller_item(db, room_id, item_id, current_user)
-    was_current = video_service.ensure_video_session(db, room).current_item_id == item.id
+    was_current = (
+        video_service.ensure_video_session(db, room).current_item_id == item.id
+    )
     try:
         snapshot, paths = video_service.delete_playlist_item(
             db,
@@ -674,7 +591,11 @@ async def delete_video_item(
             item,
             expected_version=expected_version,
         )
-    except (ValueError, room_core.InvalidRoomTransition, room_core.RoomPlaybackConflict) as exc:
+    except (
+        ValueError,
+        room_core.InvalidRoomTransition,
+        room_core.RoomPlaybackConflict,
+    ) as exc:
         _raise_domain_error(exc)
     for kind, path, owned in paths:
         if not owned:
@@ -821,7 +742,9 @@ async def stream_video_item(
         try:
             remote = await open_external_stream(
                 item.source_url,
-                headers={"Range": request.headers.get("range")} if request.headers.get("range") else {},
+                headers={"Range": request.headers.get("range")}
+                if request.headers.get("range")
+                else {},
             )
         except ExternalMediaError as exc:
             raise HTTPException(502, str(exc)) from exc
@@ -852,7 +775,9 @@ async def stream_hls_resource(
     except ExternalMediaError as exc:
         raise HTTPException(502, str(exc)) from exc
     content_type = remote.headers.get("content-type", "").lower()
-    if "mpegurl" in content_type or target_url.lower().split("?", 1)[0].endswith(".m3u8"):
+    if "mpegurl" in content_type or target_url.lower().split("?", 1)[0].endswith(
+        ".m3u8"
+    ):
         return await _hls_playlist_response(remote, item, user)
     return _remote_streaming_response(remote)
 
