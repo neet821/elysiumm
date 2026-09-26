@@ -123,6 +123,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
 
         uploaded = self.client.put(
             f"/api/transfers/{old_token}?filename=rotated.txt",
+            headers=self.admin_auth,
             content=b"rotated",
         )
 
@@ -135,6 +136,52 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(refreshed.status_code, 200)
         self.assertEqual([item["name"] for item in refreshed.json()["files"]], ["rotated.txt"])
         self.assertTrue(refreshed.json()["expires_at"].endswith("Z"))
+
+        public_download = self.client.get(
+            payload["download_url"],
+            headers={"Range": "bytes=1-3"},
+        )
+        self.assertEqual(public_download.status_code, 206)
+        self.assertEqual(public_download.content, b"ota")
+        self.assertEqual(public_download.headers["content-range"], "bytes 1-3/7")
+
+    def test_public_transfer_token_does_not_authorize_upload(self):
+        def make_session():
+            now = datetime.utcnow()
+            token = transfer_service.new_token()
+            session = models.TransferSession(
+                token_hash=transfer_service.token_hash(token),
+                public_token=token,
+                created_by=self.admin.id,
+                total_bytes=0,
+                max_bytes=2 * 1024**3,
+                last_activity_at=now,
+                expires_at=now + timedelta(minutes=5),
+                created_at=now,
+            )
+            self.db.add(session)
+            self.db.commit()
+            return token, session.id
+
+        anonymous_token, anonymous_session_id = make_session()
+        member_token, member_session_id = make_session()
+
+        anonymous = self.client.put(
+            f"/api/transfers/{anonymous_token}?filename=anonymous.txt",
+            content=b"anonymous",
+        )
+        member = self.client.put(
+            f"/api/transfers/{member_token}?filename=member.txt",
+            headers=self.member_auth,
+            content=b"member",
+        )
+
+        self.assertEqual(anonymous.status_code, 401, anonymous.text)
+        self.assertEqual(member.status_code, 403, member.text)
+        for session_id in (anonymous_session_id, member_session_id):
+            session = self.db.query(models.TransferSession).filter_by(id=session_id).one()
+            self.assertEqual(session.total_bytes, 0)
+            self.assertEqual(len(session.files), 0)
 
     def test_current_link_consolidates_old_sessions_to_one(self):
         now = datetime.utcnow() + timedelta(seconds=1)
