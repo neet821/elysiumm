@@ -46,6 +46,7 @@ describe('useVideoRoomRealtime', () => {
       applyVideoDetail: vi.fn(),
       navigate: vi.fn(),
       refreshVideoDetail: vi.fn().mockResolvedValue(null),
+      requestSnapshot: vi.fn(),
       setBuffers: vi.fn(),
       setLoading: vi.fn(),
       setLocalReady: vi.fn(),

@@ -25,6 +25,7 @@ export function useVideoRoomRealtime({
   navigate,
   numericRoomId,
   refreshVideoDetail,
+  requestSnapshot,
   socketRef,
   setBuffers,
   setLoading,
@@ -39,13 +40,6 @@ export function useVideoRoomRealtime({
 }) {
   const presenceTimerRef = useRef(null)
   const presenceJoinedRef = useRef(false)
-
-  const requestSnapshot = useCallback(() => {
-    if (!socketRef.current) return false
-    setSyncStatus('syncing')
-    socketRef.current.emit('request_snapshot', { room_id: numericRoomId })
-    return true
-  }, [numericRoomId, setSyncStatus, socketRef])
 
   const stopPresenceHeartbeat = useCallback(() => {
     if (presenceTimerRef.current !== null) {
@@ -260,5 +254,4 @@ export function useVideoRoomRealtime({
     }
   }, [refreshVideoDetail, requestSnapshot, startPresenceHeartbeat, stopPresenceHeartbeat])
 
-  return { requestSnapshot }
 }
