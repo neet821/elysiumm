@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const player = readFileSync(new URL('../src/features/music/MusicRoomPlayer.jsx', import.meta.url), 'utf8')
+const queuePanel = readFileSync(new URL('../src/features/music/MusicRoomQueuePanel.jsx', import.meta.url), 'utf8')
+const searchPanel = readFileSync(new URL('../src/features/music/MusicRoomSearchPanel.jsx', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+const roomExperience = `${player}\n${queuePanel}\n${searchPanel}`
 
 test('native room player has responsive visual, lyric, and queue surfaces', () => {
   for (const token of [
@@ -14,7 +17,7 @@ test('native room player has responsive visual, lyric, and queue surfaces', () =
     'music-room-native__panel',
     'music-room-native__search',
   ]) {
-    assert.match(player, new RegExp(token))
+    assert.match(roomExperience, new RegExp(token))
     assert.match(css, new RegExp(`\\.${token.replaceAll('__', '__')}`))
   }
   assert.match(css, /@media\s*\(/)
