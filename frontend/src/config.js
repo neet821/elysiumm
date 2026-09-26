@@ -75,6 +75,14 @@ export const API_ENDPOINTS = {
 
   // 音乐房
   MUSIC_SEARCH: `${API_BASE_URL}/api/music/search`,
+  MUSIC_PLAYLISTS: `${API_BASE_URL}/api/music/playlists`,
+  MUSIC_PLAYLIST: (playlistId) => `${API_BASE_URL}/api/music/playlists/${playlistId}`,
+  MUSIC_PLAYLIST_TRACKS: (playlistId) => `${API_BASE_URL}/api/music/playlists/${playlistId}/tracks`,
+  MUSIC_PLAYLIST_TRACK: (playlistId, itemId) => `${API_BASE_URL}/api/music/playlists/${playlistId}/tracks/${itemId}`,
+  MUSIC_PLAYLIST_ORDER: (playlistId) => `${API_BASE_URL}/api/music/playlists/${playlistId}/tracks/order`,
+  MUSIC_PLAYLIST_IMPORT_PREVIEW: `${API_BASE_URL}/api/music/playlists/import/preview`,
+  MUSIC_PLAYLIST_IMPORT: `${API_BASE_URL}/api/music/playlists/import`,
+  MUSIC_PLAYLIST_QUEUE: (roomId, playlistId) => `${API_BASE_URL}/api/music/rooms/${roomId}/playlists/${playlistId}/queue`,
   MUSIC_AUDIO: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/audio`,
   MUSIC_LYRICS: (trackId) => `${API_BASE_URL}/api/music/tracks/${trackId}/lyrics`,
   MUSIC_HISTORY: (roomId) => `${API_BASE_URL}/api/music/rooms/${roomId}/history`,
