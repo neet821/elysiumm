@@ -30,6 +30,7 @@ from deployment.environment import (
     EnvironmentError,
     require_production_database_environment,
 )
+from deployment.api_schema import api_schema_sha256 as compute_api_schema_sha256
 from deployment.legacy_path_scan import scan_legacy_paths
 from deployment.migration_runner import MigrationRunError, run_migrations_if_needed
 from deployment.migration_state import (
@@ -421,7 +422,7 @@ def _backend_release(
             backend_source=source,
             python_version=_python_version(options.python_executable),
             requirements_lock_sha256=_sha256_file(lockfile),
-            api_schema_sha256=options.backend_api_schema_sha256 or _sha256_file(source / "schemas.py"),
+            api_schema_sha256=options.backend_api_schema_sha256 or compute_api_schema_sha256(source),
             compatible_frontend_api=options.compatible_frontend_api,
             target_alembic_heads=list(target_heads),
             python_executable=options.python_executable,
@@ -558,9 +559,9 @@ def _frontend_release(options: DeploymentOptions, *, deployment_id: str) -> Rele
             package_lock_sha256 = _sha256_file(options.frontend_source.resolve() / "package-lock.json")
         api_schema_sha256 = options.frontend_api_schema_sha256
         if not api_schema_sha256:
-            schema = options.root / "backend/schemas.py"
-            if schema.is_file():
-                api_schema_sha256 = _sha256_file(schema)
+            backend_dir = options.root / "backend"
+            if (backend_dir / "schemas.py").is_file():
+                api_schema_sha256 = compute_api_schema_sha256(backend_dir)
         if not package_lock_sha256 or not api_schema_sha256:
             raise ProductionDeployError("frontend release metadata requires lockfile and API schema hashes")
         release_id = release_id_for(options.commit, "frontend")

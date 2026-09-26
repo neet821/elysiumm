@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           frontend_lock_sha256="$(sha256sum frontend/package-lock.json | awk '{print $1}')"
-          api_schema_sha256="$(sha256sum backend/schemas.py | awk '{print $1}')"
+          api_schema_sha256="$(backend/.venv/bin/python -c 'from pathlib import Path; from deployment.api_schema import api_schema_sha256; print(api_schema_sha256(Path("backend")))')"
           {
             printf 'frontend_package_lock_sha256=%s\n' "$frontend_lock_sha256"
             printf 'frontend_api_schema_sha256=%s\n' "$api_schema_sha256"

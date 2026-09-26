@@ -44,6 +44,7 @@ rules:
       - schemas/**
       - backend/openapi/**
       - backend/schemas.py
+      - backend/schema_domains/**
       - backend/config.py
       - frontend/src/config.js
       - config/**
