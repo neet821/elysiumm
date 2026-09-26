@@ -24,6 +24,7 @@ from realtime.common import (
 from realtime.events import register_domain_events
 from realtime.lifecycle import connect, disconnect, logger
 from realtime.playback_events import (
+    clock_probe,
     music_ended,
     playback_control,
     time_heartbeat,
@@ -42,6 +43,7 @@ from realtime.runtime import (
     SOCKET_EVENT_LIMITS,
     last_music_time_persisted,
     room_connections,
+    room_operation_sequence_guard,
     sio,
     socket_app,
     socket_event_limiter,
@@ -61,6 +63,7 @@ __all__ = [
     "_video_buffer_payload",
     "add_room_connection",
     "connect",
+    "clock_probe",
     "disconnect",
     "emit_room_presence",
     "ensure_realtime_available",
@@ -82,6 +85,7 @@ __all__ = [
     "request_snapshot",
     "request_sync",
     "room_connections",
+    "room_operation_sequence_guard",
     "send_message",
     "sio",
     "socket_app",

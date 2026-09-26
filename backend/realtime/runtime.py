@@ -5,6 +5,7 @@ import socketio
 
 from config import config
 from rate_limit import SlidingWindowRateLimiter
+from .operation_guard import RealtimeOperationSequenceGuard
 
 
 SOCKET_CORS_ORIGINS = [
@@ -27,6 +28,7 @@ last_music_time_persisted: Dict[int, float] = {}
 video_buffer_states: Dict[int, Dict[int, Dict[str, dict]]] = {}
 video_local_ready_states: Dict[int, Dict[int, dict]] = {}
 socket_event_limiter = SlidingWindowRateLimiter()
+room_operation_sequence_guard = RealtimeOperationSequenceGuard()
 SOCKET_EVENT_LIMITS = {
     "join_room": (10, 10),
     "leave_room_event": (10, 10),
@@ -36,6 +38,7 @@ SOCKET_EVENT_LIMITS = {
     "request_sync": (10, 10),
     "request_snapshot": (10, 10),
     "time_heartbeat": (12, 30),
+    "clock_probe": (6, 30),
     "video_ended": (6, 10),
     "music_ended": (6, 10),
     "video_buffer_status": (20, 10),

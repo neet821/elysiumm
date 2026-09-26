@@ -17,6 +17,10 @@ class RealtimeStructureTest(unittest.TestCase):
     def test_legacy_exports_and_registered_events_share_the_runtime_singleton(self):
         self.assertIs(websocket_server.sio, runtime.sio)
         self.assertIs(websocket_server.room_connections, runtime.room_connections)
+        self.assertIs(
+            websocket_server.room_operation_sequence_guard,
+            runtime.room_operation_sequence_guard,
+        )
         self.assertIs(websocket_server.video_buffer_states, runtime.video_buffer_states)
         self.assertIs(
             websocket_server.video_local_ready_states,
@@ -35,6 +39,7 @@ class RealtimeStructureTest(unittest.TestCase):
             "request_sync": "realtime.room_events",
             "playback_control": "realtime.playback_events",
             "time_heartbeat": "realtime.playback_events",
+            "clock_probe": "realtime.playback_events",
             "time_update": "realtime.playback_events",
             "video_ended": "realtime.playback_events",
             "music_ended": "realtime.playback_events",
@@ -61,6 +66,7 @@ class RealtimeStructureTest(unittest.TestCase):
                     "request_snapshot",
                     "presence_heartbeat",
                     "time_heartbeat",
+                    "clock_probe",
                     "video_ended",
                     "music_ended",
                     "video_buffer_status",

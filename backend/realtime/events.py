@@ -25,6 +25,7 @@ _DOMAIN_EVENTS = {
         (
             "playback_control",
             "time_heartbeat",
+            "clock_probe",
             "time_update",
             "video_ended",
             "music_ended",

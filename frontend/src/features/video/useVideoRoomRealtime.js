@@ -3,6 +3,7 @@ import { io } from 'socket.io-client'
 
 import { API_ENDPOINTS, WS_BASE_URL } from '../../config.js'
 import apiClient from '../../utils/request.js'
+import { startRoomClockProbes } from '../player/roomRealtimeSync.js'
 
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
 
@@ -26,6 +27,7 @@ export function useVideoRoomRealtime({
   numericRoomId,
   refreshVideoDetail,
   requestSnapshot,
+  roomSyncStateRef,
   socketRef,
   setBuffers,
   setLoading,
@@ -114,6 +116,11 @@ export function useVideoRoomRealtime({
       transports: ['websocket', 'polling'],
     })
     socketRef.current = socket
+    const stopClockProbes = startRoomClockProbes(
+      socket,
+      numericRoomId,
+      roomSyncStateRef?.current,
+    )
     socket.on('connect', () => {
       if (!active) return
       setSyncStatus(latestSnapshotRef.current ? 'syncing' : 'connecting')
@@ -210,6 +217,7 @@ export function useVideoRoomRealtime({
       active = false
       presenceJoinedRef.current = false
       stopPresenceHeartbeat()
+      stopClockProbes()
       socket.disconnect()
       if (socketRef.current === socket) socketRef.current = null
     }
@@ -221,6 +229,7 @@ export function useVideoRoomRealtime({
     navigate,
     numericRoomId,
     refreshVideoDetail,
+    roomSyncStateRef,
     setBuffers,
     setLoading,
     setLocalReady,

@@ -9,7 +9,12 @@ import room_core
 import room_snapshot as snapshot_domain
 import sync_room_crud
 import video_service
-from .runtime import sio, video_buffer_states, video_local_ready_states
+from .runtime import (
+    room_operation_sequence_guard,
+    sio,
+    video_buffer_states,
+    video_local_ready_states,
+)
 from .common import (
     _is_video_room,
     _project_room_position,
@@ -25,6 +30,56 @@ from .common import (
 from . import common
 
 logger = logging.getLogger("websocket_server")
+
+
+async def _accept_room_operation(sid, actor, room_id, data, db, room) -> bool:
+    result = room_operation_sequence_guard.check(actor["user_id"], room_id, data)
+    if result in {"legacy", "accepted"}:
+        return True
+    if result == "duplicate":
+        # Retransmission of an already accepted operation is an idempotent no-op.
+        return False
+    if result == "out_of_order":
+        now_ms = sync_room_crud.server_now_ms()
+        snapshot = _room_snapshot(db, room, now_ms=now_ms)
+        await sio.emit(
+            "playback_conflict",
+            {
+                "message": "收到过期的同步操作，已刷新房间状态",
+                "room_id": room_id,
+                "snapshot": _serialize_room_snapshot(
+                    snapshot,
+                    server_now_ms=now_ms,
+                ),
+            },
+            room=sid,
+        )
+        return False
+    await sio.emit("error", {"message": "同步操作标识无效"}, room=sid)
+    return False
+
+
+async def _accept_current_video_media(sid, room_id, data, db, room) -> bool:
+    if not _is_video_room(room) or data.get("client_instance_id") is None:
+        return True
+    current = video_service.current_video_snapshot(db, room)
+    if data.get("media_id") == current.media_id:
+        return True
+
+    now_ms = sync_room_crud.server_now_ms()
+    await sio.emit(
+        "playback_conflict",
+        {
+            "message": "视频已切换，已刷新房间状态",
+            "room_id": room_id,
+            "snapshot": _serialize_room_snapshot(
+                current,
+                server_now_ms=now_ms,
+            ),
+        },
+        room=sid,
+    )
+    return False
 
 
 async def playback_control(sid, data):
@@ -91,6 +146,12 @@ async def playback_control(sid, data):
             db, room, user, "playback_control"
         ):
             await sio.emit("error", {"message": "您没有权限控制播放"}, room=sid)
+            return
+
+        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
+            return
+
+        if not await _accept_current_video_media(sid, room_id, data, db, room):
             return
 
         # 如果用户是成员但未在WebSocket房间中，自动加入
@@ -263,6 +324,12 @@ async def time_heartbeat(sid, data):
             await sio.emit("error", {"message": "只有房主可以发送时间心跳"}, room=sid)
             return
 
+        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
+            return
+
+        if not await _accept_current_video_media(sid, room_id, data, db, room):
+            return
+
         now_ms = sync_room_crud.server_now_ms()
         snapshot = _room_snapshot(db, room, now_ms=now_ms)
         if expected_version != snapshot.version:
@@ -340,6 +407,9 @@ async def video_ended(sid, data):
             "change_media",
         ):
             await sio.emit("error", {"message": "没有权限切换视频"}, room=sid)
+            return
+
+        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
             return
 
         current = video_service.current_video_snapshot(db, room)
@@ -464,6 +534,8 @@ async def music_ended(sid, data):
         ):
             await sio.emit("error", {"message": "只有房主可以确认歌曲结束"}, room=sid)
             return
+        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
+            return
         current = (
             db.query(models.MusicQueueItem)
             .filter_by(room_id=room.id, status="playing")
@@ -516,6 +588,55 @@ async def music_ended(sid, data):
         db.rollback()
         logger.exception("Failed to advance ended music")
         await sio.emit("error", {"message": "歌曲切换暂时失败"}, room=sid)
+    finally:
+        db.close()
+
+
+async def clock_probe(sid, data):
+    """Echo an authenticated room clock probe with server receive/send times."""
+    actor = await get_socket_actor(sid)
+    if actor is None or not await ensure_realtime_available(sid):
+        return
+    data = data if isinstance(data, dict) else {}
+    room_id = data.get("room_id")
+    client_sent_at_ms = data.get("client_sent_at_ms")
+    probe_id = data.get("probe_id")
+    if not await ensure_socket_rate_limit(
+        sid,
+        actor,
+        "clock_probe",
+        room_id=room_id if type(room_id) is int else None,
+    ):
+        return
+    if (
+        type(room_id) is not int
+        or type(client_sent_at_ms) is not int
+        or client_sent_at_ms < 0
+        or not isinstance(probe_id, str)
+        or not probe_id
+        or len(probe_id) > 80
+    ):
+        await sio.emit("error", {"message": "时钟探测参数无效"}, room=sid)
+        return
+
+    db = common.get_db()
+    try:
+        room = sync_room_crud.get_room_by_id(db, room_id)
+        if not room or not sync_room_crud.is_room_member(db, room_id, actor["user_id"]):
+            await sio.emit("error", {"message": "您不是该房间成员"}, room=sid)
+            return
+        server_received_at_ms = sync_room_crud.server_now_ms()
+        await sio.emit(
+            "clock_probe_ack",
+            {
+                "client_sent_at_ms": client_sent_at_ms,
+                "probe_id": probe_id,
+                "room_id": room_id,
+                "server_received_at_ms": server_received_at_ms,
+                "server_sent_at_ms": sync_room_crud.server_now_ms(),
+            },
+            room=sid,
+        )
     finally:
         db.close()
 

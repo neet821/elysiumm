@@ -293,12 +293,15 @@ describe('video room page', () => {
 
     fireEvent.click(play)
 
-    expect(mocks.socket.emit).toHaveBeenCalledWith('playback_control', {
+    expect(mocks.socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({
       action: 'play',
+      client_instance_id: expect.any(String),
+      media_id: 7,
+      operation_seq: expect.any(Number),
       playback_version: 5,
       room_id: 9,
       time: 12,
-    })
+    }))
     expect(mocks.adapter.play).toHaveBeenCalledTimes(1)
 
     act(() => mocks.handlers.get('room_snapshot')(snapshot({ state: 'playing', version: 6 })))
@@ -434,11 +437,13 @@ describe('video room page', () => {
       room_id: 9,
     })
     expect(mocks.socket.emit).toHaveBeenCalledTimes(3)
-    expect(mocks.socket.emit).toHaveBeenCalledWith('video_ended', {
+    expect(mocks.socket.emit).toHaveBeenCalledWith('video_ended', expect.objectContaining({
+      client_instance_id: expect.any(String),
       expected_version: 5,
       item_id: 7,
+      operation_seq: expect.any(Number),
       room_id: 9,
-    })
+    }))
 
     fireEvent.error(video)
     await waitFor(() => expect(mocks.api.get.mock.calls.filter(([url]) => url.endsWith('/api/video/rooms/9')).length).toBeGreaterThan(1))
@@ -647,12 +652,15 @@ describe('video room page', () => {
     expect(mocks.adapter.setVolume).toHaveBeenCalledWith(0.4)
     expect(requestFullscreen).toHaveBeenCalledTimes(1)
     expect(mocks.socket.emit).toHaveBeenCalledTimes(1)
-    expect(mocks.socket.emit).toHaveBeenCalledWith('playback_control', {
+    expect(mocks.socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({
       action: 'rate',
+      client_instance_id: expect.any(String),
+      media_id: 7,
+      operation_seq: expect.any(Number),
       playback_version: 5,
       rate: 1.25,
       room_id: 9,
-    })
+    }))
   })
 
   it('manages URL items and cleans the socket and adapter on unmount', async () => {

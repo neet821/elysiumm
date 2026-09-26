@@ -74,6 +74,8 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         websocket_server.sio.enter_room = fake_enter_room
         websocket_server.room_connections.clear()
         websocket_server.last_music_time_persisted.clear()
+        websocket_server.room_operation_sequence_guard.clear()
+        websocket_server.socket_event_limiter.clear()
 
     def tearDown(self):
         realtime_common.get_db = self.original_get_db
@@ -82,6 +84,8 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         websocket_server.sio.enter_room = self.original_enter_room
         websocket_server.room_connections.clear()
         websocket_server.last_music_time_persisted.clear()
+        websocket_server.room_operation_sequence_guard.clear()
+        websocket_server.socket_event_limiter.clear()
         self.db.close()
 
     def create_room(self, mode="url"):
@@ -119,6 +123,94 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         self.assertEqual(sync_events[0]["data"]["playback_version"], 1)
         self.assertEqual(sync_events[0]["data"]["time"], 12)
         self.assertIsNone(sync_events[0]["skip_sid"])
+
+    def test_realtime_operation_retry_is_idempotent(self):
+        room = self.create_room()
+        payload = {
+            "room_id": room.id,
+            "action": "play",
+            "time": 12,
+            "playback_version": 0,
+            "client_instance_id": "00000000-0000-4000-8000-000000000001",
+            "operation_seq": 1,
+        }
+
+        asyncio.run(websocket_server.playback_control("sid-host", payload))
+        asyncio.run(websocket_server.playback_control("sid-host", payload))
+        self.db.refresh(room)
+
+        sync_events = [event for event in self.emitted if event["event"] == "playback_sync"]
+        self.assertEqual(room.playback_version, 1)
+        self.assertEqual(len(sync_events), 1)
+        self.assertFalse([event for event in self.emitted if event["event"] == "error"])
+
+    def test_out_of_order_realtime_operation_returns_authoritative_snapshot(self):
+        room = self.create_room()
+        client_instance_id = "00000000-0000-4000-8000-000000000002"
+
+        asyncio.run(websocket_server.playback_control("sid-host", {
+            "room_id": room.id,
+            "action": "play",
+            "time": 12,
+            "playback_version": 0,
+            "client_instance_id": client_instance_id,
+            "operation_seq": 2,
+        }))
+        asyncio.run(websocket_server.playback_control("sid-host", {
+            "room_id": room.id,
+            "action": "pause",
+            "time": 8,
+            "playback_version": 1,
+            "client_instance_id": client_instance_id,
+            "operation_seq": 1,
+        }))
+        self.db.refresh(room)
+
+        conflict = [event for event in self.emitted if event["event"] == "playback_conflict"][-1]
+        self.assertEqual(room.playback_version, 1)
+        self.assertEqual(conflict["data"]["snapshot"]["version"], 1)
+        self.assertIn("过期", conflict["data"]["message"])
+
+    def test_clock_probe_returns_server_timestamps_only_to_room_members(self):
+        room = self.create_room()
+
+        asyncio.run(websocket_server.clock_probe("sid-host", {
+            "room_id": room.id,
+            "client_sent_at_ms": 1_000,
+            "probe_id": "probe-1",
+        }))
+
+        ack = [event for event in self.emitted if event["event"] == "clock_probe_ack"][-1]
+        self.assertEqual(ack["room"], "sid-host")
+        self.assertEqual(ack["data"]["client_sent_at_ms"], 1_000)
+        self.assertGreaterEqual(
+            ack["data"]["server_sent_at_ms"],
+            ack["data"]["server_received_at_ms"],
+        )
+
+        outsider = models.User(
+            username="outsider",
+            email="outsider@example.com",
+            hashed_password="unused",
+            role="user",
+        )
+        self.db.add(outsider)
+        self.db.commit()
+        self.db.refresh(outsider)
+        self.sessions["sid-outsider"] = {
+            "user_id": outsider.id,
+            "username": outsider.username,
+            "role": outsider.role,
+        }
+        asyncio.run(websocket_server.clock_probe("sid-outsider", {
+            "room_id": room.id,
+            "client_sent_at_ms": 1_100,
+            "probe_id": "probe-2",
+        }))
+        self.assertEqual(
+            len([event for event in self.emitted if event["event"] == "clock_probe_ack"]),
+            1,
+        )
 
     def test_playback_control_rejects_stale_client_version(self):
         room = self.create_room()

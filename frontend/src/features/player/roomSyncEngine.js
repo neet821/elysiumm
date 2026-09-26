@@ -63,11 +63,39 @@ function normalizeSnapshot(value) {
 export function createRoomSyncState() {
   return {
     clockOffsetMs: 0,
+    clockSamples: [],
     lastVersion: -1,
     largeDriftSamples: 0,
+    roundTripTimeMs: null,
     rateTimer: null,
     rateToken: null,
   }
+}
+
+export function recordClockProbe(syncState, sample) {
+  const clientSent = finiteNumber(sample?.clientSentAtMs)
+  const clientReceived = finiteNumber(sample?.clientReceivedAtMs)
+  const serverReceived = finiteNumber(sample?.serverReceivedAtMs)
+  const serverSent = finiteNumber(sample?.serverSentAtMs)
+  if ([clientSent, clientReceived, serverReceived, serverSent].some((value) => value === null)) {
+    return null
+  }
+  const roundTripTimeMs = (clientReceived - clientSent) - (serverSent - serverReceived)
+  if (roundTripTimeMs < 0 || clientReceived < clientSent || serverSent < serverReceived) {
+    return null
+  }
+  const clockOffsetMs = ((serverReceived - clientSent) + (serverSent - clientReceived)) / 2
+  const clockSamples = [
+    ...(Array.isArray(syncState.clockSamples) ? syncState.clockSamples : []),
+    { clockOffsetMs, roundTripTimeMs },
+  ].slice(-8)
+  const bestSample = clockSamples.reduce((best, current) => (
+    current.roundTripTimeMs < best.roundTripTimeMs ? current : best
+  ))
+  syncState.clockSamples = clockSamples
+  syncState.clockOffsetMs = bestSample.clockOffsetMs
+  syncState.roundTripTimeMs = bestSample.roundTripTimeMs
+  return { clockOffsetMs, roundTripTimeMs }
 }
 
 export function estimateServerOffset(snapshot, receivedAtMs) {
@@ -162,7 +190,9 @@ export async function applyAuthoritativeSnapshot(adapter, snapshot, options = {}
     : { ignoreSeconds: VIDEO_DRIFT_IGNORE_SECONDS, seekSeconds: VIDEO_DRIFT_SEEK_SECONDS }
   const hardSeekConfirmations = mediaKind === 'music' ? DRIFT_HARD_SEEK_CONFIRMATIONS : 1
   const authoritativeRate = normalized.playback_rate
-  const clockOffsetMs = estimateServerOffset(normalized, receivedAtMs)
+  const clockOffsetMs = Array.isArray(syncState.clockSamples) && syncState.clockSamples.length
+    ? syncState.clockOffsetMs
+    : estimateServerOffset(normalized, receivedAtMs)
   const targetPosition = projectSnapshotPosition(
     normalized,
     clientNowMs,

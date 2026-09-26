@@ -24,11 +24,14 @@ describe('useVideoRoomPlayback', () => {
 
     act(() => result.current.setRate(1.25))
 
-    expect(socket.emit).toHaveBeenCalledWith('playback_control', {
+    expect(socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({
       action: 'rate',
+      client_instance_id: expect.any(String),
+      media_id: 7,
+      operation_seq: expect.any(Number),
       playback_version: 5,
       room_id: 9,
       rate: 1.25,
-    })
+    }))
   })
 })

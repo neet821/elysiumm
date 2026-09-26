@@ -165,6 +165,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     setRate,
     setVideoElement,
     setVolume,
+    syncStateRef,
     togglePlayback,
   } = useVideoRoomPlayback({
     canControl,
@@ -190,6 +191,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     numericRoomId,
     refreshVideoDetail,
     requestSnapshot,
+    roomSyncStateRef: syncStateRef,
     socketRef,
     setBuffers,
     setLoading,

@@ -14,6 +14,10 @@ import {
   playerEventToRoomIntent,
   roomQueueTrackToPlayerTrack,
 } from '../features/player/roomPlayerIntegration.js'
+import {
+  attachRoomOperation,
+  startRoomClockProbes,
+} from '../features/player/roomRealtimeSync.js'
 import apiClient from '../utils/request'
 
 const currentQueueTrack = (queue) => queue.find((item) => item.status === 'playing') || null
@@ -233,7 +237,7 @@ export default function MineradioPage() {
       suppress: remoteSyncRef.current !== 0 || Date.now() < remoteSyncUntilRef.current,
       version: versionRef.current,
     })
-    if (intent) socketRef.current?.emit(intent.event, intent.payload)
+    if (intent) socketRef.current?.emit(intent.event, attachRoomOperation(intent.payload))
   }, [canControl, isHost, resolvedCurrent?.id, roomId])
 
   useEffect(() => {
@@ -294,6 +298,7 @@ export default function MineradioPage() {
       transports: ['polling', 'websocket'],
     })
     socketRef.current = socket
+    const stopClockProbes = startRoomClockProbes(socket, Number(roomId), syncState)
     socket.on('connect', () => {
       setSyncStatus(latestSnapshotRef.current ? 'syncing' : 'connecting')
       socket.emit('join_room', { room_id: Number(roomId) })
@@ -385,6 +390,7 @@ export default function MineradioPage() {
       remoteSyncRef.current = 0
       remoteSyncUntilRef.current = 0
       window.clearInterval(presenceTimer)
+      stopClockProbes()
       socket.disconnect()
       socketRef.current = null
     }

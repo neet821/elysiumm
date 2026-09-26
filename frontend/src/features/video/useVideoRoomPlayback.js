@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { API_ENDPOINTS } from '../../config.js'
 import apiClient from '../../utils/request.js'
 import { createRoomSyncState } from '../player/roomSyncEngine.js'
+import { attachRoomOperation } from '../player/roomRealtimeSync.js'
 import {
   applyVideoSnapshot,
   createVideoPlayerAdapter,
@@ -110,14 +111,15 @@ export function useVideoRoomPlayback({
     const timer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
       const player = adapterRef.current?.snapshot()
-      socketRef.current?.emit('time_heartbeat', {
+      socketRef.current?.emit('time_heartbeat', attachRoomOperation({
+        media_id: currentItem?.id ?? null,
         playback_version: snapshotRecord.snapshot.version,
         position: player?.currentTime || snapshotRecord.snapshot.position,
         room_id: numericRoomId,
-      })
+      }))
     }, 5_000)
     return () => window.clearInterval(timer)
-  }, [isHost, numericRoomId, snapshotRecord, socketRef])
+  }, [currentItem?.id, isHost, numericRoomId, snapshotRecord, socketRef])
 
   useEffect(() => {
     bufferReportedRef.current = false
@@ -140,14 +142,15 @@ export function useVideoRoomPlayback({
 
   const emitControl = useCallback((action, extra = {}) => {
     if (!canControl || !latestSnapshotRef.current || !socketRef.current) return false
-    socketRef.current.emit('playback_control', {
+    socketRef.current.emit('playback_control', attachRoomOperation({
       action,
+      media_id: currentItem?.id ?? null,
       playback_version: latestSnapshotRef.current.snapshot.version,
       room_id: numericRoomId,
       ...extra,
-    })
+    }))
     return true
-  }, [canControl, latestSnapshotRef, numericRoomId, socketRef])
+  }, [canControl, currentItem?.id, latestSnapshotRef, numericRoomId, socketRef])
 
   const togglePlayback = useCallback(() => {
     const state = latestSnapshotRef.current?.snapshot?.state
@@ -271,11 +274,11 @@ export function useVideoRoomPlayback({
       const key = `${currentItem.id}:${version}`
       if (endedKeyRef.current === key) return
       endedKeyRef.current = key
-      socketRef.current?.emit('video_ended', {
+      socketRef.current?.emit('video_ended', attachRoomOperation({
         expected_version: version,
         item_id: currentItem.id,
         room_id: numericRoomId,
-      })
+      }))
     },
     onError: () => {
       setNotice('视频源加载失败，正在刷新播放凭据…')
@@ -320,6 +323,7 @@ export function useVideoRoomPlayback({
     setRate,
     setVideoElement,
     setVolume,
+    syncStateRef,
     togglePlayback,
   }
 }

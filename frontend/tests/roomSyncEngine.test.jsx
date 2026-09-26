@@ -11,6 +11,7 @@ import {
   createRoomSyncState,
   estimateServerOffset,
   projectSnapshotPosition,
+  recordClockProbe,
 } from '../src/features/player/roomSyncEngine.js'
 
 
@@ -105,6 +106,28 @@ describe('authoritative room sync engine', () => {
     expect(estimateServerOffset(playing, 900)).toBe(100)
     expect(projectSnapshotPosition(playing, 2_000, 100)).toBeCloseTo(11.375)
     expect(projectSnapshotPosition(paused, 9_000, -500)).toBe(22)
+  })
+
+  it('prefers a measured round-trip clock offset over one-way snapshot arrival', async () => {
+    const adapter = adapterWith({ currentTime: 10.07 })
+    const syncState = createRoomSyncState()
+    recordClockProbe(syncState, {
+      clientSentAtMs: 1_000,
+      clientReceivedAtMs: 1_180,
+      serverReceivedAtMs: 1_055,
+      serverSentAtMs: 1_065,
+    })
+
+    const result = await applyAuthoritativeSnapshot(adapter, snapshot({
+      server_now_ms: 1_200,
+      started_at_server_ms: 1_000,
+    }), {
+      clientNowMs: 1_100,
+      receivedAtMs: 1_100,
+      syncState,
+    })
+
+    expect(result.targetPosition).toBeCloseTo(10.07)
   })
 
   it('classifies the exact steady-state drift bands', () => {
