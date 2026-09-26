@@ -45,6 +45,15 @@ REQUIRED_MANAGED_SCHEMA = {
     "sync_rooms": {"is_locked"},
     "user_playlists": {"owner_user_id", "source_provider", "source_playlist_id"},
     "user_playlist_items": {"playlist_id", "canonical_track_id", "position"},
+    "tus_upload_reservations": {
+        "upload_id",
+        "owner_user_id",
+        "purpose",
+        "transfer_session_id",
+        "upload_length",
+        "status",
+        "expires_at",
+    },
 }
 
 

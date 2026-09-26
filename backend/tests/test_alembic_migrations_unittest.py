@@ -301,9 +301,68 @@ class AlembicMigrationsTest(unittest.TestCase):
                 )
                 self.assertEqual(
                     connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one(),
-                    "0026_user_playlists",
+                    "0027_tus_upload_reservations",
                 )
             self.assertIn("user_playlists", inspect(engine).get_table_names())
+            engine.dispose()
+
+    def test_tus_reservation_migration_only_adds_its_own_table(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database_url = f"sqlite:///{Path(temp_dir) / 'tus-reservations.sqlite'}"
+            self.run_alembic(database_url, "upgrade", "0026_user_playlists")
+
+            engine = create_engine(database_url)
+            before_inspector = inspect(engine)
+            tables_before = set(before_inspector.get_table_names())
+            columns_before = {
+                table: {column["name"] for column in before_inspector.get_columns(table)}
+                for table in tables_before
+            }
+            engine.dispose()
+
+            self.run_alembic(database_url, "upgrade", "head")
+
+            engine = create_engine(database_url)
+            after_inspector = inspect(engine)
+            tables_after = set(after_inspector.get_table_names())
+            self.assertEqual(tables_after - tables_before, {"tus_upload_reservations"})
+            for table, columns in columns_before.items():
+                with self.subTest(table=table):
+                    self.assertEqual(
+                        {column["name"] for column in after_inspector.get_columns(table)},
+                        columns,
+                    )
+            self.assertTrue(
+                {
+                    "id",
+                    "upload_id",
+                    "owner_user_id",
+                    "purpose",
+                    "transfer_session_id",
+                    "original_name",
+                    "content_type",
+                    "upload_length",
+                    "status",
+                    "created_at",
+                    "last_activity_at",
+                    "expires_at",
+                    "result_payload",
+                }.issubset(
+                    {
+                        column["name"]
+                        for column in after_inspector.get_columns(
+                            "tus_upload_reservations"
+                        )
+                    }
+                )
+            )
+            with engine.connect() as connection:
+                self.assertEqual(
+                    connection.execute(
+                        text("SELECT version_num FROM alembic_version")
+                    ).scalar_one(),
+                    "0027_tus_upload_reservations",
+                )
             engine.dispose()
 
     def test_legacy_upgrade_preserves_restore_rows_and_backfills_operation_id(self):

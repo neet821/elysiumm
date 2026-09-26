@@ -4,11 +4,13 @@ from .base import (
     Base,
     BigInteger,
     Column,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     datetime,
     relationship,
 )
@@ -68,6 +70,53 @@ class TransferFile(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     session = relationship("TransferSession", back_populates="files")
+
+
+class TusUploadReservation(Base):
+    """Tracks private, administrator-authorized tus uploads and their quota."""
+
+    __tablename__ = "tus_upload_reservations"
+    __table_args__ = (
+        UniqueConstraint("upload_id", name="uq_tus_upload_reservation_upload_id"),
+        CheckConstraint(
+            "purpose IN ('admin_file', 'transfer_file')",
+            name="ck_tus_upload_reservation_purpose",
+        ),
+        CheckConstraint(
+            "status IN ('creating', 'active', 'complete', 'cancelled', 'failed')",
+            name="ck_tus_upload_reservation_status",
+        ),
+        CheckConstraint("upload_length >= 0", name="ck_tus_upload_length_nonnegative"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(String(128), nullable=True)
+    owner_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    purpose = Column(String(24), nullable=False)
+    transfer_session_id = Column(
+        Integer,
+        ForeignKey("transfer_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    original_name = Column(String(255), nullable=False)
+    content_type = Column(String(120), nullable=True)
+    upload_length = Column(BigInteger, nullable=False)
+    upload_offset = Column(BigInteger, default=0, nullable=False)
+    status = Column(String(20), nullable=False, index=True)
+    result_payload = Column(Text, nullable=True)
+    failure_code = Column(String(80), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_activity_at = Column(
+        DateTime, default=datetime.utcnow, nullable=False, index=True
+    )
+    expires_at = Column(DateTime, nullable=False, index=True)
+    completed_at = Column(DateTime, nullable=True)
 
 
 class AdminTransferNote(Base):
