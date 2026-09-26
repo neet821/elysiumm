@@ -577,7 +577,7 @@ async function main() {
     const transferPath = path.join(temporaryRoot, 'phase10-transfer.txt')
     fs.writeFileSync(transferPath, 'phase 10 transfer handoff\n', 'utf8')
     await admin.navigate(`${appBase}/admin/files`)
-    await admin.waitFor("Boolean(document.querySelector('input[aria-label=\"选择文件上传\"]'))")
+    await admin.waitFor("(() => { const input = document.querySelector('input[aria-label=\"选择文件上传\"]'); return Boolean(input && !input.disabled) })()")
     await setFileInput(admin, 'input[aria-label="选择文件上传"]', transferPath)
     await admin.waitFor("Boolean(document.querySelector('.admin-transfer-created input')) && Boolean(document.querySelector('[aria-label=\"删除 phase10-transfer.txt\"]'))")
     const transferUrl = await waitForStableValue(admin, "document.querySelector('.admin-transfer-created input')?.value || ''")
