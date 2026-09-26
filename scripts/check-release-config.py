@@ -173,7 +173,17 @@ def validate_repository() -> list[str]:
         require(
             workflow_path.read_text(encoding="utf-8"),
             ".github/workflows/ci.yml",
-            ("python-version: '3.12'", "node-version: '20'", "scripts/release-gate.sh"),
+            ("python-version: '3.12'", "node-version: '22'", "scripts/release-gate.sh"),
+            errors,
+        )
+    cd_workflow_path = ROOT / ".github/workflows/cd.yml"
+    if not cd_workflow_path.is_file():
+        errors.append(".github/workflows/cd.yml does not exist")
+    else:
+        require(
+            cd_workflow_path.read_text(encoding="utf-8"),
+            ".github/workflows/cd.yml",
+            ('--node-version "22"',),
             errors,
         )
 

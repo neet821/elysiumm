@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -19,12 +20,17 @@ from deployment.production_deploy import (
     _run_health,
     _restart_changed_systemd_units,
     _safe_extract_archive,
+    _install_backend_dependencies,
     _validate_infrastructure,
     deploy,
 )
 from deployment.migration_runner import MigrationRunResult
 from deployment.migration_state import MigrationPlan
-from deployment.production_rollback import ProductionRollbackError, rollback_component
+from deployment.production_rollback import (
+    ProductionRollbackError,
+    _sync_music_api_service_to_current_backend,
+    rollback_component,
+)
 from deployment.release_builder import ReleaseAssembly, assemble_frontend_release, atomic_component_link
 from deployment.release_metadata import deployment_transaction, write_transaction
 
@@ -406,6 +412,118 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertEqual(transaction["status"], "succeeded")
         self.assertEqual(events, ["apply", "restart"])
 
+    def test_new_music_unit_is_enabled_and_restarted_before_backend_unit(self):
+        new_release = self.root / "releases/backend-releases/abcdef1-backend-music"
+        music_entry = new_release / "backend/music_node/server.cjs"
+        music_entry.parent.mkdir(parents=True)
+        music_entry.write_text("// fixture\n", encoding="utf-8")
+        assembly = ReleaseAssembly(
+            "backend",
+            new_release.name,
+            new_release,
+            {"source_tree_sha256": "3" * 64},
+        )
+        backend_unit = self.root / "backend.service"
+        music_unit = self.root / "music-api.service"
+        backend_unit.write_text("[Service]\n", encoding="utf-8")
+        music_unit.write_text("[Service]\n", encoding="utf-8")
+        options = self.options(
+            "music-unit-first-deploy",
+            (
+                "backend/music_node/server.cjs",
+                "deployment/systemd/elysiumm-backend.service",
+                "deployment/systemd/elysiumm-music-api.service",
+            ),
+        )
+        options = DeploymentOptions(
+            **{
+                **options.__dict__,
+                "systemd_sources": {
+                    "elysiumm-backend.service": backend_unit,
+                    "elysiumm-music-api.service": music_unit,
+                },
+                "systemd_target_dir": self.root / "systemd",
+                "legacy_systemd_root": self.root / "legacy-systemd",
+                "legacy_nginx_root": self.root / "legacy-nginx",
+                "legacy_proc_root": None,
+            }
+        )
+        events: list[tuple[str, str] | str] = []
+
+        with (
+            patch(
+                "deployment.production_deploy.require_production_database_environment",
+                return_value=({}, "sqlite:////tmp/unused.sqlite3"),
+            ),
+            patch("deployment.production_deploy._backend_release", return_value=(assembly, object())),
+            patch("deployment.production_deploy._validate_infrastructure"),
+            patch(
+                "deployment.production_deploy._apply_infrastructure",
+                side_effect=lambda *_args: events.append("apply") or {},
+            ),
+            patch("deployment.production_deploy._systemctl", side_effect=lambda *args: events.append(args)),
+            patch(
+                "deployment.production_deploy._legacy_path_audit",
+                return_value={"clean": True, "findings": []},
+            ),
+            patch(
+                "deployment.production_deploy.subprocess.run",
+                side_effect=lambda args, **_kwargs: events.append(tuple(args))
+                or subprocess.CompletedProcess(args, 0),
+            ),
+        ):
+            transaction = deploy(options)
+
+        self.assertEqual(transaction["status"], "succeeded")
+        self.assertEqual(
+            events,
+            [
+                "apply",
+                ("systemctl", "daemon-reload"),
+                ("enable", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-backend.service"),
+            ],
+        )
+
+    def test_backend_with_music_sidecar_fails_before_switch_when_unit_is_missing(self):
+        release = self.root / "releases/backend-releases/abcdef1-backend-music"
+        music_entry = release / "backend/music_node/server.cjs"
+        music_entry.parent.mkdir(parents=True)
+        music_entry.write_text("// fixture\n", encoding="utf-8")
+        assembly = ReleaseAssembly(
+            "backend",
+            release.name,
+            release,
+            {"source_tree_sha256": "3" * 64},
+        )
+        options = DeploymentOptions(
+            **{
+                **self.options("music-unit-required", ("backend/music_node/server.cjs",)).__dict__,
+                "systemd_target_dir": self.root / "systemd",
+            }
+        )
+
+        with (
+            patch(
+                "deployment.production_deploy.require_production_database_environment",
+                return_value=({}, "sqlite:////tmp/unused.sqlite3"),
+            ),
+            patch("deployment.production_deploy._backend_release", return_value=(assembly, object())),
+            patch(
+                "deployment.production_deploy._legacy_path_audit",
+                return_value={"clean": True, "findings": []},
+            ),
+        ):
+            with self.assertRaisesRegex(ProductionDeployError, "systemd unit is not installed"):
+                deploy(options)
+
+        self.assertFalse((self.root / "backend-current").exists())
+        transaction = json.loads(
+            (self.root / "releases/deployment-history/music-unit-required.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(transaction["status"], "failed")
+
     def test_health_guard_install_is_executable(self):
         source = self.root / "health-guard.py"
         source.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
@@ -622,6 +740,196 @@ class ProductionDeployTest(unittest.TestCase):
         )
         self.assertEqual(transaction["status"], "failed")
         self.assertEqual(transaction["rollback"]["status"], "succeeded")
+
+    def test_backend_switch_restarts_installed_internal_music_service(self):
+        old_release = self.root / "releases/backend-releases/1111111-old"
+        new_release = self.root / "releases/backend-releases/2222222-new"
+        old_release.mkdir(parents=True)
+        new_release.mkdir(parents=True)
+        music_entry = new_release / "backend/music_node/server.cjs"
+        music_entry.parent.mkdir(parents=True)
+        music_entry.write_text("// fixture\n", encoding="utf-8")
+        atomic_component_link(self.root, "backend", old_release.name)
+        assembly = ReleaseAssembly(
+            "backend",
+            new_release.name,
+            new_release,
+            {"source_tree_sha256": "3" * 64},
+        )
+        systemd_dir = self.root / "systemd"
+        systemd_dir.mkdir()
+        (systemd_dir / "elysiumm-music-api.service").write_text(
+            "[Service]\nExecStart=/usr/bin/node\n", encoding="utf-8"
+        )
+        options = DeploymentOptions(
+            **{
+                **self.options("backend-restarts-music", ("backend/music_node/server.cjs",)).__dict__,
+                "systemd_target_dir": systemd_dir,
+                "legacy_systemd_root": self.root / "legacy-systemd",
+                "legacy_nginx_root": self.root / "legacy-nginx",
+                "legacy_proc_root": None,
+            }
+        )
+
+        with (
+            patch(
+                "deployment.production_deploy.require_production_database_environment",
+                return_value=({}, "sqlite:////tmp/unused.sqlite3"),
+            ),
+            patch("deployment.production_deploy._backend_release", return_value=(assembly, object())),
+            patch("deployment.production_deploy._systemctl") as systemctl,
+        ):
+            transaction = deploy(options)
+
+        self.assertEqual(transaction["status"], "succeeded")
+        self.assertEqual(
+            [call.args for call in systemctl.call_args_list],
+            [
+                ("enable", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-backend.service"),
+            ],
+        )
+
+    def test_backend_dependency_install_runs_pinned_music_api_npm_lock(self):
+        release_root = self.root / "backend-release"
+        python = release_root / ".venv/bin/python"
+        python.parent.mkdir(parents=True)
+        python.write_text("fixture\n", encoding="utf-8")
+        requirement_lock = release_root / "backend/requirements.txt"
+        requirement_lock.parent.mkdir(parents=True)
+        requirement_lock.write_text("\n", encoding="utf-8")
+        node_project = release_root / "backend/music_node"
+        node_project.mkdir(parents=True)
+        (node_project / "package.json").write_text("{}\n", encoding="utf-8")
+        (node_project / "package-lock.json").write_text("{}\n", encoding="utf-8")
+        assembly = ReleaseAssembly("backend", "fixture", release_root, {})
+
+        with patch(
+            "deployment.production_deploy.subprocess.run",
+            side_effect=[
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="v22.1.0\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ],
+        ) as run, patch(
+            "deployment.production_deploy.shutil.which",
+            side_effect=lambda name, path=None: f"/usr/bin/{name}",
+        ):
+            _install_backend_dependencies(assembly, requirement_lock, {})
+
+        self.assertEqual(run.call_count, 3)
+        npm_call = next(
+            call.args[0]
+            for call in run.call_args_list
+            if Path(call.args[0][0]).name == "npm"
+        )
+        self.assertEqual(Path(npm_call[0]).name, "npm")
+        self.assertEqual(npm_call[1], "ci")
+        self.assertIn("--omit=dev", npm_call)
+        self.assertEqual(npm_call[-1], str(node_project))
+
+    def test_backend_dependency_install_rejects_unsupported_node_runtime(self):
+        release_root = self.root / "backend-release-old-node"
+        python = release_root / ".venv/bin/python"
+        python.parent.mkdir(parents=True)
+        python.write_text("fixture\n", encoding="utf-8")
+        requirement_lock = release_root / "backend/requirements.txt"
+        requirement_lock.parent.mkdir(parents=True)
+        requirement_lock.write_text("\n", encoding="utf-8")
+        node_project = release_root / "backend/music_node"
+        node_project.mkdir(parents=True)
+        (node_project / "package.json").write_text("{}\n", encoding="utf-8")
+        (node_project / "package-lock.json").write_text("{}\n", encoding="utf-8")
+        assembly = ReleaseAssembly("backend", "fixture", release_root, {})
+
+        with patch(
+            "deployment.production_deploy.subprocess.run",
+            side_effect=[
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="v20.19.0\n", stderr=""),
+            ],
+        ), patch(
+            "deployment.production_deploy.shutil.which",
+            side_effect=lambda name, path=None: f"/usr/bin/{name}",
+        ), self.assertRaisesRegex(ProductionDeployError, "Node.js 22 or newer"):
+            _install_backend_dependencies(assembly, requirement_lock, {})
+
+    def test_backend_rollback_restarts_installed_internal_music_service(self):
+        old_release = self.root / "releases/backend-releases/1111111-old"
+        new_release = self.root / "releases/backend-releases/2222222-new"
+        old_release.mkdir(parents=True)
+        new_release.mkdir(parents=True)
+        music_entry = old_release / "backend/music_node/server.cjs"
+        music_entry.parent.mkdir(parents=True)
+        music_entry.write_text("// fixture\n", encoding="utf-8")
+        atomic_component_link(self.root, "backend", new_release.name)
+        original = deployment_transaction(
+            deployment_id="backend-music-deploy",
+            git_commit="2222222",
+            trigger="test",
+            impact={"components": ["backend"], "validation_profiles": ["full"]},
+            before={
+                "backend_current": {
+                    "release_id": old_release.name,
+                    "path": str(old_release.relative_to(self.root)),
+                }
+            },
+        )
+        original["rollback"]["targets"] = {
+            "backend_current": {
+                "release_id": old_release.name,
+                "path": str(old_release.relative_to(self.root)),
+            }
+        }
+        original["after"] = {
+            "backend_current": {
+                "release_id": new_release.name,
+                "path": str(new_release.relative_to(self.root)),
+            }
+        }
+        write_transaction(
+            self.root / "releases/deployment-history/backend-music-deploy.json",
+            original,
+            finalized=True,
+        )
+        service_path = self.root / "systemd/elysiumm-music-api.service"
+        service_path.parent.mkdir()
+        service_path.write_text("[Service]\n", encoding="utf-8")
+
+        with patch("deployment.production_rollback.MUSIC_API_UNIT_PATH", service_path), patch(
+            "deployment.production_rollback._systemctl"
+        ) as systemctl:
+            rollback = rollback_component(
+                root=self.root,
+                deployment_id="backend-music-deploy",
+                component="backend",
+            )
+
+        self.assertEqual(rollback["status"], "succeeded")
+        self.assertEqual(
+            [call.args for call in systemctl.call_args_list],
+            [
+                ("enable", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-music-api.service"),
+                ("restart", "elysiumm-backend.service"),
+            ],
+        )
+
+    def test_backend_rollback_disables_sidecar_for_legacy_release(self):
+        old_release = self.root / "releases/backend-releases/1111111-old"
+        old_release.mkdir(parents=True)
+        atomic_component_link(self.root, "backend", old_release.name)
+        service_path = self.root / "systemd/elysiumm-music-api.service"
+        service_path.parent.mkdir()
+        service_path.write_text("[Service]\n", encoding="utf-8")
+
+        with patch("deployment.production_rollback.MUSIC_API_UNIT_PATH", service_path), patch(
+            "deployment.production_rollback._systemctl"
+        ) as systemctl:
+            _sync_music_api_service_to_current_backend(self.root)
+
+        systemctl.assert_called_once_with("disable --now", "elysiumm-music-api.service")
 
 
 if __name__ == "__main__":

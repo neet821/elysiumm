@@ -314,7 +314,7 @@ jobs:
             --frontend-package-lock-sha256 "$frontend_lock_sha256"
             --frontend-api-schema-sha256 "$frontend_schema_sha256"
             --backend-api-schema-sha256 "$backend_schema_sha256"
-            --node-version "20"
+            --node-version "22"
           )
           if [[ "$deploy_backend" == true ]]; then
             deploy_command+=(--python "$deployment_python")

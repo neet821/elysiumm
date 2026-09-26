@@ -201,7 +201,10 @@ class PlatformConfig:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if ENV == "production" else "DEBUG")
 
     # Provider-neutral music catalog. Player clients never receive provider cookies.
-    NETEASE_API_BASE_URL = os.getenv("NETEASE_API_BASE_URL", "https://music.163.com").rstrip("/")
+    NETEASE_API_BASE_URL = os.getenv(
+        "NETEASE_INTERNAL_API_BASE_URL",
+        os.getenv("NETEASE_API_BASE_URL", "http://127.0.0.1:8765"),
+    ).rstrip("/")
     QQ_API_BASE_URL = os.getenv("QQ_API_BASE_URL", "https://u.y.qq.com").rstrip("/")
     MUSIC_PROVIDER_CREDENTIAL_DIR = Path(
         os.getenv("MUSIC_PROVIDER_CREDENTIAL_DIR", str(PRIVATE_STORAGE_DIR / "music"))

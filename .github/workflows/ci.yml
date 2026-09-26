@@ -38,9 +38,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/music_node/package-lock.json
 
       - name: Install browser smoke dependencies
         run: |
@@ -93,6 +95,14 @@ jobs:
             echo "full=$full"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Install pinned internal music API dependencies
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        run: npm ci --prefix backend/music_node
+
+      - name: Test internal music API wrapper
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        run: npm test --prefix backend/music_node
+
       - name: Backend focused checks
         if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
         run: |
@@ -143,7 +153,7 @@ jobs:
             printf 'frontend_package_lock_sha256=%s\n' "$frontend_lock_sha256"
             printf 'frontend_api_schema_sha256=%s\n' "$api_schema_sha256"
             printf 'backend_api_schema_sha256=%s\n' "$api_schema_sha256"
-            printf 'node_version=20\n'
+            printf 'node_version=22\n'
           } > release-metadata.env
 
       - name: Check patch formatting

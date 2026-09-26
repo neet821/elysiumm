@@ -134,8 +134,10 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertTrue(workflow.is_file())
         source = workflow.read_text(encoding="utf-8")
         self.assertIn("python-version: '3.12'", source)
-        self.assertIn("node-version: '20'", source)
+        self.assertIn("node-version: '22'", source)
         self.assertIn("scripts/release-gate.sh", source)
+        cd_workflow = (ROOT / ".github/workflows/cd.yml").read_text(encoding="utf-8")
+        self.assertIn('--node-version "22"', cd_workflow)
         self.assertNotIn("run: python scripts/check-release-config.py", source)
         self.assertNotIn("run: scripts/check-all.sh", source)
 

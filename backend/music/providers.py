@@ -1,4 +1,4 @@
-"""Direct upstream adapters for Netease, QQ Music and Audius.
+"""Provider adapters for the internal Netease API, QQ Music and Audius.
 
 The browser only receives Elysium's provider-neutral contract. Provider
 cookies remain root-owned files and are read by this module on the server;
@@ -264,8 +264,13 @@ class NeteaseProviderAdapter(DirectMusicProvider):
     async def search(self, query: str, limit: int) -> list[ProviderTrack]:
         payload = await self._request_json(
             "GET",
-            "/api/search/get/web",
-            params={"s": str(query).strip(), "type": 1, "offset": 0, "limit": max(1, min(int(limit), 30))},
+            "/cloudsearch",
+            params={
+                "keywords": str(query).strip(),
+                "type": 1,
+                "offset": 0,
+                "limit": max(1, min(int(limit), 30)),
+            },
         )
         result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
         songs = result.get("songs") if isinstance(result, dict) else []
@@ -367,8 +372,8 @@ class NeteaseProviderAdapter(DirectMusicProvider):
             return None, None, False
         payload = await self._request_json(
             "GET",
-            "/api/song/enhance/player/url/v1",
-            params={"ids": f"[{track_id}]", "level": "standard", "encodeType": "aac"},
+            "/song/url/v1",
+            params={"id": track_id, "level": "standard"},
         )
         rows = payload.get("data")
         item = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else {}

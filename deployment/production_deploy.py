@@ -17,6 +17,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -70,6 +71,9 @@ class InfrastructureApplyError(ProductionDeployError):
         self.previous = dict(previous)
 
 
+SYSTEMD_RUNTIME_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
 @dataclass(frozen=True)
 class DeploymentOptions:
     root: Path
@@ -99,6 +103,7 @@ class DeploymentOptions:
     health_guard_service: str = "elysiumm-health-guard.service"
     defer_health_guard_restart: bool = False
     backend_service: str = "elysiumm-backend.service"
+    music_api_service: str = "elysiumm-music-api.service"
     nginx_service: str = "nginx.service"
     health_url: str = "http://127.0.0.1:8000/api/health"
     node_version: str = "CI"
@@ -363,6 +368,55 @@ def _install_backend_dependencies(release: ReleaseAssembly, lockfile: Path, envi
     if result.returncode:
         detail = (result.stderr or result.stdout).strip()
         raise ProductionDeployError(f"backend dependency installation failed: {detail[-1200:]}")
+
+    music_project = release.path / "backend/music_node"
+    package_manifest = music_project / "package.json"
+    package_lock = music_project / "package-lock.json"
+    if not package_manifest.exists() and not package_lock.exists():
+        return
+    if not package_manifest.is_file() or not package_lock.is_file():
+        raise ProductionDeployError("internal music API package.json and package-lock.json must both exist")
+
+    process_environment = dict(environment)
+    search_path = SYSTEMD_RUNTIME_PATH
+    process_environment["PATH"] = search_path
+    node = shutil.which("node", path=search_path)
+    npm = shutil.which("npm", path=search_path)
+    if node is None or npm is None:
+        raise ProductionDeployError("internal music API installation requires Node.js 22+ and npm on PATH")
+    version = subprocess.run(
+        [node, "--version"],
+        cwd=music_project,
+        env=process_environment,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    match = re.match(r"^v?(\d+)\.", (version.stdout or version.stderr).strip())
+    if version.returncode or match is None or int(match.group(1)) < 22:
+        raise ProductionDeployError("internal music API requires Node.js 22 or newer")
+    installed = subprocess.run(
+        [npm, "ci", "--omit=dev", "--no-audit", "--no-fund", "--prefix", str(music_project)],
+        cwd=music_project,
+        env=process_environment,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if installed.returncode:
+        raise ProductionDeployError(
+            f"internal music API dependency installation failed (npm ci exit code {installed.returncode})"
+        )
+
+
+def _music_api_service_installed(options: DeploymentOptions) -> bool:
+    return (options.systemd_target_dir / options.music_api_service).is_file()
+
+
+def _backend_release_has_music_api(release_path: Path) -> bool:
+    return (release_path / "backend/music_node/server.cjs").is_file()
 
 
 def _python_version(python_executable: Path) -> str:
@@ -1146,6 +1200,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     switched: list[str] = []
     previous_infra: dict[str, object] = {}
     environment: dict[str, str] | None = None
+    music_api_available = False
     try:
         legacy_audit = _legacy_path_audit(options, root)
         transaction["legacy_path_audit"] = legacy_audit
@@ -1158,11 +1213,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
         _write_progress(transaction_path, transaction)
         components = set(impact["components"])
         infrastructure_change_requested = _infra_change_requested(impact, options)
+        music_api_unit_is_candidate = bool(
+            options.systemd_sources and options.music_api_service in options.systemd_sources
+        )
+        music_api_unit_installed = _music_api_service_installed(options)
         backend_restart_deferred = bool(
             "backend" in components
             and infrastructure_change_requested
             and options.systemd_sources
-            and options.backend_service in options.systemd_sources
+            and (
+                options.backend_service in options.systemd_sources
+                or music_api_unit_is_candidate
+            )
         )
         if "infra" in components and infrastructure_change_requested:
             _validate_infrastructure(options)
@@ -1190,6 +1252,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 transaction=transaction,
                 transaction_path=transaction_path,
             )
+            release_has_music_api = _backend_release_has_music_api(assembly.path)
+            if music_api_unit_is_candidate and not release_has_music_api:
+                raise ProductionDeployError(
+                    "internal music API systemd unit cannot be installed without backend/music_node/server.cjs"
+                )
+            if release_has_music_api and not (music_api_unit_installed or music_api_unit_is_candidate):
+                raise ProductionDeployError(
+                    "internal music API systemd unit is not installed; include its unit before deploying this backend"
+                )
+            music_api_available = release_has_music_api and (
+                music_api_unit_installed or music_api_unit_is_candidate
+            )
             atomic_component_link(root, "backend", assembly.release_id)
             switched.append("backend")
             _stage(transaction, "backend_current_switch", "succeeded", release_id=assembly.release_id)
@@ -1204,6 +1278,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 )
                 _write_progress(transaction_path, transaction)
             else:
+                if "backend" in components and music_api_available:
+                    _systemctl("enable", options.music_api_service)
+                    _systemctl("restart", options.music_api_service)
+                    _stage(
+                        transaction,
+                        "music_api_service_restart",
+                        "succeeded",
+                        service=options.music_api_service,
+                    )
+                    _write_progress(transaction_path, transaction)
+                elif "backend" in components and music_api_unit_installed:
+                    _systemctl("disable --now", options.music_api_service)
                 _systemctl("restart", options.backend_service)
                 _stage(transaction, "backend_service_restart", "succeeded", service=options.backend_service)
                 _write_progress(transaction_path, transaction)
@@ -1236,6 +1322,30 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 if options.systemd_sources or _systemd_remove_units(options):
                     subprocess.run(["systemctl", "daemon-reload"], check=True)
                     restart_units = list((options.systemd_sources or {}))
+                    if backend_restart_deferred:
+                        # Keep the release-coupled music sidecar ahead of the
+                        # backend, then restart the backend after all unit files
+                        # have been applied. Include an already-installed
+                        # sidecar even when only the backend unit changed.
+                        if music_api_available:
+                            _systemctl("enable", options.music_api_service)
+                        elif music_api_unit_installed:
+                            _systemctl("disable --now", options.music_api_service)
+                        restart_units = [
+                            unit for unit in restart_units if unit != options.music_api_service
+                        ]
+                        if music_api_available:
+                            restart_units.append(options.music_api_service)
+                        restart_units.append(options.backend_service)
+                        restart_units = [
+                            unit
+                            for unit in dict.fromkeys(restart_units)
+                            if unit not in {options.music_api_service, options.backend_service}
+                        ] + (
+                            [options.music_api_service]
+                            if music_api_available
+                            else []
+                        ) + [options.backend_service]
                     if options.health_guard_source is not None and not options.defer_health_guard_restart:
                         restart_units.append(options.health_guard_service)
                     restarted_units = _restart_changed_systemd_units(options, restart_units)
@@ -1315,10 +1425,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             try:
                 if isinstance(previous, dict) and previous.get("release_id"):
                     atomic_component_link(root, "backend", str(previous["release_id"]))
+                    if _music_api_service_installed(options):
+                        if _backend_release_has_music_api(root / "backend-current"):
+                            _systemctl("enable", options.music_api_service)
+                            _systemctl("restart", options.music_api_service)
+                        else:
+                            _systemctl("disable --now", options.music_api_service)
                     _systemctl("restart", options.backend_service)
                 else:
                     (root / "backend-current").unlink(missing_ok=True)
                     _systemctl("stop", options.backend_service)
+                    if _music_api_service_installed(options):
+                        _systemctl("disable --now", options.music_api_service)
             except Exception as rollback_error:  # pragma: no cover - defensive production path
                 rollback_errors.append(f"backend: {rollback_error}")
         rollback_payload = {

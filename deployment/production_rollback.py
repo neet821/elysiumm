@@ -20,6 +20,21 @@ from deployment.release_metadata import (
     release_path,
 )
 
+MUSIC_API_UNIT_PATH = Path("/etc/systemd/system/elysiumm-music-api.service")
+
+
+def _sync_music_api_service_to_current_backend(root: Path) -> None:
+    if not MUSIC_API_UNIT_PATH.is_file():
+        return
+    server = root / "backend-current/backend/music_node/server.cjs"
+    if server.is_file():
+        _systemctl("enable", "elysiumm-music-api.service")
+        _systemctl("restart", "elysiumm-music-api.service")
+    else:
+        # Older immutable backend releases predate this sidecar. Keep their
+        # rollback working instead of starting systemd in a missing directory.
+        _systemctl("disable --now", "elysiumm-music-api.service")
+
 
 class ProductionRollbackError(RuntimeError):
     """The requested rollback target is unavailable or unsafe."""
@@ -101,6 +116,7 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
         atomic_component_link(root, component, release_id)
         switched = True
         if component == "backend":
+            _sync_music_api_service_to_current_backend(root)
             _systemctl("restart", "elysiumm-backend.service")
         transaction["after"] = current_snapshot(root)
         transaction["rollback"]["attempted"] = True
@@ -117,6 +133,7 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
                 else:
                     (root / f"{component}-current").unlink(missing_ok=True)
                 if component == "backend":
+                    _sync_music_api_service_to_current_backend(root)
                     _systemctl("restart", "elysiumm-backend.service")
             except Exception as recovery_error:  # pragma: no cover - defensive production path
                 recovery_errors.append(str(recovery_error))

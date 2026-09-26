@@ -166,7 +166,7 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
 
         async def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            if request.url.path == "/api/search/get/web":
+            if request.url.path == "/cloudsearch":
                 return json_response({"result": {"songs": [{
                     "id": 101,
                     "name": "Blue Hour",
@@ -175,19 +175,23 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
                     "dt": 181000,
                     "fee": 0,
                 }]}})
-            if request.url.path == "/api/song/enhance/player/url/v1":
+            if request.url.path == "/song/url/v1":
                 return json_response({"data": [{"id": 101, "url": "https://audio.example/blue.m4a", "expi": 60}]})
             if request.url.path == "/api/song/lyric":
                 return json_response({"lrc": {"lyric": "[00:01.00]Blue"}, "tlyric": {"lyric": "[00:01.00]蓝"}})
             raise AssertionError(request.url)
 
-        adapter = NeteaseProviderAdapter(
-            "https://music.example",
-            transport=httpx.MockTransport(handler),
-        )
-        tracks = await adapter.search("blue", 10)
-        resolved = await adapter.resolve(SimpleNamespace(provider_track_id="101", availability="playable"))
-        lyrics = await adapter.lyrics(SimpleNamespace(provider_track_id="101"))
+        with tempfile.TemporaryDirectory() as directory:
+            cookie = Path(directory) / "netease.cookie"
+            cookie.write_text("MUSIC_U=private-provider-credential", encoding="utf-8")
+            adapter = NeteaseProviderAdapter(
+                "http://127.0.0.1:8765",
+                credential_path=cookie,
+                transport=httpx.MockTransport(handler),
+            )
+            tracks = await adapter.search("blue", 10)
+            resolved = await adapter.resolve(SimpleNamespace(provider_track_id="101", availability="playable"))
+            lyrics = await adapter.lyrics(SimpleNamespace(provider_track_id="101"))
 
         self.assertEqual(tracks[0].provider_track_id, "101")
         self.assertEqual(tracks[0].duration_seconds, 181)
@@ -197,9 +201,12 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(lyrics.timed_text, "[00:01.00]Blue")
         self.assertEqual(lyrics.translation_text, "[00:01.00]蓝")
         self.assertEqual([request.url.path for request in requests], [
-            "/api/search/get/web", "/api/song/enhance/player/url/v1", "/api/song/lyric",
+            "/cloudsearch", "/song/url/v1", "/api/song/lyric",
         ])
-        self.assertTrue(all("cookie" not in request.headers for request in requests))
+        self.assertEqual(requests[0].url.params["keywords"], "blue")
+        self.assertEqual(requests[1].url.params["id"], "101")
+        self.assertEqual(requests[1].url.params["level"], "standard")
+        self.assertTrue(all("MUSIC_U=private-provider-credential" in request.headers.get("cookie", "") for request in requests))
 
     async def test_qq_search_uses_qq_search_host_and_vkey_stream(self):
         requests: list[httpx.Request] = []
