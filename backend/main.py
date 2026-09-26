@@ -23,11 +23,13 @@ from music_test_catalog import asset_dir as music_test_asset_dir
 from room_cleanup_task import run_cleanup_task
 from music_reconcile_task import run_music_reconcile_task
 from live_reconcile_task import run_live_reconcile_task
+from tus_cleanup_task import run_tus_cleanup_task
 from websocket_server import socket_app
 from routers import (
     accounts,
     admin_dashboard,
     admin_files,
+    admin_tus,
     admin_rooms,
     admin_users,
     agent_console,
@@ -94,6 +96,7 @@ async def lifespan(app: FastAPI):
             "room-cleanup": run_cleanup_task,
             "music-reconcile": run_music_reconcile_task,
             "live-reconcile": run_live_reconcile_task,
+            "tus-cleanup": run_tus_cleanup_task,
         }
     )
     await tasks.start()
@@ -109,6 +112,7 @@ app = FastAPI(lifespan=lifespan)
 for router in (
     admin_dashboard.router,
     admin_files.router,
+    admin_tus.router,
     articles.router,
     file_sync.router,
     transfers.router,

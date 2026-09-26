@@ -17,15 +17,18 @@ for (const removed of ["READ ONLY / FRP", "ANONYMOUS / 5 MIN IDLE", "实时浏�
 }
 assert.doesNotMatch(source, /管理控制台 \/ 文件/, "Files workspace must remove the duplicate breadcrumb");
 assert.doesNotMatch(source, /<h2>文件<\/h2>/, "Files workspace must remove the duplicate page heading");
-for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_TRANSFER_CURRENT_LINK", "ADMIN_TRANSFER_FILES", "ADMIN_TRANSFER_FILE", "ADMIN_TRANSFER_NOTE"]) {
+for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_FILES", "ADMIN_FILE", "ADMIN_TUS", "ADMIN_TUS_RESULT", "ADMIN_TRANSFER_CURRENT_LINK", "ADMIN_TRANSFER_FILES", "ADMIN_TRANSFER_FILE", "ADMIN_TRANSFER_NOTE"]) {
   assert.match(config, new RegExp(`${endpoint}:`), `config must expose ${endpoint}`);
 }
 assert.match(source, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");
 assert.match(source, /URL\.createObjectURL/, "download must create a local Blob URL");
 assert.match(source, /URL\.revokeObjectURL/, "download must release the Blob URL");
-assert.match(source, /apiClient\.put\(/, "admin transfer uploads must use the transfer API");
-assert.match(source, /type=["']file["']/, "admin transfer workspace must expose a file picker");
-assert.match(source, /multiple/, "admin transfer workspace must allow selecting multiple files");
+assert.match(source, /tusUploads\.addFiles/, "admin uploads must use the resumable upload queue");
+assert.match(source, /选择管理员文件上传/, "admin file workspace must expose its private upload picker");
+assert.match(source, /选择文件上传/, "admin transfer workspace must expose its upload picker");
+assert.match(source, /AdminTusUploadQueue/, "admin uploads must expose the queue and its retry controls");
+assert.doesNotMatch(source, /apiClient\.put\(\s*`\/api\/transfers/, "web uploads must not send transfer files with a one-shot PUT");
+assert.match(source, /multiple/, "admin workspaces must allow selecting multiple files");
 assert.match(source, /管理员纯文本/, "admin workspace must expose the administrator-only text area");
 assert.match(source, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
 assert.match(source, /复制文本/, "admin workspace must expose a text copy action");

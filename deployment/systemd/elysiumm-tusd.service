@@ -1,0 +1,25 @@
+[Unit]
+Description=Elysium private resumable upload storage
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/services/elysium/backend-current/backend
+ExecStart=/srv/services/elysium/backend-current/backend/bin/tusd --host 127.0.0.1 --port 8766 --base-path /files/ --upload-dir /srv/services/elysium/shared/tus-staging --dir-perms 0750 --file-perms 0640 --max-size 2147483648 --disable-download --disable-concatenation
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/services/elysium/shared/tus-staging
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=384M
+TasksMax=128
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

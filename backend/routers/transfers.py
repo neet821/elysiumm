@@ -11,6 +11,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import models
@@ -32,14 +33,20 @@ def admin_user(user: models.User = Depends(get_current_user)):
     return user
 
 
-def session_for_token(db: Session, token: str) -> models.TransferSession:
+def session_for_token(
+    db: Session,
+    token: str,
+    *,
+    for_update: bool = False,
+) -> models.TransferSession:
     transfer_service.cleanup_expired(db)
     token_hash = transfer_service.token_hash(token)
-    session = (
-        db.query(models.TransferSession)
-        .filter(models.TransferSession.token_hash == token_hash)
-        .first()
+    query = db.query(models.TransferSession).filter(
+        models.TransferSession.token_hash == token_hash
     )
+    if for_update:
+        query = query.with_for_update()
+    session = query.first()
     if not session or session.expires_at <= transfer_service.utcnow():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "中转链接已失效")
     return session
@@ -308,7 +315,7 @@ async def upload_transfer(
     _admin: models.User = Depends(admin_user),
     db: Session = Depends(get_db),
 ):
-    session = session_for_token(db, token)
+    session = session_for_token(db, token, for_update=True)
     content_disposition = request.headers.get("content-disposition", "")
     header_filename = content_disposition.split("filename=")[-1]
     name = transfer_service.safe_filename(x_filename or filename or header_filename)
@@ -320,7 +327,16 @@ async def upload_transfer(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             "单文件不能超过 2GB",
         )
-    if session.total_bytes + (expected or 0) > session.max_bytes:
+    reserved_bytes = (
+        db.query(func.coalesce(func.sum(models.TusUploadReservation.upload_length), 0))
+        .filter(
+            models.TusUploadReservation.transfer_session_id == session.id,
+            models.TusUploadReservation.status.in_(("creating", "active")),
+            models.TusUploadReservation.expires_at > transfer_service.utcnow(),
+        )
+        .scalar()
+    ) or 0
+    if session.total_bytes + reserved_bytes + (expected or 0) > session.max_bytes:
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             "中转链接总量不能超过 2GB",
@@ -343,7 +359,9 @@ async def upload_transfer(
             async for chunk in request.stream():
                 size += len(chunk)
                 exceeds_file_limit = size > transfer_service.TRANSFER_MAX_FILE_BYTES
-                exceeds_session_limit = session.total_bytes + size > session.max_bytes
+                exceeds_session_limit = (
+                    session.total_bytes + reserved_bytes + size > session.max_bytes
+                )
                 if (
                     exceeds_file_limit
                     or exceeds_session_limit

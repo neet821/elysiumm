@@ -2,8 +2,28 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const tusMocks = vi.hoisted(() => ({
+  files: [],
+  error: '',
+  ready: true,
+  manager: {
+    addFiles: vi.fn(),
+    pauseResume: vi.fn(),
+    retryUpload: vi.fn(),
+    retryResult: vi.fn(),
+    removeFile: vi.fn(),
+  },
+  addFiles: vi.fn(),
+  useAdminTusUploads: vi.fn(),
+  onUploadComplete: null,
+}))
+
 vi.mock('../src/utils/request.js', () => ({
   default: { delete: vi.fn(), get: vi.fn(), post: vi.fn(), put: vi.fn() },
+}))
+
+vi.mock('../src/features/admin-files/useAdminTusUploads.js', () => ({
+  useAdminTusUploads: tusMocks.useAdminTusUploads,
 }))
 
 vi.mock('../src/contexts/AuthContext.jsx', () => ({
@@ -19,10 +39,11 @@ const syncItems = [
   { name: 'docs', path: 'docs/', size: 0 },
 ]
 
-function mockLoads({ status = 'online', items = syncItems, transferFiles = [] } = {}) {
+function mockLoads({ status = 'online', items = syncItems, adminFiles = [], transferFiles = [] } = {}) {
   apiClient.get.mockImplementation((endpoint) => {
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status } })
     if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE) return Promise.resolve({ data: { path: '', items } })
+    if (endpoint === API_ENDPOINTS.ADMIN_FILES) return Promise.resolve({ data: adminFiles })
     if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: transferFiles })
     if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: '管理员保留文本' } })
     return Promise.reject(new Error(`unexpected GET ${endpoint}`))
@@ -35,7 +56,17 @@ describe('administrator Files workspace', () => {
     apiClient.get.mockReset()
     apiClient.post.mockReset()
     apiClient.put.mockReset()
-    apiClient.post.mockResolvedValue({ data: { token: 'current-token' } })
+    apiClient.post.mockResolvedValue({ data: { id: 3, token: 'current-token' } })
+    tusMocks.files = []
+    tusMocks.error = ''
+    tusMocks.ready = true
+    tusMocks.onUploadComplete = null
+    Object.values(tusMocks.manager).forEach((method) => method.mockReset())
+    tusMocks.addFiles = tusMocks.manager.addFiles
+    tusMocks.useAdminTusUploads.mockImplementation((options) => {
+      tusMocks.onUploadComplete = options.onUploadComplete
+      return tusMocks
+    })
     mockLoads({ transferFiles: [{ id: 11, name: 'transfer.pdf', size: 1024, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/11/download' }, { id: 12, name: 'video.mp4', size: 2048, transfer_id: 3, expires_at: '2026-08-28T08:00:00Z', download_url: '/api/admin/transfers/files/12/download' }] })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
@@ -67,6 +98,33 @@ describe('administrator Files workspace', () => {
     expect(screen.queryByRole('heading', { name: '文件', level: 2 })).not.toBeInTheDocument()
     expect(screen.queryByText(/中转 #/)).not.toBeInTheDocument()
     expect(screen.queryByText(/过期：/)).not.toBeInTheDocument()
+  })
+
+  it('lists and downloads private administrator files', async () => {
+    const user = userEvent.setup()
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    apiClient.get.mockImplementation((endpoint, options) => {
+      if (endpoint === API_ENDPOINTS.ADMIN_FILES) return Promise.resolve({ data: [{ id: 9, name: 'private.txt', size: 6, download_url: '/api/admin/files/9/download' }] })
+      if (endpoint === '/api/admin/files/9/download') {
+        expect(options).toEqual({ responseType: 'blob' })
+        return Promise.resolve({ data: new Blob(['secret']) })
+      }
+      if (endpoint === API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS) return Promise.resolve({ data: { status: 'offline' } })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK) return Promise.resolve({ data: { id: 3, token: 'current-token' } })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_FILES) return Promise.resolve({ data: [] })
+      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: '' } })
+      return Promise.reject(new Error(`unexpected GET ${endpoint}`))
+    })
+    render(<AdminFilesPage />)
+
+    expect(await screen.findByRole('heading', { name: '管理员文件' })).toBeInTheDocument()
+    expect(await screen.findByText('private.txt')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '下载 private.txt' }))
+
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(apiClient.get).toHaveBeenCalledWith('/api/admin/files/9/download', { responseType: 'blob' })
   })
 
   it('downloads each transfer file from its own row', async () => {
@@ -125,10 +183,9 @@ describe('administrator Files workspace', () => {
     expect(apiClient.get).not.toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
   })
 
-  it('keeps the current link visible while uploading from the admin page', async () => {
+  it('adds transfer uploads to the resumable queue and rotates the link only after server confirmation', async () => {
     const user = userEvent.setup()
     const file = new File(['hello'], '中文资料.txt', { type: 'text/plain' })
-    apiClient.put.mockResolvedValue({ data: { id: 4, name: 'notes.txt', size: 5, token: 'rotated-token', url: '/api/transfers/rotated-token' } })
 
     render(<AdminFilesPage />)
 
@@ -136,71 +193,39 @@ describe('administrator Files workspace', () => {
     await user.upload(screen.getByLabelText('选择文件上传'), file)
 
     expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
-    expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/current-token', file, expect.objectContaining({
-      timeout: 0,
-      params: { filename: '中文资料.txt' },
-      headers: { 'Content-Type': 'application/octet-stream' },
-    }))
-    expect(apiClient.put.mock.calls[0][2].onUploadProgress).toEqual(expect.any(Function))
+    expect(tusMocks.manager.addFiles).toHaveBeenCalledWith([file], { purpose: 'transfer_file', sessionId: 3 })
+    expect(screen.getByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
+
+    await tusMocks.onUploadComplete({ token: 'rotated-token' }, { meta: { purpose: 'transfer_file', session_id: '3' } })
     expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-token')).toBeInTheDocument()
   })
 
-  it('keeps a failed transfer available for retry without hiding its link', async () => {
+  it('uses the same resumable queue for administrator-private file uploads', async () => {
     const user = userEvent.setup()
-    const firstFile = new File(['first'], 'first.txt', { type: 'text/plain' })
-    const retryFile = new File(['retry'], 'retry.txt', { type: 'text/plain' })
-    apiClient.put
-      .mockRejectedValueOnce({ response: { data: { detail: '上传被拒绝。' } } })
-      .mockResolvedValueOnce({ data: { id: 5, name: 'retry.txt', size: 5, token: 'rotated-retry-token', url: '/api/transfers/rotated-retry-token' } })
+    const file = new File(['private'], 'private.txt', { type: 'text/plain' })
 
     render(<AdminFilesPage />)
 
-    await user.upload(screen.getByLabelText('选择文件上传'), firstFile)
-    await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('alert')).toHaveTextContent('上传被拒绝。')
-    expect(screen.getByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
-
-    await user.upload(screen.getByLabelText('选择文件上传'), retryFile)
-    await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(2))
-    expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
-    expect(apiClient.put).toHaveBeenNthCalledWith(2, '/api/transfers/current-token', retryFile, expect.objectContaining({
-      timeout: 0,
-      params: { filename: 'retry.txt' },
-      headers: { 'Content-Type': 'application/octet-stream' },
-    }))
-    expect(apiClient.put.mock.calls[1][2].onUploadProgress).toEqual(expect.any(Function))
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-retry-token')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('选择管理员文件上传'), file)
+    expect(tusMocks.manager.addFiles).toHaveBeenCalledWith([file], { purpose: 'admin_file', sessionId: 3 })
   })
 
-  it('shows live upload progress while the transfer request is in flight', async () => {
-    const user = userEvent.setup()
-    const file = new File(['hello'], 'progress.txt', { type: 'text/plain' })
-    let resolveUpload
-    apiClient.post.mockResolvedValue({ data: { token: 'progress-token' } })
-    apiClient.put.mockImplementation(async (_url, _file, options) => {
-      options.onUploadProgress({ loaded: 5, total: 10 })
-      await new Promise((resolve) => { resolveUpload = resolve })
-      return { data: { id: 6, name: 'progress.txt', size: 5 } }
-    })
-
+  it('keeps file browsing available when the optional local tusd service is unavailable', async () => {
+    tusMocks.ready = false
+    tusMocks.error = '本地预览中的可续传上传服务未启动；其他文件功能仍可使用。'
     render(<AdminFilesPage />)
-    await user.upload(screen.getByLabelText('选择文件上传'), file)
 
-    await waitFor(() => expect(screen.getByRole('progressbar', { name: '上传进度' })).toHaveValue(50))
-    resolveUpload()
-    await waitFor(() => expect(screen.queryByRole('progressbar', { name: '上传进度' })).not.toBeInTheDocument())
+    expect(await screen.findByRole('alert')).toHaveTextContent(/其他文件功能仍可使用/)
+    expect(screen.getByLabelText('选择管理员文件上传')).toBeDisabled()
+    expect(screen.getByLabelText('选择文件上传')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '下载 transfer.pdf' })).toBeInTheDocument()
   })
 
   it('autosaves the administrator-only text and supports multiple transfer files', async () => {
     const user = userEvent.setup()
     const firstFile = new File(['one'], 'one.txt', { type: 'text/plain' })
     const secondFile = new File(['two'], 'two.txt', { type: 'text/plain' })
-    apiClient.put.mockImplementation((endpoint) => {
-      if (endpoint === API_ENDPOINTS.ADMIN_TRANSFER_NOTE) return Promise.resolve({ data: { content: '管理员新文本' } })
-      if (endpoint === '/api/transfers/current-token') return Promise.resolve({ data: { id: 7, name: 'one.txt', size: 3, token: 'token-two' } })
-      if (endpoint === '/api/transfers/token-two') return Promise.resolve({ data: { id: 8, name: 'two.txt', size: 3, token: 'token-three' } })
-      return Promise.reject(new Error(`unexpected PUT ${endpoint}`))
-    })
+    apiClient.put.mockResolvedValue({ data: { content: '管理员新文本' } })
 
     render(<AdminFilesPage />)
 
@@ -212,9 +237,8 @@ describe('administrator Files workspace', () => {
     const picker = screen.getByLabelText('选择文件上传')
     expect(picker).toHaveAttribute('multiple')
     await user.upload(picker, [firstFile, secondFile])
-    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/current-token', firstFile, expect.any(Object)))
-    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/transfers/token-two', secondFile, expect.any(Object)))
-    expect(apiClient.put.mock.calls.filter(([endpoint]) => endpoint.startsWith('/api/transfers/'))).toHaveLength(2)
+    expect(tusMocks.manager.addFiles).toHaveBeenCalledWith([firstFile, secondFile], { purpose: 'transfer_file', sessionId: 3 })
+    expect(apiClient.put.mock.calls.filter(([endpoint]) => String(endpoint).startsWith('/api/transfers/'))).toHaveLength(0)
   })
 
   it('copies the administrator-only text', async () => {

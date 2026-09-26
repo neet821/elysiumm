@@ -16,6 +16,10 @@ class ApplicationLifecycleTest(unittest.IsolatedAsyncioTestCase):
         os.environ.setdefault("SECRET_KEY", "test-lifecycle-only")
         import main
 
+        self.assertTrue(
+            hasattr(main, "run_tus_cleanup_task"),
+            "可续传上传的临时任务没有加入应用生命周期",
+        )
         started, stopped, tasks = [], [], []
 
         async def worker(name):
@@ -33,10 +37,11 @@ class ApplicationLifecycleTest(unittest.IsolatedAsyncioTestCase):
                 patch.object(
                     main, "run_live_reconcile_task", lambda: worker("live")
                 ),
+                patch.object(main, "run_tus_cleanup_task", lambda: worker("tus")),
             ):
                 async with main.app.router.lifespan_context(main.app):
                     await asyncio.sleep(0)
-                    self.assertCountEqual(started, ["cleanup", "music", "live"])
+                    self.assertCountEqual(started, ["cleanup", "music", "live", "tus"])
                 self.assertCountEqual(stopped, started)
         finally:
             for task in tasks:

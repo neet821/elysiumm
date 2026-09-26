@@ -171,6 +171,28 @@ async function waitForUrl(url, timeout = 30000) {
   throw new Error(`Timed out waiting for ${url}: ${lastError?.message || 'unknown error'}`)
 }
 
+async function waitForTusd(baseUrl, tusdProcess, timeout = 30000) {
+  const deadline = Date.now() + timeout
+  let lastError = null
+  while (Date.now() < deadline) {
+    if (tusdProcess.exitCode !== null) {
+      throw new Error(`tusd exited before readiness (code ${tusdProcess.exitCode})`)
+    }
+    try {
+      const response = await fetch(`${baseUrl}/`, {
+        headers: { 'Tus-Resumable': '1.0.0' },
+        method: 'OPTIONS',
+      })
+      if (response.status === 200 || response.status === 204) return
+      lastError = new Error(`OPTIONS ${response.status} ${response.statusText}`)
+    } catch (error) {
+      lastError = error
+    }
+    await sleep(150)
+  }
+  throw new Error(`Timed out waiting for tusd at ${baseUrl}: ${lastError?.message || 'unknown error'}`)
+}
+
 async function waitForStableValue(page, expression, timeout = 15000, requiredSamples = 5) {
   const deadline = Date.now() + timeout
   let lastValue = null
@@ -449,13 +471,15 @@ async function main() {
   let cleanupVerified = false
 
   try {
-    const [backendPort, frontendPort, adminDebugPort, visitorDebugPort] = await Promise.all([
-      freePort(), freePort(), freePort(), freePort(),
+    const [backendPort, frontendPort, tusdPort, adminDebugPort, visitorDebugPort] = await Promise.all([
+      freePort(), freePort(), freePort(), freePort(), freePort(),
     ])
     const appBase = `http://127.0.0.1:${frontendPort}`
     const backendBase = `http://127.0.0.1:${backendPort}`
     const adminFilesRoot = path.join(temporaryRoot, 'admin-files')
     const syncRoot = path.join(temporaryRoot, 'sync-storage')
+    const tusUploadDir = path.join(temporaryRoot, 'tus-staging')
+    const tusInternalBaseUrl = `http://127.0.0.1:${tusdPort}/files`
     const environment = {
       ...process.env,
       ACCESS_TOKEN_EXPIRE_MINUTES: '60',
@@ -466,9 +490,35 @@ async function main() {
       PRIVATE_STORAGE_DIR: path.join(temporaryRoot, 'private-storage'),
       PUBLIC_SYNC_STORAGE: syncRoot,
       SECRET_KEY: 'phase10-browser-isolated-secret',
+      TUS_DISK_RESERVE_BYTES: '0',
+      TUS_INTERNAL_BASE_URL: tusInternalBaseUrl,
+      TUS_UPLOADS_ENABLED: 'true',
+      TUS_UPLOAD_DIR: tusUploadDir,
       TRANSFER_STORAGE_DIR: path.join(temporaryRoot, 'transfers'),
     }
 
+    fs.mkdirSync(tusUploadDir, { recursive: true })
+    const tusdBinary = (await run('bash', [
+      path.join(root, 'scripts', 'install-tusd.sh'),
+      path.join(temporaryRoot, 'tusd-runtime'),
+    ], { cwd: root, env: process.env })).trim()
+    assert(fs.existsSync(tusdBinary), 'verified tusd binary was not installed')
+    processes.push(startProcess(tusdBinary, [
+      '--host', '127.0.0.1',
+      '--port', String(tusdPort),
+      '--base-path', '/files/',
+      '--upload-dir', tusUploadDir,
+      '--dir-perms', '0750',
+      '--file-perms', '0640',
+      '--max-size', '2147483648',
+      '--disable-download',
+      '--disable-concatenation',
+    ], {
+      cwd: root,
+      env: process.env,
+      logPath: path.join(temporaryRoot, 'tusd.log'),
+    }))
+    await waitForTusd(tusInternalBaseUrl, processes.at(-1))
     await run(python, [path.join(root, 'backend', 'run_migrations.py')], { cwd: root, env: environment })
     processes.push(startProcess(python, [
       '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(backendPort), '--log-level', 'warning',
@@ -480,6 +530,7 @@ async function main() {
       cwd: path.join(root, 'frontend'),
       env: {
         ...process.env,
+        VITE_TUS_UPLOADS_ENABLED: 'true',
         VITE_BACKEND_PROXY_TARGET: backendBase,
         VITE_DEV_HOST: '127.0.0.1',
         VITE_DEV_PORT: String(frontendPort),

@@ -81,6 +81,15 @@ jobs:
           mkdir -p release-artifact
           unzip -q "$RUNNER_TEMP/frontend-artifact.zip" -d release-artifact
 
+      - name: Download pinned tusd runtime artifact when required
+        if: steps.scope.outputs.backend == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          name: elysium-tusd-${{ github.event.workflow_run.head_sha }}
+          path: release-artifact/tusd
+          run-id: ${{ github.event.workflow_run.id }}
+
       - name: Prepare deployment payload
         run: |
           set -euo pipefail
@@ -102,6 +111,18 @@ jobs:
           if [[ "$deploy_frontend" == true ]]; then
             cp -a release-artifact/frontend/dist "$payload/frontend/dist"
             cp release-artifact/frontend-budget.json "$payload/frontend-budget.json"
+          fi
+          if [[ "$DEPLOY_BACKEND" == true ]]; then
+            tusd_sha256="$(awk -F= '$1 == "tusd_binary_sha256" {print $2; exit}' release-metadata/release-metadata.env)"
+            [[ "$tusd_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "release metadata has no valid pinned tusd SHA-256" >&2
+              exit 1
+            }
+            test -s release-artifact/tusd/tusd
+            printf '%s  %s\n' "$tusd_sha256" release-artifact/tusd/tusd | sha256sum --check --status
+            test -s release-artifact/tusd/LICENSE.txt
+            cp -a release-artifact/tusd "$payload/tusd"
+            printf 'TUSD_BINARY_SHA256=%s\n' "$tusd_sha256" >> "$GITHUB_ENV"
           fi
           cp release-metadata/release-impact.json "$payload/release-impact.json"
           cp release-metadata/release-metadata.env "$payload/release-metadata.env"
@@ -317,7 +338,11 @@ jobs:
             --node-version "22"
           )
           if [[ "$deploy_backend" == true ]]; then
-            deploy_command+=(--python "$deployment_python")
+            deploy_command+=(
+              --python "$deployment_python"
+              --tusd-binary-source "$stage/tusd/tusd"
+              --tusd-binary-sha256 "$TUSD_BINARY_SHA256"
+            )
           fi
           if [[ "$deploy_frontend" == true ]]; then
             deploy_command+=(

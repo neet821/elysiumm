@@ -104,6 +104,9 @@ class DeploymentOptions:
     defer_health_guard_restart: bool = False
     backend_service: str = "elysiumm-backend.service"
     music_api_service: str = "elysiumm-music-api.service"
+    tusd_service: str = "elysiumm-tusd.service"
+    tusd_binary_source: Path | None = None
+    tusd_binary_sha256: str = ""
     nginx_service: str = "nginx.service"
     health_url: str = "http://127.0.0.1:8000/api/health"
     node_version: str = "CI"
@@ -419,6 +422,15 @@ def _backend_release_has_music_api(release_path: Path) -> bool:
     return (release_path / "backend/music_node/server.cjs").is_file()
 
 
+def _tusd_service_installed(options: DeploymentOptions) -> bool:
+    return (options.systemd_target_dir / options.tusd_service).is_file()
+
+
+def _backend_release_has_tusd(release_path: Path) -> bool:
+    binary = release_path / "backend/bin/tusd"
+    return binary.is_file() and bool(binary.stat().st_mode & 0o111)
+
+
 def _python_version(python_executable: Path) -> str:
     """Record the version of the interpreter that will own the release venv."""
 
@@ -455,6 +467,19 @@ def _backend_release(
             source_temp = Path(tempfile.mkdtemp(prefix=f".backend-{deployment_id}-", dir=options.root))
             source = materialize_git_component(repository, options.commit, "backend", source_temp / "backend")
         source = source.resolve()
+        if options.tusd_binary_source is not None:
+            raw_tusd_source = options.tusd_binary_source.expanduser()
+            tusd_source = raw_tusd_source.resolve()
+            if raw_tusd_source.is_symlink() or not tusd_source.is_file():
+                raise ProductionDeployError(f"tusd binary is not a regular file: {raw_tusd_source}")
+            actual_tusd_sha256 = _sha256_file(tusd_source)
+            if (
+                not options.tusd_binary_sha256
+                or actual_tusd_sha256 != options.tusd_binary_sha256
+            ):
+                raise ProductionDeployError("tusd binary does not match the CI-verified SHA-256")
+        elif options.tusd_binary_sha256:
+            raise ProductionDeployError("tusd binary SHA-256 was provided without a binary")
         lockfile = source / "requirements.txt"
         if not lockfile.is_file():
             raise ProductionDeployError(f"backend requirements lockfile is missing: {lockfile}")
@@ -483,6 +508,7 @@ def _backend_release(
             freeze=False,
             activate=False,
             git_ref=options.git_ref,
+            tusd_binary=options.tusd_binary_source,
         )
         try:
             _install_backend_dependencies(assembly, assembly.path / "backend/requirements.txt", environment)
@@ -787,6 +813,33 @@ def _allow_initial_backend_current_verify_failure(
     return lines == [expected]
 
 
+def _allow_initial_tusd_current_verify_failure(
+    options: DeploymentOptions,
+    unit: str,
+    detail: str,
+) -> bool:
+    """Allow only the old-current release's expected missing tusd binary."""
+
+    current = options.root.expanduser().resolve() / "backend-current"
+    binary = current / "backend/bin/tusd"
+    source = options.tusd_binary_source
+    if (
+        unit != options.tusd_service
+        or source is None
+        or source.is_symlink()
+        or not source.is_file()
+        or binary.is_file()
+    ):
+        return False
+    if options.tusd_binary_sha256 and _sha256_file(source) != options.tusd_binary_sha256:
+        return False
+    expected = (
+        f"{unit}: Command {binary} is not executable: No such file or directory"
+    )
+    lines = [line.strip() for line in detail.splitlines() if line.strip()]
+    return lines == [expected]
+
+
 def _validate_systemd_target_dir(options: DeploymentOptions) -> None:
     target_dir = options.systemd_target_dir
     if not any(_within(target_dir, candidate) for candidate in (Path("/etc/systemd/system"), options.root)):
@@ -875,7 +928,10 @@ def _validate_infrastructure(options: DeploymentOptions) -> None:
                     for part in (result.stderr, result.stdout)
                     if part and part.strip()
                 )
-                if not _allow_initial_backend_current_verify_failure(options, unit, detail):
+                if not (
+                    _allow_initial_backend_current_verify_failure(options, unit, detail)
+                    or _allow_initial_tusd_current_verify_failure(options, unit, detail)
+                ):
                     raise ProductionDeployError(detail or f"systemd verification failed: {source}")
     if options.mediamtx_config_source is not None:
         _validate_fixed_file_target(
@@ -1201,6 +1257,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     previous_infra: dict[str, object] = {}
     environment: dict[str, str] | None = None
     music_api_available = False
+    tusd_available = False
     try:
         legacy_audit = _legacy_path_audit(options, root)
         transaction["legacy_path_audit"] = legacy_audit
@@ -1217,6 +1274,19 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             options.systemd_sources and options.music_api_service in options.systemd_sources
         )
         music_api_unit_installed = _music_api_service_installed(options)
+        tusd_unit_is_candidate = bool(
+            options.systemd_sources and options.tusd_service in options.systemd_sources
+        )
+        tusd_unit_installed = _tusd_service_installed(options)
+        if tusd_unit_is_candidate and "backend" not in components:
+            raise ProductionDeployError(
+                "tusd systemd unit requires a backend release containing its pinned runtime"
+            )
+        if "backend" in components and (tusd_unit_is_candidate or tusd_unit_installed):
+            if options.tusd_binary_source is None or not options.tusd_binary_sha256:
+                raise ProductionDeployError(
+                    "backend deployment with the tusd service requires its CI-verified runtime artifact"
+                )
         backend_restart_deferred = bool(
             "backend" in components
             and infrastructure_change_requested
@@ -1224,6 +1294,7 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             and (
                 options.backend_service in options.systemd_sources
                 or music_api_unit_is_candidate
+                or tusd_unit_is_candidate
             )
         )
         if "infra" in components and infrastructure_change_requested:
@@ -1264,6 +1335,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             music_api_available = release_has_music_api and (
                 music_api_unit_installed or music_api_unit_is_candidate
             )
+            release_has_tusd = _backend_release_has_tusd(assembly.path)
+            if tusd_unit_is_candidate and not release_has_tusd:
+                raise ProductionDeployError(
+                    "tusd systemd unit cannot be installed without backend/bin/tusd"
+                )
+            if release_has_tusd and not (tusd_unit_installed or tusd_unit_is_candidate):
+                raise ProductionDeployError(
+                    "pinned tusd runtime is present but its systemd unit is not installed"
+                )
+            tusd_available = release_has_tusd and (
+                tusd_unit_installed or tusd_unit_is_candidate
+            )
             atomic_component_link(root, "backend", assembly.release_id)
             switched.append("backend")
             _stage(transaction, "backend_current_switch", "succeeded", release_id=assembly.release_id)
@@ -1290,6 +1373,18 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                     _write_progress(transaction_path, transaction)
                 elif "backend" in components and music_api_unit_installed:
                     _systemctl("disable --now", options.music_api_service)
+                if "backend" in components and tusd_available:
+                    _systemctl("enable", options.tusd_service)
+                    _systemctl("restart", options.tusd_service)
+                    _stage(
+                        transaction,
+                        "tusd_service_restart",
+                        "succeeded",
+                        service=options.tusd_service,
+                    )
+                    _write_progress(transaction_path, transaction)
+                elif "backend" in components and tusd_unit_installed:
+                    _systemctl("disable --now", options.tusd_service)
                 _systemctl("restart", options.backend_service)
                 _stage(transaction, "backend_service_restart", "succeeded", service=options.backend_service)
                 _write_progress(transaction_path, transaction)
@@ -1323,27 +1418,45 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                     subprocess.run(["systemctl", "daemon-reload"], check=True)
                     restart_units = list((options.systemd_sources or {}))
                     if backend_restart_deferred:
-                        # Keep the release-coupled music sidecar ahead of the
-                        # backend, then restart the backend after all unit files
-                        # have been applied. Include an already-installed
-                        # sidecar even when only the backend unit changed.
+                        # Restart release-coupled services after their units
+                        # are installed and before the backend that calls them.
                         if music_api_available:
                             _systemctl("enable", options.music_api_service)
                         elif music_api_unit_installed:
                             _systemctl("disable --now", options.music_api_service)
+                        if tusd_available:
+                            _systemctl("enable", options.tusd_service)
+                        elif tusd_unit_installed:
+                            _systemctl("disable --now", options.tusd_service)
                         restart_units = [
-                            unit for unit in restart_units if unit != options.music_api_service
+                            unit
+                            for unit in restart_units
+                            if unit not in {
+                                options.music_api_service,
+                                options.tusd_service,
+                            }
                         ]
                         if music_api_available:
                             restart_units.append(options.music_api_service)
+                        if tusd_available:
+                            restart_units.append(options.tusd_service)
                         restart_units.append(options.backend_service)
                         restart_units = [
                             unit
                             for unit in dict.fromkeys(restart_units)
-                            if unit not in {options.music_api_service, options.backend_service}
+                            if unit
+                            not in {
+                                options.music_api_service,
+                                options.tusd_service,
+                                options.backend_service,
+                            }
                         ] + (
                             [options.music_api_service]
                             if music_api_available
+                            else []
+                        ) + (
+                            [options.tusd_service]
+                            if tusd_available
                             else []
                         ) + [options.backend_service]
                     if options.health_guard_source is not None and not options.defer_health_guard_restart:
@@ -1431,12 +1544,20 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                             _systemctl("restart", options.music_api_service)
                         else:
                             _systemctl("disable --now", options.music_api_service)
+                    if _tusd_service_installed(options):
+                        if _backend_release_has_tusd(root / "backend-current"):
+                            _systemctl("enable", options.tusd_service)
+                            _systemctl("restart", options.tusd_service)
+                        else:
+                            _systemctl("disable --now", options.tusd_service)
                     _systemctl("restart", options.backend_service)
                 else:
                     (root / "backend-current").unlink(missing_ok=True)
                     _systemctl("stop", options.backend_service)
                     if _music_api_service_installed(options):
                         _systemctl("disable --now", options.music_api_service)
+                    if _tusd_service_installed(options):
+                        _systemctl("disable --now", options.tusd_service)
             except Exception as rollback_error:  # pragma: no cover - defensive production path
                 rollback_errors.append(f"backend: {rollback_error}")
         rollback_payload = {

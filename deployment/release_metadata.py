@@ -101,6 +101,7 @@ def validate_release_manifest(payload: Mapping[str, Any]) -> None:
         "package_lock_sha256",
         "requirements_lock_sha256",
         "api_schema_sha256",
+        "tusd_binary_sha256",
     ):
         if key in payload:
             value = _require_string(payload, key)

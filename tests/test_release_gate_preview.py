@@ -21,7 +21,7 @@ class ReleaseGatePreviewTest(unittest.TestCase):
         fake_python = fake_bin / "python"
         fake_python.write_text(
             "#!/usr/bin/env bash\n"
-            "echo python:$* >> \"${PREVIEW_EVENTS}\"\n"
+            "echo python:$* tus:${TUS_UPLOADS_ENABLED:-unset} >> \"${PREVIEW_EVENTS}\"\n"
             "if [[ \"$1\" == \"-m\" ]]; then exec sleep 30; fi\n"
             "exit 0\n",
             encoding="utf-8",
@@ -79,6 +79,50 @@ class ReleaseGatePreviewTest(unittest.TestCase):
         self.assertNotIn("mktemp -d /tmp/elysium-local-preview", gate_source)
         self.assertIn("xdg-open http://127.0.0.1:5173/", source)
 
+    def test_preview_accepts_successful_tusd_options_responses(self):
+        source = PREVIEW.read_text(encoding="utf-8")
+        self.assertIn(
+            'if [[ "${tusd_status}" == "200" || "${tusd_status}" == "204" ]]; then',
+            source,
+        )
+
+    def test_preview_keeps_other_services_available_when_tusd_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake_bin, events, env = self.run_preview_with_fake_runtime(Path(temp_dir) / "saved")
+            env["TUSD_BINARY"] = str(fake_bin / "missing-tusd")
+            process = subprocess.Popen(
+                ["bash", str(PREVIEW)],
+                cwd=ROOT,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                for _ in range(100):
+                    if events.exists() and any("-m uvicorn" in line for line in events.read_text().splitlines()):
+                        break
+                    if process.poll() is not None:
+                        break
+                    time.sleep(0.05)
+                self.assertIsNone(process.poll(), "preview exited before backend startup")
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGINT)
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.terminate()
+                        process.wait(timeout=3)
+                preview_stdout, preview_stderr = process.communicate(timeout=1)
+                event_lines = events.read_text(encoding="utf-8").splitlines() if events.exists() else []
+                shutil.rmtree(fake_bin, ignore_errors=True)
+
+            backend_start = next((line for line in event_lines if "-m uvicorn" in line), "")
+            self.assertIn("tus:false", backend_start, (event_lines, preview_stdout, preview_stderr))
+            self.assertIn("可续传上传不可用", preview_stderr)
+            self.assertEqual(process.returncode, 0, preview_stderr)
+
     def test_saved_mode_uses_a_persistent_database_in_the_project_root(self):
         source = PREVIEW.read_text(encoding="utf-8")
         self.assertIn('case "${1:-}" in', source)
@@ -100,6 +144,7 @@ class ReleaseGatePreviewTest(unittest.TestCase):
     def test_saved_mode_migrates_database_before_backend(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             fake_bin, events, env = self.run_preview_with_fake_runtime(Path(temp_dir) / "saved")
+            env["TUSD_BINARY"] = str(fake_bin / "missing-tusd")
             try:
                 process = subprocess.Popen(
                     ["bash", str(PREVIEW), "--saved"],
@@ -109,8 +154,10 @@ class ReleaseGatePreviewTest(unittest.TestCase):
                     stderr=subprocess.PIPE,
                     text=True,
                 )
-                for _ in range(60):
-                    if events.exists():
+                for _ in range(100):
+                    if events.exists() and any(
+                        "-m uvicorn" in line for line in events.read_text().splitlines()
+                    ):
                         break
                     if process.poll() is not None:
                         break

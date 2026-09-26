@@ -70,6 +70,22 @@ class PlatformConfig:
             str(PRIVATE_STORAGE_DIR / "admin_files"),
         )
     ).expanduser().resolve()
+    TUS_UPLOAD_DIR = Path(
+        os.getenv("TUS_UPLOAD_DIR", str(PRIVATE_STORAGE_DIR / "tus"))
+    ).expanduser().resolve()
+    TUS_INTERNAL_BASE_URL = os.getenv(
+        "TUS_INTERNAL_BASE_URL", "http://127.0.0.1:8766/files"
+    ).strip().rstrip("/")
+    TUS_UPLOADS_ENABLED = os.getenv("TUS_UPLOADS_ENABLED", "true").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    TUS_UPLOAD_TTL_SECONDS = int(os.getenv("TUS_UPLOAD_TTL_SECONDS", str(24 * 60 * 60)))
+    TUS_DISK_RESERVE_BYTES = int(
+        os.getenv("TUS_DISK_RESERVE_BYTES", str(5 * 1024**3))
+    )
     # 日志文件直接放在仓库根目录，避免额外 logs/ 目录
     LOGS_DIR = DEPLOYMENT_ROOT / "shared" / "logs"
     RUNTIME_DATA_ROOT = DEPLOYMENT_ROOT

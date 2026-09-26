@@ -21,6 +21,7 @@ from deployment.release_metadata import (
 )
 
 MUSIC_API_UNIT_PATH = Path("/etc/systemd/system/elysiumm-music-api.service")
+TUSD_UNIT_PATH = Path("/etc/systemd/system/elysiumm-tusd.service")
 
 
 def _sync_music_api_service_to_current_backend(root: Path) -> None:
@@ -34,6 +35,19 @@ def _sync_music_api_service_to_current_backend(root: Path) -> None:
         # Older immutable backend releases predate this sidecar. Keep their
         # rollback working instead of starting systemd in a missing directory.
         _systemctl("disable --now", "elysiumm-music-api.service")
+
+
+def _sync_tusd_service_to_current_backend(root: Path) -> None:
+    if not TUSD_UNIT_PATH.is_file():
+        return
+    binary = root / "backend-current/backend/bin/tusd"
+    if binary.is_file() and binary.stat().st_mode & 0o111:
+        _systemctl("enable", "elysiumm-tusd.service")
+        _systemctl("restart", "elysiumm-tusd.service")
+    else:
+        # Older immutable backend releases have no tusd runtime.  Keep rollback
+        # safe by stopping this release-coupled sidecar before restarting API.
+        _systemctl("disable --now", "elysiumm-tusd.service")
 
 
 class ProductionRollbackError(RuntimeError):
@@ -117,6 +131,7 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
         switched = True
         if component == "backend":
             _sync_music_api_service_to_current_backend(root)
+            _sync_tusd_service_to_current_backend(root)
             _systemctl("restart", "elysiumm-backend.service")
         transaction["after"] = current_snapshot(root)
         transaction["rollback"]["attempted"] = True
@@ -134,6 +149,7 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
                     (root / f"{component}-current").unlink(missing_ok=True)
                 if component == "backend":
                     _sync_music_api_service_to_current_backend(root)
+                    _sync_tusd_service_to_current_backend(root)
                     _systemctl("restart", "elysiumm-backend.service")
             except Exception as recovery_error:  # pragma: no cover - defensive production path
                 recovery_errors.append(str(recovery_error))

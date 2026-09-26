@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ from deployment.migration_state import MigrationPlan
 from deployment.production_rollback import (
     ProductionRollbackError,
     _sync_music_api_service_to_current_backend,
+    _sync_tusd_service_to_current_backend,
     rollback_component,
 )
 from deployment.release_builder import ReleaseAssembly, assemble_frontend_release, atomic_component_link
@@ -486,6 +488,110 @@ class ProductionDeployTest(unittest.TestCase):
             ],
         )
 
+    def test_new_tusd_runtime_is_enabled_and_restarted_before_backend_unit(self):
+        new_release = self.root / "releases/backend-releases/abcdef1-backend-tusd"
+        tusd_binary = new_release / "backend/bin/tusd"
+        tusd_binary.parent.mkdir(parents=True)
+        tusd_binary.write_bytes(b"verified tusd")
+        tusd_binary.chmod(0o755)
+        assembly = ReleaseAssembly(
+            "backend",
+            new_release.name,
+            new_release,
+            {"source_tree_sha256": "3" * 64},
+        )
+        backend_unit = self.root / "backend.service"
+        tusd_unit = self.root / "tusd.service"
+        backend_unit.write_text("[Service]\n", encoding="utf-8")
+        tusd_unit.write_text("[Service]\n", encoding="utf-8")
+        binary_artifact = self.root / "tusd-artifact"
+        binary_artifact.write_bytes(b"verified tusd")
+        binary_sha256 = hashlib.sha256(binary_artifact.read_bytes()).hexdigest()
+        options = self.options(
+            "tusd-unit-first-deploy",
+            (
+                "backend/admin_tus.py",
+                "deployment/systemd/elysiumm-backend.service",
+                "deployment/systemd/elysiumm-tusd.service",
+            ),
+        )
+        options = DeploymentOptions(
+            **{
+                **options.__dict__,
+                "systemd_sources": {
+                    "elysiumm-backend.service": backend_unit,
+                    "elysiumm-tusd.service": tusd_unit,
+                },
+                "systemd_target_dir": self.root / "systemd",
+                "tusd_binary_source": binary_artifact,
+                "tusd_binary_sha256": binary_sha256,
+                "legacy_systemd_root": self.root / "legacy-systemd",
+                "legacy_nginx_root": self.root / "legacy-nginx",
+                "legacy_proc_root": None,
+            }
+        )
+        events: list[tuple[str, ...] | str] = []
+
+        with (
+            patch(
+                "deployment.production_deploy.require_production_database_environment",
+                return_value=({}, "sqlite:////tmp/unused.sqlite3"),
+            ),
+            patch("deployment.production_deploy._backend_release", return_value=(assembly, object())),
+            patch("deployment.production_deploy._validate_infrastructure"),
+            patch(
+                "deployment.production_deploy._apply_infrastructure",
+                side_effect=lambda *_args: events.append("apply") or {},
+            ),
+            patch("deployment.production_deploy._systemctl", side_effect=lambda *args: events.append(args)),
+            patch(
+                "deployment.production_deploy._legacy_path_audit",
+                return_value={"clean": True, "findings": []},
+            ),
+            patch(
+                "deployment.production_deploy.subprocess.run",
+                side_effect=lambda args, **_kwargs: events.append(tuple(args))
+                or subprocess.CompletedProcess(args, 0),
+            ),
+        ):
+            transaction = deploy(options)
+
+        self.assertEqual(transaction["status"], "succeeded")
+        self.assertEqual(
+            events,
+            [
+                "apply",
+                ("systemctl", "daemon-reload"),
+                ("enable", "elysiumm-tusd.service"),
+                ("restart", "elysiumm-tusd.service"),
+                ("restart", "elysiumm-backend.service"),
+            ],
+        )
+
+    def test_tusd_unit_candidate_requires_verified_binary_before_backend_switch(self):
+        tusd_unit = self.root / "tusd.service"
+        tusd_unit.write_text("[Service]\n", encoding="utf-8")
+        options = self.options(
+            "tusd-artifact-required",
+            ("backend/admin_tus.py", "deployment/systemd/elysiumm-tusd.service"),
+        )
+        options = DeploymentOptions(
+            **{
+                **options.__dict__,
+                "systemd_sources": {"elysiumm-tusd.service": tusd_unit},
+                "systemd_target_dir": self.root / "systemd",
+            }
+        )
+
+        with patch(
+            "deployment.production_deploy._legacy_path_audit",
+            return_value={"clean": True, "findings": []},
+        ):
+            with self.assertRaisesRegex(ProductionDeployError, "CI-verified runtime artifact"):
+                deploy(options)
+
+        self.assertFalse((self.root / "backend-current").exists())
+
     def test_backend_with_music_sidecar_fails_before_switch_when_unit_is_missing(self):
         release = self.root / "releases/backend-releases/abcdef1-backend-music"
         music_entry = release / "backend/music_node/server.cjs"
@@ -930,6 +1036,45 @@ class ProductionDeployTest(unittest.TestCase):
             _sync_music_api_service_to_current_backend(self.root)
 
         systemctl.assert_called_once_with("disable --now", "elysiumm-music-api.service")
+
+    def test_backend_rollback_restarts_tusd_from_current_backend_release(self):
+        release = self.root / "releases/backend-releases/1111111-with-tusd"
+        binary = release / "backend/bin/tusd"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"tusd")
+        binary.chmod(0o755)
+        atomic_component_link(self.root, "backend", release.name)
+        service_path = self.root / "systemd/elysiumm-tusd.service"
+        service_path.parent.mkdir()
+        service_path.write_text("[Service]\n", encoding="utf-8")
+
+        with patch("deployment.production_rollback.TUSD_UNIT_PATH", service_path), patch(
+            "deployment.production_rollback._systemctl"
+        ) as systemctl:
+            _sync_tusd_service_to_current_backend(self.root)
+
+        self.assertEqual(
+            [call.args for call in systemctl.call_args_list],
+            [
+                ("enable", "elysiumm-tusd.service"),
+                ("restart", "elysiumm-tusd.service"),
+            ],
+        )
+
+    def test_backend_rollback_disables_tusd_for_legacy_release(self):
+        release = self.root / "releases/backend-releases/1111111-legacy"
+        release.mkdir(parents=True)
+        atomic_component_link(self.root, "backend", release.name)
+        service_path = self.root / "systemd/elysiumm-tusd.service"
+        service_path.parent.mkdir()
+        service_path.write_text("[Service]\n", encoding="utf-8")
+
+        with patch("deployment.production_rollback.TUSD_UNIT_PATH", service_path), patch(
+            "deployment.production_rollback._systemctl"
+        ) as systemctl:
+            _sync_tusd_service_to_current_backend(self.root)
+
+        systemctl.assert_called_once_with("disable --now", "elysiumm-tusd.service")
 
 
 if __name__ == "__main__":

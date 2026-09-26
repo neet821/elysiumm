@@ -9,6 +9,9 @@ if [[ ! -x "${PYTHON}" ]]; then
   exit 1
 fi
 
+TUSD_BINARY="$("${ROOT_DIR}/scripts/install-tusd.sh")"
+export TUSD_BINARY
+
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "${TEST_ROOT}"' EXIT
 
