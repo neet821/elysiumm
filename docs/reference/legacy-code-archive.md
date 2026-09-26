@@ -164,3 +164,15 @@ It was not a retirement candidate and remains registered.
   changing the protected production data boundary.
 - User-provided untracked operations files were inventoried before cleanup and
   were not staged, edited or deleted.
+
+## Later internal-refactor audit
+
+The consumer-by-consumer disposition of bookmarks, Books, resource requests and
+the old Mineradio provider bridge is recorded in
+[`legacy-feature-audit.md`](legacy-feature-audit.md). In short, bookmarks, the
+Books API/data and resource-request API remain protected because current
+in-process or browser-gate consumers exist, or external use cannot be ruled out.
+The unused Python Mineradio HTTP adapter package and its explicit rollback
+configuration were retired; active music playback remains on the direct
+`backend/music` provider adapters. The `MineradioPage` name refers to the live
+Elysium music room and is not part of that retirement.

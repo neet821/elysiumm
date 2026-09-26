@@ -31,7 +31,6 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
       EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
-      MUSIC_PROVIDER_LEGACY_COMPAT: "0"
       MUSIC_PROVIDER_TIMEOUT_SECONDS: ${MUSIC_PROVIDER_TIMEOUT_SECONDS:-5}
       NETEASE_API_BASE_URL: ${NETEASE_API_BASE_URL:-https://music.163.com}
       QQ_API_BASE_URL: ${QQ_API_BASE_URL:-https://u.y.qq.com}

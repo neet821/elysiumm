@@ -36,6 +36,11 @@ REQUIRED_ENV = (
     "QQ_API_BASE_URL",
     "AUDIUS_API_BASE_URL",
 )
+RETIRED_ENV = (
+    "MUSIC_PROVIDER_LEGACY_COMPAT",
+    "MUSIC_PROVIDER_BASE_URL",
+    "MUSIC_PROVIDER_ADMIN_TOKEN",
+)
 
 
 def read(relative_path: str) -> str:
@@ -70,6 +75,10 @@ def validate_environment(path: Path) -> list[str]:
             errors.append(f"{name} is required")
         elif "CHANGE_ME" in value.upper():
             errors.append(f"{name} still contains a placeholder")
+
+    for name in RETIRED_ENV:
+        if name in values:
+            errors.append(f"{name} is retired and unsupported")
 
     for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD"):
         value = values.get(name, "")
@@ -121,7 +130,6 @@ def validate_repository() -> list[str]:
         tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"))
         + (
             'DOCKER_ENV: "true"',
-            "MUSIC_PROVIDER_LEGACY_COMPAT: \"0\"",
             "NETEASE_API_BASE_URL:",
             "QQ_API_BASE_URL:",
             "AUDIUS_API_BASE_URL:",
@@ -137,7 +145,13 @@ def validate_repository() -> list[str]:
     for weak_default in ("rootpassword", "your-secret-key", "change-this-in-prod"):
         if weak_default in compose:
             errors.append(f"deployment/docker-compose.yml contains a weak default: {weak_default}")
-    for retired in ("mineradio:", "MUSIC_PROVIDER_BASE_URL", "MUSIC_PROVIDER_ADMIN_TOKEN", "3000"):
+    for retired in (
+        "mineradio:",
+        "MUSIC_PROVIDER_LEGACY_COMPAT",
+        "MUSIC_PROVIDER_BASE_URL",
+        "MUSIC_PROVIDER_ADMIN_TOKEN",
+        "3000",
+    ):
         if retired in compose:
             errors.append(f"deployment/docker-compose.yml retains retired standalone music topology: {retired}")
 

@@ -26,7 +26,7 @@ from catalog_domain import (  # noqa: E402
     canonicalize_tracks,
 )
 from database import Base  # noqa: E402
-from music_providers import ProviderError, ProviderLyrics  # noqa: E402
+from music.base import ProviderError, ProviderLyrics  # noqa: E402
 from routers import music as music_router  # noqa: E402
 
 

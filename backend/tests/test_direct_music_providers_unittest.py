@@ -13,7 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from catalog_domain import TrackAvailability
 from music import (
+    AudiusProviderAdapter,
     NeteaseProviderAdapter,
+    ProviderError,
     QQProviderAdapter,
     build_provider_registry,
     provider_configuration_status,
@@ -29,6 +31,40 @@ def json_response(payload: object, status_code: int = 200) -> httpx.Response:
 
 
 class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
+    async def test_audius_search_and_resolve_use_the_direct_public_contract(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path.endswith("/tracks/search"):
+                return json_response({"data": [{
+                    "id": "au-1",
+                    "title": "Public Track",
+                    "user": {"name": "Artist"},
+                    "duration": 184,
+                    "genre": "Electronic",
+                    "artwork": {"480x480": "https://img.example/au.jpg"},
+                    "is_streamable": True,
+                }]})
+            return json_response({"data": {"id": "au-1", "is_streamable": True}})
+
+        adapter = AudiusProviderAdapter(
+            "https://audius.example/v1",
+            transport=httpx.MockTransport(handler),
+        )
+        tracks = await adapter.search("public", 2)
+        resolution = await adapter.resolve(
+            SimpleNamespace(provider_track_id="au-1", availability="playable")
+        )
+
+        self.assertEqual(tracks[0].title, "Public Track")
+        self.assertEqual(tracks[0].album, "Electronic")
+        self.assertEqual(tracks[0].availability, TrackAvailability.PLAYABLE)
+        self.assertEqual(resolution.playback_url, "https://audius.example/v1/tracks/au-1/stream")
+        self.assertEqual([request.url.path for request in requests], [
+            "/v1/tracks/search", "/v1/tracks/au-1",
+        ])
+
     async def test_netease_search_resolve_and_lyrics_use_direct_contract(self):
         requests: list[httpx.Request] = []
 
@@ -138,6 +174,51 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
         stream, _expires, _trial = await adapter.fetch_stream_url("../../private")
         self.assertIsNone(stream)
         self.assertFalse(called)
+
+    async def test_direct_provider_retries_one_transient_server_failure(self):
+        attempts = 0
+
+        async def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return json_response({"error": "private upstream diagnostic"}, status_code=503)
+            return json_response({"result": {"songs": [{"id": 101, "name": "Recovered"}]}})
+
+        adapter = NeteaseProviderAdapter(
+            "https://music.example",
+            transport=httpx.MockTransport(handler),
+        )
+        tracks = await adapter.search("recovered", 5)
+
+        self.assertEqual(attempts, 2)
+        self.assertEqual([track.title for track in tracks], ["Recovered"])
+
+    async def test_direct_provider_sanitizes_final_failure_and_rejects_oversized_payload(self):
+        async def failed_handler(_request: httpx.Request) -> httpx.Response:
+            return json_response({"error": "private upstream diagnostic"}, status_code=503)
+
+        failed_adapter = NeteaseProviderAdapter(
+            "https://music.example",
+            transport=httpx.MockTransport(failed_handler),
+        )
+        with self.assertRaisesRegex(ProviderError, "^曲库暂时不可用$") as failure:
+            await failed_adapter.search("failure", 5)
+        self.assertNotIn("private upstream diagnostic", str(failure.exception))
+
+        async def oversized_handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                content=b"{}",
+                headers={"content-length": str(2 * 1024 * 1024)},
+            )
+
+        oversized_adapter = NeteaseProviderAdapter(
+            "https://music.example",
+            transport=httpx.MockTransport(oversized_handler),
+        )
+        with self.assertRaisesRegex(ProviderError, "^曲库返回内容过大$"):
+            await oversized_adapter.search("oversized", 5)
 
 
 if __name__ == "__main__":

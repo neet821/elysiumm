@@ -201,18 +201,11 @@ class PlatformConfig:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if ENV == "production" else "DEBUG")
 
     # Provider-neutral music catalog. Player clients never receive provider cookies.
-    # Direct provider adapters live in backend/music. The old Mineradio HTTP
-    # bridge is opt-in compatibility for an explicit rollback/test profile only.
-    MUSIC_PROVIDER_LEGACY_COMPAT = os.getenv("MUSIC_PROVIDER_LEGACY_COMPAT", "0").lower() in {"1", "true", "yes"}
     NETEASE_API_BASE_URL = os.getenv("NETEASE_API_BASE_URL", "https://music.163.com").rstrip("/")
     QQ_API_BASE_URL = os.getenv("QQ_API_BASE_URL", "https://u.y.qq.com").rstrip("/")
     MUSIC_PROVIDER_CREDENTIAL_DIR = Path(
         os.getenv("MUSIC_PROVIDER_CREDENTIAL_DIR", str(PRIVATE_STORAGE_DIR / "music"))
     ).expanduser().resolve()
-    # Deprecated names are deliberately empty by default; no production code
-    # should discover a local Mineradio service through an implicit default.
-    MUSIC_PROVIDER_BASE_URL = os.getenv("MUSIC_PROVIDER_BASE_URL", "").rstrip("/")
-    MUSIC_PROVIDER_ADMIN_TOKEN = os.getenv("MUSIC_PROVIDER_ADMIN_TOKEN", "").strip()
     MUSIC_PROVIDER_TIMEOUT_SECONDS = float(
         os.getenv("MUSIC_PROVIDER_TIMEOUT_SECONDS", "5")
     )

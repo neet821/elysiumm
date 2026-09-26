@@ -1,5 +1,9 @@
 # 网站与独立服务解耦设计
 
+> 历史设计记录：其中 Mineradio provider 保留的非目标，已被后续内部重构计划
+> 覆盖。当前状态以 [系统架构](../../architecture.md) 和
+> [旧功能消费者审计](../../reference/legacy-feature-audit.md) 为准。
+
 ## 背景
 
 当前 Elysium 网站代码包含三类不应继续扩散的外部服务耦合：Books 使用 `KAVITA_PUBLIC_BASE_URL` 拼接阅读链接；管理员后台通过本机路径和 `systemctl` 直接管理 FRP；网站后台提供数据库/配置备份与恢复界面。与此同时，Mineradio、MediaMTX、FRP 文件同步及其认证属于当前仍在使用的业务能力，本次不改变其行为。

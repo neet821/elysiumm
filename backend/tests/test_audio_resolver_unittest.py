@@ -3,7 +3,6 @@ import sys
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -30,7 +29,7 @@ from catalog_domain import (  # noqa: E402
     canonicalize_tracks,
 )
 from database import Base, get_db  # noqa: E402
-from music_providers import ProviderError, ProviderResolution  # noqa: E402
+from music.base import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
 
 

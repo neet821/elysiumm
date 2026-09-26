@@ -31,7 +31,7 @@ import models  # noqa: E402
 import security  # noqa: E402
 from catalog_domain import ProviderTrack, TrackAvailability  # noqa: E402
 from database import SessionLocal  # noqa: E402
-from music_providers import ProviderError  # noqa: E402
+from music.base import ProviderError  # noqa: E402
 from routers import music as music_router  # noqa: E402
 
 

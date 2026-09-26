@@ -28,6 +28,14 @@ outside the website administration boundary.
 
 Music uses a canonical-track catalog above provider adapters. Provider mappings and expiring audio sources stay server-side. A provider-neutral resolver allows local sources first, then approved provider URLs, and returns an honest unavailable state when no legal source works. Books stores curated public metadata. Kavita is an independently operated server service and is not configured, controlled or linked by the website.
 
+The old standalone Mineradio HTTP provider bridge and its opt-in rollback
+configuration are retired. The live Elysium music room now uses the direct
+server-side adapters under `backend/music/`; browser playback goes through the
+website music routes. The current page named `MineradioPage` remains the Elysium
+room, not the former standalone service. See the
+[legacy-feature audit](./reference/legacy-feature-audit.md) for consumer evidence
+and the APIs/data deliberately retained.
+
 Room Core is the media-independent authority for media identity, position, play/pause, server time, playback rate and version. Music adds queue, proposals, votes, favorites and history. Video adds playlist items, managed uploads, subtitles, metadata, range streaming and transient buffering. Games use a separate deterministic turn engine, role-filtered state and hash-chained replay rather than the playback clock.
 
 Public Sync is an administrator-provisioned device channel. A device credential is shown once, stored only as a digest, and used through `X-Sync-Token`. Complete and chunked uploads are verified before atomic publication. The `public_sync/` client uses this API and is not a privileged filesystem bridge.

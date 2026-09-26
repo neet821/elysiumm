@@ -22,6 +22,7 @@ class ReleaseConfigTest(unittest.TestCase):
             self.assertIn(f"{volume}:", source)
         self.assertIn("DOCKER_ENV: \"true\"", source)
         self.assertIn("healthcheck:", source)
+        self.assertNotIn("MUSIC_PROVIDER_LEGACY_COMPAT", source)
 
     def test_compose_persists_transfer_storage(self):
         for relative_path in ("deployment/docker-compose.yml",):
@@ -64,6 +65,30 @@ class ReleaseConfigTest(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(checker.validate_environment(environment), [])
+
+    def test_release_environment_rejects_retired_mineradio_settings(self):
+        checker_path = ROOT / "scripts" / "check-release-config.py"
+        spec = spec_from_file_location("release_config_retired", checker_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        checker = module_from_spec(spec)
+        spec.loader.exec_module(checker)
+        with tempfile.TemporaryDirectory() as directory:
+            environment = Path(directory) / "release.env"
+            environment.write_text(
+                "MUSIC_PROVIDER_LEGACY_COMPAT=1\nMUSIC_PROVIDER_BASE_URL=http://127.0.0.1:3000\n",
+                encoding="utf-8",
+            )
+            errors = checker.validate_environment(environment)
+
+        self.assertIn(
+            "MUSIC_PROVIDER_LEGACY_COMPAT is retired and unsupported",
+            errors,
+        )
+        self.assertIn(
+            "MUSIC_PROVIDER_BASE_URL is retired and unsupported",
+            errors,
+        )
 
     def test_nginx_streams_transfer_uploads_with_the_backend_limits(self):
         source = self.read("deployment/nginx/elysiumm.conf")
