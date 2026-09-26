@@ -29,6 +29,7 @@ export function useVideoRoomPlayback({
 }) {
   const [needsUserGesture, setNeedsUserGesture] = useState(false)
   const [videoElement, setVideoElement] = useState(null)
+  const [adapterRevision, setAdapterRevision] = useState(0)
   const adapterRef = useRef(null)
   const syncStateRef = useRef(createRoomSyncState())
   const remoteApplyRef = useRef(0)
@@ -69,6 +70,7 @@ export function useVideoRoomPlayback({
     const adapter = createVideoPlayerAdapter(videoElement)
     const syncState = syncStateRef.current
     adapterRef.current = adapter
+    setAdapterRevision((revision) => revision + 1)
     return () => {
       adapter.destroy({ syncState })
       if (adapterRef.current === adapter) adapterRef.current = null
@@ -104,7 +106,7 @@ export function useVideoRoomPlayback({
       setSyncStatus('error')
     })
     return () => { active = false }
-  }, [beginRemoteApply, currentItem, selectedSubtitleId, setNotice, setSyncStatus, snapshotRecord])
+  }, [adapterRevision, beginRemoteApply, currentItem, selectedSubtitleId, setNotice, setSyncStatus, snapshotRecord])
 
   useEffect(() => {
     if (!isHost || snapshotRecord?.snapshot?.state !== 'playing') return undefined
