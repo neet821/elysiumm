@@ -16,6 +16,7 @@ import catalog_service
 import catalog_repository
 import music_service
 import sync_room_crud
+import user_playlist_service
 from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks
 from music import (
     build_provider_registry,
@@ -99,6 +100,222 @@ async def music_provider_capabilities(user=Depends(get_current_user)):
             {"provider": "audius", "label": "Audius", "searchable": True, "playable": audius_ready, "reason": None if audius_ready else "Audius 播放适配器尚未配置"},
         ],
     }
+
+
+class PlaylistNamePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class PlaylistTrackPayload(BaseModel):
+    provider: str = Field(pattern="^(netease|qq|audius)$")
+    provider_track_id: str = Field(min_length=1, max_length=120)
+    title: str = Field(min_length=1, max_length=300)
+    artist: str = Field(default="未知音乐人", max_length=500)
+    album: str | None = Field(default=None, max_length=300)
+    artwork_url: str | None = Field(default=None, max_length=2000)
+    duration_seconds: int = Field(default=0, ge=0, le=86400)
+    canonical_track_id: int | None = Field(default=None, ge=1)
+
+
+class PlaylistImportPayload(BaseModel):
+    reference: str = Field(min_length=1, max_length=2048)
+
+
+class PlaylistOrderPayload(BaseModel):
+    item_ids: list[int]
+
+
+class PlaylistQueuePayload(BaseModel):
+    item_ids: list[int] | None = None
+
+
+def _owned_playlist_or_404(db, owner_user_id: int, playlist_id: int):
+    playlist = user_playlist_service.get_playlist(db, owner_user_id, playlist_id)
+    if playlist is None:
+        raise HTTPException(404, "歌单不存在")
+    return playlist
+
+
+async def _fetch_public_playlist(reference: str) -> dict[str, object]:
+    try:
+        playlist_id = user_playlist_service.normalize_netease_playlist_reference(reference)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    adapter = music_provider_registry.get("netease")
+    fetch = getattr(adapter, "fetch_public_playlist", None)
+    if not callable(fetch):
+        raise HTTPException(503, "网易云歌单导入服务暂不可用")
+    try:
+        return await fetch(playlist_id)
+    except ProviderError as exc:
+        message = str(exc)
+        status_code = 422 if message == "仅支持公开歌单" else 502
+        public_message = message if status_code == 422 else "网易云歌单暂时无法读取，请稍后重试"
+        raise HTTPException(status_code, public_message) from exc
+
+
+def _public_playlist_preview(source: dict[str, object]) -> dict[str, object]:
+    tracks = source.get("tracks") if isinstance(source.get("tracks"), list) else []
+    safe_tracks = []
+    for index, track in enumerate(tracks):
+        if not isinstance(track, dict):
+            continue
+        safe_tracks.append({
+            "provider": "netease",
+            "provider_track_id": track.get("provider_track_id"),
+            "title": str(track.get("title") or f"未能读取的歌曲 #{index + 1}")[:300],
+            "artist": str(track.get("artist") or "未知音乐人")[:500],
+            "album": str(track.get("album") or "")[:300] or None,
+            "artwork_url": catalog_repository.safe_artwork_url(track.get("artwork_url")),
+            "duration_seconds": int(track.get("duration_seconds") or 0),
+            "availability": str(track.get("availability") or "unavailable"),
+            "missing": bool(track.get("missing")),
+        })
+    return {
+        "provider": "netease",
+        "source_playlist_id": source.get("source_playlist_id"),
+        "name": str(source.get("name") or "网易云导入歌单")[:120],
+        "source_url": source.get("source_url"),
+        "track_count": int(source.get("track_count") or len(safe_tracks)),
+        "tracks": safe_tracks,
+        "unavailable_count": sum(item["availability"] == "unavailable" for item in safe_tracks),
+        "missing_count": sum(item["missing"] for item in safe_tracks),
+    }
+
+
+@router.get("/playlists")
+def list_user_playlists(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return {"playlists": [
+        user_playlist_service.playlist_payload(playlist)
+        for playlist in user_playlist_service.list_playlists(db, user.id)
+    ]}
+
+
+@router.post("/playlists")
+def create_user_playlist(payload: PlaylistNamePayload, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    try:
+        playlist = user_playlist_service.create_playlist(db, user.id, payload.name)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return user_playlist_service.playlist_payload(playlist)
+
+
+@router.get("/playlists/import/preview")
+async def preview_public_playlist(
+    reference: str = Query(min_length=1, max_length=2048),
+    user=Depends(get_current_user),
+):
+    del user
+    source = await _fetch_public_playlist(reference)
+    return _public_playlist_preview(source)
+
+
+@router.post("/playlists/import")
+async def import_public_playlist(
+    payload: PlaylistImportPayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        source_id = user_playlist_service.normalize_netease_playlist_reference(
+            payload.reference
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    existing = user_playlist_service.get_imported_playlist(db, user.id, source_id)
+    if existing is not None:
+        return {
+            "created": False,
+            "playlist": user_playlist_service.playlist_payload(existing),
+        }
+    source = await _fetch_public_playlist(source_id)
+    try:
+        playlist, created = user_playlist_service.import_public_playlist(db, user.id, source)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"created": created, "playlist": user_playlist_service.playlist_payload(playlist)}
+
+
+@router.get("/playlists/{playlist_id}")
+def get_user_playlist(playlist_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    playlist = _owned_playlist_or_404(db, user.id, playlist_id)
+    return user_playlist_service.playlist_payload(playlist)
+
+
+@router.patch("/playlists/{playlist_id}")
+def rename_user_playlist(
+    playlist_id: int,
+    payload: PlaylistNamePayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        playlist = user_playlist_service.rename_playlist(db, user.id, playlist_id, payload.name)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if playlist is None:
+        raise HTTPException(404, "歌单不存在")
+    return user_playlist_service.playlist_payload(playlist)
+
+
+@router.delete("/playlists/{playlist_id}")
+def delete_user_playlist(playlist_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    if not user_playlist_service.delete_playlist(db, user.id, playlist_id):
+        raise HTTPException(404, "歌单不存在")
+    return {"deleted": True}
+
+
+@router.post("/playlists/{playlist_id}/tracks")
+def add_user_playlist_track(
+    playlist_id: int,
+    payload: PlaylistTrackPayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        item = user_playlist_service.add_track(db, user.id, playlist_id, payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if item is None:
+        raise HTTPException(404, "歌单不存在")
+    return user_playlist_service.playlist_payload(
+        _owned_playlist_or_404(db, user.id, playlist_id)
+    )
+
+
+@router.delete("/playlists/{playlist_id}/tracks/{item_id}")
+def remove_user_playlist_track(
+    playlist_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    removed = user_playlist_service.remove_track(db, user.id, playlist_id, item_id)
+    if removed is None or removed is False:
+        raise HTTPException(404, "歌单歌曲不存在")
+    return user_playlist_service.playlist_payload(
+        _owned_playlist_or_404(db, user.id, playlist_id)
+    )
+
+
+@router.put("/playlists/{playlist_id}/tracks/order")
+def reorder_user_playlist_tracks(
+    playlist_id: int,
+    payload: PlaylistOrderPayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        reordered = user_playlist_service.reorder_tracks(
+            db, user.id, playlist_id, payload.item_ids
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if reordered is None:
+        raise HTTPException(404, "歌单不存在")
+    return user_playlist_service.playlist_payload(
+        _owned_playlist_or_404(db, user.id, playlist_id)
+    )
 
 
 class TrackReference(BaseModel):
@@ -504,6 +721,73 @@ def get_queue(room_id: int, db: Session = Depends(get_db), user=Depends(get_curr
     }
 
 
+@router.post("/rooms/{room_id}/playlists/{playlist_id}/queue")
+async def append_playlist_to_room_queue(
+    room_id: int,
+    playlist_id: int,
+    payload: PlaylistQueuePayload,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    room = _room_member(db, room_id, user)
+    playlist = _owned_playlist_or_404(db, user.id, playlist_id)
+    all_items = sorted(playlist.items, key=lambda item: (item.position, item.id))
+    if payload.item_ids is None:
+        selected = all_items
+    else:
+        if not payload.item_ids or len(payload.item_ids) > 100:
+            raise HTTPException(422, "一次请选择 1 至 100 首歌曲加入听歌房")
+        by_id = {item.id: item for item in all_items}
+        if len(set(payload.item_ids)) != len(payload.item_ids) or any(
+            item_id not in by_id for item_id in payload.item_ids
+        ):
+            raise HTTPException(422, "所选歌曲不属于该歌单")
+        selected = [by_id[item_id] for item_id in payload.item_ids]
+    if len(selected) > 100:
+        raise HTTPException(422, "一次最多追加 100 首歌曲，请分批选择")
+
+    previous_version = room.playback_version
+    added_item_ids: list[int] = []
+    skipped: list[dict[str, object]] = []
+    for playlist_item in selected:
+        if not playlist_item.provider_track_id:
+            skipped.append({"playlist_item_id": playlist_item.id, "reason": "source_track_missing"})
+            continue
+        try:
+            payload_track = MineradioTrack(
+                provider=playlist_item.provider,
+                provider_track_id=playlist_item.provider_track_id,
+                title=playlist_item.title,
+                artist=playlist_item.artist,
+                album=playlist_item.album,
+                artwork_url=playlist_item.artwork_url,
+                duration_seconds=playlist_item.duration_seconds,
+                canonical_track_id=playlist_item.canonical_track_id,
+            )
+            validated = await _validated_room_track(payload_track, db)
+            queue_item = music_service.add_to_queue(db, room, user, validated)
+        except ValueError as exc:
+            reason = "already_in_queue" if "已经在" in str(exc) else "not_playable"
+            skipped.append({"playlist_item_id": playlist_item.id, "reason": reason})
+            continue
+        except ProviderError:
+            skipped.append({"playlist_item_id": playlist_item.id, "reason": "provider_temporarily_unavailable"})
+            continue
+        added_item_ids.append(queue_item.id)
+
+    queue = (
+        await _broadcast_queue(db, room, previous_version=previous_version)
+        if added_item_ids
+        else music_service.queue_payload(db, room.id)
+    )
+    return {
+        "added_count": len(added_item_ids),
+        "added_item_ids": added_item_ids,
+        "skipped": skipped,
+        "queue": queue,
+    }
+
+
 @router.patch("/rooms/{room_id}/settings")
 async def update_room_settings(
     room_id: int,
@@ -653,7 +937,6 @@ async def vote_mineradio_track(
     user=Depends(get_current_user),
 ):
     room = _room_member(db, room_id, user)
-    previous_version = room.playback_version
     item = db.query(models.MusicQueueItem).filter_by(id=item_id, room_id=room.id).first()
     if not item:
         raise HTTPException(404, "候选歌曲不存在")

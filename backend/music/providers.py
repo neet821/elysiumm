@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
-from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -30,6 +29,7 @@ from .base import (
 
 _SAFE_TRACK_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 _SAFE_NUMERIC_ID = re.compile(r"^[0-9]{1,32}$")
+NETEASE_PLAYLIST_PAGE_SIZE = 200
 _USER_AGENT = "ElysiumMusic/1.0 (+https://elysiumm.top)"
 _NETEASE_HEADERS = {
     "Accept": "application/json",
@@ -131,9 +131,10 @@ class DirectMusicProvider(MusicProviderAdapter):
         params: dict[str, object] | None = None,
         payload: dict[str, object] | None = None,
         headers: dict[str, str] | None = None,
+        include_credential: bool = True,
     ) -> dict[str, object]:
         request_headers = {**self.headers, **(headers or {})}
-        credential = self._credential()
+        credential = self._credential() if include_credential else ""
         if credential:
             request_headers["Cookie"] = credential
         content = b""
@@ -271,6 +272,95 @@ class NeteaseProviderAdapter(DirectMusicProvider):
         if not isinstance(songs, list):
             return []
         return [track for item in songs if (track := self._normalize(item)) is not None]
+
+    async def fetch_public_playlist(self, playlist_id: str) -> dict[str, object]:
+        """Fetch a bounded public playlist copy without sending server credentials."""
+
+        if not _SAFE_NUMERIC_ID.fullmatch(str(playlist_id)):
+            raise ProviderError("网易云歌单编号无效")
+        detail = await self._request_json(
+            "GET",
+            "/playlist/detail",
+            params={"id": playlist_id, "s": 0},
+            include_credential=False,
+        )
+        try:
+            code = int(detail.get("code", 200))
+            playlist = detail.get("playlist")
+            privacy = int(playlist.get("privacy")) if isinstance(playlist, dict) and playlist.get("privacy") is not None else None
+            track_count = int(playlist.get("trackCount", 0)) if isinstance(playlist, dict) else -1
+        except (TypeError, ValueError) as exc:
+            raise ProviderError("网易云歌单返回了无效内容") from exc
+        if code != 200 or not isinstance(playlist, dict):
+            raise ProviderError("网易云歌单暂时无法读取")
+        if privacy != 0:
+            raise ProviderError("仅支持公开歌单")
+        if track_count < 0:
+            raise ProviderError("网易云歌单返回了无效歌曲数量")
+        if track_count > 2000:
+            raise ProviderError("歌单歌曲数量超过导入上限（2000 首）")
+
+        songs: list[object] = []
+        for offset in range(0, track_count, NETEASE_PLAYLIST_PAGE_SIZE):
+            limit = min(NETEASE_PLAYLIST_PAGE_SIZE, track_count - offset)
+            track_payload = await self._request_json(
+                "GET",
+                "/playlist/track/all",
+                params={"id": playlist_id, "limit": limit, "offset": offset},
+                include_credential=False,
+            )
+            try:
+                track_code = int(track_payload.get("code", 200))
+            except (TypeError, ValueError) as exc:
+                raise ProviderError("网易云歌单返回了无效内容") from exc
+            if track_code != 200:
+                raise ProviderError("网易云歌单歌曲暂时无法读取")
+            value = track_payload.get("songs")
+            if not isinstance(value, list):
+                value = track_payload.get("tracks")
+            if isinstance(value, list):
+                songs.extend(value[:limit])
+
+        tracks: list[dict[str, object]] = []
+        for index in range(track_count):
+            raw = songs[index] if index < len(songs) else None
+            track = self._normalize(raw)
+            if track is not None:
+                tracks.append({
+                    "provider": self.provider,
+                    "provider_track_id": track.provider_track_id,
+                    "title": track.title,
+                    "artist": track.artist,
+                    "album": track.album,
+                    "artwork_url": track.artwork_url,
+                    "duration_seconds": track.duration_seconds,
+                    "availability": track.availability.value,
+                    "missing": False,
+                })
+                continue
+            raw_item = raw if isinstance(raw, dict) else {}
+            tracks.append({
+                "provider": self.provider,
+                # If a row cannot be normalized, retain it as a visible missing
+                # entry rather than making its unverified source id playable.
+                "provider_track_id": None,
+                "title": _text(raw_item.get("name") or raw_item.get("title"), 300)
+                or f"未能读取的歌曲 #{index + 1}",
+                "artist": _artist_names(raw_item.get("ar") or raw_item.get("artists") or raw_item.get("artist")),
+                "album": None,
+                "artwork_url": None,
+                "duration_seconds": 0,
+                "availability": TrackAvailability.UNAVAILABLE.value,
+                "missing": True,
+            })
+        return {
+            "provider": self.provider,
+            "source_playlist_id": str(playlist_id),
+            "name": _text(playlist.get("name"), 120) or "网易云导入歌单",
+            "source_url": f"https://music.163.com/playlist?id={playlist_id}",
+            "track_count": track_count,
+            "tracks": tracks,
+        }
 
     async def fetch_stream_url(self, track_id: str) -> tuple[str | None, datetime | None, bool]:
         if not _SAFE_NUMERIC_ID.fullmatch(track_id):

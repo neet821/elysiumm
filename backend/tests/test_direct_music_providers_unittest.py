@@ -31,6 +31,102 @@ def json_response(payload: object, status_code: int = 200) -> httpx.Response:
 
 
 class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
+    async def test_public_netease_playlist_uses_bounded_public_calls_without_cookie(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path == "/playlist/detail":
+                return json_response({"code": 200, "playlist": {
+                    "id": 123, "name": "公开歌单", "privacy": 0, "trackCount": 2,
+                }})
+            if request.url.path == "/playlist/track/all":
+                return json_response({"code": 200, "songs": [{
+                    "id": 101, "name": "可播放歌曲", "ar": [{"name": "歌手"}],
+                    "al": {"name": "专辑", "picUrl": "https://img.example/cover.jpg"},
+                    "dt": 181000, "fee": 0,
+                }, {"id": 102}]})
+            raise AssertionError(request.url)
+
+        with tempfile.TemporaryDirectory() as directory:
+            cookie = Path(directory) / "netease.cookie"
+            cookie.write_text("MUSIC_U=must-not-be-sent", encoding="utf-8")
+            adapter = NeteaseProviderAdapter(
+                "https://music.example",
+                credential_path=cookie,
+                transport=httpx.MockTransport(handler),
+            )
+            playlist = await adapter.fetch_public_playlist("123")
+
+        self.assertEqual(playlist["name"], "公开歌单")
+        self.assertEqual(playlist["track_count"], 2)
+        self.assertEqual(len(playlist["tracks"]), 2)
+        self.assertEqual(playlist["tracks"][0]["availability"], "playable")
+        self.assertTrue(playlist["tracks"][1]["missing"])
+        self.assertIsNone(playlist["tracks"][1]["provider_track_id"])
+        self.assertEqual([request.url.path for request in requests], [
+            "/playlist/detail", "/playlist/track/all",
+        ])
+        self.assertTrue(all("cookie" not in request.headers for request in requests))
+        self.assertEqual(requests[1].url.params["limit"], "2")
+
+    async def test_large_public_playlist_is_fetched_in_bounded_pages(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path == "/playlist/detail":
+                return json_response({"code": 200, "playlist": {
+                    "id": 321, "name": "长歌单", "privacy": 0, "trackCount": 201,
+                }})
+            offset = int(request.url.params["offset"])
+            limit = int(request.url.params["limit"])
+            return json_response({
+                "code": 200,
+                "songs": [{
+                    "id": offset + index + 1,
+                    "name": f"歌曲 {offset + index + 1}",
+                    "ar": [{"name": "歌手"}],
+                    "dt": 180000,
+                    "fee": 0,
+                } for index in range(limit)],
+            })
+
+        adapter = NeteaseProviderAdapter(
+            "https://music.example", transport=httpx.MockTransport(handler)
+        )
+        playlist = await adapter.fetch_public_playlist("321")
+
+        self.assertEqual(len(playlist["tracks"]), 201)
+        self.assertEqual(
+            [(request.url.params["offset"], request.url.params["limit"])
+             for request in requests[1:]],
+            [("0", "200"), ("200", "1")],
+        )
+
+    async def test_private_or_oversized_public_playlist_is_rejected(self):
+        async def private_handler(_request: httpx.Request) -> httpx.Response:
+            return json_response({"code": 200, "playlist": {
+                "id": 123, "name": "非公开", "privacy": 10, "trackCount": 1,
+            }})
+
+        private = NeteaseProviderAdapter(
+            "https://music.example", transport=httpx.MockTransport(private_handler)
+        )
+        with self.assertRaisesRegex(ProviderError, "仅支持公开歌单"):
+            await private.fetch_public_playlist("123")
+
+        async def oversized_handler(_request: httpx.Request) -> httpx.Response:
+            return json_response({"code": 200, "playlist": {
+                "id": 123, "name": "过大", "privacy": 0, "trackCount": 2001,
+            }})
+
+        oversized = NeteaseProviderAdapter(
+            "https://music.example", transport=httpx.MockTransport(oversized_handler)
+        )
+        with self.assertRaisesRegex(ProviderError, "歌曲数量超过导入上限"):
+            await oversized.fetch_public_playlist("123")
+
     async def test_audius_search_and_resolve_use_the_direct_public_contract(self):
         requests: list[httpx.Request] = []
 

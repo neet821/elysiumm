@@ -44,6 +44,8 @@ from .music import (
     MusicSkipVote,
     MusicTrackVote,
     MusicFavorite,
+    UserPlaylist,
+    UserPlaylistItem,
 )
 from .rooms import (
     SyncRoom,
@@ -106,6 +108,8 @@ __all__ = [
     "MusicSkipVote",
     "MusicTrackVote",
     "MusicFavorite",
+    "UserPlaylist",
+    "UserPlaylistItem",
     "SyncRoom",
     "VideoPlaylistItem",
     "VideoSubtitle",

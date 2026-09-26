@@ -223,6 +223,8 @@ def _refresh_availability(
 def upsert_canonical_groups(
     db: Session,
     groups: Iterable[CanonicalGroup],
+    *,
+    commit: bool = True,
 ) -> list[models.CanonicalTrack]:
     persisted: list[models.CanonicalTrack] = []
     for group in groups:
@@ -234,9 +236,12 @@ def upsert_canonical_groups(
             _upsert_mapping(db, canonical, track)
         _refresh_availability(db, canonical)
         persisted.append(canonical)
-    db.commit()
-    for canonical in persisted:
-        db.refresh(canonical)
+    if commit:
+        db.commit()
+        for canonical in persisted:
+            db.refresh(canonical)
+    else:
+        db.flush()
     return persisted
 
 

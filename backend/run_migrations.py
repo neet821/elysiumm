@@ -43,6 +43,8 @@ REQUIRED_MANAGED_SCHEMA = {
     "video_sessions": {"room_id", "current_item_id"},
     "books": {"slug", "title", "reader_path"},
     "sync_rooms": {"is_locked"},
+    "user_playlists": {"owner_user_id", "source_provider", "source_playlist_id"},
+    "user_playlist_items": {"playlist_id", "canonical_track_id", "position"},
 }
 
 
