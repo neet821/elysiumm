@@ -20,8 +20,10 @@ if str(BACKEND_DIR) not in sys.path:
 import models  # noqa: E402
 from catalog_domain import ProviderTrack, TrackAvailability  # noqa: E402
 from database import Base  # noqa: E402
-from music import ProviderResolution  # noqa: E402
+from music import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
+import schemas  # noqa: E402
+import sync_room_crud  # noqa: E402
 
 
 class FakeAudiusAdapter:
@@ -137,6 +139,34 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(payload["providers"][0]["playable"])
         self.assertFalse(payload["providers"][1]["playable"])
         self.assertTrue(payload["providers"][2]["playable"])
+
+    async def test_room_queue_reports_temporary_provider_failure_as_503(self):
+        room = sync_room_crud.create_room(
+            self.session,
+            schemas.SyncRoomCreate(
+                room_name="temporary provider failure",
+                mode="music",
+                type="audio",
+                control_mode="all_members",
+            ),
+            self.user.id,
+        )
+        track = music_router.MineradioTrack(
+            provider="netease",
+            provider_track_id="temporary-track",
+            title="Temporary",
+            artist="Artist",
+        )
+
+        async def fail_validation(*_args):
+            raise ProviderError("private upstream response must not leak")
+
+        with patch.object(music_router, "_validated_room_track", side_effect=fail_validation):
+            with self.assertRaises(HTTPException) as raised:
+                await music_router.add_track(room.id, track, self.session, self.user)
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(raised.exception.detail, "曲库暂时不可用，请稍后重试")
 
 
 if __name__ == "__main__":

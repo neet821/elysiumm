@@ -254,7 +254,8 @@ class NeteaseProviderAdapter(DirectMusicProvider):
             artist=artist,
             album=_text(album.get("name"), 300),
             duration_seconds=_duration_seconds(item.get("dt") or item.get("duration")),
-            isrc=_text(item.get("noCopyrightRcmd") or item.get("isrc"), 32),
+            # noCopyrightRcmd is a recommendation object, not an ISRC.
+            isrc=_text(item.get("isrc"), 32),
             artwork_url=_text(artwork, 1000),
             availability=_availability(item),
             fee=_safe_fee(item.get("fee")),

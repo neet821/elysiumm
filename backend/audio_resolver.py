@@ -81,6 +81,7 @@ def _approved_hosts(
 def _payload(
     *,
     availability: str,
+    resolution_status: str | None = None,
     playback_url: str | None,
     expires_at: datetime | None,
     source_type: str,
@@ -89,6 +90,7 @@ def _payload(
 ) -> dict[str, object]:
     payload = {
         "availability": availability,
+        "resolution_status": resolution_status or availability,
         "playback_url": playback_url,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "source_type": source_type,
@@ -194,6 +196,7 @@ async def resolve_audio(
             mapping.id,
         )
     )
+    transient_failure = False
     for mapping in mappings:
         adapter = registry.get(mapping.provider)
         if adapter is None:
@@ -201,6 +204,7 @@ async def resolve_audio(
         try:
             resolution = await adapter.resolve(mapping)
         except ProviderError:
+            transient_failure = True
             continue
         if (
             resolution.availability is TrackAvailability.UNAVAILABLE
@@ -237,13 +241,18 @@ async def resolve_audio(
     )
     return _payload(
         availability=TrackAvailability.UNAVAILABLE.value,
+        resolution_status="temporary_failure" if transient_failure else "unavailable",
         playback_url=None,
         expires_at=None,
         source_type="unavailable",
         provider=None,
         unavailable_reason=(
-            "需要会员权限，或服务器配置的音乐账号无权播放这首歌"
-            if requires_membership
-            else "所有已配置来源都无法提供可播放地址"
+            "曲库暂时不可用，请稍后重试"
+            if transient_failure
+            else (
+                "需要会员权限，或服务器配置的音乐账号无权播放这首歌"
+                if requires_membership
+                else "所有已配置来源都无法提供可播放地址"
+            )
         ),
     )

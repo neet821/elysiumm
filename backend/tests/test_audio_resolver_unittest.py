@@ -216,7 +216,7 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 provider_track_id="ne-none",
                 title="Unavailable",
                 artist="Artist",
-                availability=TrackAvailability.UNAVAILABLE,
+                availability=TrackAvailability.PLAYABLE,
             )
         )
         payload = await audio_resolver.resolve_audio(
@@ -228,11 +228,12 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             payload,
             {
                 "availability": "unavailable",
+                "resolution_status": "temporary_failure",
                 "playback_url": None,
                 "expires_at": None,
                 "source_type": "unavailable",
                 "provider": None,
-                "unavailable_reason": "所有已配置来源都无法提供可播放地址",
+                "unavailable_reason": "曲库暂时不可用，请稍后重试",
             },
         )
 
@@ -284,6 +285,15 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 availability=TrackAvailability.UNAVAILABLE,
             )
         )
+        temporary = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-route-temporary",
+                title="Temporary Error",
+                artist="Artist",
+                availability=TrackAvailability.PLAYABLE,
+            )
+        )
         local = self.canonical(
             ProviderTrack(
                 provider="audius",
@@ -324,6 +334,14 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 no_source = client.get(
                     f"/api/music/tracks/{unavailable.id}/audio", headers=headers
                 )
+                with patch.object(
+                    music_router,
+                    "music_provider_registry",
+                    {"netease": FakeResolverAdapter(error=ProviderError("private upstream detail"))},
+                ):
+                    temporary_failure = client.get(
+                        f"/api/music/tracks/{temporary.id}/audio", headers=headers
+                    )
                 success = client.get(
                     f"/api/music/tracks/{local.id}/audio", headers=headers
                 )
@@ -333,6 +351,10 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(missing.status_code, 404)
         self.assertEqual(no_source.status_code, 409)
         self.assertEqual(no_source.json()["availability"], "unavailable")
+        self.assertEqual(temporary_failure.status_code, 503)
+        self.assertEqual(temporary_failure.json()["availability"], "unavailable")
+        self.assertEqual(temporary_failure.json()["resolution_status"], "temporary_failure")
+        self.assertNotIn("private upstream detail", temporary_failure.text)
         self.assertEqual(success.status_code, 200)
         self.assertEqual(success.json()["source_type"], "local")
 

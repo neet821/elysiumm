@@ -466,6 +466,8 @@ async def get_catalog_audio(
         )
     except audio_resolver.CanonicalTrackNotFound as exc:
         raise HTTPException(404, "曲目不存在") from exc
+    if payload["resolution_status"] == "temporary_failure":
+        return JSONResponse(status_code=503, content=payload)
     if payload["availability"] == "unavailable":
         return JSONResponse(status_code=409, content=payload)
     return payload
@@ -610,11 +612,20 @@ async def _validated_room_track(payload: MineradioTrack, db: Session):
         provider=track["provider"],
         provider_track_id=track["provider_track_id"],
     )
+    if resolved["resolution_status"] == "temporary_failure":
+        raise ProviderError("曲库暂时不可用")
     if resolved["availability"] == "unavailable":
         raise ValueError(resolved.get("unavailable_reason") or "这首歌当前没有可播放地址")
     track["stream_url"] = resolved.get("playback_url")
     track["audio_expires_at"] = resolved.get("expires_at")
     return track
+
+
+async def _validated_room_track_or_http_error(payload: MineradioTrack, db: Session):
+    try:
+        return await _validated_room_track(payload, db)
+    except ProviderError as exc:
+        raise HTTPException(503, "曲库暂时不可用，请稍后重试") from exc
 
 
 @router.get("/rooms/{room_id}/snapshot", response_model=schemas.RoomSnapshotPayload)
@@ -699,7 +710,9 @@ async def requeue_history_track(
 
     previous_version = room.playback_version
     try:
-        item = music_service.add_to_queue(db, room, user, await _validated_room_track(track, db))
+        item = music_service.add_to_queue(
+            db, room, user, await _validated_room_track_or_http_error(track, db)
+        )
     except ValueError as exc:
         if "已经在" in str(exc):
             raise HTTPException(409, str(exc)) from exc
@@ -813,7 +826,9 @@ async def add_track(room_id: int, payload: MineradioTrack, db: Session = Depends
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     try:
-        item = music_service.add_to_queue(db, room, user, await _validated_room_track(payload, db))
+        item = music_service.add_to_queue(
+            db, room, user, await _validated_room_track_or_http_error(payload, db)
+        )
     except ValueError as exc:
         if "已经在" in str(exc):
             raise HTTPException(409, str(exc)) from exc
@@ -886,7 +901,7 @@ async def select_mineradio_track(
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     try:
-        track = await _validated_room_track(payload, db)
+        track = await _validated_room_track_or_http_error(payload, db)
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
         if "已经在" in str(exc):
@@ -905,7 +920,7 @@ async def propose_mineradio_track(
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     try:
-        track = await _validated_room_track(payload, db)
+        track = await _validated_room_track_or_http_error(payload, db)
         item = music_service.add_to_queue(db, room, user, track)
     except ValueError as exc:
         if "已经在" in str(exc):

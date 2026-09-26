@@ -20,6 +20,21 @@ class MusicRuntimeConfigTest(unittest.TestCase):
             lock["packages"]["node_modules/@neteasecloudmusicapienhanced/api"]["license"],
             "MIT",
         )
+        expected_transitive_packages = {
+            "node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils": (
+                "0.4.4",
+                "MIT",
+            ),
+            "node_modules/@unblockneteasemusic/server": (
+                "0.28.0",
+                "LGPL-3.0-only",
+            ),
+        }
+        for package_path, (version, license_name) in expected_transitive_packages.items():
+            with self.subTest(package=package_path):
+                package_metadata = lock["packages"][package_path]
+                self.assertEqual(package_metadata["version"], version)
+                self.assertEqual(package_metadata["license"], license_name)
 
     def test_systemd_units_keep_music_api_on_loopback_and_follow_backend_release(self):
         music = (ROOT / "deployment/systemd/elysiumm-music-api.service").read_text(encoding="utf-8")

@@ -174,6 +174,7 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
                     "al": {"name": "Open", "picUrl": "https://img.example/blue.jpg"},
                     "dt": 181000,
                     "fee": 0,
+                    "noCopyrightRcmd": {"type": 1, "songId": 999},
                 }]}})
             if request.url.path == "/song/url/v1":
                 return json_response({"data": [{"id": 101, "url": "https://audio.example/blue.m4a", "expi": 60}]})
@@ -195,6 +196,7 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(tracks[0].provider_track_id, "101")
         self.assertEqual(tracks[0].duration_seconds, 181)
+        self.assertIsNone(tracks[0].isrc)
         self.assertEqual(tracks[0].availability, TrackAvailability.PLAYABLE)
         self.assertEqual(resolved.playback_url, "/api/music/stream/netease/101?provider=netease&id=101")
         self.assertEqual(resolved.availability, TrackAvailability.PLAYABLE)
