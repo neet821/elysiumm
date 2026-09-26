@@ -19,6 +19,7 @@ import schemas  # noqa: E402
 import security  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from routers import video as video_router  # noqa: E402
 from config import config  # noqa: E402
 from database import Base  # noqa: E402
@@ -47,13 +48,13 @@ class WebsocketSecurityTest(unittest.TestCase):
         self.emitted = []
         self.entered_rooms = []
 
-        self.original_get_db = websocket_server.get_db
+        self.original_get_db = realtime_common.get_db
         self.original_save_session = websocket_server.sio.save_session
         self.original_get_session = websocket_server.sio.get_session
         self.original_emit = websocket_server.sio.emit
         self.original_enter_room = websocket_server.sio.enter_room
 
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
 
         async def fake_save_session(sid, data):
             self.sessions[sid] = dict(data)
@@ -83,7 +84,7 @@ class WebsocketSecurityTest(unittest.TestCase):
         websocket_server.socket_event_limiter.clear()
 
     def tearDown(self):
-        websocket_server.get_db = self.original_get_db
+        realtime_common.get_db = self.original_get_db
         websocket_server.sio.save_session = self.original_save_session
         websocket_server.sio.get_session = self.original_get_session
         websocket_server.sio.emit = self.original_emit

@@ -22,6 +22,7 @@ import schemas  # noqa: E402
 import security  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from database import Base  # noqa: E402
 
 
@@ -112,11 +113,11 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
         self.sessions = {}
         self.emitted = []
         self.entered_rooms = []
-        self.original_get_db = websocket_server.get_db
+        self.original_get_db = realtime_common.get_db
         self.original_get_session = websocket_server.sio.get_session
         self.original_emit = websocket_server.sio.emit
         self.original_enter_room = websocket_server.sio.enter_room
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
 
         async def fake_get_session(sid):
             return self.sessions.get(sid)
@@ -144,7 +145,7 @@ class MusicRoomSnapshotProtocolTest(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         main.app.dependency_overrides.clear()
-        websocket_server.get_db = self.original_get_db
+        realtime_common.get_db = self.original_get_db
         websocket_server.sio.get_session = self.original_get_session
         websocket_server.sio.emit = self.original_emit
         websocket_server.sio.enter_room = self.original_enter_room

@@ -27,6 +27,7 @@ import schemas  # noqa: E402
 import security  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from database import Base  # noqa: E402
 from routers import music as music_router  # noqa: E402
 
@@ -360,7 +361,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
             music_router.sio.emit = original_emit
 
     def test_private_chat_target_must_also_be_a_room_member(self):
-        original_get_db = websocket_server.get_db
+        original_get_db = realtime_common.get_db
         original_get_session = websocket_server.sio.get_session
         original_emit = websocket_server.sio.emit
         emitted = []
@@ -375,7 +376,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
         async def emit(event, data=None, room=None, skip_sid=None):
             emitted.append((event, data or {}, room, skip_sid))
 
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
         websocket_server.sio.get_session = get_session
         websocket_server.sio.emit = emit
         websocket_server.room_connections[self.room.id] = {
@@ -389,7 +390,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
                 "target_user_id": self.attacker.id,
             }))
         finally:
-            websocket_server.get_db = original_get_db
+            realtime_common.get_db = original_get_db
             websocket_server.sio.get_session = original_get_session
             websocket_server.sio.emit = original_emit
 

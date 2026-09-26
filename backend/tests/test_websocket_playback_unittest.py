@@ -12,6 +12,7 @@ import models  # noqa: E402
 import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from database import Base  # noqa: E402
 
 
@@ -36,11 +37,11 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         self.db.commit()
         self.db.refresh(self.host)
 
-        self.original_get_db = websocket_server.get_db
+        self.original_get_db = realtime_common.get_db
         self.original_get_session = websocket_server.sio.get_session
         self.original_emit = websocket_server.sio.emit
         self.original_enter_room = websocket_server.sio.enter_room
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
         self.sessions = {
             "sid-host": {
                 "user_id": self.host.id,
@@ -75,7 +76,7 @@ class WebsocketPlaybackControlTest(unittest.TestCase):
         websocket_server.last_music_time_persisted.clear()
 
     def tearDown(self):
-        websocket_server.get_db = self.original_get_db
+        realtime_common.get_db = self.original_get_db
         websocket_server.sio.get_session = self.original_get_session
         websocket_server.sio.emit = self.original_emit
         websocket_server.sio.enter_room = self.original_enter_room

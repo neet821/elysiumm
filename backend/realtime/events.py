@@ -1,34 +1,52 @@
 """Explicit grouping and registration of realtime domain event handlers."""
-from collections.abc import Callable, Mapping
 
+from . import lifecycle, playback_events, room_events, video_events
 from .runtime import register_handlers
 
 
 _DOMAIN_EVENTS = {
-    "lifecycle": ("connect", "disconnect"),
+    "lifecycle": (
+        lifecycle,
+        ("connect", "disconnect"),
+    ),
     "room": (
-        "join_room",
-        "leave_room_event",
-        "send_message",
-        "request_snapshot",
-        "presence_heartbeat",
-        "request_sync",
+        room_events,
+        (
+            "join_room",
+            "leave_room_event",
+            "send_message",
+            "request_snapshot",
+            "presence_heartbeat",
+            "request_sync",
+        ),
     ),
     "playback": (
-        "playback_control",
-        "time_heartbeat",
-        "time_update",
-        "video_ended",
-        "music_ended",
+        playback_events,
+        (
+            "playback_control",
+            "time_heartbeat",
+            "time_update",
+            "video_ended",
+            "music_ended",
+        ),
     ),
-    "video": ("video_buffer_status", "video_local_ready"),
+    "video": (
+        video_events,
+        ("video_buffer_status", "video_local_ready"),
+    ),
 }
 
 
-def register_domain_events(handlers: Mapping[str, Callable]) -> frozenset[str]:
+def register_domain_events() -> frozenset[str]:
     """Connect every declared domain handler to the singleton exactly once."""
-    names = tuple(name for group in _DOMAIN_EVENTS.values() for name in group)
+    handlers = {
+        name: getattr(module, name)
+        for module, names in _DOMAIN_EVENTS.values()
+        for name in names
+        if callable(getattr(module, name, None))
+    }
+    names = tuple(name for _, group in _DOMAIN_EVENTS.values() for name in group)
     missing = [name for name in names if name not in handlers]
     if missing:
         raise RuntimeError(f"missing realtime handlers: {', '.join(missing)}")
-    return register_handlers({name: handlers[name] for name in names})
+    return register_handlers(handlers)
