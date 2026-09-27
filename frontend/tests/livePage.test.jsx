@@ -34,7 +34,7 @@ import { API_ENDPOINTS } from '../src/config.js'
 import LivePage from '../src/pages/LivePage.jsx'
 import apiClient from '../src/utils/request.js'
 
-const liveCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+const liveCss = readFileSync(resolve(process.cwd(), 'src/features/live/live.css'), 'utf8')
 
 
 const liveStatus = {
