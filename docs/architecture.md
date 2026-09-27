@@ -28,13 +28,15 @@ owns authorization and data, and the browser consumes only the stable HTTP and
 Socket.IO contracts. This lets visual changes stay in the frontend without
 moving permission or persistence rules into presentation code.
 
-The administrator Files workspace is an example: its layout is in
-`frontend/src/features/admin-files/adminFiles.css`, while shared error, heading
-and transfer-link primitives remain global. The public transfer page is
-read/download-only. Upload controls exist only in the authenticated admin Files
-workspace for persistent transfer files and use the resumable tus flow. Other
-feature-specific uploads (such as account avatars or room-local media) keep
-their own ownership and authorization rules. The former unmounted
+The administrator Files workspace and music room are examples: their styles
+live in `frontend/src/features/admin-files/adminFiles.css` and
+`frontend/src/features/music/musicRoom.css`; shared error, heading, transfer-
+link and room-layout primitives remain global. Feature-only style imports
+follow their lazy-loaded pages. The public transfer page is read/download-only.
+Upload controls for persistent transfer files exist only in the authenticated
+admin Files workspace and use the resumable tus flow. Other feature-specific
+uploads (such as account avatars or room-local media) keep their own ownership
+and authorization rules. The former unmounted
 `TransferInboxPage` and its one-shot browser upload UI/tests were retired after
 route and consumer checks; coverage now exercises the routed admin workspace,
 tus lifecycle and backend administrator-only authorization. The legacy

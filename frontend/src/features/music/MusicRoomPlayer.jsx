@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import './musicRoom.css'
 import { NativeAudioAdapter } from './NativeAudioAdapter.js'
 import MusicRoomCover from './MusicRoomCover.jsx'
 import MusicRoomQueuePanel from './MusicRoomQueuePanel.jsx'
