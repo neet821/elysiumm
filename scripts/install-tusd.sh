@@ -58,7 +58,7 @@ fi
 
 tar -xzf "${archive}" -C "${temporary_dir}"
 extracted_binary="${temporary_dir}/tusd_linux_amd64/tusd"
-extracted_license="${temporary_dir}/tusd_linux_amd64/LICENSE.txt"
+extracted_license="${temporary_dir}/LICENSE.txt"
 if ! verify_binary "${extracted_binary}" || [[ ! -s "${extracted_license}" ]]; then
   echo "tusd ${TUSD_VERSION} 发布内容校验失败。" >&2
   exit 1

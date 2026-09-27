@@ -1,6 +1,9 @@
 """Deployment contract for the pinned, private tusd sidecar."""
 
 from pathlib import Path
+import os
+import subprocess
+import tempfile
 import unittest
 
 
@@ -8,6 +11,74 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class TusdRuntimeConfigTest(unittest.TestCase):
+    def test_installer_accepts_release_root_license_layout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            commands = root / "commands"
+            commands.mkdir()
+            curl = commands / "curl"
+            curl.write_text(
+                "#!/bin/sh\n"
+                "while [ \"$#\" -gt 0 ]; do\n"
+                "  if [ \"$1\" = \"--output\" ]; then\n"
+                "    : > \"$2\"\n"
+                "    exit 0\n"
+                "  fi\n"
+                "  shift\n"
+                "done\n"
+                "exit 2\n",
+                encoding="utf-8",
+            )
+            tar = commands / "tar"
+            tar.write_text(
+                "#!/bin/sh\n"
+                "destination=\n"
+                "while [ \"$#\" -gt 0 ]; do\n"
+                "  if [ \"$1\" = \"-C\" ]; then\n"
+                "    destination=$2\n"
+                "    shift 2\n"
+                "  else\n"
+                "    shift\n"
+                "  fi\n"
+                "done\n"
+                "mkdir -p \"$destination/tusd_linux_amd64\"\n"
+                "printf '#!/bin/sh\\nprintf \\\"Version: v2.10.0\\\\n\\\"\\n' > \"$destination/tusd_linux_amd64/tusd\"\n"
+                "chmod +x \"$destination/tusd_linux_amd64/tusd\"\n"
+                "printf 'pinned release license fixture\\n' > \"$destination/LICENSE.txt\"\n",
+                encoding="utf-8",
+            )
+            sha256sum = commands / "sha256sum"
+            sha256sum.write_text(
+                "#!/bin/sh\n"
+                "case \"$1\" in\n"
+                "  *.tar.gz) digest=68bd62773a494c621b2b806dfaa03a57aac44044c9757440a17765283fbd7a68 ;;\n"
+                "  *) digest=b01e54afb2449738cee6114aeca65b1b339b3e56bcbe301ce7b7bcd3db37537c ;;\n"
+                "esac\n"
+                "printf '%s  %s\\n' \"$digest\" \"$1\"\n",
+                encoding="utf-8",
+            )
+            for command in (curl, tar, sha256sum):
+                command.chmod(0o755)
+
+            destination = root / "installed"
+            environment = os.environ.copy()
+            environment["PATH"] = f"{commands}:{environment['PATH']}"
+            result = subprocess.run(
+                ["bash", str(ROOT / "scripts/install-tusd.sh"), str(destination)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), str(destination / "tusd"))
+            self.assertTrue((destination / "tusd").is_file())
+            self.assertEqual(
+                (destination / "LICENSE.txt").read_text(encoding="utf-8"),
+                "pinned release license fixture\n",
+            )
+
     def test_tusd_is_loopback_only_and_uses_the_versioned_backend_release(self):
         source = (ROOT / "deployment/systemd/elysiumm-tusd.service").read_text(
             encoding="utf-8"
