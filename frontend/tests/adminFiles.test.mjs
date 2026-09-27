@@ -5,6 +5,10 @@ const source = readFileSync(
   new URL("../src/pages/AdminFilesPage.jsx", import.meta.url),
   "utf8",
 );
+const publicTransferPage = readFileSync(
+  new URL("../src/pages/TransferPage.jsx", import.meta.url),
+  "utf8",
+);
 const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const routes = readFileSync(new URL("../src/routes.jsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
@@ -42,6 +46,25 @@ assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fi
 assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
 assert.match(routes, /isTransferHost\(\) \? withAuth\(<AdminFilesPage \/>/, "the fixed transfer host must render the unified admin Files workspace");
 assert.doesNotMatch(routes, /TransferInboxPage/, "the fixed transfer host must not render a separate transfer page");
+assert.equal(
+  existsSync(new URL("../src/pages/TransferInboxPage.jsx", import.meta.url)),
+  false,
+  "the unmounted legacy inbox and its alternate upload path must be retired",
+);
+assert.match(routes, /path="\/transfer\/:token"\s+element=\{<TransferPage \/>\}/, "public transfer links must keep their read/download page");
+assert.doesNotMatch(publicTransferPage, /type="file"|apiClient\.put/, "public transfer links must not expose an upload path");
+for (const retiredSelector of [
+  ".transfer-inbox-page",
+  ".transfer-inbox-upload",
+  ".transfer-upload-progress",
+  ".transfer-page__upload",
+]) {
+  assert.equal(
+    styles.includes(retiredSelector),
+    false,
+    `global styles must not retain retired selector ${retiredSelector}`,
+  );
+}
 assert.match(
   source,
   /import ['"]\.\.\/features\/admin-files\/adminFiles\.css['"];?/,

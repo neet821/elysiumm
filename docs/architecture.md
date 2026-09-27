@@ -16,6 +16,30 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 - Music room UI, lyrics, covers and particles live under `frontend/src/features/music/`. NetEase, QQ and Audius adapters live under `backend/music/`; provider credentials are root-managed and never sent to browsers.
 - Articles parsing, Markdown sanitization and media delivery live under `backend/articles/`. The public `/api/articles/**`, `/api/content/**` and `/media/**` contracts remain unchanged.
 
+## Frontend ownership
+
+`frontend/src/index.css` owns design tokens, resets, the application shell and
+styles intentionally shared by multiple routes. A page or feature stylesheet
+belongs beside its owner under `frontend/src/pages/` or
+`frontend/src/features/<feature>/` and is imported by that page/module. Since
+routes are lazy-loaded, feature-only styles should not be added to the global
+sheet. Keep component state, API calls and markup in frontend modules; FastAPI
+owns authorization and data, and the browser consumes only the stable HTTP and
+Socket.IO contracts. This lets visual changes stay in the frontend without
+moving permission or persistence rules into presentation code.
+
+The administrator Files workspace is an example: its layout is in
+`frontend/src/features/admin-files/adminFiles.css`, while shared error, heading
+and transfer-link primitives remain global. The public transfer page is
+read/download-only. Upload controls exist only in the authenticated admin Files
+workspace for persistent transfer files and use the resumable tus flow. Other
+feature-specific uploads (such as account avatars or room-local media) keep
+their own ownership and authorization rules. The former unmounted
+`TransferInboxPage` and its one-shot browser upload UI/tests were retired after
+route and consumer checks; coverage now exercises the routed admin workspace,
+tus lifecycle and backend administrator-only authorization. The legacy
+token-based upload API remains server-side and protected for compatibility.
+
 ## Domain boundaries
 
 Public content covers the homepage, posts and photos supplied by the current
