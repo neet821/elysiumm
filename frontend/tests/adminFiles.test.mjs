@@ -8,6 +8,10 @@ const source = readFileSync(
 const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const routes = readFileSync(new URL("../src/routes.jsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+const featureStylesPath = new URL("../src/features/admin-files/adminFiles.css", import.meta.url);
+const featureStyles = existsSync(featureStylesPath)
+  ? readFileSync(featureStylesPath, "utf8")
+  : "";
 
 for (const label of ["文件同步", "文件中转"]) {
   assert.match(source, new RegExp(label), `Files workspace must include ${label}`);
@@ -38,6 +42,21 @@ assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fi
 assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
 assert.match(routes, /isTransferHost\(\) \? withAuth\(<AdminFilesPage \/>/, "the fixed transfer host must render the unified admin Files workspace");
 assert.doesNotMatch(routes, /TransferInboxPage/, "the fixed transfer host must not render a separate transfer page");
+assert.match(
+  source,
+  /import ['"]\.\.\/features\/admin-files\/adminFiles\.css['"];?/,
+  "the lazy admin Files page must own its feature stylesheet",
+);
+assert.match(
+  featureStyles,
+  /\.admin-file-cards\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+  "the Files feature stylesheet needs a responsive card grid",
+);
+assert.doesNotMatch(
+  styles,
+  /\.admin-file-cards\s*\{/,
+  "admin Files feature styles must not be loaded from the global stylesheet",
+);
 assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
 assert.match(source, /filter\(\(item\) => !item\.path\.endsWith\('\/'\)\)/, "sync workspace must list files only");
@@ -59,12 +78,12 @@ assert.equal(
 );
 assert.doesNotMatch(routes, /import PublicSyncPage/, "routes must not import the removed sync page");
 assert.match(
-  styles,
+  featureStyles,
   /\.admin-file-cards\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
   "the Files workspace needs a responsive card grid",
 );
 assert.match(
-  styles,
+  featureStyles,
   /@media\s*\(max-width:\s*760px\)[\s\S]*?\.admin-file-cards\s*\{\s*grid-template-columns:\s*1fr\s*;\s*\}/,
   "the Files workspace must collapse safely on narrow screens",
 );

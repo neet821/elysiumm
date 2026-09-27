@@ -1,6 +1,7 @@
 import { Check, Copy, Download, FileDown, FolderSync, Link2, LogOut, RefreshCw, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import '../features/admin-files/adminFiles.css'
 import { API_ENDPOINTS, isTransferHost } from '../config.js'
 import AdminTusUploadQueue from '../features/admin-files/AdminTusUploadQueue.jsx'
 import { useAdminTusUploads } from '../features/admin-files/useAdminTusUploads.js'

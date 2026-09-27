@@ -1,0 +1,363 @@
+.admin-files-page {
+  display: grid;
+  gap: 1rem;
+}
+.admin-icon-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: inline-flex;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+}
+.admin-icon-button:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+.admin-transfer-upload {
+  align-items: center;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+  padding: 1.4rem;
+}
+.admin-transfer-upload:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+.admin-transfer-upload:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.65;
+}
+.admin-transfer-upload input {
+  display: none;
+}
+.admin-file-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.admin-transfer-note-card {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+.admin-file-card__icon--note {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+.admin-transfer-note__label {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.8rem;
+  margin: 1rem 0 0.4rem;
+}
+.admin-transfer-note-card textarea {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.6;
+  padding: 0.7rem;
+  resize: vertical;
+  width: 100%;
+}
+.admin-transfer-note-card textarea:focus {
+  border-color: var(--accent-blue);
+  outline: 2px solid color-mix(in srgb, var(--accent-blue) 25%, transparent);
+}
+.admin-transfer-note__actions {
+  align-items: center;
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.4rem;
+}
+.admin-transfer-note__actions button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem;
+}
+.admin-transfer-note__actions button:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+.admin-transfer-note__status {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.admin-file-card {
+  border: 1px solid var(--border-subtle);
+  min-height: 25rem;
+  padding: 1.25rem;
+}
+.admin-file-card--disabled {
+  opacity: 0.72;
+}
+.admin-file-card__icon {
+  align-items: center;
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+  display: flex;
+  height: 2.8rem;
+  justify-content: center;
+  width: 2.8rem;
+}
+.admin-file-card__icon--violet {
+  border-color: #a78bfa;
+  color: #a78bfa;
+}
+.admin-file-card__label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  margin: 1.4rem 0 0.35rem;
+}
+.admin-file-card h3 {
+  font-size: 1.4rem;
+  margin: 0 0 0.6rem;
+}
+.admin-file-card > p:not(.admin-file-card__label) {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.admin-file-status {
+  border: 1px solid var(--border-subtle);
+  display: inline-block;
+  font-size: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0.3rem 0.5rem;
+}
+.admin-file-status--online {
+  border-color: #22c55e;
+  color: #86efac;
+}
+.admin-file-status--offline,
+.admin-file-status--error,
+.admin-file-status--auth_failed {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+.admin-file-browser {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 0.6rem;
+  max-height: 15rem;
+  overflow: auto;
+}
+.admin-file-browser__bar {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 0.76rem;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+}
+.admin-file-browser__bar button {
+  background: none;
+  border: 0;
+  color: var(--accent-blue);
+}
+.admin-file-browser__item {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 0;
+  text-align: left;
+  width: 100%;
+}
+.admin-file-browser__item span {
+  flex: 1;
+}
+.admin-file-browser__item:hover {
+  color: var(--accent-blue);
+}
+.admin-transfer-created {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+.admin-transfer-created span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.admin-transfer-created .transfer-share-row {
+  margin-top: 0;
+}
+.admin-transfer-created .transfer-share-row button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  white-space: nowrap;
+}
+.admin-transfer-created .transfer-share-row button:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+.admin-transfer-list {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 1rem;
+}
+.admin-tus-queue {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+.admin-tus-queue h4 {
+  color: var(--text-primary);
+  margin: 0 0 0.6rem;
+}
+.admin-tus-queue__item {
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(8rem, 1fr) minmax(5rem, 2fr) 2.5rem auto;
+  padding: 0.7rem 0;
+}
+.admin-tus-queue__summary {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.admin-tus-queue__summary strong,
+.admin-tus-queue__summary span,
+.admin-tus-queue__summary small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-tus-queue__summary strong {
+  color: var(--text-primary);
+}
+.admin-tus-queue__summary span,
+.admin-tus-queue__summary small,
+.admin-tus-queue__percent {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.admin-tus-queue__summary small[role="alert"] {
+  color: #f87171;
+}
+.admin-tus-queue__item progress {
+  appearance: none;
+  background: var(--surface-card-muted);
+  border: 0;
+  height: 0.35rem;
+  min-width: 0;
+  width: 100%;
+}
+.admin-tus-queue__item progress::-webkit-progress-bar {
+  background: var(--surface-card-muted);
+}
+.admin-tus-queue__item progress::-webkit-progress-value,
+.admin-tus-queue__item progress::-moz-progress-bar {
+  background: var(--accent-blue);
+}
+.admin-tus-queue__percent {
+  text-align: right;
+}
+.admin-tus-queue__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+.admin-tus-queue__actions button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.35rem;
+}
+.admin-tus-queue__actions button:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+.admin-transfer-file {
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 0.5rem;
+}
+.admin-transfer-file__download {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: var(--text-secondary);
+  display: flex;
+  flex: 1;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.7rem 0;
+  text-align: left;
+}
+.admin-transfer-file__download span {
+  display: grid;
+  flex: 1;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.admin-transfer-file__download strong {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.admin-transfer-file__download small {
+  color: var(--text-muted);
+}
+.admin-transfer-file__download:hover {
+  color: var(--accent-blue);
+}
+.admin-transfer-file__delete {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: #f87171;
+  display: flex;
+  padding: 0.5rem;
+}
+.admin-transfer-file__delete:hover {
+  color: #ef4444;
+}
+
+@media (max-width: 760px) {
+  .admin-file-cards {
+    grid-template-columns: 1fr;
+  }
+  .admin-file-card {
+    min-height: 0;
+  }
+  .admin-transfer-note-card {
+    grid-column: auto;
+  }
+  .admin-tus-queue__item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .admin-tus-queue__item progress {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .admin-tus-queue__percent {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .admin-tus-queue__actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
