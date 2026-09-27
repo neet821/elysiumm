@@ -62,6 +62,7 @@ class TusdRuntimeConfigTest(unittest.TestCase):
 
             destination = root / "installed"
             environment = os.environ.copy()
+            environment.pop("TUSD_BINARY", None)
             environment["PATH"] = f"{commands}:{environment['PATH']}"
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/install-tusd.sh"), str(destination)],
