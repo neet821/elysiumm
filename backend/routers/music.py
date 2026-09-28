@@ -1,7 +1,7 @@
 import json
 import uuid
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -513,6 +513,11 @@ async def stream_audius(track_id: str):
         raise HTTPException(502, "曲库暂时无法提供播放地址") from exc
     if resolution.availability is TrackAvailability.UNAVAILABLE or not resolution.playback_url:
         raise HTTPException(409, "当前歌曲没有可播放地址")
+    if not audio_resolver.is_safe_playback_url(
+        resolution.playback_url,
+        getattr(adapter, "approved_audio_hosts", frozenset()),
+    ):
+        raise HTTPException(409, "当前歌曲没有可播放地址")
     return RedirectResponse(resolution.playback_url, status_code=307, headers={"Cache-Control": "no-store"})
 
 
@@ -521,6 +526,7 @@ async def stream_catalog_provider(
     provider: str,
     track_id: str,
     media_mid: str | None = Query(default=None, max_length=120),
+    db: Session = Depends(get_db),
 ):
     """Resolve a short-lived provider URL without exposing provider cookies.
 
@@ -529,19 +535,37 @@ async def stream_catalog_provider(
     """
     if provider not in CATALOG_PROVIDERS:
         raise HTTPException(404, "不支持的曲库来源")
+    mapping = catalog_repository.provider_mapping(db, provider, track_id)
+    if mapping is None:
+        raise HTTPException(404, "曲库曲目不存在")
+    if mapping.availability not in {
+        TrackAvailability.PLAYABLE.value,
+        TrackAvailability.PREVIEW.value,
+    }:
+        raise HTTPException(409, "当前歌曲没有可播放地址")
+    if media_mid is not None and media_mid != mapping.media_mid:
+        raise HTTPException(409, "曲目来源信息不匹配")
+
     adapter = music_provider_registry.get(provider)
     fetch_stream_url = getattr(adapter, "fetch_stream_url", None)
     if adapter is None or not callable(fetch_stream_url):
         raise HTTPException(503, "曲库播放适配器尚未配置")
     try:
         if provider == "qq":
-            upstream, _expires_at, _trial = await fetch_stream_url(track_id, media_mid)
+            upstream, _expires_at, _trial = await fetch_stream_url(
+                mapping.provider_track_id,
+                mapping.media_mid,
+            )
         else:
-            upstream, _expires_at, _trial = await fetch_stream_url(track_id)
+            upstream, _expires_at, _trial = await fetch_stream_url(
+                mapping.provider_track_id
+            )
     except ProviderError as exc:
         raise HTTPException(502, "曲库暂时无法提供播放地址") from exc
-    parsed = urlparse(str(upstream or ""))
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+    if not audio_resolver.is_safe_playback_url(
+        upstream,
+        getattr(adapter, "approved_audio_hosts", frozenset()),
+    ):
         raise HTTPException(409, "当前歌曲没有可播放地址")
     return RedirectResponse(str(upstream), status_code=307, headers={"Cache-Control": "no-store"})
 

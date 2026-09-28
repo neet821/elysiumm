@@ -11,6 +11,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import audio_resolver
 from catalog_domain import TrackAvailability
 from music import (
     AudiusProviderAdapter,
@@ -31,6 +32,35 @@ def json_response(payload: object, status_code: int = 200) -> httpx.Response:
 
 
 class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
+    def test_direct_provider_audio_allowlists_cover_only_their_cdn_domains(self):
+        netease = NeteaseProviderAdapter("https://music.example")
+        qq = QQProviderAdapter("https://qq-api.example")
+
+        self.assertTrue(
+            audio_resolver.is_safe_playback_url(
+                "https://m701.music.126.net/song.mp3",
+                netease.approved_audio_hosts,
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://music.126.net.evil.example/song.mp3",
+                netease.approved_audio_hosts,
+            )
+        )
+        self.assertTrue(
+            audio_resolver.is_safe_playback_url(
+                "https://ws.stream.qqmusic.qq.com/song.m4a",
+                qq.approved_audio_hosts,
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://qqmusic.qq.com.evil.example/song.m4a",
+                qq.approved_audio_hosts,
+            )
+        )
+
     async def test_public_netease_playlist_uses_bounded_public_calls_without_cookie(self):
         requests: list[httpx.Request] = []
 

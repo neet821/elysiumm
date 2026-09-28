@@ -99,6 +99,50 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(payload["expires_at"])
         self.assertEqual(adapter.calls, 0)
 
+    async def test_provider_track_filter_does_not_reuse_unmapped_local_audio(self):
+        canonical = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-filtered-local",
+                title="Filtered Local",
+                artist="Artist",
+                availability=TrackAvailability.PLAYABLE,
+            )
+        )
+        self.db.add(
+            models.TrackAudioSource(
+                canonical_track_id=canonical.id,
+                source_type="local",
+                playback_url="/api/music/local/filtered.mp3",
+                availability="playable",
+                expires_at=None,
+            )
+        )
+        self.db.commit()
+        adapter = FakeResolverAdapter(
+            resolution=ProviderResolution(
+                provider="netease",
+                availability=TrackAvailability.PLAYABLE,
+                playback_url="/api/music/stream/netease/ne-filtered-local",
+                source_type="anonymous_full",
+            )
+        )
+
+        payload = await audio_resolver.resolve_audio(
+            self.db,
+            canonical.id,
+            {"netease": adapter},
+            provider_track_id="ne-filtered-local",
+        )
+
+        self.assertEqual(payload["provider"], "netease")
+        self.assertEqual(payload["source_type"], "anonymous_full")
+        self.assertEqual(
+            payload["playback_url"],
+            "/api/music/stream/netease/ne-filtered-local",
+        )
+        self.assertEqual(adapter.calls, 1)
+
     async def test_unexpired_cache_is_reused_and_force_refresh_replaces_it(self):
         now = datetime(2026, 7, 16, 2, 0, 0)
         canonical = self.canonical(
@@ -261,6 +305,26 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             audio_resolver.is_safe_playback_url(
                 "https://audio.example/track.mp3",
                 allowed,
+            )
+        )
+
+    def test_provider_host_patterns_allow_only_configured_subdomains(self):
+        self.assertTrue(
+            audio_resolver.is_safe_playback_url(
+                "https://m701.music.126.net/track.mp3",
+                {"*.music.126.net"},
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://music.126.net/track.mp3",
+                {"*.music.126.net"},
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://evil-music.126.net/track.mp3",
+                {"*.music.126.net"},
             )
         )
 

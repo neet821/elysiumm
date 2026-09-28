@@ -118,6 +118,63 @@ class CatalogLyricsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(qq.calls, 1)
         self.assertEqual(self.db.query(models.TrackLyrics).count(), 1)
 
+    async def test_lyrics_cache_is_scoped_to_requested_provider_track_mapping(self):
+        now = datetime(2026, 7, 16, 3, 0, 0)
+        canonical = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-lyrics-old-version",
+                title="Versioned Lyrics",
+                artist="Artist",
+                isrc="USAAA2600499",
+                availability=TrackAvailability.PLAYABLE,
+            )
+        )
+        old_mapping = catalog_repository.provider_mapping(
+            self.db, "netease", "ne-lyrics-old-version"
+        )
+        current_mapping = models.TrackProviderMapping(
+            canonical_track_id=canonical.id,
+            provider="netease",
+            provider_track_id="ne-lyrics-current-version",
+            availability=TrackAvailability.PLAYABLE.value,
+        )
+        self.db.add(current_mapping)
+        self.db.flush()
+        catalog_repository.upsert_lyrics(
+            self.db,
+            canonical_id=canonical.id,
+            provider_mapping_id=old_mapping.id,
+            provider="netease",
+            language="original",
+            timed_text="[00:01]旧版本歌词",
+            translation_text=None,
+            fetched_at=now,
+            expires_at=now + timedelta(hours=1),
+        )
+        self.db.commit()
+        adapter = FakeLyricsAdapter(
+            result=ProviderLyrics(
+                provider="netease",
+                language="original",
+                timed_text="[00:02]当前版本歌词",
+            )
+        )
+
+        payload = await catalog_service.get_catalog_lyrics(
+            self.db,
+            canonical.id,
+            {"netease": adapter},
+            provider="netease",
+            provider_track_id="ne-lyrics-current-version",
+            now=now + timedelta(minutes=1),
+        )
+
+        self.assertEqual(payload["lines"], [{"time": 2.0, "text": "当前版本歌词"}])
+        self.assertEqual(adapter.calls, 1)
+        cached = self.db.query(models.TrackLyrics).one()
+        self.assertEqual(cached.provider_mapping_id, current_mapping.id)
+
     async def test_all_empty_lyrics_return_successful_empty_payload(self):
         canonical = self.canonical(
             ProviderTrack(

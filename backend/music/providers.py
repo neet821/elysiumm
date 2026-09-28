@@ -233,6 +233,7 @@ class DirectMusicProvider(MusicProviderAdapter):
 class NeteaseProviderAdapter(DirectMusicProvider):
     provider = "netease"
     headers = _NETEASE_HEADERS
+    approved_audio_hosts = frozenset({"music.126.net", "*.music.126.net"})
 
     def _normalize(self, item: object) -> ProviderTrack | None:
         if not isinstance(item, dict):
@@ -440,6 +441,10 @@ def _decode_qq_text(value: object) -> str:
 class QQProviderAdapter(DirectMusicProvider):
     provider = "qq"
     headers = _QQ_HEADERS
+    approved_audio_hosts = frozenset({
+        "stream.qqmusic.qq.com",
+        "*.stream.qqmusic.qq.com",
+    })
     # QQ's search endpoint lives on c.y.qq.com; detail, lyric and vkey calls
     # stay on the configurable u.y.qq.com API host.
     smartbox_path = "https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg"

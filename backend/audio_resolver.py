@@ -55,7 +55,15 @@ def is_safe_playback_url(
         return False
     if parsed.username or parsed.password or not hostname:
         return False
-    return hostname.lower() in {host.lower() for host in approved_hosts}
+    normalized_hostname = hostname.lower()
+    for approved_host in approved_hosts:
+        normalized_approved = str(approved_host).strip().lower()
+        if normalized_approved.startswith("*."):
+            if normalized_hostname.endswith(normalized_approved[1:]):
+                return True
+        elif normalized_hostname == normalized_approved:
+            return True
+    return False
 
 
 def _provider_for_source(
@@ -131,7 +139,9 @@ def _cached_source(
         source_provider = _provider_for_source(db, source)
         if provider is not None and source_provider != provider:
             continue
-        if provider_track_id is not None and source.provider_mapping_id is not None:
+        if provider_track_id is not None:
+            if source.provider_mapping_id is None:
+                continue
             mapping = db.get(models.TrackProviderMapping, source.provider_mapping_id)
             if mapping is None or mapping.provider_track_id != provider_track_id:
                 continue

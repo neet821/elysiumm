@@ -111,22 +111,6 @@ async def get_catalog_lyrics(
     if db.get(models.CanonicalTrack, canonical_id) is None:
         raise CatalogTrackNotFound(canonical_id)
     current_time = now or datetime.utcnow()
-    cached = catalog_repository.cached_lyrics(
-        db,
-        canonical_id,
-        language,
-        current_time,
-    )
-    if cached is not None and (provider is None or cached.provider == provider):
-        return _lyrics_payload(
-            canonical_id,
-            cached.provider,
-            language,
-            cached.timed_text or "",
-            cached.translation_text,
-            cached=True,
-        )
-
     mappings = (
         db.query(models.TrackProviderMapping)
         .filter(models.TrackProviderMapping.canonical_track_id == canonical_id)
@@ -139,6 +123,30 @@ async def get_catalog_lyrics(
         if (provider is None or mapping.provider == provider)
         and (provider_track_id is None or mapping.provider_track_id == provider_track_id)
     ]
+    requested_mapping_ids = {mapping.id for mapping in mappings}
+    cached = catalog_repository.cached_lyrics(
+        db,
+        canonical_id,
+        language,
+        current_time,
+    )
+    if (
+        cached is not None
+        and (provider is None or cached.provider == provider)
+        and (
+            provider_track_id is None
+            or cached.provider_mapping_id in requested_mapping_ids
+        )
+    ):
+        return _lyrics_payload(
+            canonical_id,
+            cached.provider,
+            language,
+            cached.timed_text or "",
+            cached.translation_text,
+            cached=True,
+        )
+
     empty_result = None
     for mapping in mappings:
         adapter = registry.get(mapping.provider)

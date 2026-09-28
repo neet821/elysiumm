@@ -7,9 +7,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("SECRET_KEY", "music-provider-route-test-secret-2026")
 
@@ -18,8 +20,9 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import models  # noqa: E402
-from catalog_domain import ProviderTrack, TrackAvailability  # noqa: E402
-from database import Base  # noqa: E402
+import catalog_repository  # noqa: E402
+from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks  # noqa: E402
+from database import Base, get_db  # noqa: E402
 from music import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
 import schemas  # noqa: E402
@@ -29,6 +32,8 @@ import sync_room_crud  # noqa: E402
 class FakeAudiusAdapter:
     def __init__(self, track: ProviderTrack):
         self.track = track
+        self.approved_audio_hosts = frozenset({"api.example"})
+        self.playback_url = "https://api.example/v1/tracks/au-1/stream"
         self.get_track_calls: list[str] = []
         self.trending_calls: list[int] = []
         self.resolve_calls: list[str] = []
@@ -47,14 +52,29 @@ class FakeAudiusAdapter:
         return ProviderResolution(
             provider="audius",
             availability=TrackAvailability.PLAYABLE,
-            playback_url="https://api.example/v1/tracks/au-1/stream",
+            playback_url=self.playback_url,
             source_type="anonymous_full",
         )
 
 
+class FakeCatalogStreamAdapter:
+    def __init__(self, url: str, approved_audio_hosts: set[str]):
+        self.url = url
+        self.approved_audio_hosts = frozenset(approved_audio_hosts)
+        self.calls: list[tuple[str, str | None]] = []
+
+    async def fetch_stream_url(self, track_id: str, media_mid: str | None = None):
+        self.calls.append((track_id, media_mid))
+        return self.url, None, False
+
+
 class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        engine = create_engine("sqlite:///:memory:")
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
         Base.metadata.create_all(bind=engine)
         self.session = sessionmaker(bind=engine)()
         self.user = models.User(
@@ -109,6 +129,112 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(adapter.resolve_calls, ["au-1"])
         self.assertEqual(response.status_code, 307)
         self.assertEqual(response.headers["location"], "https://api.example/v1/tracks/au-1/stream")
+
+    async def test_audius_stream_rejects_unapproved_redirect_host(self):
+        adapter = FakeAudiusAdapter(self.track)
+        adapter.playback_url = "https://untrusted.example/track.mp3"
+        with patch.object(music_router, "music_provider_registry", {"audius": adapter}):
+            with self.assertRaises(HTTPException) as raised:
+                await music_router.stream_audius("au-1")
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    async def test_catalog_stream_requires_an_available_provider_mapping(self):
+        unavailable = ProviderTrack(
+            provider="qq",
+            provider_track_id="qq-unavailable-stream",
+            title="Unavailable Stream",
+            artist="Artist",
+            availability=TrackAvailability.UNAVAILABLE,
+        )
+        catalog_repository.upsert_canonical_groups(
+            self.session,
+            canonicalize_tracks([unavailable]),
+        )
+        adapter = FakeCatalogStreamAdapter(
+            "https://audio.qqmusic.qq.com/track.mp3",
+            {"audio.qqmusic.qq.com"},
+        )
+        app = FastAPI()
+        app.include_router(music_router.router)
+
+        def override_db():
+            yield self.session
+
+        app.dependency_overrides[get_db] = override_db
+        try:
+            with patch.object(music_router, "music_provider_registry", {"qq": adapter}):
+                response = TestClient(app).get(
+                    "/api/music/stream/qq/qq-not-in-catalog",
+                    follow_redirects=False,
+                )
+                unavailable_response = TestClient(app).get(
+                    "/api/music/stream/qq/qq-unavailable-stream",
+                    follow_redirects=False,
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(unavailable_response.status_code, 409)
+        self.assertEqual(adapter.calls, [])
+
+    async def test_catalog_stream_uses_mapping_media_id_and_rejects_unapproved_host(self):
+        track = ProviderTrack(
+            provider="qq",
+            provider_track_id="qq-mapped-stream",
+            media_mid="media-mapped-stream",
+            title="Mapped Stream",
+            artist="Artist",
+            availability=TrackAvailability.PLAYABLE,
+        )
+        catalog_repository.upsert_canonical_groups(
+            self.session,
+            canonicalize_tracks([track]),
+        )
+        adapter = FakeCatalogStreamAdapter(
+            "https://untrusted.example/track.mp3",
+            {"stream.qqmusic.qq.com", "*.stream.qqmusic.qq.com"},
+        )
+        app = FastAPI()
+        app.include_router(music_router.router)
+
+        def override_db():
+            yield self.session
+
+        app.dependency_overrides[get_db] = override_db
+        try:
+            with patch.object(music_router, "music_provider_registry", {"qq": adapter}):
+                mismatched_media_response = TestClient(app).get(
+                    "/api/music/stream/qq/qq-mapped-stream?media_mid=untrusted-media-mid",
+                    follow_redirects=False,
+                )
+                response = TestClient(app).get(
+                    "/api/music/stream/qq/qq-mapped-stream",
+                    follow_redirects=False,
+                )
+                adapter.url = "https://ws.stream.qqmusic.qq.com/track.mp3"
+                allowed_response = TestClient(app).get(
+                    "/api/music/stream/qq/qq-mapped-stream",
+                    follow_redirects=False,
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        self.assertEqual(mismatched_media_response.status_code, 409)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(allowed_response.status_code, 307)
+        self.assertEqual(
+            allowed_response.headers["location"],
+            "https://ws.stream.qqmusic.qq.com/track.mp3",
+        )
+        self.assertEqual(
+            adapter.calls,
+            [
+                ("qq-mapped-stream", "media-mapped-stream"),
+                ("qq-mapped-stream", "media-mapped-stream"),
+            ],
+        )
 
     async def test_provider_credential_mutation_is_explicitly_root_managed(self):
         with self.assertRaises(HTTPException) as raised:
