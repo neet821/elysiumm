@@ -28,14 +28,17 @@ owns authorization and data, and the browser consumes only the stable HTTP and
 Socket.IO contracts. This lets visual changes stay in the frontend without
 moving permission or persistence rules into presentation code.
 
-The administrator console, Files workspace, music room, and live viewing/admin
-pages keep their styles in `frontend/src/features/admin/adminConsole.css`,
-`frontend/src/features/admin-files/adminFiles.css`,
-`frontend/src/features/music/musicRoom.css`, and
-`frontend/src/features/live/live.css`. Feature-only styles load with their
-lazy-loaded pages. Shared error, transfer-link, room-layout, and cross-feature
-service-shell theme rules remain global. The public transfer page is
-read/download-only.
+The administrator console, Files workspace, music room, live pages, public
+transfer page, and sync-room list keep their styles beside the owning feature:
+`frontend/src/features/admin/`, `frontend/src/features/admin-files/`,
+`frontend/src/features/music/`, `frontend/src/features/live/`,
+`frontend/src/features/transfer/`, and `frontend/src/features/player/`.
+Feature-only styles load with their lazy-loaded pages. Only shared error
+presentation and cross-feature service-shell theme rules remain global. The
+unmounted legacy `.room-player-*` presentation rules were removed after a
+repository-wide consumer check; current sync-room pages render their own
+feature UI. The public transfer page is read/download-only, while transfer-link
+creation styles are owned by the administrator Files feature.
 Upload controls for persistent transfer files exist only in the authenticated
 admin Files workspace and use the resumable tus flow. Other feature-specific
 uploads (such as account avatars or room-local media) keep their own ownership
@@ -77,12 +80,13 @@ Real-time clients authenticate during the Socket.IO handshake. A successful muta
 
 ## Persistence and migrations
 
-The Alembic chain is the linear `0001`–`0025` history, including the retained
-Books tables and later repair, stream, transfer, game-removal, public-token and
-admin-note revisions. Ordinary service startup does not perform an implicit
-migration. The release transaction reads production `alembic_version`, computes
-the revision-graph delta against the target backend heads, and only then creates
-a verified backup and runs `alembic upgrade heads` when pending revisions exist.
+The Alembic chain is the linear `0001`–`0027` history, including the retained
+Books tables and later repair, stream, transfer, game-removal, public-token,
+admin-note, user-playlist and tus-reservation revisions. Ordinary service
+startup does not perform an implicit migration. The release transaction reads
+production `alembic_version`, computes the revision-graph delta against the
+target backend heads, and only then creates a verified backup and runs
+`alembic upgrade heads` when pending revisions exist.
 See [migrations](./migrations.md) and [data formats](./data-formats.md).
 
 ## Deployment boundary

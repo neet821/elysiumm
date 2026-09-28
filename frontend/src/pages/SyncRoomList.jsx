@@ -18,6 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import apiClient from "../utils/request";
 import { API_ENDPOINTS } from "../config";
 import { THEME } from "../theme.js";
+import "../features/player/player.css";
 import {
   formatEmptyRoomCountdown,
   getOnlineMemberCount,

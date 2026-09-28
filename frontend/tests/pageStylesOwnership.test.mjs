@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
+import test from 'node:test'
+
+const source = new URL('../src/', import.meta.url)
+const routes = readFileSync(new URL('routes.jsx', source), 'utf8')
+const globalStyles = readFileSync(new URL('index.css', source), 'utf8')
+const transferPage = readFileSync(new URL('pages/TransferPage.jsx', source), 'utf8')
+const syncRoomList = readFileSync(new URL('pages/SyncRoomList.jsx', source), 'utf8')
+const adminFilesPage = readFileSync(new URL('pages/AdminFilesPage.jsx', source), 'utf8')
+const transferStylesPath = new URL('features/transfer/transfer.css', source)
+const transferStyles = existsSync(transferStylesPath) ? readFileSync(transferStylesPath, 'utf8') : ''
+const playerStylesPath = new URL('features/player/player.css', source)
+const playerStyles = existsSync(playerStylesPath) ? readFileSync(playerStylesPath, 'utf8') : ''
+const adminFilesStyles = readFileSync(new URL('features/admin-files/adminFiles.css', source), 'utf8')
+
+test('public transfer styles load with the lazy transfer page', () => {
+  assert.match(transferPage, /import ['"]\.\.\/features\/transfer\/transfer\.css['"]/, 'the transfer page must own its stylesheet')
+  assert.match(routes, /const TransferPage = lazy\(\(\) => import\('\.\/pages\/TransferPage'\)\)/, 'transfer styles must remain lazy-loaded')
+
+  for (const selector of ['.transfer-page {', '.transfer-page__meta {', '.transfer-page__files {']) {
+    assert.ok(transferStyles.includes(selector), `the transfer stylesheet must own ${selector}`)
+  }
+  assert.doesNotMatch(globalStyles, /\.transfer-page(?:__[\w-]+)?/, 'transfer page selectors must not remain global')
+
+  assert.match(transferStyles, /@media\s*\(max-width:\s*760px\)/, 'transfer page responsive rules must stay with the page')
+  assert.match(globalStyles, /\.admin-inline-error\s*\{/, 'the shared error presentation must remain global')
+})
+
+test('sync room share controls load from their lazy page and legacy room-player styles are retired', () => {
+  assert.match(syncRoomList, /import ['"]\.\.\/features\/player\/player\.css['"]/, 'the sync room page must own its feature stylesheet')
+  assert.match(routes, /const SyncRoomList = lazy\(\(\) => import\('\.\/pages\/SyncRoomList'\)\)/, 'sync room styles must remain lazy-loaded')
+  assert.match(playerStyles, /\.room-share-button\s*\{/, 'the player feature stylesheet must own the room share control')
+  assert.match(playerStyles, /\.room-share-button:hover,\s*\.room-share-button:focus-visible\s*\{/, 'share hover and keyboard-focus states must be retained')
+  assert.doesNotMatch(globalStyles, /\.room-share-button(?:__[\w-]+)?/, 'the global stylesheet must not own the page-specific share control')
+  assert.doesNotMatch(globalStyles, /\.room-player-[\w-]+\s*\{/, 'unmounted legacy room-player presentation rules must not inflate global CSS')
+})
+
+test('admin transfer-link controls stay within the lazy admin files feature', () => {
+  assert.match(adminFilesPage, /import ['"]\.\.\/features\/admin-files\/adminFiles\.css['"]/, 'the admin files page must load its feature stylesheet')
+  assert.match(routes, /const AdminFilesPage = lazy\(\(\) => import\('\.\/pages\/AdminFilesPage'\)\)/, 'admin Files styles must remain lazy-loaded')
+  assert.match(adminFilesStyles, /\.transfer-share-row\s*\{/, 'admin files must own the share-row layout')
+  assert.match(adminFilesStyles, /\.transfer-share-row input\s*\{/, 'admin files must own the share-link input')
+  assert.doesNotMatch(globalStyles, /\.transfer-share-row\b/, 'transfer-link controls must not remain global')
+})

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
+import '../features/transfer/transfer.css'
 import apiClient from '../utils/request.js'
 import { formatTransferDate } from '../utils/transfer.js'
 
