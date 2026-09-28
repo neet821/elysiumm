@@ -28,9 +28,10 @@ owns authorization and data, and the browser consumes only the stable HTTP and
 Socket.IO contracts. This lets visual changes stay in the frontend without
 moving permission or persistence rules into presentation code.
 
-The administrator console, Files workspace, music room, live pages, public
-transfer page, and sync-room list keep their styles beside the owning feature:
-`frontend/src/features/admin/`, `frontend/src/features/admin-files/`,
+The administrator console, Files workspace, authentication pages, music room,
+live pages, public transfer page, and sync-room list keep their styles beside
+the owning feature: `frontend/src/features/admin/`,
+`frontend/src/features/admin-files/`, `frontend/src/features/auth/`,
 `frontend/src/features/music/`, `frontend/src/features/live/`,
 `frontend/src/features/transfer/`, and `frontend/src/features/player/`.
 Feature-only styles load with their lazy-loaded pages. Only shared error

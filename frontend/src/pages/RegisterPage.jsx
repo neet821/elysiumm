@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { User, Mail, Lock } from "lucide-react";
+import "../features/auth/auth.css";
 
 const MIN_PASSWORD_LENGTH = 12;
 

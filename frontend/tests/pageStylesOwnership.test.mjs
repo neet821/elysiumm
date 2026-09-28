@@ -8,10 +8,14 @@ const globalStyles = readFileSync(new URL('index.css', source), 'utf8')
 const transferPage = readFileSync(new URL('pages/TransferPage.jsx', source), 'utf8')
 const syncRoomList = readFileSync(new URL('pages/SyncRoomList.jsx', source), 'utf8')
 const adminFilesPage = readFileSync(new URL('pages/AdminFilesPage.jsx', source), 'utf8')
+const loginPage = readFileSync(new URL('pages/LoginPage.jsx', source), 'utf8')
+const registerPage = readFileSync(new URL('pages/RegisterPage.jsx', source), 'utf8')
 const transferStylesPath = new URL('features/transfer/transfer.css', source)
 const transferStyles = existsSync(transferStylesPath) ? readFileSync(transferStylesPath, 'utf8') : ''
 const playerStylesPath = new URL('features/player/player.css', source)
 const playerStyles = existsSync(playerStylesPath) ? readFileSync(playerStylesPath, 'utf8') : ''
+const authStylesPath = new URL('features/auth/auth.css', source)
+const authStyles = existsSync(authStylesPath) ? readFileSync(authStylesPath, 'utf8') : ''
 const adminFilesStyles = readFileSync(new URL('features/admin-files/adminFiles.css', source), 'utf8')
 
 test('public transfer styles load with the lazy transfer page', () => {
@@ -42,4 +46,14 @@ test('admin transfer-link controls stay within the lazy admin files feature', ()
   assert.match(adminFilesStyles, /\.transfer-share-row\s*\{/, 'admin files must own the share-row layout')
   assert.match(adminFilesStyles, /\.transfer-share-row input\s*\{/, 'admin files must own the share-link input')
   assert.doesNotMatch(globalStyles, /\.transfer-share-row\b/, 'transfer-link controls must not remain global')
+})
+
+test('authentication layout styles load only with the lazy login and registration routes', () => {
+  assert.match(routes, /const LoginPage = lazy\(\(\) => import\('\.\/pages\/LoginPage'\)\)/, 'login should not force auth page code into the initial bundle')
+  assert.match(routes, /const RegisterPage = lazy\(\(\) => import\('\.\/pages\/RegisterPage'\)\)/, 'registration should not force auth page code into the initial bundle')
+  assert.match(loginPage, /import ['"]\.\.\/features\/auth\/auth\.css['"]/, 'login must load auth styles with its route')
+  assert.match(registerPage, /import ['"]\.\.\/features\/auth\/auth\.css['"]/, 'registration must load auth styles with its route')
+  assert.match(authStyles, /\.auth-form-field__input--leading\s*\{/, 'auth feature must own input adornment spacing')
+  assert.match(authStyles, /\.service-shell:has\(\.auth-page\)/, 'auth feature must own its viewport shell rules')
+  assert.doesNotMatch(globalStyles, /\.auth-form-field|\.auth-page/, 'auth-only selectors must not remain global')
 })

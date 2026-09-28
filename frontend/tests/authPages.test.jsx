@@ -23,11 +23,12 @@ describe('authentication form layout', () => {
     expect(screen.getByLabelText('密码')).toHaveClass('auth-form-field__input', 'auth-form-field__input--leading', 'auth-form-field__input--password')
   })
 
-  it('locks login and registration pages to the viewport without page scrolling', () => {
-    const css = fs.readFileSync('src/index.css', 'utf8')
+  it('loads the viewport lock from the auth feature stylesheet', () => {
+    const css = fs.readFileSync('src/features/auth/auth.css', 'utf8')
     expect(css).toMatch(/\.service-shell:has\(\.auth-page\)\s*\{[^}]*height:\s*100dvh;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.service-shell:has\(\.auth-page\) \.app-shell__main\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.auth-page\s*\{[^}]*box-sizing:\s*border-box;[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s)
+    expect(fs.readFileSync('src/index.css', 'utf8')).not.toMatch(/\.service-shell:has\(\.auth-page\)|\.auth-form-field|\.auth-page/)
   })
 
   it('requires at least twelve characters in both registration password fields', () => {

@@ -544,19 +544,6 @@
   text-transform: uppercase;
 }
 
-.auth-form-field__input {
-  box-sizing: border-box;
-  min-width: 0;
-}
-.auth-form-field__input--leading {
-  padding-left: 3.25rem !important;
-}
-.auth-form-field__input--password {
-  padding-right: 3.25rem !important;
-}
-.auth-form-field__icon {
-  flex: 0 0 auto;
-}
 .route-shell__intro h1 {
   color: var(--text-primary);
   font-family: var(--font-editorial);
@@ -2175,22 +2162,4 @@ body:has(.app-shell--home)::before {
 }
 .service-shell.app-shell--home .app-shell__main {
   padding-top: 0 !important;
-}
-
-/* Authentication is a self-contained viewport: its form must not create page scroll. */
-.service-shell:has(.auth-page) {
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-.service-shell:has(.auth-page) .app-shell__main {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-.auth-page {
-  box-sizing: border-box;
-  height: 100%;
-  min-height: 0 !important;
-  overflow: hidden;
 }
