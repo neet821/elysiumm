@@ -1,6 +1,7 @@
 import { Activity, ArrowLeft, Files, Home, Menu, Music2, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import '../../features/admin/adminConsole.css'
 
 const navigation = [
   { label: '首页设置', to: '/admin/homepage', icon: Home },
