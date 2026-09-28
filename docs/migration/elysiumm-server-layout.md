@@ -10,7 +10,7 @@
 | 后端 release/current | `/srv/services/elysium/releases/backend-releases/<release>`、`backend-current` |
 | 前端 release/current | `/srv/services/elysium/releases/frontend-releases/<release>`、`frontend-current` |
 | 发布事务 | `/srv/services/elysium/releases/deployment-history/<deployment-id>.json` |
-| 共享上传、私有、同步、传输、备份 | `/srv/services/elysium/shared/{uploads,private-storage,sync-storage,transfers,backups}` |
+| 共享上传、私有、tusd 暂存、同步、传输、备份 | `/srv/services/elysium/shared/{uploads,private-storage,tus-staging,sync-storage,transfers,backups}` |
 | 生产数据 | `/srv/services/elysium/shared/`，不再创建 `data` 兼容链接 |
 | 生产配置 | `/etc/elysium/backend.env`、`/etc/elysium/mediamtx.*` |
 | 后端服务 | `elysiumm-backend.service`，单 worker |

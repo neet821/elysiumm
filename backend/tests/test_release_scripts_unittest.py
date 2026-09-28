@@ -68,6 +68,10 @@ class ReleaseScriptsTest(unittest.TestCase):
         self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/articles"', source)
         self.assertIn('ensure_directory "$ROOT_DIR/shared/sync-storage/media"', source)
         self.assertIn('ensure_directory "$ROOT_DIR/shared/uploads/live-recordings"', source)
+        self.assertIn(
+            'ensure_directory "$ROOT_DIR/shared/tus-staging" www-data www-data 0750',
+            source,
+        )
         self.assertNotIn('ln -s shared "$ROOT_DIR/data"', source)
         self.assertIn("legacy data path must be removed", source)
 
