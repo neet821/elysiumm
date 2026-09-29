@@ -4,12 +4,9 @@ import { io } from 'socket.io-client'
 import { API_ENDPOINTS, WS_BASE_URL } from '../../config.js'
 import apiClient from '../../utils/request.js'
 import { startRoomClockProbes } from '../player/roomRealtimeSync.js'
+import { createVideoRoomRealtimeHandlers, sameVideoRoomUserId } from './videoRoomRealtimeEvents.js'
 
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
-
-function sameUserId(left, right) {
-  return left != null && right != null && String(left) === String(right)
-}
 
 function detailMessage(error, fallback) {
   const detail = error?.response?.data?.detail
@@ -81,7 +78,7 @@ export function useVideoRoomRealtime({
         if (detail.data.type !== 'video' || detail.data.mode === 'music') {
           throw new Error('这不是视频房')
         }
-        if (!detail.data.members?.some((member) => sameUserId(member.user_id, user.id))) {
+        if (!detail.data.members?.some((member) => sameVideoRoomUserId(member.user_id, user.id))) {
           await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(numericRoomId))
           detail = await apiClient.get(API_ENDPOINTS.SYNC_ROOM_DETAIL(numericRoomId))
         }
@@ -121,97 +118,27 @@ export function useVideoRoomRealtime({
       numericRoomId,
       roomSyncStateRef?.current,
     )
-    socket.on('connect', () => {
-      if (!active) return
-      setSyncStatus(latestSnapshotRef.current ? 'syncing' : 'connecting')
-      socket.emit('join_room', { room_id: numericRoomId })
+    const handlers = createVideoRoomRealtimeHandlers({
+      acceptSnapshot,
+      announceLocalReady,
+      clearPresenceJoined: () => { presenceJoinedRef.current = false },
+      isActive: () => active,
+      latestSnapshotRef,
+      numericRoomId,
+      refreshVideoDetail,
+      setBuffers,
+      setLocalReady,
+      setMembers,
+      setMessages,
+      setNotice,
+      setRoom,
+      setSyncStatus,
+      showTransientNotice,
+      socket,
+      startPresenceHeartbeat,
+      stopPresenceHeartbeat,
     })
-    socket.on('disconnect', () => {
-      presenceJoinedRef.current = false
-      stopPresenceHeartbeat()
-      if (active) setSyncStatus('reconnecting')
-    })
-    socket.on('connect_error', () => active && setSyncStatus('error'))
-    socket.on('join_success', (data) => {
-      if (!active) return
-      if (data.room) setRoom((previous) => ({ ...previous, ...data.room }))
-      if (data.members) setMembers(data.members)
-      if (data.snapshot) acceptSnapshot(data.snapshot)
-      startPresenceHeartbeat()
-      if (Array.isArray(data.video_local_ready)) {
-        setLocalReady(Object.fromEntries(data.video_local_ready.map((entry) => [entry.user_id, entry])))
-      }
-      const joinedCurrentId = data.video_session?.current_item_id
-      const joinedCurrent = data.video_session?.playlist?.find((item) => item.id === joinedCurrentId)
-      if (joinedCurrent?.source_type === 'legacy_local') {
-        announceLocalReady(joinedCurrent)
-      }
-      else socket.emit('request_snapshot', { room_id: numericRoomId })
-      refreshVideoDetail({ quiet: true })
-    })
-    socket.on('room_snapshot', (data) => active && acceptSnapshot(data))
-    socket.on('time_heartbeat', (data) => {
-      if (!active || Number(data?.room_id) !== numericRoomId) return
-      const latest = latestSnapshotRef.current?.snapshot
-      if (!latest || Number(data?.version) !== Number(latest.version)) return
-      const serverNow = Number(data.server_now_ms) || Date.now()
-      acceptSnapshot({
-        ...latest,
-        position: Number(data.position) || 0,
-        server_now_ms: serverNow,
-        started_at_server_ms: serverNow,
-      })
-    })
-    socket.on('playback_conflict', (data) => {
-      if (!active) return
-      if (data?.snapshot) acceptSnapshot(data.snapshot, { conflict: true })
-      else showTransientNotice('房间状态发生冲突，正在重新同步')
-    })
-    socket.on('video_session_updated', () => {
-      if (active) refreshVideoDetail({ quiet: true })
-    })
-    socket.on('video_buffer_status', (data) => {
-      if (!active || Number(data?.room_id) !== numericRoomId) return
-      setBuffers((previous) => ({
-        ...previous,
-        [data.user_id]: Boolean(data.buffering),
-      }))
-    })
-    socket.on('video_local_ready', (data) => {
-      if (!active || Number(data?.room_id) !== numericRoomId) return
-      setLocalReady((previous) => ({ ...previous, [String(data.user_id)]: data }))
-    })
-    socket.on('room_presence', (data) => {
-      if (!active || Number(data?.room_id) !== numericRoomId || !Array.isArray(data.members)) return
-      setMembers(data.members)
-    })
-    socket.on('member_joined', (member) => {
-      if (!active) return
-      setMembers((items) => items.some((item) => sameUserId(item.user_id, member.user_id))
-        ? items.map((item) => sameUserId(item.user_id, member.user_id) ? { ...item, is_online: true } : item)
-        : [...items, { ...member, is_online: true }])
-    })
-    socket.on('member_left', (data) => {
-      if (!active) return
-      setMembers((items) => items.map((item) => (
-        sameUserId(item.user_id, data.user_id) ? { ...item, is_online: false } : item
-      )))
-      setBuffers((previous) => ({ ...previous, [String(data.user_id)]: false }))
-    })
-    socket.on('host_changed', (data) => {
-      if (active) setRoom((previous) => previous ? {
-        ...previous,
-        control_mode: data.control_mode,
-        host_user_id: data.new_host_id,
-      } : previous)
-    })
-    socket.on('new_message', (data) => {
-      if (!active) return
-      setMessages((items) => items.some((item) => item.id === data.id) ? items : [...items, data])
-    })
-    socket.on('error', (data) => {
-      if (active) setNotice(data?.message || '实时操作暂时失败')
-    })
+    for (const [event, handler] of Object.entries(handlers)) socket.on(event, handler)
 
     return () => {
       active = false
