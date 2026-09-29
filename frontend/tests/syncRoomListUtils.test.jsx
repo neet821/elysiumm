@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatEmptyRoomCountdown,
   getOnlineMemberCount,
-} from '../src/pages/syncRoomListUtils.js'
+} from '../src/features/video/syncRoomListUtils.js'
 
 describe('同步房间列表状态格式化', () => {
   it('优先使用后端返回的在线成员数', () => {
