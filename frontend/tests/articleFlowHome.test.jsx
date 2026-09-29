@@ -9,6 +9,8 @@ import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
 import LegacyArticlePage from '../src/pages/LegacyArticlePage.jsx'
 import { HomeNavigationContext, HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
 
+const legacyArticleStyles = fs.readFileSync('src/features/content/legacyArticle.css', 'utf8')
+
 vi.mock('../src/pages/SyncRoomList.jsx', () => ({
   default: ({ embedded }) => <div data-testid="watch-page" data-embedded={String(Boolean(embedded))}>观影房页面</div>,
 }))
@@ -40,7 +42,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('uses a smaller title scale on the legacy article reader', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = `${fs.readFileSync('src/pages/contentHome.css', 'utf8')}\n${legacyArticleStyles}`
     expect(css).toMatch(/\.legacy-old-home \.reader-header h1\s*\{[^}]*font-size:\s*clamp\(24px,\s*3\.2vw,\s*36px\);/s)
   })
 
@@ -52,8 +54,8 @@ describe('ArticleFlowHome', () => {
 
   it('keeps the reader comfortable on mobile and gives the article stream a structural base', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
-    expect(css).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader-body\s*\{[\s\S]*?max-width:\s*none;/s)
-    expect(css).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.legacy-old-home:not\(\.legacy-old-home--flat\)\s*\{[\s\S]*?width:\s*min\(calc\(100% - 0\.5rem\), 960px\);/s)
+    expect(legacyArticleStyles).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader-body\s*\{[\s\S]*?max-width:\s*none;/s)
+    expect(legacyArticleStyles).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.legacy-old-home:not\(\.legacy-old-home--flat\)\s*\{[\s\S]*?width:\s*min\(calc\(100% - 0\.5rem\), 960px\);/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.articles-section__end-cap\s*\{[\s\S]*?background:\s*#f5f6f7;[\s\S]*?border-block:\s*1px solid #e1e4e8;/s)
     expect(css).not.toContain('articles-section__end-mask')
   })

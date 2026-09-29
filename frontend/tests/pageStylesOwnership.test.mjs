@@ -17,6 +17,8 @@ const playerStyles = existsSync(playerStylesPath) ? readFileSync(playerStylesPat
 const authStylesPath = new URL('features/auth/auth.css', source)
 const authStyles = existsSync(authStylesPath) ? readFileSync(authStylesPath, 'utf8') : ''
 const adminFilesStyles = readFileSync(new URL('features/admin-files/adminFiles.css', source), 'utf8')
+const legacyArticleStylesPath = new URL('features/content/legacyArticle.css', source)
+const legacyArticleStyles = existsSync(legacyArticleStylesPath) ? readFileSync(legacyArticleStylesPath, 'utf8') : ''
 
 test('public transfer styles load with the lazy transfer page', () => {
   assert.match(transferPage, /import ['"]\.\.\/features\/transfer\/transfer\.css['"]/, 'the transfer page must own its stylesheet')
@@ -56,4 +58,21 @@ test('authentication layout styles load only with the lazy login and registratio
   assert.match(authStyles, /\.auth-form-field__input--leading\s*\{/, 'auth feature must own input adornment spacing')
   assert.match(authStyles, /\.service-shell:has\(\.auth-page\)/, 'auth feature must own its viewport shell rules')
   assert.doesNotMatch(globalStyles, /\.auth-form-field|\.auth-page/, 'auth-only selectors must not remain global')
+})
+
+test('legacy article reader overrides load with the legacy article page', () => {
+  const legacyArticlePage = readFileSync(new URL('pages/LegacyArticlePage.jsx', source), 'utf8')
+  const sharedStylesIndex = legacyArticlePage.indexOf("import './contentHome.css'")
+  const legacyStylesIndex = legacyArticlePage.indexOf("import '../features/content/legacyArticle.css'")
+
+  assert.ok(legacyStylesIndex >= 0, 'the legacy reader must own its route-specific stylesheet')
+  assert.ok(sharedStylesIndex >= 0 && sharedStylesIndex < legacyStylesIndex, 'route overrides must load after shared content styles')
+  assert.match(legacyArticleStyles, /\.service-shell:has\(\.reader--article\)/)
+  assert.match(legacyArticleStyles, /\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader--article/)
+  assert.match(legacyArticleStyles, /@media\s*\(max-width:\s*600px\)/)
+  assert.doesNotMatch(
+    readFileSync(new URL('pages/contentHome.css', source), 'utf8'),
+    /\.service-shell:has\(\.reader--article\)|\.reader--article \.reader-header h1/,
+    'reader-only outer-shell rules must not stay in shared content styles',
+  )
 })
