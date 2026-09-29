@@ -28,6 +28,7 @@ from config import config
 from routers import music_providers
 from routers import music_playlists
 from routers import music_catalog
+from routers import music_favorites
 from routers.music_providers import (
     delete_music_provider_credential as delete_music_provider_credential,
     music_provider_capabilities as music_provider_capabilities,
@@ -66,6 +67,12 @@ from routers.music_catalog import (
     stream_catalog_provider as stream_catalog_provider,
     trending_music as trending_music,
 )
+from routers.music_favorites import (
+    TrackReference as TrackReference,
+    add_favorite as add_favorite,
+    favorites as favorites,
+    remove_favorite as remove_favorite,
+)
 
 
 router = APIRouter(prefix="/api/music", tags=["music"])
@@ -81,11 +88,6 @@ MAX_ROOM_AUDIO_SIZE = 200 * 1024 * 1024
 
 class PlaylistQueuePayload(BaseModel):
     item_ids: list[int] | None = None
-
-
-class TrackReference(BaseModel):
-    provider: str = Field(default="audius", max_length=30)
-    provider_track_id: str = Field(min_length=1, max_length=120)
 
 
 class MineradioTrack(BaseModel):
@@ -587,55 +589,4 @@ async def vote_skip(room_id: int, db: Session = Depends(get_db), user=Depends(ge
     return result
 
 
-@router.get("/favorites")
-def favorites(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    items = db.query(models.MusicFavorite).filter_by(user_id=user.id).order_by(models.MusicFavorite.created_at.desc()).all()
-    return [music_service.favorite_payload(item) for item in items]
-
-
-@router.post("/favorites")
-async def add_favorite(payload: TrackReference, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    if payload.provider != "audius":
-        raise HTTPException(400, "自定义音源暂不支持收藏")
-    existing = db.query(models.MusicFavorite).filter_by(
-        user_id=user.id, provider=payload.provider, provider_track_id=payload.provider_track_id
-    ).first()
-    if existing:
-        return music_service.favorite_payload(existing)
-    adapter = music_provider_registry.get(payload.provider)
-    get_track = getattr(adapter, "get_track", None)
-    if adapter is None or not callable(get_track):
-        raise HTTPException(503, "该曲库来源暂不支持收藏")
-    try:
-        track = await get_track(payload.provider_track_id)
-    except (ProviderError, ValueError) as exc:
-        raise HTTPException(502, "歌曲信息获取失败") from exc
-    if track is None or track.availability is TrackAvailability.UNAVAILABLE:
-        raise HTTPException(409, "这首歌暂时不允许在线播放")
-    item = models.MusicFavorite(
-        user_id=user.id,
-        provider=track.provider,
-        provider_track_id=track.provider_track_id,
-        title=track.title,
-        artist=track.artist,
-        album=track.album,
-        artwork_url=track.artwork_url,
-        duration_seconds=track.duration_seconds,
-        source_url=track.metadata.get("source_url"),
-    )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return music_service.favorite_payload(item)
-
-
-@router.delete("/favorites/{provider}/{track_id}")
-def remove_favorite(provider: str, track_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    item = db.query(models.MusicFavorite).filter_by(
-        user_id=user.id, provider=provider, provider_track_id=track_id
-    ).first()
-    if not item:
-        raise HTTPException(404, "收藏不存在")
-    db.delete(item)
-    db.commit()
-    return {"message": "已取消收藏"}
+router.include_router(music_favorites.router)

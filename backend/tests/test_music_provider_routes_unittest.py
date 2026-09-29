@@ -26,6 +26,7 @@ from database import Base, get_db  # noqa: E402
 from music import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
 from routers import music_catalog  # noqa: E402
+from routers import music_favorites  # noqa: E402
 from routers import music_providers as music_provider_routes  # noqa: E402
 import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
@@ -104,7 +105,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_favorite_uses_registry_adapter_instead_of_legacy_service(self):
         adapter = FakeAudiusAdapter(self.track)
-        with patch.object(music_router, "music_provider_registry", {"audius": adapter}), patch.object(
+        with patch.object(music_favorites, "music_provider_registry", {"audius": adapter}), patch.object(
             music_router.music_service,
             "get_track",
             side_effect=AssertionError("legacy Audius service must not be called"),
