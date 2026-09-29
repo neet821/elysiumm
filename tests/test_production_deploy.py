@@ -646,8 +646,11 @@ class ProductionDeployTest(unittest.TestCase):
         transaction = {"rollback": {}}
 
         with (
-            patch("deployment.production_deploy._validate_infrastructure"),
-            patch("deployment.production_deploy._systemd_state", return_value={"enabled": True, "active": True}),
+            patch("deployment.infrastructure_validation._validate_infrastructure"),
+            patch(
+                "deployment.infrastructure_apply._systemd_state",
+                return_value={"enabled": True, "active": True},
+            ),
         ):
             _apply_infrastructure(options, transaction)
 
