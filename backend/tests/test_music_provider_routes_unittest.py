@@ -25,6 +25,7 @@ from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks
 from database import Base, get_db  # noqa: E402
 from music import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
+from routers import music_catalog  # noqa: E402
 from routers import music_providers as music_provider_routes  # noqa: E402
 import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
@@ -121,7 +122,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_audius_trending_and_stream_use_the_same_registry_adapter(self):
         adapter = FakeAudiusAdapter(self.track)
-        with patch.object(music_router, "music_provider_registry", {"audius": adapter}):
+        with patch.object(music_catalog, "music_provider_registry", {"audius": adapter}):
             trending = await music_router.trending_music(7, SimpleNamespace())
             response = await music_router.stream_audius("au-1")
 
@@ -134,7 +135,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
     async def test_audius_stream_rejects_unapproved_redirect_host(self):
         adapter = FakeAudiusAdapter(self.track)
         adapter.playback_url = "https://untrusted.example/track.mp3"
-        with patch.object(music_router, "music_provider_registry", {"audius": adapter}):
+        with patch.object(music_catalog, "music_provider_registry", {"audius": adapter}):
             with self.assertRaises(HTTPException) as raised:
                 await music_router.stream_audius("au-1")
 
@@ -164,7 +165,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
 
         app.dependency_overrides[get_db] = override_db
         try:
-            with patch.object(music_router, "music_provider_registry", {"qq": adapter}):
+            with patch.object(music_catalog, "music_provider_registry", {"qq": adapter}):
                 response = TestClient(app).get(
                     "/api/music/stream/qq/qq-not-in-catalog",
                     follow_redirects=False,
@@ -205,7 +206,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
 
         app.dependency_overrides[get_db] = override_db
         try:
-            with patch.object(music_router, "music_provider_registry", {"qq": adapter}):
+            with patch.object(music_catalog, "music_provider_registry", {"qq": adapter}):
                 mismatched_media_response = TestClient(app).get(
                     "/api/music/stream/qq/qq-mapped-stream?media_mid=untrusted-media-mid",
                     follow_redirects=False,

@@ -30,7 +30,7 @@ from catalog_domain import (  # noqa: E402
 )
 from database import Base, get_db  # noqa: E402
 from music.base import ProviderError, ProviderResolution  # noqa: E402
-from routers import music as music_router  # noqa: E402
+from routers import music_catalog  # noqa: E402
 
 
 class FakeResolverAdapter:
@@ -392,14 +392,14 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             )
         }
         try:
-            with patch.object(music_router, "music_provider_registry", registry):
+            with patch.object(music_catalog, "music_provider_registry", registry):
                 client = TestClient(main.app)
                 missing = client.get("/api/music/tracks/999/audio", headers=headers)
                 no_source = client.get(
                     f"/api/music/tracks/{unavailable.id}/audio", headers=headers
                 )
                 with patch.object(
-                    music_router,
+                    music_catalog,
                     "music_provider_registry",
                     {"netease": FakeResolverAdapter(error=ProviderError("private upstream detail"))},
                 ):

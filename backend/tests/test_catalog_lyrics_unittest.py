@@ -28,6 +28,7 @@ from catalog_domain import (  # noqa: E402
 from database import Base  # noqa: E402
 from music.base import ProviderError, ProviderLyrics  # noqa: E402
 from routers import music as music_router  # noqa: E402
+from routers import music_catalog  # noqa: E402
 
 
 class FakeLyricsAdapter:
@@ -342,7 +343,7 @@ class CatalogLyricsTest(unittest.IsolatedAsyncioTestCase):
                 )
             )
         }
-        with patch.object(music_router, "music_provider_registry", registry):
+        with patch.object(music_catalog, "music_provider_registry", registry):
             payload = await music_router.get_catalog_lyrics(
                 canonical.id,
                 language="original",
