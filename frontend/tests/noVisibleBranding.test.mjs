@@ -10,6 +10,8 @@ const visibleSources = [
   'src/components/Footer.jsx',
   'src/components/auth/LoginCard.jsx',
   'src/pages/ContentHomePage.jsx',
+  'src/pages/ArticleFlowHome.jsx',
+  'src/pages/LegacyArticlePage.jsx',
   'src/pages/RegisterPage.jsx',
   'src/pages/TransferPage.jsx',
   'public/brand/elysium-mark.svg',

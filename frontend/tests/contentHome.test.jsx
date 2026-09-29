@@ -4,7 +4,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import ContentHomePage, { ArticleFlowHome } from '../src/pages/ContentHomePage.jsx'
+import ContentHomePage from '../src/pages/ContentHomePage.jsx'
+import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
 
 const contentHomeCss = readFileSync(
   resolve(process.cwd(), 'src/pages/contentHome.css'),

@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ArticleFlowHome, LegacyArticlePage } from '../src/pages/ContentHomePage.jsx'
+import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
+import LegacyArticlePage from '../src/pages/LegacyArticlePage.jsx'
 import { HomeNavigationContext, HomeSidebarContext } from '../src/contexts/HomeSidebarContext.jsx'
 
 vi.mock('../src/pages/SyncRoomList.jsx', () => ({

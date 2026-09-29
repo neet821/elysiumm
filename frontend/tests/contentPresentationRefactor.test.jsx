@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ArticleFlowContent } from '../src/features/content/ArticleFlowCards.jsx'
 import { ContentDetail, ContentListing } from '../src/features/content/ContentCatalog.jsx'
-import { ArticleFlowHome } from '../src/pages/ContentHomePage.jsx'
+import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
 
 afterEach(() => vi.restoreAllMocks())
 

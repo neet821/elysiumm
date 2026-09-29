@@ -40,7 +40,7 @@ describe('shared wide navigation shell', () => {
   })
 
   it('keeps route navigation real instead of switching an embedded homepage view', () => {
-    const source = fs.readFileSync(path.join(frontendRoot, 'src', 'pages', 'ContentHomePage.jsx'), 'utf8')
+    const source = fs.readFileSync(path.join(frontendRoot, 'src', 'pages', 'ArticleFlowHome.jsx'), 'utf8')
     expect(source).not.toMatch(/wideView|useWideHomeViewport|home-wide-view|WideWatchPage|WideMusicPage/)
     expect(source).not.toMatch(/<WideLivePage/)
   })
