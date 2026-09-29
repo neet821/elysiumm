@@ -8,9 +8,15 @@ const homepage = readFileSync(new URL('pages/AdminHomepagePage.jsx', source), 'u
 const routes = readFileSync(new URL('routes.jsx', source), 'utf8')
 const globalStyles = readFileSync(new URL('index.css', source), 'utf8')
 const consoleStylesPath = new URL('features/admin/adminConsole.css', source)
-const consoleStyles = existsSync(consoleStylesPath)
+const consoleStyleEntry = existsSync(consoleStylesPath)
   ? readFileSync(consoleStylesPath, 'utf8')
   : ''
+const consoleStyleImports = [...consoleStyleEntry.matchAll(/@import\s+["']([^"']+)["'];/g)].map((match) => match[1])
+const consoleStyleLayers = new Map(consoleStyleImports.map((relativePath) => [
+  relativePath,
+  readFileSync(new URL(`features/admin/${relativePath.slice(2)}`, source), 'utf8'),
+]))
+const consoleStyles = [...consoleStyleLayers.values()].join('\n')
 const homepageStylesPath = new URL('features/admin/adminHomepage.css', source)
 const homepageStyles = existsSync(homepageStylesPath)
   ? readFileSync(homepageStylesPath, 'utf8')
@@ -33,4 +39,21 @@ test('admin styles load with their lazy page modules instead of the global style
   assert.doesNotMatch(globalStyles, /\.admin-homepage__form\s*\{/, 'global styles must not own the homepage form')
 
   assert.match(globalStyles, /\.admin-inline-error\s*\{/, 'the shared transfer and admin error utility must remain globally available')
+})
+
+test('admin console styles keep their responsibility layers in cascade order', () => {
+  assert.deepEqual(consoleStyleImports, [
+    './adminConsoleBase.css',
+    './adminConsoleWorkspace.css',
+    './adminConsoleRail.css',
+    './adminConsoleOverview.css',
+  ])
+  for (const [layer, selector] of [
+    ['./adminConsoleBase.css', '.admin-table {'],
+    ['./adminConsoleWorkspace.css', '.admin-security__audit-list {'],
+    ['./adminConsoleRail.css', '.admin-shell__rail {'],
+    ['./adminConsoleOverview.css', '.admin-dashboard__recent {'],
+  ]) {
+    assert.ok(consoleStyleLayers.get(layer)?.includes(selector), `${layer} must own ${selector}`)
+  }
 })

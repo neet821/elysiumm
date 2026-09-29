@@ -1,0 +1,203 @@
+/* Admin console styles; loaded with the lazy admin route. */
+
+.admin-shell--tabs {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 3rem 1rem 5rem;
+}
+.admin-shell__header {
+  align-items: end;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+}
+.admin-shell__eyebrow {
+  color: #f59e0b;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.45rem;
+}
+.admin-shell__header h1 {
+  font: 700 clamp(2rem, 5vw, 3.5rem)/1 var(--font-editorial, serif);
+  margin: 0;
+}
+.admin-shell__home-link {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.admin-shell__tabs-nav {
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 0.15rem;
+  overflow-x: auto;
+  padding: 0.7rem 0;
+}
+.admin-shell__tab {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  white-space: nowrap;
+}
+.admin-shell__tab:hover,
+.admin-shell__tab--active {
+  color: #f59e0b;
+}
+.admin-shell__tab--active {
+  border-bottom: 2px solid #f59e0b;
+}
+.admin-shell__content {
+  padding-top: 2rem;
+}
+.admin-page-heading {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.admin-page-heading--actions-only {
+  justify-content: flex-end;
+}
+.admin-page-heading__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.admin-page-heading p {
+  color: #f59e0b;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.4rem;
+}
+.admin-page-heading h2 {
+  font-size: 1.8rem;
+  margin: 0;
+}
+.admin-page-heading > span,
+.admin-muted {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.admin-search {
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  max-width: 30rem;
+  padding: 0.6rem 0.75rem;
+}
+.admin-search input {
+  background: none;
+  border: 0;
+  color: var(--text-primary);
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+.admin-table-wrap {
+  border: 1px solid var(--border-subtle);
+  overflow: auto;
+}
+.admin-table {
+  border-collapse: collapse;
+  min-width: 46rem;
+  width: 100%;
+}
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.8rem 1rem;
+  text-align: left;
+}
+.admin-table th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.admin-table td {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+.admin-user-cell,
+.admin-muted {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+.admin-user-cell strong {
+  color: var(--text-primary);
+}
+.admin-user-cell small {
+  color: #f59e0b;
+  font-size: 0.65rem;
+}
+.admin-danger-button {
+  align-items: center;
+  background: none;
+  border: 1px solid transparent;
+  color: #f87171;
+  display: inline-flex;
+  gap: 0.3rem;
+  padding: 0.35rem 0.45rem;
+}
+.admin-danger-button:hover {
+  border-color: #f87171;
+}
+.admin-empty {
+  color: #fca5a5;
+  padding: 0.8rem 0;
+}
+.admin-user-cell__avatar {
+  display: inline-grid;
+  flex: 0 0 1.8rem;
+  height: 1.8rem !important;
+  max-height: 1.8rem;
+  max-width: 1.8rem;
+  overflow: hidden;
+  width: 1.8rem !important;
+}
+.admin-user-cell__avatar .ui-avatar__image,
+.admin-user-cell__avatar .ui-avatar__fallback {
+  display: block;
+  height: 100% !important;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100% !important;
+}
+.admin-dashboard__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+.admin-dashboard__card {
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: grid;
+  gap: 0.45rem;
+  padding: 1.1rem;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+.admin-dashboard__card:hover {
+  border-color: #f59e0b;
+  transform: translateY(-2px);
+}
+.admin-dashboard__card p,
+.admin-dashboard__card span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+.admin-dashboard__card h3 {
+  font-size: 1.25rem;
+  margin: 0;
+}
