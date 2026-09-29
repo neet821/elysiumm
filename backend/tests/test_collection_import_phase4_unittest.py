@@ -21,7 +21,7 @@ os.environ.setdefault(
 import bookmark_service  # noqa: E402
 import bookmark_import_validation  # noqa: E402
 import bookmark_import.plan as bookmark_import_plan  # noqa: E402
-import bookmark_transfer_service  # noqa: E402
+import bookmark_import_execution_service as bookmark_import_execution  # noqa: E402
 import models  # noqa: E402
 from database import Base  # noqa: E402
 
@@ -265,7 +265,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
                 {"title": "Two", "url": "https://two.example.com"},
             ],
         }
-        original_insert = bookmark_transfer_service._insert_import_bookmark
+        original_insert = bookmark_import_execution._insert_import_bookmark
         calls = 0
 
         def fail_on_second(*args, **kwargs):
@@ -276,7 +276,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
             return original_insert(*args, **kwargs)
 
         with patch.object(
-            bookmark_transfer_service,
+            bookmark_import_execution,
             "_insert_import_bookmark",
             side_effect=fail_on_second,
         ):
