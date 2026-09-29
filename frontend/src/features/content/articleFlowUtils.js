@@ -1,3 +1,7 @@
+export function articleType(item) {
+  return item.type || (item.contentType === "photo" ? "image" : item.contentType);
+}
+
 export function formatDate(value) {
   if (!value) return "";
   const date = new Date(value);
