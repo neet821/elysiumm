@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import hashlib
-import mimetypes
 import os
 import secrets
 from datetime import timedelta, timezone
 from pathlib import Path
-from urllib.parse import quote
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response, status
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import models
 import transfer_service
+from transfer_download_service import (
+    create_transfer_download_response as create_transfer_download_response,
+    iter_file as iter_file,
+)
 from database import get_db
 from dependencies import get_current_user
 
@@ -223,35 +224,7 @@ def download_admin_transfer(
     )
     if not item or session.expires_at <= transfer_service.utcnow():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "文件不存在或已清理")
-    path = Path(item.storage_path).resolve()
-    if not path.is_file():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件已清理")
-
-    size = path.stat().st_size
-    start = 0
-    end = size - 1
-    range_header = request.headers.get("range")
-    if range_header and range_header.startswith("bytes="):
-        start_text, _, end_text = range_header[6:].partition("-")
-        start = int(start_text or 0)
-        end = min(int(end_text) if end_text else size - 1, size - 1)
-        if start > end or start >= size:
-            raise HTTPException(status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE, "无效的 Range")
-    transfer_service.refresh_expiry(session)
-    db.commit()
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(end - start + 1),
-        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(item.original_name)}",
-        "Content-Type": mimetypes.guess_type(item.original_name)[0] or "application/octet-stream",
-    }
-    if range_header:
-        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-    return StreamingResponse(
-        iter_file(path, start, end),
-        status_code=206 if range_header else 200,
-        headers=headers,
-    )
+    return create_transfer_download_response(db, session, item, request)
 
 
 @router.delete("/api/admin/transfers/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -423,18 +396,6 @@ async def upload_transfer(
         )
 
 
-def iter_file(path: Path, start: int, end: int, chunk_size: int = 1024 * 1024):
-    with path.open("rb") as handle:
-        handle.seek(start)
-        remaining = end - start + 1
-        while remaining:
-            chunk = handle.read(min(chunk_size, remaining))
-            if not chunk:
-                break
-            remaining -= len(chunk)
-            yield chunk
-
-
 @router.get("/api/transfers/{token}/files/{file_id}")
 def download_transfer(
     token: str,
@@ -453,41 +414,4 @@ def download_transfer(
     )
     if not item:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "文件不存在")
-    path = Path(item.storage_path).resolve()
-    if not path.is_file():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件已清理")
-
-    size = path.stat().st_size
-    start = 0
-    end = size - 1
-    range_header = request.headers.get("range")
-    if range_header and range_header.startswith("bytes="):
-        start_text, _, end_text = range_header[6:].partition("-")
-        start = int(start_text or 0)
-        end = min(int(end_text) if end_text else size - 1, size - 1)
-        if start > end or start >= size:
-            raise HTTPException(
-                status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
-                "无效的 Range",
-            )
-
-    transfer_service.refresh_expiry(session)
-    db.commit()
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Content-Length": str(end - start + 1),
-        "Content-Disposition": (
-            f"attachment; filename*=UTF-8''{quote(item.original_name)}"
-        ),
-        "Content-Type": (
-            mimetypes.guess_type(item.original_name)[0]
-            or "application/octet-stream"
-        ),
-    }
-    if range_header:
-        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-    return StreamingResponse(
-        iter_file(path, start, end),
-        status_code=206 if range_header else 200,
-        headers=headers,
-    )
+    return create_transfer_download_response(db, session, item, request)

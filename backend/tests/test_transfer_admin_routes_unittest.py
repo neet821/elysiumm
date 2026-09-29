@@ -107,6 +107,14 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(download.status_code, 200)
         self.assertEqual(download.content, b"hello")
         self.assertIn("filename*=UTF-8''", download.headers["content-disposition"])
+
+        ranged_download = self.client.get(
+            payload[0]["download_url"],
+            headers={**self.admin_auth, "Range": "bytes=1-3"},
+        )
+        self.assertEqual(ranged_download.status_code, 206)
+        self.assertEqual(ranged_download.content, b"ell")
+        self.assertEqual(ranged_download.headers["content-range"], "bytes 1-3/5")
         self.assertEqual(
             self.client.get(payload[0]["download_url"], headers=self.member_auth).status_code,
             403,
