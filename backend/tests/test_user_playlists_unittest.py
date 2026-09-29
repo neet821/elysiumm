@@ -30,6 +30,7 @@ from database import get_db  # noqa: E402
 from dependencies import get_current_user  # noqa: E402
 from music import ProviderError  # noqa: E402
 from routers import music as music_router  # noqa: E402
+from routers import music_room_queue  # noqa: E402
 import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
 
@@ -349,13 +350,13 @@ class UserPlaylistRouteTest(unittest.TestCase):
 
         with (
             patch.object(
-                music_router, "_validated_room_track", side_effect=validate_track
+                music_room_queue, "_validated_room_track", side_effect=validate_track
             ),
             patch.object(
-                music_router.music_service, "add_to_queue", side_effect=append_item
+                music_room_queue.music_service, "add_to_queue", side_effect=append_item
             ),
             patch.object(
-                music_router,
+                music_room_queue,
                 "_broadcast_queue",
                 new=AsyncMock(return_value=[{"id": "existing", "status": "playing"}]),
             ),
