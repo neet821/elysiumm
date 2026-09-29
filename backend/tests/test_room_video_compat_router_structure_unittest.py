@@ -1,3 +1,4 @@
+import ast
 from pathlib import Path
 import unittest
 
@@ -21,10 +22,13 @@ class RoomVideoCompatRouterStructureTest(unittest.TestCase):
                 self.assertNotIn(route, ROOMS_SOURCE)
 
     def test_room_router_mounts_the_compatibility_router_once(self):
-        self.assertIn(
-            "from routers import room_video_compat, video",
-            ROOMS_SOURCE,
-        )
+        room_router_imports = {
+            alias.name
+            for node in ast.walk(ast.parse(ROOMS_SOURCE))
+            if isinstance(node, ast.ImportFrom) and node.module == "routers"
+            for alias in node.names
+        }
+        self.assertIn("room_video_compat", room_router_imports)
         self.assertEqual(ROOMS_SOURCE.count("include_router(room_video_compat.router)"), 1)
         self.assertIn("upload_video = room_video_compat.upload_video", ROOMS_SOURCE)
         self.assertIn("delete_room_video = room_video_compat.delete_room_video", ROOMS_SOURCE)
