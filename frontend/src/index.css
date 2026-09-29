@@ -1373,20 +1373,3 @@
     animation: none;
   }
 }
-
-/* Keep the homepage header on exactly the same solid surface as the feed. */
-body:has(.app-shell--home)::before {
-  display: none;
-}
-
-.service-shell.app-shell--home,
-.service-shell.app-shell--home .app-shell__main,
-.service-shell.app-shell--home .app-header {
-  background: var(--home-surface);
-}
-
-.service-shell.app-shell--home .app-header {
-  border-bottom: 0;
-  box-shadow: none;
-  position: fixed;
-}

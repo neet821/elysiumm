@@ -25,3 +25,9 @@ test('AppShell owns homepage and route-back overrides instead of the global styl
     assert.ok(!globalStyles.includes(section), `section remains global: ${section}`)
   }
 })
+
+test('homepage surface overrides are not duplicated in the global stylesheet', () => {
+  assert.match(shellStyles, /body:has\(\.app-shell--home\)::before\s*\{\s*display:\s*none\s*!important;/)
+  assert.doesNotMatch(globalStyles, /body:has\(\.app-shell--home\)::before/)
+  assert.doesNotMatch(globalStyles, /\.service-shell\.app-shell--home,\s*\.service-shell\.app-shell--home \.app-shell__main,\s*\.service-shell\.app-shell--home \.app-header/)
+})
