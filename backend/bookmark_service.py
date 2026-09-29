@@ -3,9 +3,9 @@ from bookmark_backup_service import (
     bookmark_backup_output_dir,
     create_bookmark_backup,
     list_bookmark_backups,
-    restore_bookmark_backup,
     serialize_bookmark_backup,
 )
+from bookmark_restore_service import restore_bookmark_backup
 from bookmark_folder_service import (
     MAX_FOLDER_DEPTH,
     create_folder,

@@ -24,6 +24,7 @@ import bookmark_folder_service  # noqa: E402
 import bookmark_html_parser  # noqa: E402
 import bookmark_import_validation  # noqa: E402
 import bookmark_public_service  # noqa: E402
+import bookmark_restore_service  # noqa: E402
 import bookmark_tag_service  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
@@ -36,6 +37,7 @@ DOMAIN_MODULES = {
     "bookmark_tag_service": bookmark_tag_service,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
+    "bookmark_restore_service": bookmark_restore_service,
 }
 
 
@@ -91,6 +93,8 @@ EXPECTED_DOMAIN_EXPORTS = {
         "bookmark_backup_output_dir",
         "create_bookmark_backup",
         "serialize_bookmark_backup",
+    ),
+    "bookmark_restore_service": (
         "restore_bookmark_backup",
     ),
 }
@@ -206,6 +210,47 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                     elif isinstance(node, ast.ImportFrom):
                         imports.append(node.module or "")
                 self.assertNotIn("bookmark_collection_service", imports)
+
+    def test_bookmark_domain_import_graph_is_acyclic(self):
+        module_names = (
+            "bookmark_backup_service",
+            "bookmark_export_service",
+            "bookmark_import_execution_service",
+            "bookmark_restore_service",
+            "bookmark_transfer_service",
+        )
+        module_set = set(module_names)
+        dependencies = {}
+        for module_name in module_names:
+            source = BACKEND_DIR / f"{module_name}.py"
+            tree = ast.parse(source.read_text(encoding="utf-8"))
+            imported_modules = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imported_modules.update(alias.name for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imported_modules.add(node.module)
+            dependencies[module_name] = imported_modules & module_set
+
+        visiting = set()
+        visited = set()
+
+        def visit(module_name):
+            if module_name in visiting:
+                return False
+            if module_name in visited:
+                return True
+            visiting.add(module_name)
+            if not all(visit(item) for item in dependencies[module_name]):
+                return False
+            visiting.remove(module_name)
+            visited.add(module_name)
+            return True
+
+        self.assertTrue(
+            all(visit(module_name) for module_name in module_names),
+            f"bookmark domain import graph contains a cycle: {dependencies}",
+        )
 
 
 if __name__ == "__main__":

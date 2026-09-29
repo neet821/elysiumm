@@ -91,8 +91,11 @@ Bookmark transfer follows a similar boundary. `bookmark_import/` decodes and
 validates source payloads and builds an import plan;
 `bookmark_import_execution_service.py` writes folders/bookmarks and records
 the transactional job/rollback result. `bookmark_transfer_service.py` keeps
-the established JSON/HTML import and export entry points for
-`bookmark_service.py` and backup/restore callers.
+the established JSON/HTML import and export entry points. Backup creation and
+its output policy live in `bookmark_backup_service.py`; verified backup restore
+is isolated in `bookmark_restore_service.py`, which delegates the actual import
+to the transfer facade. `bookmark_service.py` keeps the public aggregate imports
+used by the existing routes.
 
 For music rooms, `music_room_queue_service.py` owns track enqueue, selection,
 advance and removal. `music_room_engagement_service.py` owns queued-track
