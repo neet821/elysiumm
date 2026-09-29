@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { LIVE_CSS_LAYERS, liveCssImports, liveCssLayerContents, resolveLiveCss } from './helpers/liveStyles.mjs'
 
 const livePage = readFileSync(new URL('../src/pages/LivePage.jsx', import.meta.url), 'utf8')
 const routes = readFileSync(new URL('../src/routes.jsx', import.meta.url), 'utf8')
 const globalStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
-const featureStylesPath = new URL('../src/features/live/live.css', import.meta.url)
-const featureStyles = existsSync(featureStylesPath)
-  ? readFileSync(featureStylesPath, 'utf8')
-  : ''
+const featureStyles = resolveLiveCss()
 
 test('live pages own their lazy-loaded presentation styles', () => {
   assert.match(livePage, /import ['"]\.\.\/features\/live\/live\.css['"]/, 'the live route must load its feature stylesheet')
@@ -38,4 +36,12 @@ test('unmounted legacy live landing styles are retired', () => {
   ]) {
     assert.doesNotMatch(allStyles, selector, `legacy live styles must not remain: ${selector}`)
   }
+})
+
+test('live styles separate watch, admin, and page surfaces in cascade order', () => {
+  assert.deepEqual(liveCssImports(), LIVE_CSS_LAYERS)
+  const [watchStyles, adminStyles, surfaceStyles] = liveCssLayerContents()
+  assert.match(watchStyles, /\.live-watch-page\s*\{/)
+  assert.match(adminStyles, /\.admin-live\s*\{/)
+  assert.match(surfaceStyles, /\.service-shell:has\(\.live-watch-page\)/)
 })
