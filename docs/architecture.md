@@ -49,6 +49,34 @@ route and consumer checks; coverage now exercises the routed admin workspace,
 tus lifecycle and backend administrator-only authorization. The legacy
 token-based upload API remains server-side and protected for compatibility.
 
+## Internal service ownership
+
+Backend files named `*_service.py` own domain operations; routers translate
+HTTP requests and Socket.IO handlers translate events into those operations.
+The small `video_service.py` and `bookmark_transfer_service.py` modules are
+compatibility facades: keep their exported names stable, but put new behavior
+in the owning service instead of adding implementation there.
+
+Video changes usually belong in one of these modules:
+
+- `video_item_service.py`: source validation, playlist-item persistence,
+  metadata, safe item payloads and managed-file cleanup paths.
+- `video_playlist_service.py`: queue order, next-available-item lookup and the
+  complete room-session queue response.
+- `video_playback_service.py`: authoritative video snapshots, selecting media
+  and applying versioned playback-clock transitions.
+- `video_session_service.py`: replacing or initializing the current item,
+  advancing/deleting queue entries, and updating the session selection.
+- `video_service_common.py`: shared session creation, room activity and legacy
+  field projection used while compatibility columns remain.
+
+Bookmark transfer follows a similar boundary. `bookmark_import/` decodes and
+validates source payloads and builds an import plan;
+`bookmark_import_execution_service.py` writes folders/bookmarks and records
+the transactional job/rollback result. `bookmark_transfer_service.py` keeps
+the established JSON/HTML import and export entry points for
+`bookmark_service.py` and backup/restore callers.
+
 ## Domain boundaries
 
 Public content covers the homepage, posts and photos supplied by the current
