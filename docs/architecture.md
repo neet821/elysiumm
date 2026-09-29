@@ -67,6 +67,8 @@ Video changes usually belong in one of these modules:
   and applying versioned playback-clock transitions.
 - `video_session_service.py`: replacing or initializing the current item,
   advancing/deleting queue entries, and updating the session selection.
+- `video_hls_service.py`: member-authorized HLS resource tickets, bounded
+  playlist reads, nested playlist URL rewriting and streaming responses.
 - `video_service_common.py`: shared session creation, room activity and legacy
   field projection used while compatibility columns remain.
 

@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 import models
 import sync_room_crud
+import video_hls_service as hls_service
 import video_runtime as runtime
 from database import get_db
 from external_media import (
@@ -39,8 +40,8 @@ async def stream_video_item(
         except ExternalMediaError as exc:
             raise HTTPException(502, str(exc)) from exc
         if item.content_type and "mpegurl" in item.content_type.lower():
-            return await runtime._hls_playlist_response(remote, item, user)
-        return runtime._remote_streaming_response(remote)
+            return await hls_service._hls_playlist_response(remote, item, user)
+        return hls_service._remote_streaming_response(remote)
     path = runtime._managed_path(item.storage_path, runtime.VIDEO_UPLOAD_ROOT)
     if path is None or not path.is_file():
         raise HTTPException(404, "视频文件不可用")
@@ -58,7 +59,9 @@ async def stream_hls_resource(
     resource: str = Query(min_length=20, max_length=5000),
     db: Session = Depends(get_db),
 ):
-    user, item, target_url = runtime._authorized_hls_resource(db, item_id, resource)
+    user, item, target_url = hls_service._authorized_hls_resource(
+        db, item_id, resource
+    )
     try:
         remote = await open_external_stream(target_url)
     except ExternalMediaError as exc:
@@ -66,8 +69,8 @@ async def stream_hls_resource(
     if "mpegurl" in remote.headers.get(
         "content-type", ""
     ).lower() or target_url.lower().split("?", 1)[0].endswith(".m3u8"):
-        return await runtime._hls_playlist_response(remote, item, user)
-    return runtime._remote_streaming_response(remote)
+        return await hls_service._hls_playlist_response(remote, item, user)
+    return hls_service._remote_streaming_response(remote)
 
 
 @router.get("/subtitles/{subtitle_id}/stream")

@@ -4,7 +4,6 @@ from datetime import timedelta
 from pathlib import Path
 
 from fastapi import HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
 
@@ -16,7 +15,15 @@ import sync_room_crud
 import video_files
 import video_service
 from config import config
-from external_media import rewrite_hls_playlist
+from video_hls_service import (
+    MAX_HLS_PLAYLIST_SIZE,
+    _authorized_hls_resource,
+    _hls_playlist_response,
+    _hls_resource_token,
+    _hls_resource_url,
+    _read_remote_limited,
+    _remote_streaming_response,
+)
 from video_files import managed_path as _managed_path
 from video_files import normalize_subtitle as _normalize_subtitle
 from video_files import unlink_managed as _unlink_managed
@@ -26,7 +33,7 @@ VIDEO_UPLOAD_ROOT = config.PRIVATE_STORAGE_DIR / "video_rooms"
 VIDEO_SUBTITLE_ROOT = config.PRIVATE_STORAGE_DIR / "video_subtitles"
 MAX_VIDEO_SIZE_USER = 1024 * 1024 * 1024
 MAX_VIDEO_SIZE_ADMIN = 10 * 1024 * 1024 * 1024
-MAX_SUBTITLE_SIZE = MAX_HLS_PLAYLIST_SIZE = 2 * 1024 * 1024
+MAX_SUBTITLE_SIZE = 2 * 1024 * 1024
 VIDEO_CHUNK_SIZE = 1024 * 1024
 VIDEO_TYPES = {
     ".mp4": {"video/mp4", "application/octet-stream"},
@@ -111,102 +118,6 @@ def _media_token(resource, resource_id, user_id):
         {"resource": resource, "resource_id": resource_id, "user_id": user_id},
         timedelta(minutes=5),
         token_type="media",
-    )
-
-
-def _hls_resource_token(item_id, user_id, target_url):
-    return security.create_token(
-        {
-            "resource": "video_hls",
-            "resource_id": item_id,
-            "user_id": user_id,
-            "target_url": target_url,
-        },
-        timedelta(hours=6),
-        token_type="hls_resource",
-    )
-
-
-def _hls_resource_url(item_id, user_id, target_url):
-    return f"/api/video/items/{item_id}/hls?resource={_hls_resource_token(item_id, user_id, target_url)}"
-
-
-def _authorized_hls_resource(db, item_id, token):
-    payload = security.decode_token_payload(token)
-    if (
-        payload.get("type") != "hls_resource"
-        or payload.get("resource") != "video_hls"
-        or payload.get("resource_id") != item_id
-        or not isinstance(payload.get("user_id"), int)
-        or not isinstance(payload.get("target_url"), str)
-    ):
-        raise HTTPException(401, "HLS 访问凭据无效")
-    user, item = (
-        db.get(models.User, payload["user_id"]),
-        db.get(models.VideoPlaylistItem, item_id),
-    )
-    if user is None or item is None or item.source_type != "external":
-        raise HTTPException(404, "视频不存在")
-    if not user.is_active:
-        raise HTTPException(403, "账号已停用")
-    if not sync_room_crud.is_room_member(db, item.room_id, user.id):
-        raise HTTPException(403, "请先加入视频房")
-    return user, item, payload["target_url"]
-
-
-async def _read_remote_limited(remote, maximum=MAX_HLS_PLAYLIST_SIZE):
-    output = bytearray()
-    try:
-        async for chunk in remote.aiter_bytes():
-            output.extend(chunk)
-            if len(output) > maximum:
-                raise HTTPException(413, "HLS 清单过大")
-        return bytes(output)
-    finally:
-        await remote.aclose()
-
-
-def _remote_streaming_response(remote):
-    async def body():
-        try:
-            async for chunk in remote.aiter_bytes():
-                yield chunk
-        finally:
-            await remote.aclose()
-
-    headers = {
-        target: value
-        for source, target in (
-            ("accept-ranges", "Accept-Ranges"),
-            ("content-length", "Content-Length"),
-            ("content-range", "Content-Range"),
-        )
-        if (value := remote.headers.get(source))
-    }
-    return StreamingResponse(
-        body(),
-        status_code=remote.status_code,
-        media_type=remote.headers.get("content-type", "application/octet-stream").split(
-            ";", 1
-        )[0],
-        headers=headers,
-    )
-
-
-async def _hls_playlist_response(remote, item, user):
-    raw = await _read_remote_limited(remote)
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(415, "HLS 清单不是有效的 UTF-8 文本") from exc
-    if not text.lstrip().startswith("#EXTM3U"):
-        raise HTTPException(415, "HLS 清单缺少有效文件头")
-    return Response(
-        rewrite_hls_playlist(
-            text, remote.url, lambda target: _hls_resource_url(item.id, user.id, target)
-        ),
-        media_type="application/vnd.apple.mpegurl",
-        headers={"Cache-Control": "no-store"},
     )
 
 
