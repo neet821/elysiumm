@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
+import { resolveArticleFlowCss } from './helpers/articleFlowStyles.mjs'
 
 const source = new URL('../src/', import.meta.url)
 const routes = readFileSync(new URL('routes.jsx', source), 'utf8')
@@ -24,8 +25,7 @@ const legacyArticleStylesPath = new URL('features/content/legacyArticle.css', so
 const legacyArticleStyles = existsSync(legacyArticleStylesPath) ? readFileSync(legacyArticleStylesPath, 'utf8') : ''
 const articleFlowBaseStylesPath = new URL('features/content/articleFlowBase.css', source)
 const articleFlowBaseStyles = existsSync(articleFlowBaseStylesPath) ? readFileSync(articleFlowBaseStylesPath, 'utf8') : ''
-const articleFlowStylesPath = new URL('features/content/articleFlow.css', source)
-const articleFlowStyles = existsSync(articleFlowStylesPath) ? readFileSync(articleFlowStylesPath, 'utf8') : ''
+const articleFlowStyles = resolveArticleFlowCss()
 const contentCatalogStyles = readFileSync(new URL('pages/contentHome.css', source), 'utf8')
 
 test('public transfer styles load with the lazy transfer page', () => {

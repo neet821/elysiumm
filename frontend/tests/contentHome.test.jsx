@@ -1,12 +1,12 @@
-import { readFileSync } from 'node:fs'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ContentHomePage from '../src/pages/ContentHomePage.jsx'
 import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
+import { resolveArticleFlowCss } from './helpers/articleFlowStyles.mjs'
 
-const articleFlowCss = readFileSync('src/features/content/articleFlow.css', 'utf8')
+const articleFlowCss = resolveArticleFlowCss()
 
 describe('ContentHomePage', () => {
   beforeEach(() => {
