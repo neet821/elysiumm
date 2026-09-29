@@ -1,4 +1,6 @@
 import ast
+import importlib
+import importlib.util
 import os
 import sys
 import unittest
@@ -13,6 +15,17 @@ import music_service  # noqa: E402
 
 
 class MusicServiceStructureTest(unittest.TestCase):
+    def test_read_payloads_are_owned_by_the_music_room_read_service(self):
+        module_name = "music_room_read_service"
+        self.assertIsNotNone(importlib.util.find_spec(module_name))
+        read_service = importlib.import_module(module_name)
+
+        for name in ("queue_payload", "proposal_vote_required", "skip_vote_required", "favorite_payload"):
+            with self.subTest(name=name):
+                self.assertIs(getattr(music_room_queue_service, name), getattr(read_service, name))
+                self.assertIs(getattr(music_service, name), getattr(read_service, name))
+                self.assertEqual(getattr(read_service, name).__module__, module_name)
+
     def test_legacy_service_reexports_event_and_queue_operations(self):
         event_names = (
             "ROOM_EVENT_SUMMARY_KEYS",
