@@ -6,7 +6,8 @@ import { articleType } from '../features/content/articleFlowUtils.js'
 import { useArticleFlowData } from '../features/content/useArticleFlowData.js'
 import { useHomeSidebar } from '../contexts/HomeSidebarContext.jsx'
 import HomeNavigation from '../components/layout/HomeNavigation.jsx'
-import './contentHome.css'
+import '../features/content/articleFlowBase.css'
+import '../features/content/articleFlow.css'
 
 const ARTICLES_PER_PAGE = 3
 

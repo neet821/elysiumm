@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,10 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ContentHomePage from '../src/pages/ContentHomePage.jsx'
 import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
 
-const contentHomeCss = readFileSync(
-  resolve(process.cwd(), 'src/pages/contentHome.css'),
-  'utf8',
-)
+const articleFlowCss = readFileSync('src/features/content/articleFlow.css', 'utf8')
 
 describe('ContentHomePage', () => {
   beforeEach(() => {
@@ -60,10 +56,10 @@ describe('ContentHomePage', () => {
   })
 
   it('uses a blue pulse in light mode and an orange pulse in dark mode', () => {
-    expect(contentHomeCss).toMatch(
+    expect(articleFlowCss).toMatch(
       /\.legacy-old-home--flat \.home-nav__action--live-active\s*\{[^}]*color:\s*var\(--accent-blue\)/s,
     )
-    expect(contentHomeCss).toMatch(
+    expect(articleFlowCss).toMatch(
       /\.dark \.legacy-old-home--flat \.home-nav__action--live-active\s*\{[^}]*color:\s*#f59e0b/s,
     )
   })

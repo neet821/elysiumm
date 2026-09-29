@@ -42,18 +42,18 @@ describe('ArticleFlowHome', () => {
   })
 
   it('uses a smaller title scale on the legacy article reader', () => {
-    const css = `${fs.readFileSync('src/pages/contentHome.css', 'utf8')}\n${legacyArticleStyles}`
+    const css = `${fs.readFileSync('src/features/content/articleFlowBase.css', 'utf8')}\n${legacyArticleStyles}`
     expect(css).toMatch(/\.legacy-old-home \.reader-header h1\s*\{[^}]*font-size:\s*clamp\(24px,\s*3\.2vw,\s*36px\);/s)
   })
 
   it('gives the homepage a wider but bounded desktop canvas', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat\s*\{[\s\S]*?max-width:\s*1560px;/s)
     expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) minmax\(280px, 340px\);/s)
   })
 
   it('keeps the reader comfortable on mobile and gives the article stream a structural base', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(legacyArticleStyles).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader-body\s*\{[\s\S]*?max-width:\s*none;/s)
     expect(legacyArticleStyles).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.legacy-old-home:not\(\.legacy-old-home--flat\)\s*\{[\s\S]*?width:\s*min\(calc\(100% - 0\.5rem\), 960px\);/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.articles-section__end-cap\s*\{[\s\S]*?background:\s*#f5f6f7;[\s\S]*?border-block:\s*1px solid #e1e4e8;/s)
@@ -280,7 +280,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('keeps fixed-size record cards from letting long text escape into the next card', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
 
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\s*\{[^}]*overflow:\s*hidden;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card h2 > span:last-child\s*\{[^}]*-webkit-line-clamp:\s*2;/s)
@@ -289,7 +289,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('keeps the full-comment toggle visible beside the clipped preview', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
 
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
@@ -500,7 +500,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('fixes the homepage chrome and joins the mobile drawer to it', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*0;/s)
     expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*0;/s)
@@ -534,7 +534,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('moves homepage actions into an always-open left rail on wide screens', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav\s*\{[^}]*position:\s*fixed;[^}]*left:\s*0;[^}]*top:\s*0;[^}]*bottom:\s*0;/s)
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat\s*\{[^}]*margin-left:\s*var\(--home-nav-rail-width\);/s)
     expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*inline-flex\s*!important;/s)
@@ -542,14 +542,14 @@ describe('ArticleFlowHome', () => {
   })
 
   it('keeps the compact navigation without a home action and hides the drawer trigger at medium widths', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none\s*!important;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
   })
 
   it('gives the wide rail a centered identity block and separates admin at the bottom', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity\s*\{[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s)
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity-name\s*\{[^}]*display:\s*block;/s)
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__admin-action\s*\{[^}]*margin-top:\s*auto;[^}]*border-top:/s)
@@ -594,7 +594,7 @@ describe('ArticleFlowHome', () => {
   })
 
   it('groups compact navigation into a left control cluster and a right destination cluster', () => {
-    const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
+    const css = fs.readFileSync('src/features/content/articleFlow.css', 'utf8')
     expect(css).toContain('.home-nav__leading-actions')
     expect(css).toContain('.home-nav__trailing-actions')
     expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__trailing-actions\s*\{[^}]*margin-left:\s*auto;/s)

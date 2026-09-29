@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { MarkdownContent } from '../features/content/ContentCatalog.jsx'
-import './contentHome.css'
+import '../features/content/articleFlowBase.css'
 import '../features/content/legacyArticle.css'
 
 export default function LegacyArticlePage() {

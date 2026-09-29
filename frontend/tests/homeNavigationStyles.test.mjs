@@ -7,7 +7,7 @@ const entry = readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
 const appShell = readFileSync(new URL('../src/components/layout/AppShell.jsx', import.meta.url), 'utf8')
 const stylesPath = new URL('../src/components/layout/homeNavigation.css', import.meta.url)
 const styles = existsSync(stylesPath) ? readFileSync(stylesPath, 'utf8') : ''
-const contentStyles = readFileSync(new URL('../src/pages/contentHome.css', import.meta.url), 'utf8')
+const articleFlowStyles = readFileSync(new URL('../src/features/content/articleFlow.css', import.meta.url), 'utf8')
 
 test('shared wide navigation styles load with the eager application shell', () => {
   assert.match(app, /import\s+\{\s*AppShell\s*\}\s+from\s+["']\.\/components\/layout\/AppShell["']/, 'the app must eagerly mount AppShell')
@@ -25,6 +25,6 @@ test('shared wide navigation styles load with the eager application shell', () =
   }
   assert.match(styles, /@media\s*\(min-width:\s*1101px\)/, 'the wide rail breakpoint must remain')
   assert.match(styles, /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.home-nav--global\s*\{\s*display:\s*none/s, 'the compact breakpoint must hide the global rail')
-  assert.doesNotMatch(contentStyles, /\.home-nav--global/, 'shared navigation rules must not depend on the lazy homepage stylesheet')
-  assert.match(contentStyles, /\.legacy-old-home--flat \.home-nav\s*\{/, 'homepage-local navigation presentation must remain page-owned')
+  assert.doesNotMatch(articleFlowStyles, /\.home-nav--global/, 'shared navigation rules must not depend on the lazy homepage stylesheet')
+  assert.match(articleFlowStyles, /\.legacy-old-home--flat \.home-nav\s*\{/, 'homepage-local navigation presentation must remain page-owned')
 })

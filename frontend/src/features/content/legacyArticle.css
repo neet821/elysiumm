@@ -1,4 +1,15 @@
 /* Legacy article URL reader shell and its responsive presentation. */
+
+.legacy-old-home:not(.legacy-old-home--flat) {
+  background: #fff;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+  color: #111;
+  font-family: var(--font-editorial, serif);
+  line-height: 1.75;
+}
+
 .legacy-old-home:not(.legacy-old-home--flat) .reader--article .reader-header h1 {
   max-width: 100%;
   overflow-wrap: anywhere;

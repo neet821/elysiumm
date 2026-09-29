@@ -10,6 +10,9 @@ const syncRoomList = readFileSync(new URL('pages/SyncRoomList.jsx', source), 'ut
 const adminFilesPage = readFileSync(new URL('pages/AdminFilesPage.jsx', source), 'utf8')
 const loginPage = readFileSync(new URL('pages/LoginPage.jsx', source), 'utf8')
 const registerPage = readFileSync(new URL('pages/RegisterPage.jsx', source), 'utf8')
+const contentCatalogPage = readFileSync(new URL('pages/ContentHomePage.jsx', source), 'utf8')
+const articleFlowPage = readFileSync(new URL('pages/ArticleFlowHome.jsx', source), 'utf8')
+const legacyArticlePage = readFileSync(new URL('pages/LegacyArticlePage.jsx', source), 'utf8')
 const transferStylesPath = new URL('features/transfer/transfer.css', source)
 const transferStyles = existsSync(transferStylesPath) ? readFileSync(transferStylesPath, 'utf8') : ''
 const playerStylesPath = new URL('features/player/player.css', source)
@@ -19,6 +22,11 @@ const authStyles = existsSync(authStylesPath) ? readFileSync(authStylesPath, 'ut
 const adminFilesStyles = readFileSync(new URL('features/admin-files/adminFiles.css', source), 'utf8')
 const legacyArticleStylesPath = new URL('features/content/legacyArticle.css', source)
 const legacyArticleStyles = existsSync(legacyArticleStylesPath) ? readFileSync(legacyArticleStylesPath, 'utf8') : ''
+const articleFlowBaseStylesPath = new URL('features/content/articleFlowBase.css', source)
+const articleFlowBaseStyles = existsSync(articleFlowBaseStylesPath) ? readFileSync(articleFlowBaseStylesPath, 'utf8') : ''
+const articleFlowStylesPath = new URL('features/content/articleFlow.css', source)
+const articleFlowStyles = existsSync(articleFlowStylesPath) ? readFileSync(articleFlowStylesPath, 'utf8') : ''
+const contentCatalogStyles = readFileSync(new URL('pages/contentHome.css', source), 'utf8')
 
 test('public transfer styles load with the lazy transfer page', () => {
   assert.match(transferPage, /import ['"]\.\.\/features\/transfer\/transfer\.css['"]/, 'the transfer page must own its stylesheet')
@@ -61,12 +69,11 @@ test('authentication layout styles load only with the lazy login and registratio
 })
 
 test('legacy article reader overrides load with the legacy article page', () => {
-  const legacyArticlePage = readFileSync(new URL('pages/LegacyArticlePage.jsx', source), 'utf8')
-  const sharedStylesIndex = legacyArticlePage.indexOf("import './contentHome.css'")
+  const sharedStylesIndex = legacyArticlePage.indexOf("import '../features/content/articleFlowBase.css'")
   const legacyStylesIndex = legacyArticlePage.indexOf("import '../features/content/legacyArticle.css'")
 
   assert.ok(legacyStylesIndex >= 0, 'the legacy reader must own its route-specific stylesheet')
-  assert.ok(sharedStylesIndex >= 0 && sharedStylesIndex < legacyStylesIndex, 'route overrides must load after shared content styles')
+  assert.ok(sharedStylesIndex >= 0 && sharedStylesIndex < legacyStylesIndex, 'reader overrides must load after the shared article-flow base')
   assert.match(legacyArticleStyles, /\.service-shell:has\(\.reader--article\)/)
   assert.match(legacyArticleStyles, /\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader--article/)
   assert.match(legacyArticleStyles, /@media\s*\(max-width:\s*600px\)/)
@@ -75,4 +82,19 @@ test('legacy article reader overrides load with the legacy article page', () => 
     /\.service-shell:has\(\.reader--article\)|\.reader--article \.reader-header h1/,
     'reader-only outer-shell rules must not stay in shared content styles',
   )
+})
+
+test('content catalog, article flow, and legacy reader own separate stylesheets', () => {
+  assert.match(contentCatalogPage, /import ['"]\.\/contentHome\.css['"]/, 'the content catalog must load its own styles')
+  assert.match(articleFlowPage, /import ['"]\.\.\/features\/content\/articleFlowBase\.css['"]/, 'the article flow must load its shared base')
+  assert.match(articleFlowPage, /import ['"]\.\.\/features\/content\/articleFlow\.css['"]/, 'the article flow must load its page presentation')
+  assert.ok(
+    articleFlowPage.indexOf("articleFlowBase.css'") < articleFlowPage.indexOf("articleFlow.css'"),
+    'base presentation must load before article-flow overrides',
+  )
+  assert.match(legacyArticlePage, /articleFlowBase\.css/)
+  assert.doesNotMatch(legacyArticlePage, /articleFlow\.css/, 'the legacy reader must not download homepage-only presentation')
+  assert.match(articleFlowBaseStyles, /\.legacy-old-home \.reader-body/)
+  assert.match(articleFlowStyles, /\.legacy-old-home--flat \.article-card--featured/)
+  assert.doesNotMatch(contentCatalogStyles, /\.legacy-old-home/, 'catalog styles must not include article stream rules')
 })
