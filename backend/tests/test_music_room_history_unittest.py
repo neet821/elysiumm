@@ -21,6 +21,7 @@ if str(BACKEND_DIR) not in sys.path:
 import database  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
+import music_room_runtime  # noqa: E402
 import music_service  # noqa: E402
 import room_cleanup_task  # noqa: E402
 import schemas  # noqa: E402
@@ -285,15 +286,15 @@ class MusicRoomHistoryTest(unittest.TestCase):
                 "stream_url": "/fresh/history",
             }
 
-        original_validator = music_router._validated_room_track
-        music_router._validated_room_track = validated
+        original_validator = music_room_runtime._validated_room_track
+        music_room_runtime._validated_room_track = validated
         try:
             response = self.client.post(
                 f"/api/music/rooms/{self.room.id}/history/{self.db.query(models.MusicRoomEvent).first().id}/queue",
                 headers=self.headers(self.member),
             )
         finally:
-            music_router._validated_room_track = original_validator
+            music_room_runtime._validated_room_track = original_validator
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["queue"][0]["title"], "History song")
         self.assertEqual(

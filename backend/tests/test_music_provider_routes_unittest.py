@@ -24,6 +24,7 @@ import catalog_repository  # noqa: E402
 from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks  # noqa: E402
 from database import Base, get_db  # noqa: E402
 from music import ProviderError, ProviderResolution  # noqa: E402
+import music_room_runtime  # noqa: E402
 from routers import music as music_router  # noqa: E402
 from routers import music_catalog  # noqa: E402
 from routers import music_favorites  # noqa: E402
@@ -290,7 +291,7 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
         async def fail_validation(*_args):
             raise ProviderError("private upstream response must not leak")
 
-        with patch.object(music_router, "_validated_room_track", side_effect=fail_validation):
+        with patch.object(music_room_runtime, "_validated_room_track", side_effect=fail_validation):
             with self.assertRaises(HTTPException) as raised:
                 await music_router.add_track(room.id, track, self.session, self.user)
 
