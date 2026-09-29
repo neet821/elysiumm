@@ -53,7 +53,12 @@ describe('shared wide navigation shell', () => {
   })
 
   it('keeps the back link for compact layouts and hides it only in the wide shell', () => {
-    const css = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
+    const globalCss = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
+    const shellCss = fs.readFileSync(
+      path.join(frontendRoot, 'src', 'components', 'layout', 'homeNavigation.css'),
+      'utf8',
+    )
+    const css = `${globalCss}\n${shellCss}`
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*none/s)
     expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*flex/s)
   })
