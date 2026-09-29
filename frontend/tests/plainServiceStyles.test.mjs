@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
+import {
+  PLAIN_SERVICE_CSS_LAYERS,
+  plainServiceCssImports,
+  resolvePlainServiceCss,
+} from './helpers/plainServiceStyles.mjs'
 
 const sourceDir = new URL('../src/', import.meta.url)
 const plainServicePath = new URL('components/layout/plainService.css', sourceDir)
@@ -10,7 +15,7 @@ const appShell = readFileSync(new URL('components/layout/AppShell.jsx', sourceDi
 
 test('active shell styles keep the eager plain-service presentation without retired review skin', () => {
   assert.ok(existsSync(plainServicePath), 'AppShell has a dedicated plain-service stylesheet')
-  const plainServiceStyles = readFileSync(plainServicePath, 'utf8')
+  const plainServiceStyles = resolvePlainServiceCss()
   const adminWorkspaceStyles = readFileSync(adminWorkspacePath, 'utf8')
 
   assert.match(plainServiceStyles, /Plain service presentation/)
@@ -31,4 +36,8 @@ test('active shell styles keep the eager plain-service presentation without reti
   const navigationImport = appShell.indexOf("import './homeNavigation.css'")
   assert.ok(plainServiceImport >= 0, 'AppShell imports the plain-service presentation')
   assert.ok(navigationImport > plainServiceImport, 'plain-service styles load before the shell navigation overrides')
+})
+
+test('plain-service styles are split into ordered shell responsibility layers', () => {
+  assert.deepEqual(plainServiceCssImports(), PLAIN_SERVICE_CSS_LAYERS)
 })

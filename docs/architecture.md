@@ -22,9 +22,11 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 
 ## Frontend ownership
 
-`frontend/src/index.css` owns design tokens, resets, the application shell and
-styles intentionally shared by multiple routes. A page or feature stylesheet
-belongs beside its owner under `frontend/src/pages/` or
+`frontend/src/index.css` owns base resets and global design tokens.
+`components/layout/AppShell.jsx` imports the shared frame and service-shell
+styles; `plainService.css` is the stable entrypoint for ordered token, shell,
+shared-control, directory, homepage-header and responsive layers. A page or
+feature stylesheet belongs beside its owner under `frontend/src/pages/` or
 `frontend/src/features/<feature>/` and is imported by that page/module. Since
 routes are lazy-loaded, feature-only styles should not be added to the global
 sheet. Keep component state, API calls and markup in frontend modules; FastAPI
