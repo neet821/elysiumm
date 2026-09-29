@@ -43,6 +43,9 @@ feature UI. The public transfer page is read/download-only, while transfer-link
 creation styles are owned by the administrator Files feature.
 The administrator live route composes `AdminLiveSettingsForm` for opening
 settings and keeps API state/mutations in `useAdminLiveConsole`.
+The shared video/music room-list page keeps presentation in
+`SyncRoomList.jsx`; `useSyncRoomListController` coordinates room actions and
+transient form/share state, while `useSyncRoomLobby` owns lobby API data.
 Upload controls for persistent transfer files exist only in the authenticated
 admin Files workspace and use the resumable tus flow. Other feature-specific
 uploads (such as account avatars or room-local media) keep their own ownership
