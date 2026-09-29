@@ -77,6 +77,12 @@ the transactional job/rollback result. `bookmark_transfer_service.py` keeps
 the established JSON/HTML import and export entry points for
 `bookmark_service.py` and backup/restore callers.
 
+For music rooms, `music_room_queue_service.py` owns track enqueue, selection,
+advance and removal. `music_room_engagement_service.py` owns queued-track
+likes and threshold-based skip votes; an approved skip delegates the actual
+playback transition to the queue service. `music_service.py` remains the
+stable aggregation facade used by routers.
+
 ## Domain boundaries
 
 Public content covers the homepage, posts and photos supplied by the current

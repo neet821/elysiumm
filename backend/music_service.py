@@ -14,11 +14,13 @@ from music_room_queue_service import (
     _track_stream_url as _track_stream_url,
     add_to_queue as add_to_queue,
     advance_queue as advance_queue,
-    like_queue_item as like_queue_item,
     propose_track as propose_track,
     remove_queue_item as remove_queue_item,
     select_track as select_track,
     vote_proposal as vote_proposal,
+)
+from music_room_engagement_service import (
+    like_queue_item as like_queue_item,
     vote_skip as vote_skip,
 )
 from music_room_read_service import (

@@ -44,14 +44,13 @@ class MusicServiceStructureTest(unittest.TestCase):
             "_canonical_track_id",
             "propose_track",
             "vote_proposal",
-            "like_queue_item",
             "add_to_queue",
             "select_track",
             "advance_queue",
             "remove_queue_item",
-            "vote_skip",
             "favorite_payload",
         )
+        engagement_names = ("like_queue_item", "vote_skip")
 
         for name in event_names:
             with self.subTest(name=name):
@@ -59,6 +58,11 @@ class MusicServiceStructureTest(unittest.TestCase):
         for name in queue_names:
             with self.subTest(name=name):
                 self.assertIs(getattr(music_service, name), getattr(music_room_queue_service, name))
+
+        engagement_service = importlib.import_module("music_room_engagement_service")
+        for name in engagement_names:
+            with self.subTest(name=name):
+                self.assertIs(getattr(music_service, name), getattr(engagement_service, name))
 
     def test_domain_dependency_flows_from_queue_to_events(self):
         def imported_modules(module):
@@ -80,6 +84,9 @@ class MusicServiceStructureTest(unittest.TestCase):
         self.assertNotIn("music_room_queue_service", imported_modules(music_room_events))
         self.assertNotIn("music_service", imported_modules(music_room_events))
         self.assertNotIn("music_service", imported_modules(music_room_queue_service))
+        engagement_service = importlib.import_module("music_room_engagement_service")
+        self.assertIn("music_room_queue_service", imported_modules(engagement_service))
+        self.assertNotIn("music_room_engagement_service", imported_modules(music_room_queue_service))
 
     def test_legacy_module_is_a_facade_without_business_function_definitions(self):
         tree = ast.parse(Path(music_service.__file__).read_text(encoding="utf-8"))
