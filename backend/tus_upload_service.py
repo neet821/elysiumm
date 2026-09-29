@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import ipaddress
 import json
 import os
@@ -23,6 +22,7 @@ import models
 import transfer_service
 from admin_audit import add_admin_audit
 from config import config
+from file_integrity import sha256_file
 
 
 ACTIVE_STATUSES = ("creating", "active")
@@ -224,14 +224,6 @@ def tus_staging_file(upload_id: str) -> Path:
     if candidate.parent != root:
         raise ValueError("tus upload ID escaped staging root")
     return candidate
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _publish_staged_file(source: Path, destination: Path) -> None:

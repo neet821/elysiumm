@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import os
 import re
 import shutil
@@ -12,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
+
+from file_integrity import sha256_file
 
 
 @dataclass(frozen=True)
@@ -77,14 +78,6 @@ def build_backup_filename(
     if current.microsecond:
         timestamp = f"{timestamp}-{current.microsecond:06d}"
     return f"{sanitize_filename_part(database_name)}-{timestamp}{suffix}"
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def create_config_archive(output_dir: Path, candidates: list[Path], now: datetime | None = None) -> tuple[Path, list[str]]:

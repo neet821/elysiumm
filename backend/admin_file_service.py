@@ -1,8 +1,9 @@
 """Validation and path-boundary primitives for private administrator files."""
 
-import hashlib
 import re
 from pathlib import Path
+
+from file_integrity import sha256_file as _shared_sha256_file
 
 
 CHUNK_SIZE = 64 * 1024
@@ -95,11 +96,7 @@ def resolve_private_path(root: Path, stored_name: str) -> Path:
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(CHUNK_SIZE), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return _shared_sha256_file(path, chunk_size=CHUNK_SIZE)
 
 
 def validate_file_content(path: Path, extension: str) -> None:
