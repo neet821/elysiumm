@@ -6,6 +6,7 @@ import { API_ENDPOINTS, WS_BASE_URL } from '../config'
 import { useAuth } from '../contexts/AuthContext'
 import MusicRoomPlayer from '../features/music/MusicRoomPlayer.jsx'
 import { createMusicRoomActionHandler } from '../features/music/musicRoomActions.js'
+import { useResolvedMusicTrack } from '../features/music/useResolvedMusicTrack.js'
 import {
   cancelRoomSync,
   createRoomSyncState,
@@ -46,60 +47,17 @@ export default function MineradioPage() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
-  const [resolvedCurrent, setResolvedCurrent] = useState(null)
-  const [currentUnavailableReason, setCurrentUnavailableReason] = useState('')
   const [snapshotRecord, setSnapshotRecord] = useState(null)
   const [syncStatus, setSyncStatus] = useState('connecting')
 
   const current = useMemo(() => currentQueueTrack(queue), [queue])
+  const { resolvedCurrent, currentUnavailableReason } = useResolvedMusicTrack(current)
   const playerTrack = useMemo(() => roomQueueTrackToPlayerTrack(resolvedCurrent), [resolvedCurrent])
   const canControl = Boolean(room && user && (
     room.host_user_id === user.id || room.control_mode === 'all_members' || user.role === 'admin'
   ))
   const isHost = Boolean(room && user && room.host_user_id === user.id)
   const isAdmin = Boolean(user && user.role === 'admin')
-
-  useEffect(() => {
-    let active = true
-    setCurrentUnavailableReason('')
-    if (!current) {
-      setResolvedCurrent(null)
-      return () => { active = false }
-    }
-    if (!current.canonical_track_id) {
-      setResolvedCurrent(current)
-      return () => { active = false }
-    }
-    setResolvedCurrent(null)
-    apiClient.get(API_ENDPOINTS.MUSIC_AUDIO(current.canonical_track_id), {
-        params: {
-          provider: current.provider,
-          provider_track_id: current.provider_track_id,
-          refresh: true,
-        },
-      }).then((audioResponse) => {
-      if (!active) return
-      const audio = audioResponse.data || {}
-      if (!audio.playback_url || audio.availability === 'unavailable') {
-        setCurrentUnavailableReason(audio.unavailable_reason || '当前配置的曲库都无法播放这首歌')
-        return
-      }
-      setResolvedCurrent({
-        ...current,
-        active_provider: audio.provider || current.provider,
-        stream_url: audio.playback_url,
-      })
-    }).catch((error) => {
-      if (!active) return
-      setResolvedCurrent(null)
-      setCurrentUnavailableReason(
-        error.response?.data?.unavailable_reason
-        || error.response?.data?.detail
-        || '曲库暂时无法提供这首歌的播放地址',
-      )
-    })
-    return () => { active = false }
-  }, [current])
 
   const handleAdapterReady = useCallback((adapter) => {
     if (!adapter && playerAdapterRef.current) {
@@ -119,8 +77,6 @@ export default function MineradioPage() {
     setMembers([])
     setMessages([])
     setHistory([])
-    setResolvedCurrent(null)
-    setCurrentUnavailableReason('')
     setSnapshotRecord(null)
     setSyncStatus('connecting')
     versionRef.current = -1
