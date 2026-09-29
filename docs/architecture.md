@@ -15,6 +15,7 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 - SQLAlchemy domain modules under `backend/models/` share one declarative `Base` and metadata registry. Music models are grouped into catalog, room-music, and private-playlist modules; room models are grouped into sync rooms, video, and membership/chat. The older `models.music` and `models.rooms` import paths remain compatibility facades.
 - Managed filesystem roots hold public uploads, private video/subtitle files, administrator files, sync files and backup artifacts. Private roots are never mounted as public static directories.
 - Music room UI, lyrics, covers and particles live under `frontend/src/features/music/`. NetEase, QQ and Audius adapters live under `backend/music/`; provider credentials are root-managed and never sent to browsers.
+- Catalog search and lyric caching have separate owners in `backend/catalog_search_service.py` and `backend/catalog_lyrics_service.py`; `backend/catalog_service.py` remains a public-import compatibility facade.
 - The routed `MineradioPage` only resolves route/auth context and composes the native player; `useMusicRoomPageController` owns room data, permissions, realtime lifecycle, playback synchronization and room actions.
 - Articles parsing, Markdown sanitization and media delivery live under `backend/articles/`. The public `/api/articles/**`, `/api/content/**` and `/media/**` contracts remain unchanged.
 

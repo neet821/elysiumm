@@ -227,10 +227,10 @@ class CatalogLyricsTest(unittest.IsolatedAsyncioTestCase):
         )
         race = IntegrityError("insert", {}, Exception("duplicate"))
         with patch(
-            "catalog_service.catalog_lyrics_repository.cached_lyrics",
+            "catalog_lyrics_service.catalog_lyrics_repository.cached_lyrics",
             side_effect=[None, winner],
         ), patch(
-            "catalog_service.catalog_lyrics_repository.upsert_lyrics",
+            "catalog_lyrics_service.catalog_lyrics_repository.upsert_lyrics",
             side_effect=race,
         ):
             payload = await catalog_service.get_catalog_lyrics(
