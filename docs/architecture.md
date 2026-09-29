@@ -148,6 +148,7 @@ Bare-metal production uses Nginx, systemd, one Uvicorn worker, MariaDB and indep
 ## Release and baseline boundary
 
 Each component release contains its own manifest, source/artifact hash and compatibility metadata below `releases/`. A deployment transaction records the impact-map decision, release IDs, migration graph result, health checks, link switches and rollback target under `releases/deployment-history/`. The permanently retained baseline is outside the service root under `/srv/backups/elysium/baseline/`; it contains dereferenced runtime trees, the complete backend `.venv`, a consistent database backup and restore configuration that points only inside the baseline. Shared uploads and Articles mirrors remain declared external data dependencies and are not copied into the immutable baseline.
+- `scripts/verify-baseline.py` is the stable command-line wrapper; `deployment.baseline_verification` owns manifest, checksum, permission and forbidden-path verification.
 
 ## External dependencies
 
