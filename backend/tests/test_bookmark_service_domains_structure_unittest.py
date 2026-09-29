@@ -20,6 +20,7 @@ import bookmark_service  # noqa: E402
 import bookmark_backup_service  # noqa: E402
 import bookmark_collection_service  # noqa: E402
 import bookmark_export_service  # noqa: E402
+import bookmark_folder_service  # noqa: E402
 import bookmark_html_parser  # noqa: E402
 import bookmark_import_validation  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
@@ -27,6 +28,7 @@ import bookmark_transfer_service  # noqa: E402
 DOMAIN_MODULES = {
     "bookmark_collection_service": bookmark_collection_service,
     "bookmark_export_service": bookmark_export_service,
+    "bookmark_folder_service": bookmark_folder_service,
     "bookmark_import_validation": bookmark_import_validation,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
@@ -35,10 +37,6 @@ DOMAIN_MODULES = {
 
 EXPECTED_DOMAIN_EXPORTS = {
     "bookmark_collection_service": (
-        "create_folder",
-        "get_folder",
-        "update_folder",
-        "delete_folder",
         "get_or_create_tag",
         "create_bookmark",
         "get_bookmark",
@@ -52,6 +50,13 @@ EXPECTED_DOMAIN_EXPORTS = {
         "public_folders",
         "serialize_public_bookmark",
         "tags_for_bookmark",
+    ),
+    "bookmark_folder_service": (
+        "MAX_FOLDER_DEPTH",
+        "create_folder",
+        "get_folder",
+        "update_folder",
+        "delete_folder",
     ),
     "bookmark_transfer_service": (
         "BookmarkImportValidationError",
@@ -93,6 +98,20 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                         getattr(bookmark_service, name),
                         getattr(module, name),
                     )
+
+    def test_collection_module_keeps_folder_service_aliases(self):
+        for name in (
+            "MAX_FOLDER_DEPTH",
+            "create_folder",
+            "get_folder",
+            "update_folder",
+            "delete_folder",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(bookmark_collection_service, name),
+                    getattr(bookmark_folder_service, name),
+                )
 
     def test_transfer_facade_reexports_export_domain_callables(self):
         for name in ("export_bookmarks_json", "export_bookmarks_html"):

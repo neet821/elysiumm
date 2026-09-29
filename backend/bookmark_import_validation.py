@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from bookmark_collection_service import MAX_FOLDER_DEPTH
+from bookmark_folder_service import MAX_FOLDER_DEPTH
 from bookmark_html_parser import BookmarkHTMLParser
 
 _UNSET = object()

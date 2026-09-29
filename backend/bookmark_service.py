@@ -6,15 +6,18 @@ from bookmark_backup_service import (
     restore_bookmark_backup,
     serialize_bookmark_backup,
 )
-from bookmark_collection_service import (
+from bookmark_folder_service import (
     MAX_FOLDER_DEPTH,
+    create_folder,
+    delete_folder,
+    get_folder,
+    update_folder,
+)
+from bookmark_collection_service import (
     bulk_update_bookmarks,
     create_bookmark,
-    create_folder,
     delete_bookmark,
-    delete_folder,
     get_bookmark,
-    get_folder,
     get_or_create_tag,
     public_bookmarks,
     public_folders,
@@ -24,7 +27,6 @@ from bookmark_collection_service import (
     serialize_public_bookmark,
     tags_for_bookmark,
     update_bookmark,
-    update_folder,
 )
 from bookmark_search_engine_service import (
     create_search_engine as create_search_engine,
