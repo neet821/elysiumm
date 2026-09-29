@@ -95,6 +95,10 @@ Video changes usually belong in one of these modules:
 
 Bookmark transfer follows a similar boundary. `bookmark_import/` decodes and
 validates source payloads and builds an import plan;
+`bookmark_import/plan.py` coordinates that plan, while `plan_types.py`,
+`plan_folders.py` and `plan_bookmarks.py` own normalized values, folder-tree
+validation and bookmark validation respectively. The plan facade retains the
+legacy limit constants and normalized types for existing callers.
 `bookmark_import_execution_service.py` writes folders/bookmarks and records
 the transactional job/rollback result. `bookmark_transfer_service.py` keeps
 the established JSON/HTML import and export entry points. Backup creation and
