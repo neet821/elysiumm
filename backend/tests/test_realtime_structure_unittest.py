@@ -31,12 +31,12 @@ class RealtimeStructureTest(unittest.TestCase):
         expected_modules = {
             "connect": "realtime.lifecycle",
             "disconnect": "realtime.lifecycle",
-            "join_room": "realtime.room_events",
-            "leave_room_event": "realtime.room_events",
+            "join_room": "realtime.room_membership_events",
+            "leave_room_event": "realtime.room_membership_events",
             "send_message": "realtime.message_events",
-            "request_snapshot": "realtime.room_events",
-            "presence_heartbeat": "realtime.room_events",
-            "request_sync": "realtime.room_events",
+            "request_snapshot": "realtime.room_state_events",
+            "presence_heartbeat": "realtime.room_state_events",
+            "request_sync": "realtime.room_state_events",
             "playback_control": "realtime.playback_control_events",
             "time_heartbeat": "realtime.playback_heartbeat_events",
             "clock_probe": "realtime.clock_events",
@@ -74,7 +74,15 @@ class RealtimeStructureTest(unittest.TestCase):
                 handler = registered_handlers[event_name]
                 self.assertEqual(handler.__module__, module_name)
                 self.assertIs(getattr(websocket_server, event_name), handler)
-        self.assertIs(room_events.send_message, registered_handlers["send_message"])
+        for event_name in (
+            "join_room",
+            "leave_room_event",
+            "send_message",
+            "request_snapshot",
+            "presence_heartbeat",
+            "request_sync",
+        ):
+            self.assertIs(getattr(room_events, event_name), registered_handlers[event_name])
         self.assertIs(
             playback_events.playback_control,
             registered_handlers["playback_control"],

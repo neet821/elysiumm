@@ -7,7 +7,8 @@ from . import (
     music_completion_events,
     playback_control_events,
     playback_heartbeat_events,
-    room_events,
+    room_membership_events,
+    room_state_events,
     video_completion_events,
     video_events,
 )
@@ -20,7 +21,7 @@ _DOMAIN_EVENTS = {
         ("connect", "disconnect"),
     ),
     "room-membership": (
-        room_events,
+        room_membership_events,
         (
             "join_room",
             "leave_room_event",
@@ -31,7 +32,7 @@ _DOMAIN_EVENTS = {
         ("send_message",),
     ),
     "room-state": (
-        room_events,
+        room_state_events,
         (
             "request_snapshot",
             "presence_heartbeat",
