@@ -39,14 +39,35 @@ class RealtimeStructureTest(unittest.TestCase):
             "request_sync": "realtime.room_events",
             "playback_control": "realtime.playback_events",
             "time_heartbeat": "realtime.playback_events",
-            "clock_probe": "realtime.playback_events",
-            "time_update": "realtime.playback_events",
+            "clock_probe": "realtime.clock_events",
+            "time_update": "realtime.clock_events",
             "video_ended": "realtime.playback_events",
             "music_ended": "realtime.playback_events",
             "video_buffer_status": "realtime.video_events",
             "video_local_ready": "realtime.video_events",
         }
         registered_handlers = runtime.sio.handlers["/"]
+        self.assertEqual(
+            tuple(registered_handlers),
+            (
+                "connect",
+                "disconnect",
+                "join_room",
+                "leave_room_event",
+                "send_message",
+                "request_snapshot",
+                "presence_heartbeat",
+                "request_sync",
+                "playback_control",
+                "time_heartbeat",
+                "clock_probe",
+                "time_update",
+                "video_ended",
+                "music_ended",
+                "video_buffer_status",
+                "video_local_ready",
+            ),
+        )
 
         for event_name, module_name in expected_modules.items():
             with self.subTest(event=event_name):
