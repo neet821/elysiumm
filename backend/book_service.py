@@ -3,11 +3,13 @@
 from book_admin_service import (
     _book_values as _book_values,
     create_book as create_book,
-    create_book_list as create_book_list,
     delete_book as delete_book,
+    update_book as update_book,
+)
+from book_list_admin_service import (
+    create_book_list as create_book_list,
     delete_book_list as delete_book_list,
     replace_book_list_items as replace_book_list_items,
-    update_book as update_book,
     update_book_list as update_book_list,
 )
 from book_catalog_service import (

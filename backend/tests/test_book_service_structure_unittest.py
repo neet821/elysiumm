@@ -13,17 +13,23 @@ if str(BACKEND_DIR) not in sys.path:
 import book_service  # noqa: E402
 
 
-SERVICE_MODULES = ("book_catalog_service", "book_admin_service")
+SERVICE_MODULES = (
+    "book_catalog_service",
+    "book_admin_service",
+    "book_list_admin_service",
+)
 CATALOG_OPERATIONS = (
     "serialize_public_book",
     "serialize_admin_book",
     "public_catalog",
     "admin_catalog",
 )
-ADMIN_OPERATIONS = (
+BOOK_ADMIN_OPERATIONS = (
     "create_book",
     "update_book",
     "delete_book",
+)
+BOOK_LIST_ADMIN_OPERATIONS = (
     "create_book_list",
     "update_book_list",
     "replace_book_list_items",
@@ -44,7 +50,8 @@ class BookServiceStructureTest(unittest.TestCase):
 
         expected = {
             "book_catalog_service": CATALOG_OPERATIONS,
-            "book_admin_service": ADMIN_OPERATIONS,
+            "book_admin_service": BOOK_ADMIN_OPERATIONS,
+            "book_list_admin_service": BOOK_LIST_ADMIN_OPERATIONS,
         }
         for module_name, names in expected.items():
             module = importlib.import_module(module_name)
@@ -53,6 +60,13 @@ class BookServiceStructureTest(unittest.TestCase):
                     operation = getattr(module, name)
                     self.assertIs(getattr(book_service, name), operation)
                     self.assertEqual(operation.__module__, module_name)
+
+    def test_book_admin_compatibility_module_reexports_list_operations(self):
+        admin = importlib.import_module("book_admin_service")
+        book_lists = importlib.import_module("book_list_admin_service")
+        for name in BOOK_LIST_ADMIN_OPERATIONS:
+            with self.subTest(operation=name):
+                self.assertIs(getattr(admin, name), getattr(book_lists, name))
 
     def test_service_modules_do_not_import_the_compatibility_facade(self):
         for module_name in SERVICE_MODULES:

@@ -78,6 +78,11 @@ The small `video_service.py` and `bookmark_transfer_service.py` modules are
 compatibility facades: keep their exported names stable, but put new behavior
 in the owning service instead of adding implementation there.
 
+`book_admin_service.py` owns administrator changes to individual books;
+`book_list_admin_service.py` owns curated-list metadata and ordered membership.
+`book_service.py` remains their aggregation facade for the existing router,
+and `book_admin_service.py` re-exports list operations for older imports.
+
 Video changes usually belong in one of these modules:
 
 - `video_item_service.py`: source validation, playlist-item persistence,
