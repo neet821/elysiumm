@@ -25,6 +25,7 @@ import bookmark_html_parser  # noqa: E402
 import bookmark_import_validation  # noqa: E402
 import bookmark_public_service  # noqa: E402
 import bookmark_restore_service  # noqa: E402
+import bookmark_search_service  # noqa: E402
 import bookmark_tag_service  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
@@ -34,6 +35,7 @@ DOMAIN_MODULES = {
     "bookmark_folder_service": bookmark_folder_service,
     "bookmark_import_validation": bookmark_import_validation,
     "bookmark_public_service": bookmark_public_service,
+    "bookmark_search_service": bookmark_search_service,
     "bookmark_tag_service": bookmark_tag_service,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
@@ -48,9 +50,9 @@ EXPECTED_DOMAIN_EXPORTS = {
         "update_bookmark",
         "delete_bookmark",
         "bulk_update_bookmarks",
-        "search_bookmarks",
         "record_bookmark_visit",
     ),
+    "bookmark_search_service": ("search_bookmarks",),
     "bookmark_tag_service": (
         "get_or_create_tag",
         "replace_bookmark_tags",
@@ -148,6 +150,12 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                     getattr(bookmark_collection_service, name),
                     getattr(bookmark_public_service, name),
                 )
+
+    def test_collection_module_keeps_search_service_alias(self):
+        self.assertIs(
+            bookmark_collection_service.search_bookmarks,
+            bookmark_search_service.search_bookmarks,
+        )
 
     def test_transfer_facade_reexports_export_domain_callables(self):
         for name in ("export_bookmarks_json", "export_bookmarks_html"):

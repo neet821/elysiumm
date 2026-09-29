@@ -19,9 +19,9 @@ from bookmark_collection_service import (
     delete_bookmark,
     get_bookmark,
     record_bookmark_visit,
-    search_bookmarks,
     update_bookmark,
 )
+from bookmark_search_service import search_bookmarks
 from bookmark_public_service import (
     public_bookmarks,
     public_folders,

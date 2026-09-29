@@ -112,6 +112,11 @@ is isolated in `bookmark_restore_service.py`, which delegates the actual import
 to the transfer facade. `bookmark_service.py` keeps the public aggregate imports
 used by the existing routes.
 
+`bookmark_collection_service.py` owns bookmark CRUD and bulk mutations;
+`bookmark_search_service.py` owns owner-scoped search and sort queries. Export
+uses the search owner directly, while both modules remain available through
+the stable `bookmark_service.py` facade.
+
 `database_backup.py` coordinates backup naming, retention, metadata and
 restore dispatch. `database_backup_sqlite.py` and `database_backup_mysql.py`
 own their respective engine operations; shared request/result values live in
