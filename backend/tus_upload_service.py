@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import secrets
-import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -16,7 +14,6 @@ from sqlalchemy.orm import Session
 import admin_file_service
 import models
 import transfer_service
-from admin_audit import add_admin_audit
 from config import config
 from file_integrity import sha256_file
 from tus_runtime import (
@@ -27,6 +24,8 @@ from tus_runtime import (
     tus_staging_file as tus_staging_file,
     tusd_url as tusd_url,
 )
+from tus_admin_file_service import finalize_admin_file_upload
+from tus_transfer_file_service import finalize_transfer_file_upload
 
 
 ACTIVE_STATUSES = ("creating", "active")
@@ -206,84 +205,22 @@ def finalize_upload(
         raise HTTPException(status.HTTP_409_CONFLICT, "上传文件长度不完整")
     digest = sha256_file(source)
     final_path: Path | None = None
-    record: models.AdminFile | models.TransferFile | None = None
 
     try:
         if reservation.purpose == "admin_file":
-            root = Path(config.ADMIN_FILES_STORAGE_DIR).expanduser().resolve()
-            _, extension = admin_file_service.validate_original_name(
-                reservation.original_name
-            )
-            admin_file_service.validate_file_content(source, extension)
-            stored_name = f"{uuid.uuid4().hex}{extension}"
-            final_path = admin_file_service.resolve_private_path(root, stored_name)
-            _publish_staged_file(source, final_path)
-            record = models.AdminFile(
-                original_name=reservation.original_name,
-                stored_name=stored_name,
-                content_type=reservation.content_type or "application/octet-stream",
-                file_size=reservation.upload_length,
-                sha256=digest,
-                uploaded_by=reservation.owner_user_id,
-            )
-            db.add(record)
-            db.flush()
-            add_admin_audit(
+            payload, final_path = finalize_admin_file_upload(
                 db,
-                actor_id=reservation.owner_user_id,
-                action="admin_file_upload",
-                resource_type="admin_file",
-                resource_id=record.id,
-                detail=f"name={reservation.original_name} size={reservation.upload_length}",
+                reservation=reservation,
+                source=source,
+                digest=digest,
             )
-            payload = {
-                "id": record.id,
-                "name": record.original_name,
-                "size": record.file_size,
-                "content_type": record.content_type,
-                "sha256": record.sha256,
-                "download_url": f"/api/admin/files/{record.id}/download",
-            }
         else:
-            transfer_session = (
-                db.query(models.TransferSession)
-                .filter(models.TransferSession.id == reservation.transfer_session_id)
-                .with_for_update()
-                .first()
+            payload, final_path = finalize_transfer_file_upload(
+                db,
+                reservation=reservation,
+                source=source,
+                digest=digest,
             )
-            if transfer_session is None:
-                raise HTTPException(status.HTTP_410_GONE, "中转会话已失效")
-            stored_name = f"{secrets.token_hex(16)}.bin"
-            root = transfer_service.ensure_storage().resolve()
-            final_path = (root / stored_name).resolve()
-            if final_path.parent != root:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "存储路径无效")
-            _publish_staged_file(source, final_path)
-            record = models.TransferFile(
-                session_id=transfer_session.id,
-                original_name=reservation.original_name,
-                stored_name=stored_name,
-                storage_path=str(final_path),
-                file_size=reservation.upload_length,
-                sha256=digest,
-            )
-            db.add(record)
-            db.flush()
-            transfer_session.total_bytes += reservation.upload_length
-            transfer_service.refresh_expiry(transfer_session)
-            rotated_token = transfer_service.new_token()
-            transfer_session.token_hash = transfer_service.token_hash(rotated_token)
-            transfer_session.public_token = rotated_token
-            payload = {
-                "id": record.id,
-                "name": record.original_name,
-                "size": record.file_size,
-                "sha256": record.sha256,
-                "token": rotated_token,
-                "url": f"/api/transfers/{rotated_token}",
-                "download_url": f"/api/transfers/{rotated_token}/files/{record.id}",
-            }
-
         reservation.status = "complete"
         reservation.upload_offset = reservation.upload_length
         reservation.last_activity_at = utcnow()

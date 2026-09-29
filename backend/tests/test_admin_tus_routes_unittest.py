@@ -411,6 +411,69 @@ class AdminTusRoutesTest(unittest.TestCase):
         record = self.db.query(models.AdminFile).one()
         self.assertEqual(Path(admin_root / record.stored_name).read_bytes(), b"hello")
 
+    def test_transfer_file_tus_finalization_rotates_token_and_is_idempotent(self):
+        upload_id = "99999999999999999999999999999999"
+        now = datetime.utcnow()
+        token = transfer_service.new_token()
+        transfer_session = models.TransferSession(
+            token_hash=transfer_service.token_hash(token),
+            public_token=token,
+            created_by=self.admin.id,
+            total_bytes=0,
+            max_bytes=100,
+            last_activity_at=now,
+            expires_at=now + timedelta(hours=1),
+            created_at=now,
+        )
+        self.db.add(transfer_session)
+        self.db.flush()
+        reservation = models.TusUploadReservation(
+            upload_id=upload_id,
+            owner_user_id=self.admin.id,
+            purpose="transfer_file",
+            transfer_session_id=transfer_session.id,
+            original_name="notes.txt",
+            content_type="text/plain",
+            upload_length=5,
+            upload_offset=0,
+            status="active",
+            last_activity_at=now,
+            expires_at=now + timedelta(hours=1),
+        )
+        self.db.add(reservation)
+        self.db.commit()
+
+        staging_root = Path(temporary.name) / "transfer-tus-staging"
+        transfer_root = Path(temporary.name) / "transfer-tus-files"
+        staging_root.mkdir(exist_ok=True)
+        staged_file = staging_root / upload_id
+        staged_file.write_bytes(b"hello")
+
+        with (
+            patch.object(tus_upload_service.config, "TUS_UPLOAD_DIR", staging_root),
+            patch.object(transfer_service, "TRANSFER_ROOT", transfer_root),
+        ):
+            first_result = tus_upload_service.finalize_upload(
+                self.db,
+                reservation=reservation,
+            )
+            repeated_result = tus_upload_service.finalize_upload(
+                self.db,
+                reservation=reservation,
+            )
+
+        self.assertEqual(first_result, repeated_result)
+        self.assertNotEqual(first_result["token"], token)
+        self.assertEqual(transfer_session.total_bytes, 5)
+        self.assertEqual(
+            transfer_session.token_hash,
+            transfer_service.token_hash(first_result["token"]),
+        )
+        record = self.db.query(models.TransferFile).one()
+        self.assertEqual(Path(record.storage_path).read_bytes(), b"hello")
+        self.assertFalse(staged_file.exists())
+        self.assertEqual(reservation.status, "complete")
+
     def test_another_admin_cannot_resume_or_cancel_upload(self):
         other_admin = models.User(
             username="other-admin",
