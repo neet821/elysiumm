@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import ErrorBoundary from '../src/components/ErrorBoundary.jsx'
 import { AppShell } from '../src/components/layout/AppShell.jsx'
+import { applicationStyles } from './applicationStyles.mjs'
 
 vi.mock('../src/contexts/AuthContext.jsx', () => ({
   useAuth: () => ({ user: null }),
@@ -46,7 +45,7 @@ describe('application accessibility contract', () => {
   })
 
   it('keeps visible focus and reduced-motion fallbacks in the production stylesheet', () => {
-    const css = readFileSync(path.join(process.cwd(), 'src/index.css'), 'utf8')
+    const css = applicationStyles
     expect(css).toMatch(/:focus-visible\s*\{[\s\S]*?outline:/)
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?--motion-normal:\s*0ms/)
     expect(css).toMatch(/\.route-loading__spinner\s*\{\s*animation:\s*none/)

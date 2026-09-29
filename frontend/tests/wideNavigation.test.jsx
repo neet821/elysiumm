@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { MemoryRouter } from 'react-router-dom'
 import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { applicationStyles } from './applicationStyles.mjs'
 
 let authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'neet821', avatar_url: '/avatar.png' } }
 
@@ -53,12 +54,7 @@ describe('shared wide navigation shell', () => {
   })
 
   it('keeps the back link for compact layouts and hides it only in the wide shell', () => {
-    const globalCss = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
-    const shellCss = fs.readFileSync(
-      path.join(frontendRoot, 'src', 'components', 'layout', 'homeNavigation.css'),
-      'utf8',
-    )
-    const css = `${globalCss}\n${shellCss}`
+    const css = applicationStyles
     expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*none/s)
     expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*flex/s)
   })

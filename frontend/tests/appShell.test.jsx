@@ -1,17 +1,13 @@
 import { MemoryRouter } from 'react-router-dom'
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { applicationStyles } from './applicationStyles.mjs'
 
 let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username: 'Test User', avatar_url: null } }
 
 vi.mock('../src/contexts/AuthContext.jsx', () => ({ useAuth: () => authState }))
 
 import { AppShell } from '../src/components/layout/AppShell.jsx'
-
-const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 function renderShell({ initialPath = '/content' } = {}) {
   return render(
@@ -163,7 +159,7 @@ describe('Elysium plain service shell', () => {
   })
 
   it('publishes the plain surface tokens and no decorative service background', () => {
-    const css = fs.readFileSync(path.join(frontendRoot, 'src', 'index.css'), 'utf8')
+    const css = applicationStyles
     expect(css).toMatch(/--surface-page:\s*#fff/)
     expect(css).toMatch(/--shadow-card:\s*none/)
     expect(css).toMatch(/body::before\s*\{\s*display:\s*none !important/)

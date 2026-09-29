@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { applicationStyles } from './applicationStyles.mjs'
 
 const player = readFileSync(new URL('../src/features/music/MusicRoomPlayer.jsx', import.meta.url), 'utf8')
 const page = readFileSync(new URL('../src/pages/MineradioPage.jsx', import.meta.url), 'utf8')
 const queuePanel = readFileSync(new URL('../src/features/music/MusicRoomQueuePanel.jsx', import.meta.url), 'utf8')
 const searchPanel = readFileSync(new URL('../src/features/music/MusicRoomSearchPanel.jsx', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/features/music/musicRoom.css', import.meta.url), 'utf8')
-const globalCss = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+const globalCss = applicationStyles
 const roomExperience = `${page}\n${player}\n${queuePanel}\n${searchPanel}`
 
 test('native room player has responsive visual, lyric, and queue surfaces', () => {

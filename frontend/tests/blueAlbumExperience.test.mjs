@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { applicationStyles } from './applicationStyles.mjs'
 
 const read = (relativePath) => readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 const roomList = read('src/pages/SyncRoomList.jsx')
 const sidebar = read('src/features/video/VideoRoomSidebar.jsx')
 const shell = read('src/components/layout/AppShell.jsx')
-const css = read('src/index.css')
+const css = applicationStyles
 const player = read('src/features/music/MusicRoomPlayer.jsx')
 const queuePanel = read('src/features/music/MusicRoomQueuePanel.jsx')
 const nativeAudioAdapter = read('src/features/music/NativeAudioAdapter.js')

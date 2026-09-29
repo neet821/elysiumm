@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { applicationStyles } from "./applicationStyles.mjs";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const app = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
-const css = fs.readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+const css = applicationStyles;
 
 assert.doesNotMatch(html, /localStorage\.getItem\(['"]theme['"]\)/, "formal pages must not load a user theme");
 assert.doesNotMatch(html, /prefers-color-scheme/, "formal pages must not follow a system theme");

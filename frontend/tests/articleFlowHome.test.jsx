@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { applicationStyles } from './applicationStyles.mjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
@@ -498,7 +499,6 @@ describe('ArticleFlowHome', () => {
 
   it('fixes the homepage chrome and joins the mobile drawer to it', () => {
     const css = fs.readFileSync('src/pages/contentHome.css', 'utf8')
-    const indexCss = fs.readFileSync('src/index.css', 'utf8')
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
     expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*0;/s)
     expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*0;/s)
@@ -524,7 +524,7 @@ describe('ArticleFlowHome', () => {
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--records\s*\{[^}]*max-block-size:\s*calc\(var\(--record-row-height\)\s*\*\s*2\);[^}]*overflow-y:\s*auto;/s)
     expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s)
-    expect(indexCss).not.toMatch(/\.home-header-portal/)
+    expect(applicationStyles).not.toMatch(/\.home-header-portal/)
     expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)
     expect(css).not.toMatch(/\.legacy-old-home--flat \.article-card--featured h2\s*\{[^}]*white-space:\s*nowrap;/s)
