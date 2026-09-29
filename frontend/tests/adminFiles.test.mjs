@@ -17,6 +17,10 @@ const transferWorkspace = readFileSync(
   new URL("../src/features/admin-files/useAdminTransferWorkspace.js", import.meta.url),
   "utf8",
 );
+const adminNote = readFileSync(
+  new URL("../src/features/admin-files/useAdminNote.js", import.meta.url),
+  "utf8",
+);
 const workspace = readFileSync(
   new URL("../src/features/admin-files/useAdminFilesWorkspace.js", import.meta.url),
   "utf8",
@@ -25,7 +29,7 @@ const utilities = readFileSync(
   new URL("../src/features/admin-files/adminFilesUtils.js", import.meta.url),
   "utf8",
 );
-const featureLogic = [privateFiles, syncBrowser, transferWorkspace, workspace].join("\n");
+const featureLogic = [privateFiles, syncBrowser, transferWorkspace, workspace, adminNote].join("\n");
 const publicTransferPage = readFileSync(
   new URL("../src/pages/TransferPage.jsx", import.meta.url),
   "utf8",
@@ -59,7 +63,7 @@ assert.match(source, /AdminTusUploadQueue/, "admin uploads must expose the queue
 assert.doesNotMatch(featureLogic, /apiClient\.put\(\s*`\/api\/transfers/, "web uploads must not send transfer files with a one-shot PUT");
 assert.match(source, /multiple/, "admin workspaces must allow selecting multiple files");
 assert.match(source, /管理员纯文本/, "admin workspace must expose the administrator-only text area");
-assert.match(transferWorkspace, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
+assert.match(adminNote, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
 assert.match(source, /复制文本/, "admin workspace must expose a text copy action");
 assert.match(workspace, /setInterval\(loadAdminNote, 5000\)/, "admin workspace must refresh the persistent text");
 assert.match(source, /transfer\?\.ready/, "the current share link must be rendered");

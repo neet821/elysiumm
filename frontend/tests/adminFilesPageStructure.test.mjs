@@ -8,10 +8,11 @@ const workspacePath = new URL('features/admin-files/useAdminFilesWorkspace.js', 
 const syncPath = new URL('features/admin-files/useAdminSyncBrowser.js', sourceDir)
 const privateFilesPath = new URL('features/admin-files/useAdminPrivateFiles.js', sourceDir)
 const transferPath = new URL('features/admin-files/useAdminTransferWorkspace.js', sourceDir)
+const notePath = new URL('features/admin-files/useAdminNote.js', sourceDir)
 const page = readFileSync(pagePath, 'utf8')
 
 test('admin files page composes domain-owned sync, private-file, and transfer hooks', () => {
-  for (const path of [workspacePath, syncPath, privateFilesPath, transferPath]) {
+  for (const path of [workspacePath, syncPath, privateFilesPath, transferPath, notePath]) {
     assert.ok(existsSync(path), `the admin-files feature must provide ${path.pathname}`)
   }
   assert.match(page, /useAdminFilesWorkspace/)
@@ -21,18 +22,22 @@ test('admin files page composes domain-owned sync, private-file, and transfer ho
   assert.match(workspace, /useAdminSyncBrowser/)
   assert.match(workspace, /useAdminPrivateFiles/)
   assert.match(workspace, /useAdminTransferWorkspace/)
+  assert.match(workspace, /useAdminNote/)
   assert.doesNotMatch(workspace, /API_ENDPOINTS|apiClient/)
 
   const sync = readFileSync(syncPath, 'utf8')
   const privateFiles = readFileSync(privateFilesPath, 'utf8')
   const transfer = readFileSync(transferPath, 'utf8')
+  const note = readFileSync(notePath, 'utf8')
   assert.match(sync, /ADMIN_FILE_SYNC_STATUS/)
   assert.match(sync, /ADMIN_FILE_SYNC_DOWNLOAD/)
   assert.match(privateFiles, /ADMIN_FILES/)
   assert.match(privateFiles, /ADMIN_FILE\(/)
   assert.match(transfer, /useAdminTusUploads/)
   assert.match(transfer, /ADMIN_TRANSFER_CURRENT_LINK/)
-  for (const source of [workspace, sync, privateFiles, transfer]) {
+  assert.match(note, /ADMIN_TRANSFER_NOTE/)
+  assert.doesNotMatch(transfer, /ADMIN_TRANSFER_NOTE/)
+  for (const source of [workspace, sync, privateFiles, transfer, note]) {
     assert.doesNotMatch(source, /from ['"].*pages\//)
   }
 })

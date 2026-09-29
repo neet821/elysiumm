@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { useAdminPrivateFiles } from './useAdminPrivateFiles.js'
+import { useAdminNote } from './useAdminNote.js'
 import { useAdminSyncBrowser } from './useAdminSyncBrowser.js'
 import { useAdminTransferWorkspace } from './useAdminTransferWorkspace.js'
 
@@ -9,6 +10,7 @@ export function useAdminFilesWorkspace() {
   const [error, setError] = useState('')
   const sync = useAdminSyncBrowser(setError)
   const privateFiles = useAdminPrivateFiles(setError)
+  const note = useAdminNote(setError)
   const transfer = useAdminTransferWorkspace({
     loadAdminFiles: privateFiles.loadAdminFiles,
     setError,
@@ -16,9 +18,8 @@ export function useAdminFilesWorkspace() {
   const {
     clearNoteSaveTimer,
     loadAdminNote,
-    loadCurrentTransfer,
-    loadTransferFiles,
-  } = transfer
+  } = note
+  const { loadCurrentTransfer, loadTransferFiles } = transfer
   const { loadAdminFiles } = privateFiles
   const { loadSync } = sync
 
@@ -54,6 +55,7 @@ export function useAdminFilesWorkspace() {
   return {
     ...sync,
     ...privateFiles,
+    ...note,
     ...transfer,
     error,
     refresh,
