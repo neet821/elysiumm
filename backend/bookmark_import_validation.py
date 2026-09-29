@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -9,16 +8,16 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from bookmark_folder_service import MAX_FOLDER_DEPTH
-from bookmark_html_parser import BookmarkHTMLParser
+from bookmark_import.errors import BookmarkImportValidationError
+from bookmark_import.payload import (
+    MAX_IMPORT_BYTES,
+    parse_html_payload as _parse_html_payload,
+    parse_json_payload as _parse_json_payload,
+)
 
 _UNSET = object()
-MAX_IMPORT_BYTES = 5 * 1024 * 1024
 MAX_IMPORT_FOLDERS = 2_000
 MAX_IMPORT_BOOKMARKS = 10_000
-
-
-class BookmarkImportValidationError(ValueError):
-    pass
 
 
 @dataclass(frozen=True)
@@ -64,56 +63,11 @@ class _BookmarkImportPlan:
 def _payload_from_json_input(
     payload: dict[str, Any] | bytes | str,
 ) -> dict[str, Any]:
-    if isinstance(payload, bytes):
-        if len(payload) > MAX_IMPORT_BYTES:
-            raise BookmarkImportValidationError("收藏导入文件过大")
-        try:
-            payload = payload.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise BookmarkImportValidationError(
-                "收藏导入文件必须使用 UTF-8 编码"
-            ) from exc
-    if isinstance(payload, str):
-        if len(payload.encode("utf-8")) > MAX_IMPORT_BYTES:
-            raise BookmarkImportValidationError("收藏导入文件过大")
-        try:
-            payload = json.loads(payload)
-        except (json.JSONDecodeError, RecursionError) as exc:
-            raise BookmarkImportValidationError("收藏 JSON 无效") from exc
-    if not isinstance(payload, dict):
-        raise BookmarkImportValidationError("收藏 JSON 必须是对象")
-    try:
-        encoded_size = len(
-            json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
-                "utf-8"
-            )
-        )
-    except (TypeError, ValueError, RecursionError) as exc:
-        raise BookmarkImportValidationError("收藏 JSON 无效") from exc
-    if encoded_size > MAX_IMPORT_BYTES:
-        raise BookmarkImportValidationError("收藏导入文件过大")
-    return payload
+    return _parse_json_payload(payload, max_bytes=MAX_IMPORT_BYTES)
 
 
 def payload_from_html_input(content: str | bytes) -> dict[str, Any]:
-    if isinstance(content, bytes):
-        if len(content) > MAX_IMPORT_BYTES:
-            raise BookmarkImportValidationError("收藏导入文件过大")
-        try:
-            content = content.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise BookmarkImportValidationError(
-                "收藏导入文件必须使用 UTF-8 编码"
-            ) from exc
-    if len(content.encode("utf-8")) > MAX_IMPORT_BYTES:
-        raise BookmarkImportValidationError("收藏导入文件过大")
-    parser = BookmarkHTMLParser()
-    try:
-        parser.feed(content)
-        parser.close()
-    except Exception as exc:
-        raise BookmarkImportValidationError("收藏 HTML 无效") from exc
-    return parser.payload()
+    return _parse_html_payload(content, max_bytes=MAX_IMPORT_BYTES)
 
 
 def _source_key(value: Any, label: str) -> str:
