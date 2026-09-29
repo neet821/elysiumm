@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { API_ENDPOINTS } from '../../config.js'
-import apiClient from '../../utils/request.js'
-import { appendPlaylistToRoom } from './appendPlaylistToRoom.js'
+import * as playlistApi from './musicPlaylistApi.js'
 
 function playlistFrom(response) {
   return response?.data?.playlist || response?.data
@@ -33,8 +31,8 @@ export function useMusicPlaylistManager() {
     let active = true
     void (async () => {
       const [playlistResult, roomResult] = await Promise.allSettled([
-        apiClient.get(API_ENDPOINTS.MUSIC_PLAYLISTS),
-        apiClient.get(API_ENDPOINTS.SYNC_ROOMS),
+        playlistApi.listPlaylists(),
+        playlistApi.listMusicRooms(),
       ])
       if (!active) return
       if (playlistResult.status === 'rejected') {
@@ -84,7 +82,7 @@ export function useMusicPlaylistManager() {
     event.preventDefault()
     const name = newName.trim()
     if (!name) return
-    const response = await runAction(() => apiClient.post(API_ENDPOINTS.MUSIC_PLAYLISTS, { name }))
+    const response = await runAction(() => playlistApi.createPlaylist(name))
     const created = playlistFrom(response)
     if (created) applyPlaylist(created)
     setNewName('')
@@ -93,10 +91,7 @@ export function useMusicPlaylistManager() {
   const saveRename = async (event) => {
     event.preventDefault()
     if (!selectedPlaylist || !renameValue.trim()) return
-    const response = await runAction(() => apiClient.patch(
-      API_ENDPOINTS.MUSIC_PLAYLIST(selectedPlaylist.id),
-      { name: renameValue.trim() },
-    ))
+    const response = await runAction(() => playlistApi.renamePlaylist(selectedPlaylist.id, renameValue.trim()))
     const renamed = playlistFrom(response)
     if (renamed) applyPlaylist(renamed)
     setRenaming(false)
@@ -104,7 +99,7 @@ export function useMusicPlaylistManager() {
 
   const deletePlaylist = async () => {
     if (!selectedPlaylist || !window.confirm(`删除歌单“${selectedPlaylist.name}”？`)) return
-    const deleted = await runAction(() => apiClient.delete(API_ENDPOINTS.MUSIC_PLAYLIST(selectedPlaylist.id)))
+    const deleted = await runAction(() => playlistApi.deletePlaylist(selectedPlaylist.id))
     if (deleted) {
       const remaining = playlists.filter((playlist) => playlist.id !== selectedPlaylist.id)
       setPlaylists(remaining)
@@ -116,16 +111,15 @@ export function useMusicPlaylistManager() {
     event.preventDefault()
     const reference = sourceReference.trim()
     if (!reference) return
-    const response = await runAction(() => apiClient.get(API_ENDPOINTS.MUSIC_PLAYLIST_IMPORT_PREVIEW, {
-      params: { reference },
-    }))
+    const response = await runAction(() => playlistApi.previewPlaylistImport(reference))
     setImportPreview(response?.data || null)
   }
 
   const confirmImport = async () => {
-    const response = await runAction(() => apiClient.post(API_ENDPOINTS.MUSIC_PLAYLIST_IMPORT, {
-      reference: sourceReference.trim(),
-    }), (value) => value?.data?.created ? '已导入为独立副本。' : '该来源歌单此前已导入，已打开现有副本。')
+    const response = await runAction(
+      () => playlistApi.importPlaylist(sourceReference.trim()),
+      (value) => value?.data?.created ? '已导入为独立副本。' : '该来源歌单此前已导入，已打开现有副本。',
+    )
     const imported = playlistFrom(response)
     if (imported) applyPlaylist(imported)
     if (response) {
@@ -137,28 +131,23 @@ export function useMusicPlaylistManager() {
   const searchTracks = async (event) => {
     event.preventDefault()
     if (!searchQuery.trim() || !selectedPlaylist) return
-    const response = await runAction(() => apiClient.get(API_ENDPOINTS.MUSIC_SEARCH, {
-      params: { limit: 12, provider: 'netease', q: searchQuery.trim() },
-    }))
+    const response = await runAction(() => playlistApi.searchPlaylistTracks(searchQuery.trim()))
     setSearchResults(response?.data?.items || [])
   }
 
   const addTrack = async (result) => {
     const provider = result.providers?.find((item) => item.provider === 'netease') || result.providers?.[0]
     if (!selectedPlaylist || !provider) return
-    const response = await runAction(() => apiClient.post(
-      API_ENDPOINTS.MUSIC_PLAYLIST_TRACKS(selectedPlaylist.id),
-      {
-        provider: provider.provider,
-        provider_track_id: provider.provider_track_id,
-        title: result.title,
-        artist: result.artist,
-        album: result.album,
-        artwork_url: result.artwork_url,
-        duration_seconds: result.duration_seconds,
-        canonical_track_id: result.id,
-      },
-    ))
+    const response = await runAction(() => playlistApi.addTrackToPlaylist(selectedPlaylist.id, {
+      provider: provider.provider,
+      provider_track_id: provider.provider_track_id,
+      title: result.title,
+      artist: result.artist,
+      album: result.album,
+      artwork_url: result.artwork_url,
+      duration_seconds: result.duration_seconds,
+      canonical_track_id: result.id,
+    }))
     const updated = playlistFrom(response)
     if (updated) applyPlaylist(updated)
     setSearchResults((items) => items.filter((item) => item.id !== result.id))
@@ -166,9 +155,7 @@ export function useMusicPlaylistManager() {
 
   const removeTrack = async (item) => {
     if (!selectedPlaylist) return
-    const response = await runAction(() => apiClient.delete(
-      API_ENDPOINTS.MUSIC_PLAYLIST_TRACK(selectedPlaylist.id, item.id),
-    ))
+    const response = await runAction(() => playlistApi.removeTrackFromPlaylist(selectedPlaylist.id, item.id))
     const updated = playlistFrom(response)
     if (updated) applyPlaylist(updated)
   }
@@ -179,10 +166,7 @@ export function useMusicPlaylistManager() {
     const target = index + offset
     if (target < 0 || target >= ids.length) return
     ;[ids[index], ids[target]] = [ids[target], ids[index]]
-    const response = await runAction(() => apiClient.put(
-      API_ENDPOINTS.MUSIC_PLAYLIST_ORDER(selectedPlaylist.id),
-      { item_ids: ids },
-    ))
+    const response = await runAction(() => playlistApi.reorderPlaylistTracks(selectedPlaylist.id, ids))
     const updated = playlistFrom(response)
     if (updated) applyPlaylist(updated)
   }
@@ -190,7 +174,7 @@ export function useMusicPlaylistManager() {
   const appendToRoom = async () => {
     if (!selectedPlaylist || !selectedRoomId) return
     const response = await runAction(
-      () => appendPlaylistToRoom({ apiClient, playlist: selectedPlaylist, roomId: selectedRoomId }),
+      () => playlistApi.appendPlaylistToRoom({ playlist: selectedPlaylist, roomId: selectedRoomId }),
       (value) => {
         const result = value?.data || {}
         const skipped = result.skipped?.length || 0
