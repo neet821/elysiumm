@@ -1,4 +1,3 @@
-import hashlib
 import os
 import sys
 import tempfile
@@ -21,8 +20,10 @@ os.environ["DATABASE_URL"] = (
 )
 
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
 
-import main  # noqa: E402
+import database  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 from api_rate_limit import high_risk_rate_limiter  # noqa: E402
@@ -30,6 +31,23 @@ from database import SessionLocal  # noqa: E402
 from live_media_client import MediaServiceUnavailable  # noqa: E402
 from live_stream_service import token_digest  # noqa: E402
 from routers import live  # noqa: E402
+
+
+if database.SQLALCHEMY_DATABASE_URL != os.environ["DATABASE_URL"]:
+    database.engine.dispose()
+    database.engine = create_engine(
+        os.environ["DATABASE_URL"],
+        connect_args={"check_same_thread": False},
+    )
+    database.SessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=database.engine,
+    )
+    SessionLocal = database.SessionLocal
+models.Base.metadata.create_all(bind=database.engine)
+
+import main  # noqa: E402
 
 
 class LiveAdminRoutesTest(unittest.TestCase):
@@ -273,7 +291,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
 
     def test_settings_update_applies_recording_preference_immediately(self):
         with mock.patch(
-            "routers.live_admin.apply_recording_policy",
+            "routers.live_admin_settings.apply_recording_policy",
         ) as apply_policy:
             response = self.client.put(
                 "/api/admin/live/settings",
@@ -298,7 +316,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
 
     def test_settings_update_survives_temporary_media_failure(self):
         with mock.patch(
-            "routers.live_admin.apply_recording_policy",
+            "routers.live_admin_settings.apply_recording_policy",
             side_effect=MediaServiceUnavailable("媒体服务暂不可用"),
         ):
             response = self.client.put(
@@ -414,7 +432,7 @@ class LiveAdminRoutesTest(unittest.TestCase):
         self.db.add(viewer)
         self.db.commit()
 
-        with mock.patch("routers.live_admin.MediaMtxClient") as client_type:
+        with mock.patch("routers.live_admin_audience.MediaMtxClient") as client_type:
             kicked = self.client.post(
                 "/api/admin/live/kick-publisher",
                 headers=self.admin_auth,
