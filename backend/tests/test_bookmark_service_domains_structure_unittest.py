@@ -21,11 +21,13 @@ import bookmark_backup_service  # noqa: E402
 import bookmark_collection_service  # noqa: E402
 import bookmark_export_service  # noqa: E402
 import bookmark_html_parser  # noqa: E402
+import bookmark_import_validation  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
 DOMAIN_MODULES = {
     "bookmark_collection_service": bookmark_collection_service,
     "bookmark_export_service": bookmark_export_service,
+    "bookmark_import_validation": bookmark_import_validation,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
 }
@@ -64,6 +66,12 @@ EXPECTED_DOMAIN_EXPORTS = {
         "export_bookmarks_json",
         "export_bookmarks_html",
     ),
+    "bookmark_import_validation": (
+        "BookmarkImportValidationError",
+        "MAX_IMPORT_BYTES",
+        "MAX_IMPORT_FOLDERS",
+        "MAX_IMPORT_BOOKMARKS",
+    ),
     "bookmark_backup_service": (
         "BookmarkBackupValidationError",
         "list_bookmark_backups",
@@ -99,6 +107,30 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
             bookmark_transfer_service._BookmarkHTMLParser,
             bookmark_html_parser.BookmarkHTMLParser,
         )
+
+    def test_transfer_facade_reexports_import_validation_contracts(self):
+        for name in (
+            "BookmarkImportValidationError",
+            "MAX_IMPORT_BYTES",
+            "MAX_IMPORT_FOLDERS",
+            "MAX_IMPORT_BOOKMARKS",
+            "_ImportFolder",
+            "_ImportBookmark",
+            "_BookmarkImportPlan",
+            "_payload_from_json_input",
+            "_normalize_import_plan",
+            "_source_key",
+            "_parse_last_visited",
+            "_payload_from_html_input",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(bookmark_transfer_service, name),
+                    getattr(
+                        bookmark_import_validation,
+                        "payload_from_html_input" if name == "_payload_from_html_input" else name,
+                    ),
+                )
 
     def test_domains_do_not_import_the_legacy_facade(self):
         for module_name, module in DOMAIN_MODULES.items():

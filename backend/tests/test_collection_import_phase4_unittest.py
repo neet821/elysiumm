@@ -19,6 +19,7 @@ os.environ.setdefault(
 )
 
 import bookmark_service  # noqa: E402
+import bookmark_import_validation  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 import models  # noqa: E402
 from database import Base  # noqa: E402
@@ -139,7 +140,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
                     )
 
         oversized = b"{" + b" " * 64 + b"}"
-        with patch.object(bookmark_transfer_service, "MAX_IMPORT_BYTES", 32):
+        with patch.object(bookmark_import_validation, "MAX_IMPORT_BYTES", 32):
             with self.assertRaises(bookmark_service.BookmarkImportValidationError):
                 bookmark_service.import_bookmarks_json(
                     self.db,
@@ -149,7 +150,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
                     backup_dir=self.backup_dir,
                 )
 
-        with patch.object(bookmark_transfer_service, "MAX_IMPORT_FOLDERS", 1):
+        with patch.object(bookmark_import_validation, "MAX_IMPORT_FOLDERS", 1):
             with self.assertRaises(bookmark_service.BookmarkImportValidationError):
                 bookmark_service.import_bookmarks_json(
                     self.db,
@@ -164,7 +165,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
                     backup_dir=self.backup_dir,
                 )
 
-        with patch.object(bookmark_transfer_service, "MAX_IMPORT_BOOKMARKS", 1):
+        with patch.object(bookmark_import_validation, "MAX_IMPORT_BOOKMARKS", 1):
             with self.assertRaises(bookmark_service.BookmarkImportValidationError):
                 bookmark_service.import_bookmarks_json(
                     self.db,
@@ -383,7 +384,7 @@ class CollectionImportPhase4Test(unittest.TestCase):
         )
 
         rejected_backup_dir = self.backup_dir.parent / "rejected"
-        with patch.object(bookmark_transfer_service, "MAX_IMPORT_BYTES", 10):
+        with patch.object(bookmark_import_validation, "MAX_IMPORT_BYTES", 10):
             with self.assertRaises(bookmark_service.BookmarkBackupValidationError):
                 bookmark_service.create_bookmark_backup(
                     self.db,

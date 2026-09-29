@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 import bookmark_transfer_service
+import bookmark_import_validation
 import models
 
 
@@ -46,7 +47,7 @@ def create_bookmark_backup(
         record_job=False,
     )
     encoded = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-    if len(encoded) > bookmark_transfer_service.MAX_IMPORT_BYTES:
+    if len(encoded) > bookmark_import_validation.MAX_IMPORT_BYTES:
         raise BookmarkBackupValidationError(
             "收藏数据过大，无法创建可恢复备份"
         )
@@ -110,7 +111,7 @@ def _verified_backup_path(
     actual_size = path.stat().st_size
     if (
         actual_size != backup.file_size
-        or actual_size > bookmark_transfer_service.MAX_IMPORT_BYTES
+        or actual_size > bookmark_import_validation.MAX_IMPORT_BYTES
     ):
         raise BookmarkBackupValidationError("收藏备份大小校验失败")
     if not backup.sha256 or not hmac.compare_digest(
