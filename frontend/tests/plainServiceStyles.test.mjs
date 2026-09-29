@@ -4,16 +4,26 @@ import test from 'node:test'
 
 const sourceDir = new URL('../src/', import.meta.url)
 const plainServicePath = new URL('components/layout/plainService.css', sourceDir)
+const adminWorkspacePath = new URL('features/admin/adminConsoleWorkspace.css', sourceDir)
 const globalStyles = readFileSync(new URL('index.css', sourceDir), 'utf8')
 const appShell = readFileSync(new URL('components/layout/AppShell.jsx', sourceDir), 'utf8')
 
-test('the shared plain-service presentation belongs to the eager application shell', () => {
+test('active shell styles keep the eager plain-service presentation without retired review skin', () => {
   assert.ok(existsSync(plainServicePath), 'AppShell has a dedicated plain-service stylesheet')
   const plainServiceStyles = readFileSync(plainServicePath, 'utf8')
+  const adminWorkspaceStyles = readFileSync(adminWorkspacePath, 'utf8')
 
   assert.match(plainServiceStyles, /Plain service presentation/)
   assert.match(plainServiceStyles, /--surface-page:\s*#fff/)
-  assert.match(plainServiceStyles, /\.service-shell:not\(\.service-shell--legacy-review\):not\(\.app-shell--home\)/)
+  assert.match(plainServiceStyles, /\.service-shell:not\(\.app-shell--home\)/)
+  assert.doesNotMatch(
+    plainServiceStyles,
+    /service-shell--legacy-review|temporary-review-page|legacy-review-surface/,
+  )
+  assert.doesNotMatch(
+    adminWorkspaceStyles,
+    /service-shell--legacy-review|temporary-review-page|legacy-review-surface/,
+  )
   assert.match(plainServiceStyles, /@media\s*\(prefers-reduced-motion:\s*reduce\)/)
   assert.doesNotMatch(globalStyles, /Plain service presentation/)
 

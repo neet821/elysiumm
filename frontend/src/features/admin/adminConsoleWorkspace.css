@@ -417,36 +417,36 @@
   }
 }
 
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell {
   background: #fff;
   color: #111;
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__sidebar {
   background: #fff;
   border-right: 1px solid #bbb;
   box-shadow: none;
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__brand
   strong {
   color: #111;
   font-family: var(--font-interface);
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__link,
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__account-link {
   border-radius: 0;
   color: #333;
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__link--active {
   background: #111;
   color: #fff;
 }
-.service-shell:not(.service-shell--legacy-review):not(.app-shell--home)
+.service-shell:not(.app-shell--home)
   .admin-shell__content {
   background: #fff;
 }
