@@ -10,7 +10,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import websocket_server  # noqa: E402
-from realtime import playback_events, runtime  # noqa: E402
+from realtime import playback_events, room_events, runtime  # noqa: E402
 
 
 class RealtimeStructureTest(unittest.TestCase):
@@ -33,7 +33,7 @@ class RealtimeStructureTest(unittest.TestCase):
             "disconnect": "realtime.lifecycle",
             "join_room": "realtime.room_events",
             "leave_room_event": "realtime.room_events",
-            "send_message": "realtime.room_events",
+            "send_message": "realtime.message_events",
             "request_snapshot": "realtime.room_events",
             "presence_heartbeat": "realtime.room_events",
             "request_sync": "realtime.room_events",
@@ -74,6 +74,7 @@ class RealtimeStructureTest(unittest.TestCase):
                 handler = registered_handlers[event_name]
                 self.assertEqual(handler.__module__, module_name)
                 self.assertIs(getattr(websocket_server, event_name), handler)
+        self.assertIs(room_events.send_message, registered_handlers["send_message"])
         self.assertIs(
             playback_events.playback_control,
             registered_handlers["playback_control"],

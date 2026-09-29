@@ -3,6 +3,7 @@
 from . import (
     clock_events,
     lifecycle,
+    message_events,
     music_completion_events,
     playback_control_events,
     playback_heartbeat_events,
@@ -18,12 +19,20 @@ _DOMAIN_EVENTS = {
         lifecycle,
         ("connect", "disconnect"),
     ),
-    "room": (
+    "room-membership": (
         room_events,
         (
             "join_room",
             "leave_room_event",
-            "send_message",
+        ),
+    ),
+    "room-messaging": (
+        message_events,
+        ("send_message",),
+    ),
+    "room-state": (
+        room_events,
+        (
             "request_snapshot",
             "presence_heartbeat",
             "request_sync",
