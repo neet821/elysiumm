@@ -20,6 +20,7 @@ import bookmark_service  # noqa: E402
 import bookmark_backup_service  # noqa: E402
 import bookmark_collection_service  # noqa: E402
 import bookmark_export_service  # noqa: E402
+import bookmark_html_parser  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
 DOMAIN_MODULES = {
@@ -92,6 +93,12 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                     getattr(bookmark_transfer_service, name),
                     getattr(bookmark_export_service, name),
                 )
+
+    def test_transfer_facade_keeps_the_legacy_html_parser_alias(self):
+        self.assertIs(
+            bookmark_transfer_service._BookmarkHTMLParser,
+            bookmark_html_parser.BookmarkHTMLParser,
+        )
 
     def test_domains_do_not_import_the_legacy_facade(self):
         for module_name, module in DOMAIN_MODULES.items():
