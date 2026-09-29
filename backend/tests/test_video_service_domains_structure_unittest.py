@@ -37,11 +37,13 @@ DOMAIN_EXPORTS = {
         "initialize_current_item_if_empty",
         "select_item",
         "apply_playback_update",
-        "reorder_playlist",
-        "_next_item",
         "advance_playlist",
         "delete_playlist_item",
         "set_current_item",
+    ),
+    "video_playlist_service": (
+        "reorder_playlist",
+        "_next_item",
         "session_payload",
     ),
     "video_subtitle_service": (

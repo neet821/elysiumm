@@ -15,17 +15,19 @@ from video_service_common import (
     _touch_room,
     ensure_video_session,
 )
-from video_session_service import (
+from video_playlist_service import (
     _next_item,
+    reorder_playlist,
+    session_payload,
+)
+from video_session_service import (
     advance_playlist,
     apply_playback_update,
     current_video_snapshot,
     delete_playlist_item,
     initialize_current_item_if_empty,
-    reorder_playlist,
     replace_current_video_item,
     select_item,
-    session_payload,
     set_current_item,
     video_snapshot_payload,
 )

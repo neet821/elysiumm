@@ -9,10 +9,10 @@ import room_core
 import sync_room_crud
 from video_item_service import (
     _item_cleanup_paths,
-    _item_payload,
     create_playlist_item,
     get_video_item,
 )
+from video_playlist_service import _next_item
 from video_service_common import (
     _project_legacy_video_fields,
     _touch_room,
@@ -215,56 +215,6 @@ def apply_playback_update(
     return updated
 
 
-def reorder_playlist(db, room, item_ids) -> list[models.VideoPlaylistItem]:
-    items = (
-        db.query(models.VideoPlaylistItem)
-        .filter_by(room_id=room.id)
-        .order_by(
-            models.VideoPlaylistItem.position,
-            models.VideoPlaylistItem.id,
-        )
-        .all()
-    )
-    by_id = {item.id: item for item in items}
-    if (
-        len(item_ids) != len(items)
-        or len(set(item_ids)) != len(item_ids)
-        or set(item_ids) != set(by_id)
-    ):
-        raise ValueError("片单排序必须完整包含每一项且不能重复")
-    temporary_offset = (
-        max((item.position for item in items), default=0) + len(items) + 1
-    )
-    for index, item_id in enumerate(item_ids):
-        by_id[item_id].position = temporary_offset + index
-    db.flush()
-    for index, item_id in enumerate(item_ids):
-        by_id[item_id].position = index
-    _touch_room(room)
-    db.commit()
-    return [by_id[item_id] for item_id in item_ids]
-
-
-def _next_item(db, room_id, current_item_id=None):
-    items = (
-        db.query(models.VideoPlaylistItem)
-        .filter(
-            models.VideoPlaylistItem.room_id == room_id,
-            models.VideoPlaylistItem.availability == "available",
-        )
-        .order_by(models.VideoPlaylistItem.position, models.VideoPlaylistItem.id)
-        .all()
-    )
-    if not items:
-        return None
-    if current_item_id is None:
-        return items[0]
-    for index, item in enumerate(items):
-        if item.id == current_item_id:
-            return items[index + 1] if index + 1 < len(items) else None
-    return items[0]
-
-
 def advance_playlist(
     db,
     room,
@@ -354,33 +304,3 @@ def set_current_item(db, session, item) -> models.VideoSession:
     db.commit()
     db.refresh(session)
     return session
-
-
-def session_payload(db, room) -> dict:
-    session = ensure_video_session(db, room)
-    items = (
-        db.query(models.VideoPlaylistItem)
-        .filter_by(room_id=room.id)
-        .order_by(
-            models.VideoPlaylistItem.position,
-            models.VideoPlaylistItem.id,
-        )
-        .all()
-    )
-    current = next((item for item in items if item.id == session.current_item_id), None)
-    # Return the complete queue. The current item is still identified by
-    # current_item_id; hiding the other items makes append-to-queue uploads
-    # impossible to address in the response.
-    visible_items = items
-    return {
-        "room_id": room.id,
-        "current_item_id": session.current_item_id,
-        "current_source": current.source_type if current else None,
-        "required_local_fingerprint": (
-            current.local_fingerprint
-            if current is not None and current.source_type == "legacy_local"
-            else None
-        ),
-        "selected_subtitle_id": session.selected_subtitle_id,
-        "playlist": [_item_payload(item) for item in visible_items],
-    }
