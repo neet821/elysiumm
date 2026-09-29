@@ -25,6 +25,7 @@ from catalog_domain import ProviderTrack, TrackAvailability, canonicalize_tracks
 from database import Base, get_db  # noqa: E402
 from music import ProviderError, ProviderResolution  # noqa: E402
 from routers import music as music_router  # noqa: E402
+from routers import music_providers as music_provider_routes  # noqa: E402
 import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
 
@@ -246,11 +247,11 @@ class MusicProviderRoutesTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_capabilities_expose_all_direct_catalog_providers(self):
         with patch.object(
-            music_router,
+            music_provider_routes,
             "music_provider_registry",
             {"audius": object()},
         ), patch.object(
-            music_router,
+            music_provider_routes,
             "provider_configuration_status",
             return_value={
                 "providers": {
