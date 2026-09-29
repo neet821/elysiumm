@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { API_ENDPOINTS } from '../../config.js'
 import apiClient from '../../utils/request.js'
+import { appendPlaylistToRoom } from './appendPlaylistToRoom.js'
 
 function playlistFrom(response) {
   return response?.data?.playlist || response?.data
@@ -188,35 +189,8 @@ export function useMusicPlaylistManager() {
 
   const appendToRoom = async () => {
     if (!selectedPlaylist || !selectedRoomId) return
-    const itemIds = (selectedPlaylist.tracks || []).map((item) => item.id)
     const response = await runAction(
-      async () => {
-        const results = []
-        const endpoint = API_ENDPOINTS.MUSIC_PLAYLIST_QUEUE(selectedRoomId, selectedPlaylist.id)
-        for (let offset = 0; offset < itemIds.length; offset += 100) {
-          try {
-            results.push(await apiClient.post(endpoint, { item_ids: itemIds.slice(offset, offset + 100) }))
-          } catch (requestError) {
-            if (results.length > 0) {
-              const added = results.reduce((total, result) => total + (result.data?.added_count || 0), 0)
-              throw {
-                response: {
-                  data: {
-                    detail: `前 ${results.length} 批已确认追加 ${added} 首；后续批次结果未知，请先检查听歌房队列再重试。`,
-                  },
-                },
-              }
-            }
-            throw requestError
-          }
-        }
-        return {
-          data: {
-            added_count: results.reduce((total, result) => total + (result.data?.added_count || 0), 0),
-            skipped: results.flatMap((result) => result.data?.skipped || []),
-          },
-        }
-      },
+      () => appendPlaylistToRoom({ apiClient, playlist: selectedPlaylist, roomId: selectedRoomId }),
       (value) => {
         const result = value?.data || {}
         const skipped = result.skipped?.length || 0
