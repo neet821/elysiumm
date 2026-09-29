@@ -11,13 +11,11 @@ from datetime import datetime, timezone
 from contextlib import contextmanager
 import fcntl
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
-import tarfile
 import tempfile
 import time
 from typing import Any, Mapping
@@ -37,6 +35,7 @@ from deployment import infrastructure_validation as _infrastructure_validation
 from deployment import infrastructure_apply as _infrastructure_apply
 from deployment import systemd_operations as _systemd_operations
 from deployment import runtime_dependencies as _runtime_dependencies
+from deployment import git_component as _git_component
 from deployment.api_schema import api_schema_sha256 as compute_api_schema_sha256
 from deployment.legacy_path_scan import scan_legacy_paths
 from deployment.migration_runner import MigrationRunError, run_migrations_if_needed
@@ -98,6 +97,8 @@ _backend_release_has_music_api = _runtime_dependencies._backend_release_has_musi
 _tusd_service_installed = _runtime_dependencies._tusd_service_installed
 _backend_release_has_tusd = _runtime_dependencies._backend_release_has_tusd
 _python_version = _runtime_dependencies._python_version
+_safe_extract_archive = _git_component._safe_extract_archive
+materialize_git_component = _git_component.materialize_git_component
 
 
 def _sha256_file(path: Path) -> str:
@@ -154,69 +155,6 @@ def current_snapshot(root: Path) -> dict[str, object]:
         "frontend_current": _current_record(root, "frontend"),
         "backend_current": _current_record(root, "backend"),
     }
-
-
-def _safe_extract_archive(archive_bytes: bytes, destination: Path, component: str) -> Path:
-    destination.mkdir(parents=True, exist_ok=False)
-    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:") as archive:
-        members = archive.getmembers()
-        prefix = f"{component}/"
-        for member in members:
-            name = member.name
-            if (name != component and not name.startswith(prefix)) or member.issym() or member.islnk():
-                raise ProductionDeployError("Git archive contains an unsafe entry")
-            relative = Path(name[len(prefix) :])
-            if relative.is_absolute() or ".." in relative.parts:
-                raise ProductionDeployError("Git archive path escapes component root")
-            target = destination / relative
-            resolved = target.resolve(strict=False)
-            try:
-                resolved.relative_to(destination.resolve())
-            except ValueError as exc:
-                raise ProductionDeployError("Git archive path escapes component root") from exc
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            if not member.isfile():
-                raise ProductionDeployError("Git archive contains a non-regular file")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            source = archive.extractfile(member)
-            if source is None:
-                raise ProductionDeployError("Git archive entry cannot be read")
-            with target.open("wb") as handle:
-                shutil.copyfileobj(source, handle)
-    return destination
-
-
-def materialize_git_component(repository: Path, commit: str, component: str, destination: Path) -> Path:
-    """Materialize one component from a bare repository without a mutable checkout."""
-
-    repository = repository.expanduser().resolve()
-    if not repository.is_dir():
-        raise ProductionDeployError(f"Git repository is missing: {repository}")
-    if component not in {"backend", "frontend"}:
-        raise ProductionDeployError(f"component cannot be materialized: {component}")
-    verify = subprocess.run(
-        ["git", "--git-dir", str(repository), "cat-file", "-e", f"{commit}^{{commit}}"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if verify.returncode:
-        raise ProductionDeployError(f"Git commit is unavailable: {commit}")
-    archive = subprocess.run(
-        ["git", "--git-dir", str(repository), "archive", "--format=tar", commit, "--", component],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if archive.returncode:
-        detail = archive.stderr.decode("utf-8", errors="replace").strip()
-        raise ProductionDeployError(detail or f"cannot archive {component} from {commit}")
-    if not archive.stdout:
-        raise ProductionDeployError(f"Git commit does not contain {component}")
-    return _safe_extract_archive(archive.stdout, destination, component)
 
 
 def _transaction_path(root: Path, deployment_id: str) -> Path:
@@ -511,12 +449,6 @@ def _frontend_release(options: DeploymentOptions, *, deployment_id: str) -> Rele
         raise ProductionDeployError(str(exc)) from exc
 
 
-
-
-
-
-
-
 def _restart_changed_systemd_units(
     options: DeploymentOptions,
     units: list[str] | None = None,
@@ -544,8 +476,6 @@ def _stop_removed_systemd_units(options: DeploymentOptions, units: list[str]) ->
         _systemctl("stop", unit)
         stopped.append(unit)
     return stopped
-
-
 
 
 def _legacy_path_audit(options: DeploymentOptions, root: Path) -> dict[str, object]:

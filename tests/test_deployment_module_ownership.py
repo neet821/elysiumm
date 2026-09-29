@@ -3,6 +3,7 @@ import unittest
 
 from deployment import (
     deploy_types,
+    git_component,
     infrastructure_apply,
     infrastructure_validation,
     runtime_dependencies,
@@ -96,6 +97,17 @@ class DeploymentModuleOwnershipTest(unittest.TestCase):
             self.assertIs(
                 getattr(production_deploy, name),
                 getattr(runtime_dependencies, name),
+            )
+
+    def test_git_component_materialization_has_a_source_module_owner(self):
+        for name in ("_safe_extract_archive", "materialize_git_component"):
+            self.assertEqual(
+                inspect.getmodule(getattr(git_component, name)).__name__,
+                "deployment.git_component",
+            )
+            self.assertIs(
+                getattr(production_deploy, name),
+                getattr(git_component, name),
             )
 
 
