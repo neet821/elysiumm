@@ -41,6 +41,8 @@ unmounted legacy `.room-player-*` presentation rules were removed after a
 repository-wide consumer check; current sync-room pages render their own
 feature UI. The public transfer page is read/download-only, while transfer-link
 creation styles are owned by the administrator Files feature.
+The administrator live route composes `AdminLiveSettingsForm` for opening
+settings and keeps API state/mutations in `useAdminLiveConsole`.
 Upload controls for persistent transfer files exist only in the authenticated
 admin Files workspace and use the resumable tus flow. Other feature-specific
 uploads (such as account avatars or room-local media) keep their own ownership
