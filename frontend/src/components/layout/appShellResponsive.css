@@ -1,0 +1,151 @@
+@media (hover: hover) {
+  .app-header__nav-link:hover {
+    background: var(--surface-card-muted);
+    color: var(--text-primary);
+  }
+  .app-header__nav-link:hover::after {
+    transform: scaleX(1);
+  }
+  .app-header__theme:hover {
+    color: var(--accent-blue);
+    transform: rotate(-8deg);
+  }
+  .app-header__mobile-link:hover,
+  .app-header__mobile-theme:hover {
+    background: var(--surface-card-muted);
+    color: var(--text-primary);
+  }
+}
+
+@media (max-width: 840px) {
+  .app-header {
+    padding: 0.78rem 1rem;
+  }
+  .app-header__nav {
+    display: none;
+  }
+  .app-header__menu {
+    display: inline-flex;
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+  .brand-logo {
+    gap: 0.48rem;
+  }
+  .brand-logo__image {
+    height: 2rem;
+    width: 2rem;
+  }
+  .brand-logo__text {
+    font-size: 1.1rem;
+  }
+  .app-footer__inner {
+    flex-direction: column;
+  }
+  .app-footer__divider {
+    display: none;
+  }
+}
+
+.app-header.app-header--static {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--surface-page);
+  border: 0;
+  box-shadow: none;
+  inset: auto;
+  padding: 0.7rem clamp(1rem, 4vw, 4rem);
+  position: relative;
+  z-index: 10;
+}
+.app-header--static .app-header__inner {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  max-width: 72rem;
+}
+.app-header__leading,
+.app-header__actions {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+.app-header__leading-spacer {
+  display: block;
+  height: 2.25rem;
+  width: 2.25rem;
+}
+.app-header__icon-link,
+.app-header__action,
+.app-header__account {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.55rem;
+}
+.app-header__icon-link {
+  cursor: pointer;
+  width: 2.25rem;
+}
+.app-header__icon-link:hover,
+.app-header__action:hover,
+.app-header__account:hover {
+  color: var(--text-primary);
+}
+.app-header__icon-link--admin {
+  color: #f59e0b;
+}
+.app-header__actions--home .app-header__admin-action {
+  margin-right: 0.8rem;
+}
+.app-header__action span,
+.app-header__account span {
+  font-size: 0.8rem;
+}
+.app-header__account {
+  min-width: 2.25rem;
+}
+.app-header__account--login {
+  border: 0;
+}
+.app-header--static .app-header__avatar {
+  aspect-ratio: 1;
+  border-radius: 0;
+  flex: 0 0 1.8rem;
+  height: 1.8rem;
+  overflow: hidden;
+  width: 1.8rem;
+}
+.app-header--static .app-header__avatar .ui-avatar__image,
+.app-header--static .app-header__avatar .ui-avatar__fallback {
+  border-radius: 0;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.app-header--static + .app-shell__main {
+  padding-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-background::before,
+  .app-background::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-header--static .app-header__action span {
+    display: none;
+  }
+  .app-header--static .app-header__action,
+  .app-header--static .app-header__account--login {
+    padding-inline: 0.45rem;
+  }
+}

@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import postcss from 'postcss'
 
 const sourceDir = fileURLToPath(new URL('../src/', import.meta.url))
 const globalStyles = readFileSync(`${sourceDir}index.css`, 'utf8')
 const appShell = readFileSync(`${sourceDir}components/layout/AppShell.jsx`, 'utf8')
 const appShellStylesPath = `${sourceDir}components/layout/appShell.css`
-const appShellStyles = existsSync(appShellStylesPath) ? readFileSync(appShellStylesPath, 'utf8') : ''
+const appShellStyles = existsSync(appShellStylesPath) ? resolveStylesheet(appShellStylesPath) : ''
 const shellStyles = readFileSync(
   `${sourceDir}components/layout/homeNavigation.css`,
   'utf8',
@@ -49,3 +51,38 @@ test('AppShell owns the shared application frame and responsive layout styles', 
   assert.match(appShellStyles, /@media \(max-width: 840px\)/, 'responsive header and footer rules must stay with the shell')
   assert.match(appShellStyles, /@media \(max-width: 560px\)/, 'static header rules must stay with the shell')
 })
+
+test('AppShell styles separate background, frame, and responsive ownership in cascade order', () => {
+  const parsed = postcss.parse(readFileSync(appShellStylesPath, 'utf8'))
+  const imports = parsed.nodes
+    .filter((node) => node.type === 'atrule' && node.name === 'import')
+    .map((node) => node.params.replace(/^['"]|['"]$/g, ''))
+
+  assert.deepEqual(imports, [
+    './appShellBackground.css',
+    './appShellFrame.css',
+    './appShellResponsive.css',
+  ])
+  assert.match(appShellStyles, /\.app-background::before\s*\{[\s\S]*?\.dark \.app-background::after/s)
+  assert.match(appShellStyles, /\.app-shell\s*\{[\s\S]*?\.app-header\s*\{[\s\S]*?\.route-shell\s*\{/s)
+  assert.match(appShellStyles, /@media \(hover: hover\)[\s\S]*?@media \(max-width: 840px\)[\s\S]*?@media \(max-width: 560px\)/s)
+})
+
+function resolveStylesheet(filePath, stack = []) {
+  assert.ok(!stack.includes(filePath), `circular stylesheet import: ${filePath}`)
+  const parsed = postcss.parse(readFileSync(filePath, 'utf8'), { from: filePath })
+  const resolved = postcss.root()
+
+  for (const node of parsed.nodes) {
+    if (node.type !== 'atrule' || node.name !== 'import') {
+      resolved.append(node.clone())
+      continue
+    }
+    const importedPath = node.params.replace(/^['"]|['"]$/g, '')
+    assert.ok(importedPath.endsWith('.css'), `expected local CSS import: ${node.params}`)
+    const childPath = path.resolve(path.dirname(filePath), importedPath)
+    const child = postcss.parse(resolveStylesheet(childPath, [...stack, filePath]))
+    child.nodes.forEach((childNode) => resolved.append(childNode.clone()))
+  }
+  return resolved.toString()
+}
