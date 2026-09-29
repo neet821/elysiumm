@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -24,6 +24,11 @@ const styles = {
   textMuted: 'text-slate-500',
 }
 
+function CurrentPath() {
+  const location = useLocation()
+  return <output data-testid="current-path">{location.pathname}</output>
+}
+
 describe('同步房间列表', () => {
   it('uses a complete share link instead of exposing a room number', async () => {
     mocks.api.get.mockResolvedValue({ data: [{ id: 42, room_name: '分享房', room_code: 'SECRET42', mode: 'url', members: [] }] })
@@ -45,6 +50,80 @@ describe('同步房间列表', () => {
 
     expect(screen.getByText('有人房间')).toBeInTheDocument()
   })
+
+  it('创建观影房时只发送房间名称并进入新房间', async () => {
+    mocks.api.get.mockResolvedValue({ data: [] })
+    mocks.api.post.mockResolvedValue({ data: { id: 88 } })
+
+    render(
+      <MemoryRouter initialEntries={['/rooms/watch']}>
+        <SyncRoomList roomMode="video" />
+        <CurrentPath />
+      </MemoryRouter>,
+    )
+
+    await act(async () => { await Promise.resolve() })
+    fireEvent.click(screen.getByRole('button', { name: '创建新房间' }))
+    fireEvent.change(screen.getByLabelText('房间名称'), { target: { value: '新观影房' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建房间' }))
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mocks.api.post).toHaveBeenCalledWith(API_ENDPOINTS.SYNC_ROOMS, {
+      room_name: '新观影房',
+    })
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/rooms/watch/88')
+  })
+
+  it('创建听歌房时保留听歌房初始化字段并进入听歌房', async () => {
+    mocks.api.get.mockResolvedValue({ data: [] })
+    mocks.api.post.mockResolvedValue({ data: { id: 89 } })
+
+    render(
+      <MemoryRouter initialEntries={['/music']}>
+        <SyncRoomList roomMode="music" />
+        <CurrentPath />
+      </MemoryRouter>,
+    )
+
+    await act(async () => { await Promise.resolve() })
+    fireEvent.click(screen.getByRole('button', { name: '创建听歌房' }))
+    fireEvent.change(screen.getByLabelText('房间名称'), { target: { value: '新听歌房' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建房间' }))
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mocks.api.post).toHaveBeenCalledWith(API_ENDPOINTS.SYNC_ROOMS, {
+      room_name: '新听歌房',
+      control_mode: 'host_only',
+      mode: 'music',
+      type: 'video',
+    })
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/rooms/music/89')
+  })
+
+  it('加入房间成功后进入对应观影房', async () => {
+    mocks.api.get.mockResolvedValue({
+      data: [{ id: 90, room_name: '可加入房间', mode: 'url', members: [] }],
+    })
+    mocks.api.post.mockResolvedValue({ data: { message: 'joined' } })
+
+    render(
+      <MemoryRouter initialEntries={['/rooms/watch']}>
+        <SyncRoomList roomMode="video" />
+        <CurrentPath />
+      </MemoryRouter>,
+    )
+
+    await act(async () => { await Promise.resolve() })
+    fireEvent.click(screen.getByRole('button', { name: /进入房间/ }))
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mocks.api.post).toHaveBeenCalledWith(API_ENDPOINTS.SYNC_ROOM_JOIN(90))
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/rooms/watch/90')
+  })
+
   beforeEach(() => {
     mocks.auth.isAdmin = false
     mocks.auth.user = { id: 1, username: 'host' }

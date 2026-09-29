@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -15,27 +15,14 @@ import {
   Copy,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import apiClient from "../utils/request";
-import { API_ENDPOINTS } from "../config";
 import { THEME } from "../theme.js";
 import "../features/player/player.css";
+import { useSyncRoomLobby } from "../features/video/useSyncRoomLobby.js";
 import {
   formatEmptyRoomCountdown,
   getOnlineMemberCount,
 } from "./syncRoomListUtils.js";
 import { buildRoomShareUrl, copyText } from './roomShareUtils.js'
-
-const buildRoomPayload = (roomName, isMusicRoom) => {
-  const payload = { room_name: roomName };
-  if (isMusicRoom) {
-    Object.assign(payload, {
-      control_mode: "host_only",
-      mode: "music",
-      type: "video",
-    });
-  }
-  return payload;
-};
 
 const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video" }) => {
   const navigate = useNavigate();
@@ -47,43 +34,24 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
     : "创建或加入房间，与朋友一起观看视频 · 空房间将在10分钟后自动关闭";
   const createButtonLabel = isMusicRoom ? "创建听歌房" : "创建新房间";
   const modalTitle = isMusicRoom ? "创建听歌房间" : "创建观影房间";
-  const matchesRoomMode = (room) => (isMusicRoom ? room.mode === "music" : room.mode !== "music");
-  const [rooms, setRooms] = useState([]);
-  const [myRooms, setMyRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    rooms,
+    myRooms,
+    loading,
+    createRoom,
+    joinRoom,
+    deleteRoom,
+    toggleRoomLock,
+  } = useSyncRoomLobby({ roomMode, user, isAdmin });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [copiedRoomId, setCopiedRoomId] = useState(null)
 
   useEffect(() => {
-    fetchRooms();
-    const refreshInterval = setInterval(fetchRooms, 10000); // 每10秒刷新一次
     const clockInterval = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(clockInterval);
-    };
+    return () => clearInterval(clockInterval);
   }, []);
-
-  const fetchRooms = async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.SYNC_ROOMS);
-      const allRooms = response.data || [];
-      const visibleRooms = allRooms.filter(matchesRoomMode);
-      setRooms(visibleRooms);
-
-      // 筛选出我创建的房间
-      if (user) {
-        const userRooms = visibleRooms.filter(room => room.host?.id === user.id);
-        setMyRooms(userRooms);
-      }
-    } catch (error) {
-      console.error("获取房间列表失败:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreateRoom = async (e) => {
     e.preventDefault();
@@ -96,9 +64,7 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
     }
 
     try {
-      const payload = buildRoomPayload(roomName, isMusicRoom);
-
-      const response = await apiClient.post(API_ENDPOINTS.SYNC_ROOMS, payload);
+      const response = await createRoom(roomName);
 
       setShowCreateModal(false);
       resetForm();
@@ -111,7 +77,7 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
 
   const handleJoinRoom = async (roomId) => {
     try {
-      await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(roomId));
+      await joinRoom(roomId);
       navigate(`${isMusicRoom ? "/rooms/music" : "/rooms/watch"}/${roomId}`);
     } catch (error) {
       console.error("加入房间失败:", error);
@@ -123,11 +89,7 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
     if (!confirm("确定要删除这个房间吗？")) return;
 
     try {
-      const endpoint = isAdmin
-        ? `${API_ENDPOINTS.ADMIN_ROOMS}/${roomId}`
-        : `${API_ENDPOINTS.SYNC_ROOMS}/${roomId}`;
-      await apiClient.delete(endpoint);
-      fetchRooms();
+      await deleteRoom(roomId);
     } catch (error) {
       console.error("删除房间失败:", error);
       alert("删除失败，请重试");
@@ -136,10 +98,7 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
 
   const handleToggleRoomLock = async (room) => {
     try {
-      await apiClient.put(API_ENDPOINTS.ADMIN_ROOM_LOCK(room.id), {
-        is_locked: !room.is_locked,
-      });
-      await fetchRooms();
+      await toggleRoomLock(room);
     } catch (error) {
       console.error("设置房间锁定状态失败:", error);
       alert(error.response?.data?.detail || "设置失败，请重试");
