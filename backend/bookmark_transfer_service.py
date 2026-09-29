@@ -6,7 +6,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import models
-from bookmark_collection_service import get_or_create_tag
 from bookmark_export_service import (
     export_bookmarks_html as export_bookmarks_html,
     export_bookmarks_json as export_bookmarks_json,
@@ -27,6 +26,7 @@ from bookmark_import_validation import (
     _source_key as _source_key,
     payload_from_html_input as _payload_from_html_input,
 )
+from bookmark_tag_service import get_or_create_tag
 
 
 class BookmarkImportExecutionError(RuntimeError):

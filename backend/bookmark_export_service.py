@@ -5,7 +5,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import models
-from bookmark_collection_service import search_bookmarks, tags_for_bookmark
+from bookmark_collection_service import search_bookmarks
+from bookmark_tag_service import tags_for_bookmark
 
 
 def export_bookmarks_json(

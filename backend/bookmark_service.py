@@ -18,15 +18,14 @@ from bookmark_collection_service import (
     create_bookmark,
     delete_bookmark,
     get_bookmark,
-    get_or_create_tag,
+    record_bookmark_visit,
+    search_bookmarks,
+    update_bookmark,
+)
+from bookmark_public_service import (
     public_bookmarks,
     public_folders,
-    record_bookmark_visit,
-    replace_bookmark_tags,
-    search_bookmarks,
     serialize_public_bookmark,
-    tags_for_bookmark,
-    update_bookmark,
 )
 from bookmark_search_engine_service import (
     create_search_engine as create_search_engine,
@@ -34,6 +33,11 @@ from bookmark_search_engine_service import (
     get_search_engine as get_search_engine,
     list_search_engines as list_search_engines,
     update_search_engine as update_search_engine,
+)
+from bookmark_tag_service import (
+    get_or_create_tag,
+    replace_bookmark_tags,
+    tags_for_bookmark,
 )
 from bookmark_transfer_service import (
     BookmarkImportExecutionError,

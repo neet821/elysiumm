@@ -23,6 +23,8 @@ import bookmark_export_service  # noqa: E402
 import bookmark_folder_service  # noqa: E402
 import bookmark_html_parser  # noqa: E402
 import bookmark_import_validation  # noqa: E402
+import bookmark_public_service  # noqa: E402
+import bookmark_tag_service  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
 DOMAIN_MODULES = {
@@ -30,6 +32,8 @@ DOMAIN_MODULES = {
     "bookmark_export_service": bookmark_export_service,
     "bookmark_folder_service": bookmark_folder_service,
     "bookmark_import_validation": bookmark_import_validation,
+    "bookmark_public_service": bookmark_public_service,
+    "bookmark_tag_service": bookmark_tag_service,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
 }
@@ -37,19 +41,23 @@ DOMAIN_MODULES = {
 
 EXPECTED_DOMAIN_EXPORTS = {
     "bookmark_collection_service": (
-        "get_or_create_tag",
         "create_bookmark",
         "get_bookmark",
-        "replace_bookmark_tags",
         "update_bookmark",
         "delete_bookmark",
         "bulk_update_bookmarks",
         "search_bookmarks",
         "record_bookmark_visit",
+    ),
+    "bookmark_tag_service": (
+        "get_or_create_tag",
+        "replace_bookmark_tags",
+        "tags_for_bookmark",
+    ),
+    "bookmark_public_service": (
         "public_bookmarks",
         "public_folders",
         "serialize_public_bookmark",
-        "tags_for_bookmark",
     ),
     "bookmark_folder_service": (
         "MAX_FOLDER_DEPTH",
@@ -113,6 +121,30 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                     getattr(bookmark_folder_service, name),
                 )
 
+    def test_collection_module_keeps_tag_service_aliases(self):
+        for name in (
+            "get_or_create_tag",
+            "replace_bookmark_tags",
+            "tags_for_bookmark",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(bookmark_collection_service, name),
+                    getattr(bookmark_tag_service, name),
+                )
+
+    def test_collection_module_keeps_public_service_aliases(self):
+        for name in (
+            "public_bookmarks",
+            "public_folders",
+            "serialize_public_bookmark",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(bookmark_collection_service, name),
+                    getattr(bookmark_public_service, name),
+                )
+
     def test_transfer_facade_reexports_export_domain_callables(self):
         for name in ("export_bookmarks_json", "export_bookmarks_html"):
             with self.subTest(name=name):
@@ -162,6 +194,18 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                     elif isinstance(node, ast.ImportFrom):
                         imports.append(node.module or "")
                 self.assertNotIn("bookmark_service", imports)
+
+    def test_tag_and_public_domains_do_not_depend_on_collection_module(self):
+        for module in (bookmark_tag_service, bookmark_public_service):
+            with self.subTest(module=module.__name__):
+                tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+                imports = []
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        imports.extend(alias.name for alias in node.names)
+                    elif isinstance(node, ast.ImportFrom):
+                        imports.append(node.module or "")
+                self.assertNotIn("bookmark_collection_service", imports)
 
 
 if __name__ == "__main__":
