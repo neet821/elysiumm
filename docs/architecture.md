@@ -49,6 +49,12 @@ route and consumer checks; coverage now exercises the routed admin workspace,
 tus lifecycle and backend administrator-only authorization. The legacy
 token-based upload API remains server-side and protected for compatibility.
 
+Shared player synchronization lives under `frontend/src/features/player/`:
+`roomRealtimeSync.js` sequences client operations and manages socket clock
+probes, `roomSyncClock.js` estimates round-trip time and server offset, and
+`roomSyncEngine.js` applies authoritative snapshots and player drift
+corrections. Music and video adapters keep their media-specific behavior.
+
 ## Internal service ownership
 
 Backend files named `*_service.py` own domain operations; routers translate

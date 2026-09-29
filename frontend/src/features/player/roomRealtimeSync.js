@@ -1,4 +1,4 @@
-import { recordClockProbe } from './roomSyncEngine.js'
+import { recordClockProbe } from './roomSyncClock.js'
 
 function createInstanceId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()

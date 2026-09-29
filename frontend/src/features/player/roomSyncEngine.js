@@ -1,7 +1,11 @@
+import { estimateServerOffset, recordClockProbe } from './roomSyncClock.js'
+
 export const DRIFT_IGNORE_SECONDS = 0.75
 export const DRIFT_SEEK_SECONDS = 4
 export const DRIFT_HARD_SEEK_CONFIRMATIONS = 2
 export const TEMPORARY_RATE_MS = 1_500
+
+export { estimateServerOffset, recordClockProbe }
 
 const MIN_PLAYBACK_RATE = 0.5
 const MAX_PLAYBACK_RATE = 2
@@ -70,39 +74,6 @@ export function createRoomSyncState() {
     rateTimer: null,
     rateToken: null,
   }
-}
-
-export function recordClockProbe(syncState, sample) {
-  const clientSent = finiteNumber(sample?.clientSentAtMs)
-  const clientReceived = finiteNumber(sample?.clientReceivedAtMs)
-  const serverReceived = finiteNumber(sample?.serverReceivedAtMs)
-  const serverSent = finiteNumber(sample?.serverSentAtMs)
-  if ([clientSent, clientReceived, serverReceived, serverSent].some((value) => value === null)) {
-    return null
-  }
-  const roundTripTimeMs = (clientReceived - clientSent) - (serverSent - serverReceived)
-  if (roundTripTimeMs < 0 || clientReceived < clientSent || serverSent < serverReceived) {
-    return null
-  }
-  const clockOffsetMs = ((serverReceived - clientSent) + (serverSent - clientReceived)) / 2
-  const clockSamples = [
-    ...(Array.isArray(syncState.clockSamples) ? syncState.clockSamples : []),
-    { clockOffsetMs, roundTripTimeMs },
-  ].slice(-8)
-  const bestSample = clockSamples.reduce((best, current) => (
-    current.roundTripTimeMs < best.roundTripTimeMs ? current : best
-  ))
-  syncState.clockSamples = clockSamples
-  syncState.clockOffsetMs = bestSample.clockOffsetMs
-  syncState.roundTripTimeMs = bestSample.roundTripTimeMs
-  return { clockOffsetMs, roundTripTimeMs }
-}
-
-export function estimateServerOffset(snapshot, receivedAtMs) {
-  const serverNow = finiteNumber(snapshot?.server_now_ms)
-  const receivedAt = finiteNumber(receivedAtMs)
-  if (serverNow === null || receivedAt === null) return 0
-  return serverNow - receivedAt
 }
 
 export function projectSnapshotPosition(snapshot, clientNowMs, serverOffsetMs = 0) {
