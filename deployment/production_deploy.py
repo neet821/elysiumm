@@ -15,7 +15,6 @@ import io
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import tarfile
@@ -33,11 +32,11 @@ from deployment.deploy_types import (
     DeploymentOptions,
     InfrastructureApplyError,
     ProductionDeployError,
-    SYSTEMD_RUNTIME_PATH,
 )
 from deployment import infrastructure_validation as _infrastructure_validation
 from deployment import infrastructure_apply as _infrastructure_apply
 from deployment import systemd_operations as _systemd_operations
+from deployment import runtime_dependencies as _runtime_dependencies
 from deployment.api_schema import api_schema_sha256 as compute_api_schema_sha256
 from deployment.legacy_path_scan import scan_legacy_paths
 from deployment.migration_runner import MigrationRunError, run_migrations_if_needed
@@ -93,6 +92,12 @@ _restore_infrastructure = _infrastructure_apply._restore_infrastructure
 _unlink_if_present = _infrastructure_apply._unlink_if_present
 _systemctl = _systemd_operations._systemctl
 _systemd_state = _systemd_operations._systemd_state
+_install_backend_dependencies = _runtime_dependencies._install_backend_dependencies
+_music_api_service_installed = _runtime_dependencies._music_api_service_installed
+_backend_release_has_music_api = _runtime_dependencies._backend_release_has_music_api
+_tusd_service_installed = _runtime_dependencies._tusd_service_installed
+_backend_release_has_tusd = _runtime_dependencies._backend_release_has_tusd
+_python_version = _runtime_dependencies._python_version
 
 
 def _sha256_file(path: Path) -> str:
@@ -291,102 +296,6 @@ def _deployment_lock(root: Path):
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         finally:
             handle.close()
-
-
-def _install_backend_dependencies(release: ReleaseAssembly, lockfile: Path, environment: Mapping[str, str]) -> None:
-    python = release.path / ".venv/bin/python"
-    if not python.is_file():
-        raise ProductionDeployError(f"backend virtualenv is incomplete: {python}")
-    command = [str(python), "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "-r", str(lockfile)]
-    result = subprocess.run(
-        command,
-        cwd=release.path / "backend",
-        env=dict(environment),
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
-        raise ProductionDeployError(f"backend dependency installation failed: {detail[-1200:]}")
-
-    music_project = release.path / "backend/music_node"
-    package_manifest = music_project / "package.json"
-    package_lock = music_project / "package-lock.json"
-    if not package_manifest.exists() and not package_lock.exists():
-        return
-    if not package_manifest.is_file() or not package_lock.is_file():
-        raise ProductionDeployError("internal music API package.json and package-lock.json must both exist")
-
-    process_environment = dict(environment)
-    search_path = SYSTEMD_RUNTIME_PATH
-    process_environment["PATH"] = search_path
-    node = shutil.which("node", path=search_path)
-    npm = shutil.which("npm", path=search_path)
-    if node is None or npm is None:
-        raise ProductionDeployError("internal music API installation requires Node.js 22+ and npm on PATH")
-    version = subprocess.run(
-        [node, "--version"],
-        cwd=music_project,
-        env=process_environment,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    match = re.match(r"^v?(\d+)\.", (version.stdout or version.stderr).strip())
-    if version.returncode or match is None or int(match.group(1)) < 22:
-        raise ProductionDeployError("internal music API requires Node.js 22 or newer")
-    installed = subprocess.run(
-        [npm, "ci", "--omit=dev", "--no-audit", "--no-fund", "--prefix", str(music_project)],
-        cwd=music_project,
-        env=process_environment,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if installed.returncode:
-        raise ProductionDeployError(
-            f"internal music API dependency installation failed (npm ci exit code {installed.returncode})"
-        )
-
-
-def _music_api_service_installed(options: DeploymentOptions) -> bool:
-    return (options.systemd_target_dir / options.music_api_service).is_file()
-
-
-def _backend_release_has_music_api(release_path: Path) -> bool:
-    return (release_path / "backend/music_node/server.cjs").is_file()
-
-
-def _tusd_service_installed(options: DeploymentOptions) -> bool:
-    return (options.systemd_target_dir / options.tusd_service).is_file()
-
-
-def _backend_release_has_tusd(release_path: Path) -> bool:
-    binary = release_path / "backend/bin/tusd"
-    return binary.is_file() and bool(binary.stat().st_mode & 0o111)
-
-
-def _python_version(python_executable: Path) -> str:
-    """Record the version of the interpreter that will own the release venv."""
-
-    result = subprocess.run(
-        [str(python_executable.resolve()), "--version"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
-        raise ProductionDeployError(detail or f"cannot execute deployment Python: {python_executable}")
-    version = (result.stdout or result.stderr).strip()
-    if not version.startswith("Python "):
-        raise ProductionDeployError(f"deployment Python returned an invalid version: {python_executable}")
-    return version.removeprefix("Python ").strip()
 
 
 def _backend_release(

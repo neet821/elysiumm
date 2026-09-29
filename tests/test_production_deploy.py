@@ -915,14 +915,14 @@ class ProductionDeployTest(unittest.TestCase):
         assembly = ReleaseAssembly("backend", "fixture", release_root, {})
 
         with patch(
-            "deployment.production_deploy.subprocess.run",
+            "deployment.runtime_dependencies.subprocess.run",
             side_effect=[
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="v22.1.0\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ],
         ) as run, patch(
-            "deployment.production_deploy.shutil.which",
+            "deployment.runtime_dependencies.shutil.which",
             side_effect=lambda name, path=None: f"/usr/bin/{name}",
         ):
             _install_backend_dependencies(assembly, requirement_lock, {})
@@ -953,13 +953,13 @@ class ProductionDeployTest(unittest.TestCase):
         assembly = ReleaseAssembly("backend", "fixture", release_root, {})
 
         with patch(
-            "deployment.production_deploy.subprocess.run",
+            "deployment.runtime_dependencies.subprocess.run",
             side_effect=[
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="v20.19.0\n", stderr=""),
             ],
         ), patch(
-            "deployment.production_deploy.shutil.which",
+            "deployment.runtime_dependencies.shutil.which",
             side_effect=lambda name, path=None: f"/usr/bin/{name}",
         ), self.assertRaisesRegex(ProductionDeployError, "Node.js 22 or newer"):
             _install_backend_dependencies(assembly, requirement_lock, {})

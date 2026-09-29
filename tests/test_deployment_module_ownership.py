@@ -5,6 +5,7 @@ from deployment import (
     deploy_types,
     infrastructure_apply,
     infrastructure_validation,
+    runtime_dependencies,
     systemd_operations,
 )
 from deployment import production_deploy
@@ -77,6 +78,24 @@ class DeploymentModuleOwnershipTest(unittest.TestCase):
             self.assertIs(
                 getattr(production_deploy, name),
                 getattr(systemd_operations, name),
+            )
+
+    def test_runtime_dependency_checks_have_one_domain_owner(self):
+        for name in (
+            "_install_backend_dependencies",
+            "_music_api_service_installed",
+            "_backend_release_has_music_api",
+            "_tusd_service_installed",
+            "_backend_release_has_tusd",
+            "_python_version",
+        ):
+            self.assertEqual(
+                inspect.getmodule(getattr(runtime_dependencies, name)).__name__,
+                "deployment.runtime_dependencies",
+            )
+            self.assertIs(
+                getattr(production_deploy, name),
+                getattr(runtime_dependencies, name),
             )
 
 
