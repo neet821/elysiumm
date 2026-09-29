@@ -12,7 +12,7 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 - FastAPI owns HTTP validation, authentication, authorization, domain services and safe serialization.
 - Socket.IO is mounted at `/ws/socket.io` and carries authenticated room changes; REST snapshots remain the recovery source of truth.
 - MariaDB stores users, content, rooms, canonical music, Books metadata, Public Sync state, audit rows and backup records.
-- SQLAlchemy domain modules under `backend/models/` share one declarative `Base` and metadata registry; `models.music` remains a compatibility facade over catalog, room-music, and private-playlist model modules.
+- SQLAlchemy domain modules under `backend/models/` share one declarative `Base` and metadata registry. Music models are grouped into catalog, room-music, and private-playlist modules; room models are grouped into sync rooms, video, and membership/chat. The older `models.music` and `models.rooms` import paths remain compatibility facades.
 - Managed filesystem roots hold public uploads, private video/subtitle files, administrator files, sync files and backup artifacts. Private roots are never mounted as public static directories.
 - Music room UI, lyrics, covers and particles live under `frontend/src/features/music/`. NetEase, QQ and Audius adapters live under `backend/music/`; provider credentials are root-managed and never sent to browsers.
 - The routed `MineradioPage` only resolves route/auth context and composes the native player; `useMusicRoomPageController` owns room data, permissions, realtime lifecycle, playback synchronization and room actions.
