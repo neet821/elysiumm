@@ -4,7 +4,8 @@ from . import (
     clock_events,
     lifecycle,
     music_completion_events,
-    playback_events,
+    playback_control_events,
+    playback_heartbeat_events,
     room_events,
     video_completion_events,
     video_events,
@@ -28,9 +29,13 @@ _DOMAIN_EVENTS = {
             "request_sync",
         ),
     ),
-    "playback": (
-        playback_events,
-        ("playback_control", "time_heartbeat"),
+    "playback-control": (
+        playback_control_events,
+        ("playback_control",),
+    ),
+    "playback-heartbeat": (
+        playback_heartbeat_events,
+        ("time_heartbeat",),
     ),
     "clock": (
         clock_events,

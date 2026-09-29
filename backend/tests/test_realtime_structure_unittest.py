@@ -37,8 +37,8 @@ class RealtimeStructureTest(unittest.TestCase):
             "request_snapshot": "realtime.room_events",
             "presence_heartbeat": "realtime.room_events",
             "request_sync": "realtime.room_events",
-            "playback_control": "realtime.playback_events",
-            "time_heartbeat": "realtime.playback_events",
+            "playback_control": "realtime.playback_control_events",
+            "time_heartbeat": "realtime.playback_heartbeat_events",
             "clock_probe": "realtime.clock_events",
             "time_update": "realtime.clock_events",
             "video_ended": "realtime.video_completion_events",
@@ -74,6 +74,14 @@ class RealtimeStructureTest(unittest.TestCase):
                 handler = registered_handlers[event_name]
                 self.assertEqual(handler.__module__, module_name)
                 self.assertIs(getattr(websocket_server, event_name), handler)
+        self.assertIs(
+            playback_events.playback_control,
+            registered_handlers["playback_control"],
+        )
+        self.assertIs(
+            playback_events.time_heartbeat,
+            registered_handlers["time_heartbeat"],
+        )
         self.assertIs(playback_events.video_ended, registered_handlers["video_ended"])
         self.assertIs(playback_events.music_ended, registered_handlers["music_ended"])
         self.assertEqual(

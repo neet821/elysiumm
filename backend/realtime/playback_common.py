@@ -1,7 +1,12 @@
 """Shared version and media guards for authoritative playback events."""
 
 import sync_room_crud
-from .common import _room_snapshot, _serialize_room_snapshot
+import video_service
+from .common import (
+    _is_video_room,
+    _room_snapshot,
+    _serialize_room_snapshot,
+)
 from .runtime import room_operation_sequence_guard, sio
 
 
@@ -29,4 +34,27 @@ async def _accept_room_operation(sid, actor, room_id, data, db, room) -> bool:
         )
         return False
     await sio.emit("error", {"message": "同步操作标识无效"}, room=sid)
+    return False
+
+
+async def _accept_current_video_media(sid, room_id, data, db, room) -> bool:
+    if not _is_video_room(room) or data.get("client_instance_id") is None:
+        return True
+    current = video_service.current_video_snapshot(db, room)
+    if data.get("media_id") == current.media_id:
+        return True
+
+    now_ms = sync_room_crud.server_now_ms()
+    await sio.emit(
+        "playback_conflict",
+        {
+            "message": "视频已切换，已刷新房间状态",
+            "room_id": room_id,
+            "snapshot": _serialize_room_snapshot(
+                current,
+                server_now_ms=now_ms,
+            ),
+        },
+        room=sid,
+    )
     return False
