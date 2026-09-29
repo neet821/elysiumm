@@ -57,6 +57,10 @@ and authorization rules. The former unmounted
 route and consumer checks; coverage now exercises the routed admin workspace,
 tus lifecycle and backend administrator-only authorization. The legacy
 token-based upload API remains server-side and protected for compatibility.
+`routers/admin_files.py` owns administrator authentication, rate limiting and
+HTTP responses; `admin_file_service.py` owns filename/content validation and
+private path boundaries, while `admin_file_storage_service.py` owns private
+upload persistence, checksum metadata and audit writes.
 
 Shared player synchronization lives under `frontend/src/features/player/`:
 `roomRealtimeSync.js` sequences client operations and manages socket clock
