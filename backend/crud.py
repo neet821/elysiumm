@@ -1,7 +1,5 @@
-from sqlalchemy.orm import Session, joinedload
-from typing import Optional
-import models
-import schemas
+import models as models
+import schemas as schemas
 import security as security
 from account_crud import (
     create_user as create_user,
@@ -52,55 +50,10 @@ from message_board_crud import (
     get_message_board_entries as get_message_board_entries,
     like_message as like_message,
 )
-
-# Resource Request CRUD
-def get_resource_requests(db: Session, skip: int = 0, limit: int = 100, status: Optional[str] = None):
-    query = db.query(models.ResourceRequest).options(joinedload(models.ResourceRequest.user), joinedload(models.ResourceRequest.replies).joinedload(models.WishlistReply.user))
-    if status:
-        query = query.filter(models.ResourceRequest.status == status)
-    return query.order_by(models.ResourceRequest.created_at.desc()).offset(skip).limit(limit).all()
-
-def create_resource_request(db: Session, request: schemas.ResourceRequestCreate, user_id: int):
-    db_request = models.ResourceRequest(
-        title=request.title,
-        content=request.content,
-        user_id=user_id,
-        is_anonymous=request.is_anonymous,
-        is_private=request.is_private
-    )
-    db.add(db_request)
-    db.commit()
-    db.refresh(db_request)
-    return db_request
-
-def create_wishlist_reply(db: Session, reply: schemas.WishlistReplyCreate, request_id: int, user_id: int):
-    db_reply = models.WishlistReply(
-        content=reply.content,
-        request_id=request_id,
-        user_id=user_id
-    )
-    db.add(db_reply)
-    db.commit()
-    db.refresh(db_reply)
-    return db_reply
-
-def update_resource_request(db: Session, request_id: int, request_update: schemas.ResourceRequestUpdate):
-    db_request = db.query(models.ResourceRequest).filter(models.ResourceRequest.id == request_id).first()
-    if not db_request:
-        return None
-
-    update_data = request_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_request, field, value)
-
-    db.commit()
-    db.refresh(db_request)
-    return db_request
-
-def delete_resource_request(db: Session, request_id: int):
-    db_request = db.query(models.ResourceRequest).filter(models.ResourceRequest.id == request_id).first()
-    if db_request:
-        db.delete(db_request)
-        db.commit()
-        return True
-    return False
+from resource_request_crud import (
+    create_resource_request as create_resource_request,
+    create_wishlist_reply as create_wishlist_reply,
+    delete_resource_request as delete_resource_request,
+    get_resource_requests as get_resource_requests,
+    update_resource_request as update_resource_request,
+)
