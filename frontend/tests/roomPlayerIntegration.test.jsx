@@ -176,13 +176,18 @@ describe('room player integration boundary', () => {
 
   it('keeps room synchronization behind the native React player adapter', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
+    const controller = fs.readFileSync(path.resolve(
+      process.cwd(),
+      'src/features/music/useMusicRoomPageController.js',
+    ), 'utf8')
     const playbackSync = fs.readFileSync(path.resolve(
       process.cwd(),
       'src/features/music/useMusicRoomPlaybackSync.js',
     ), 'utf8')
 
     expect(source).toMatch(/MusicRoomPlayer/)
-    expect(source).toMatch(/useMusicRoomPlaybackSync/)
+    expect(source).toMatch(/useMusicRoomPageController/)
+    expect(controller).toMatch(/useMusicRoomPlaybackSync/)
     expect(source).not.toMatch(/applyRoomSnapshot/)
     expect(playbackSync).toMatch(/applyRoomSnapshot/)
     expect(source).not.toMatch(/<iframe|postMessage|frameRef|frameReadyRef|blue-album-mineradio|blue-album-room/)

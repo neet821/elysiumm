@@ -14,6 +14,7 @@ The supported real-time topology is a **single worker** backend. Socket.IO room 
 - MariaDB stores users, content, rooms, canonical music, Books metadata, Public Sync state, audit rows and backup records.
 - Managed filesystem roots hold public uploads, private video/subtitle files, administrator files, sync files and backup artifacts. Private roots are never mounted as public static directories.
 - Music room UI, lyrics, covers and particles live under `frontend/src/features/music/`. NetEase, QQ and Audius adapters live under `backend/music/`; provider credentials are root-managed and never sent to browsers.
+- The routed `MineradioPage` only resolves route/auth context and composes the native player; `useMusicRoomPageController` owns room data, permissions, realtime lifecycle, playback synchronization and room actions.
 - Articles parsing, Markdown sanitization and media delivery live under `backend/articles/`. The public `/api/articles/**`, `/api/content/**` and `/media/**` contracts remain unchanged.
 
 ## Frontend ownership
