@@ -6,6 +6,7 @@ import { API_ENDPOINTS, WS_BASE_URL } from '../config'
 import { useAuth } from '../contexts/AuthContext'
 import MusicRoomPlayer from '../features/music/MusicRoomPlayer.jsx'
 import { createMusicRoomActionHandler } from '../features/music/musicRoomActions.js'
+import { loadMusicRoomData } from '../features/music/musicRoomData.js'
 import { useResolvedMusicTrack } from '../features/music/useResolvedMusicTrack.js'
 import {
   cancelRoomSync,
@@ -209,33 +210,20 @@ export default function MineradioPage() {
 
     const initialize = async () => {
       try {
-        let detail = await apiClient.get(API_ENDPOINTS.SYNC_ROOM_DETAIL(roomId))
-        if (detail.data.mode !== 'music') throw new Error('这不是听歌房')
-        if (!detail.data.members?.some((member) => member.user_id === userId)) {
-          await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(roomId))
-          detail = await apiClient.get(API_ENDPOINTS.SYNC_ROOM_DETAIL(roomId))
-        }
-        const [queueResponse, messageHistory, snapshotResponse, activityHistory] = await Promise.all([
-          apiClient.get(API_ENDPOINTS.MUSIC_QUEUE(roomId)),
-          apiClient.get(API_ENDPOINTS.SYNC_ROOM_MESSAGES(roomId)),
-          apiClient.get(API_ENDPOINTS.MUSIC_SNAPSHOT(roomId)).catch(() => null),
-          apiClient.get(API_ENDPOINTS.MUSIC_HISTORY(roomId), {
-            params: { limit: 30, skip: 0 },
-          }).catch(() => null),
-        ])
-        if (!active) return
-        setRoom({
-          ...detail.data,
-          current_time: queueResponse.data.current_time ?? detail.data.current_time,
-          is_playing: queueResponse.data.is_playing ?? detail.data.is_playing,
-          playback_version: queueResponse.data.playback_version ?? detail.data.playback_version,
+        const roomData = await loadMusicRoomData({
+          api: apiClient,
+          endpoints: API_ENDPOINTS,
+          roomId,
+          userId,
         })
-        setMembers(detail.data.members || [])
-        setQueue(queueResponse.data.queue || [])
-        setMessages((messageHistory.data || []).reverse())
-        setHistory(activityHistory?.data?.items || [])
-        if (snapshotResponse) {
-          acceptSnapshot(snapshotResponse.data)
+        if (!active) return
+        setRoom(roomData.room)
+        setMembers(roomData.members)
+        setQueue(roomData.queue)
+        setMessages(roomData.messages)
+        setHistory(roomData.history)
+        if (roomData.snapshot) {
+          acceptSnapshot(roomData.snapshot)
         } else {
           setSyncStatus('error')
           setNotice('房间状态暂时无法同步，实时连接恢复后会自动重试')
