@@ -5,6 +5,27 @@ const source = readFileSync(
   new URL("../src/pages/AdminFilesPage.jsx", import.meta.url),
   "utf8",
 );
+const privateFiles = readFileSync(
+  new URL("../src/features/admin-files/useAdminPrivateFiles.js", import.meta.url),
+  "utf8",
+);
+const syncBrowser = readFileSync(
+  new URL("../src/features/admin-files/useAdminSyncBrowser.js", import.meta.url),
+  "utf8",
+);
+const transferWorkspace = readFileSync(
+  new URL("../src/features/admin-files/useAdminTransferWorkspace.js", import.meta.url),
+  "utf8",
+);
+const workspace = readFileSync(
+  new URL("../src/features/admin-files/useAdminFilesWorkspace.js", import.meta.url),
+  "utf8",
+);
+const utilities = readFileSync(
+  new URL("../src/features/admin-files/adminFilesUtils.js", import.meta.url),
+  "utf8",
+);
+const featureLogic = [privateFiles, syncBrowser, transferWorkspace, workspace].join("\n");
 const publicTransferPage = readFileSync(
   new URL("../src/pages/TransferPage.jsx", import.meta.url),
   "utf8",
@@ -28,19 +49,19 @@ assert.doesNotMatch(source, /<h2>文件<\/h2>/, "Files workspace must remove the
 for (const endpoint of ["ADMIN_FILE_SYNC_STATUS", "ADMIN_FILE_SYNC_BROWSE", "ADMIN_FILE_SYNC_DOWNLOAD", "ADMIN_FILES", "ADMIN_FILE", "ADMIN_TUS", "ADMIN_TUS_RESULT", "ADMIN_TRANSFER_CURRENT_LINK", "ADMIN_TRANSFER_FILES", "ADMIN_TRANSFER_FILE", "ADMIN_TRANSFER_NOTE"]) {
   assert.match(config, new RegExp(`${endpoint}:`), `config must expose ${endpoint}`);
 }
-assert.match(source, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");
-assert.match(source, /URL\.createObjectURL/, "download must create a local Blob URL");
-assert.match(source, /URL\.revokeObjectURL/, "download must release the Blob URL");
-assert.match(source, /tusUploads\.addFiles/, "admin uploads must use the resumable upload queue");
+assert.match(featureLogic, /responseType:\s*['"]blob['"]/, "downloads must use an authenticated Blob response");
+assert.match(utilities, /URL\.createObjectURL/, "download must create a local Blob URL");
+assert.match(utilities, /URL\.revokeObjectURL/, "download must release the Blob URL");
+assert.match(transferWorkspace, /tusUploads\.addFiles/, "admin uploads must use the resumable upload queue");
 assert.match(source, /选择管理员文件上传/, "admin file workspace must expose its private upload picker");
 assert.match(source, /选择文件上传/, "admin transfer workspace must expose its upload picker");
 assert.match(source, /AdminTusUploadQueue/, "admin uploads must expose the queue and its retry controls");
-assert.doesNotMatch(source, /apiClient\.put\(\s*`\/api\/transfers/, "web uploads must not send transfer files with a one-shot PUT");
+assert.doesNotMatch(featureLogic, /apiClient\.put\(\s*`\/api\/transfers/, "web uploads must not send transfer files with a one-shot PUT");
 assert.match(source, /multiple/, "admin workspaces must allow selecting multiple files");
 assert.match(source, /管理员纯文本/, "admin workspace must expose the administrator-only text area");
-assert.match(source, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
+assert.match(transferWorkspace, /ADMIN_TRANSFER_NOTE/, "admin workspace must persist the administrator-only text");
 assert.match(source, /复制文本/, "admin workspace must expose a text copy action");
-assert.match(source, /setInterval\(loadAdminNote, 5000\)/, "admin workspace must refresh the persistent text");
+assert.match(workspace, /setInterval\(loadAdminNote, 5000\)/, "admin workspace must refresh the persistent text");
 assert.match(source, /transfer\?\.ready/, "the current share link must be rendered");
 assert.match(config, /TRANSFER_PUBLIC_BASE_URL/, "transfer links must use the fixed public host");
 assert.match(routes, /path="\/:token"/, "the fixed transfer host must accept token links at its root");
@@ -82,12 +103,12 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(source, /创建中转链接<\/button>/, "the admin workspace must not create an empty link first");
 assert.match(source, /item\.path/, "sync file actions must use stable paths");
-assert.match(source, /filter\(\(item\) => !item\.path\.endsWith\('\/'\)\)/, "sync workspace must list files only");
+assert.match(syncBrowser, /filter\(\(item\) => !item\.path\.endsWith\('\/'\)\)/, "sync workspace must list files only");
 assert.match(source, /transferFiles\.map/, "transfer files must render one row per file");
-assert.match(source, /ADMIN_TRANSFER_FILE\(item\.id\)/, "admins must be able to delete individual transfer files");
+assert.match(transferWorkspace, /ADMIN_TRANSFER_FILE\(item\.id\)/, "admins must be able to delete individual transfer files");
 assert.doesNotMatch(source, /中转 #|过期：/, "admin transfer rows must not expose session summaries");
-assert.doesNotMatch(source, /device_token_hash|storage_path/, "private sync fields must never be consumed");
-assert.doesNotMatch(source, /file\.url|uploads\/admin_files/, "manual files must never use a public static URL");
+assert.doesNotMatch(featureLogic, /device_token_hash|storage_path/, "private sync fields must never be consumed");
+assert.doesNotMatch(featureLogic, /file\.url|uploads\/admin_files/, "manual files must never use a public static URL");
 assert.match(source, /退出登录/, "the fixed transfer host must expose a logout action for shared devices");
 assert.doesNotMatch(
   source,
