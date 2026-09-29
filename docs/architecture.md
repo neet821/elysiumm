@@ -103,6 +103,12 @@ is isolated in `bookmark_restore_service.py`, which delegates the actual import
 to the transfer facade. `bookmark_service.py` keeps the public aggregate imports
 used by the existing routes.
 
+`database_backup.py` coordinates backup naming, retention, metadata and
+restore dispatch. `database_backup_sqlite.py` and `database_backup_mysql.py`
+own their respective engine operations; shared request/result values live in
+`database_backup_types.py`. The coordinator re-exports the prior operation
+names for existing scripts and internal callers.
+
 For music rooms, `music_room_queue_service.py` owns track enqueue, selection,
 advance and removal. `music_room_engagement_service.py` owns queued-track
 likes and threshold-based skip votes; an approved skip delegates the actual
