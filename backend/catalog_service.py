@@ -10,8 +10,9 @@ from typing import Iterable, Mapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import catalog_lyrics_repository
 import catalog_repository
-from catalog_domain import ProviderTrack, canonicalize_tracks, normalize_identity
+from catalog_domain import PROVIDER_ORDER as _PROVIDER_ORDER, ProviderTrack, canonicalize_tracks, normalize_identity
 import models
 from music import MusicProviderAdapter, ProviderError
 
@@ -25,7 +26,6 @@ class CatalogTrackNotFound(LookupError):
 
 
 _LRC_TAG = re.compile(r"\[(\d{1,3}):(\d{2}(?:\.\d{1,3})?)\]")
-_PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
 _LYRICS_TTL = timedelta(days=1)
 
 
@@ -42,7 +42,7 @@ def _persist_lyrics_or_recover_race(
     expires_at: datetime,
 ) -> tuple[models.TrackLyrics, bool]:
     try:
-        row = catalog_repository.upsert_lyrics(
+        row = catalog_lyrics_repository.upsert_lyrics(
             db,
             canonical_id=canonical_id,
             provider_mapping_id=provider_mapping_id,
@@ -57,7 +57,7 @@ def _persist_lyrics_or_recover_race(
         return row, False
     except IntegrityError:
         db.rollback()
-        winner = catalog_repository.cached_lyrics(db, canonical_id, language, fetched_at)
+        winner = catalog_lyrics_repository.cached_lyrics(db, canonical_id, language, fetched_at)
         if winner is None:
             raise
         return winner, True
@@ -124,7 +124,7 @@ async def get_catalog_lyrics(
         and (provider_track_id is None or mapping.provider_track_id == provider_track_id)
     ]
     requested_mapping_ids = {mapping.id for mapping in mappings}
-    cached = catalog_repository.cached_lyrics(
+    cached = catalog_lyrics_repository.cached_lyrics(
         db,
         canonical_id,
         language,

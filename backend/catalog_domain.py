@@ -17,7 +17,8 @@ class TrackAvailability(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
-_PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
+PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
+_PROVIDER_ORDER = PROVIDER_ORDER
 _AVAILABILITY_ORDER = {
     TrackAvailability.PLAYABLE: 0,
     TrackAvailability.PREVIEW: 1,

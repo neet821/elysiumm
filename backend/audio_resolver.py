@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlparse
 
 from sqlalchemy.orm import Session
 
-import catalog_repository
+import catalog_audio_repository
 import models
 from catalog_domain import TrackAvailability
 from music import MusicProviderAdapter, ProviderError
@@ -118,7 +118,7 @@ def _cached_source(
     provider: str | None = None,
     provider_track_id: str | None = None,
 ) -> models.TrackAudioSource | None:
-    sources = catalog_repository.audio_sources_for_track(db, canonical_id)
+    sources = catalog_audio_repository.audio_sources_for_track(db, canonical_id)
     sources.sort(
         key=lambda source: (
             _SOURCE_PRIORITY.get(source.source_type, 99),
@@ -226,7 +226,7 @@ async def resolve_audio(
         ):
             continue
         expires_at = resolution.expires_at or current_time + _DEFAULT_CACHE_TTL
-        source = catalog_repository.upsert_audio_source(
+        source = catalog_audio_repository.upsert_audio_source(
             db,
             canonical_id=canonical_id,
             provider_mapping_id=mapping.id,
