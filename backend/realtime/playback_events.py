@@ -1,7 +1,6 @@
 """Playback events Socket.IO event handlers."""
 
 import logging
-from database import SessionLocal
 import math
 import models
 import music_service
@@ -10,10 +9,7 @@ import room_snapshot as snapshot_domain
 import sync_room_crud
 import video_service
 from .runtime import (
-    room_operation_sequence_guard,
     sio,
-    video_buffer_states,
-    video_local_ready_states,
 )
 from .common import (
     _is_video_room,
@@ -28,37 +24,13 @@ from .common import (
     record_realtime_audit,
 )
 from . import common
+from .playback_common import _accept_room_operation
 from .clock_events import clock_probe as clock_probe
 from .clock_events import time_update as time_update
+from .video_completion_events import video_ended as video_ended
+from .music_completion_events import music_ended as music_ended
 
 logger = logging.getLogger("websocket_server")
-
-
-async def _accept_room_operation(sid, actor, room_id, data, db, room) -> bool:
-    result = room_operation_sequence_guard.check(actor["user_id"], room_id, data)
-    if result in {"legacy", "accepted"}:
-        return True
-    if result == "duplicate":
-        # Retransmission of an already accepted operation is an idempotent no-op.
-        return False
-    if result == "out_of_order":
-        now_ms = sync_room_crud.server_now_ms()
-        snapshot = _room_snapshot(db, room, now_ms=now_ms)
-        await sio.emit(
-            "playback_conflict",
-            {
-                "message": "收到过期的同步操作，已刷新房间状态",
-                "room_id": room_id,
-                "snapshot": _serialize_room_snapshot(
-                    snapshot,
-                    server_now_ms=now_ms,
-                ),
-            },
-            room=sid,
-        )
-        return False
-    await sio.emit("error", {"message": "同步操作标识无效"}, room=sid)
-    return False
 
 
 async def _accept_current_video_media(sid, room_id, data, db, room) -> bool:
@@ -360,235 +332,5 @@ async def time_heartbeat(sid, data):
     except Exception:
         logger.exception("Failed to process room heartbeat")
         await sio.emit("error", {"message": "时间同步暂时失败"}, room=sid)
-    finally:
-        db.close()
-
-
-async def video_ended(sid, data):
-    """Advance the current video once through the shared version authority."""
-    actor = await get_socket_actor(sid)
-    if actor is None or not await ensure_realtime_available(sid):
-        return
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get("room_id")
-    item_id = data.get("item_id", data.get("media_id"))
-    expected_version = data.get("expected_version", data.get("playback_version"))
-    audit_room_id = room_id if type(room_id) is int else None
-    if not await ensure_socket_rate_limit(
-        sid,
-        actor,
-        "video_ended",
-        room_id=audit_room_id,
-    ):
-        return
-    if (
-        type(room_id) is not int
-        or type(item_id) is not int
-        or type(expected_version) is not int
-    ):
-        await sio.emit("error", {"message": "视频结束参数无效"}, room=sid)
-        return
-
-    db = common.get_db()
-    try:
-        room = sync_room_crud.get_room_by_id(db, room_id)
-        if not room or not _is_video_room(room):
-            await sio.emit("error", {"message": "视频房不存在"}, room=sid)
-            return
-        user_id = actor["user_id"]
-        if not sync_room_crud.is_room_member(
-            db, room_id, user_id
-        ) or not is_sid_connected(room_id, user_id, sid):
-            await sio.emit("error", {"message": "请先加入视频房"}, room=sid)
-            return
-        user = db.get(models.User, user_id)
-        if not sync_room_crud.can_perform_room_action(
-            db,
-            room,
-            user,
-            "change_media",
-        ):
-            await sio.emit("error", {"message": "没有权限切换视频"}, room=sid)
-            return
-
-        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
-            return
-
-        current = video_service.current_video_snapshot(db, room)
-        if expected_version != current.version:
-            await sio.emit(
-                "playback_conflict",
-                {
-                    "message": "播放状态已更新，请刷新同步后再操作",
-                    "room_id": room_id,
-                    "snapshot": _serialize_room_snapshot(
-                        current,
-                        server_now_ms=sync_room_crud.server_now_ms(),
-                    ),
-                },
-                room=sid,
-            )
-            return
-        if current.media_id != item_id:
-            await sio.emit("error", {"message": "视频已切换，无需再次前进"}, room=sid)
-            return
-
-        updated = video_service.advance_playlist(
-            db,
-            room,
-            expected_version=expected_version,
-            autoplay=True,
-        )
-        now_ms = sync_room_crud.server_now_ms()
-        snapshot_payload = _serialize_room_snapshot(
-            updated,
-            server_now_ms=now_ms,
-        )
-        video_buffer_states.pop(room_id, None)
-        video_local_ready_states.pop(room_id, None)
-        await sio.emit(
-            "video_session_updated",
-            video_service.session_payload(db, room),
-            room=f"room_{room_id}",
-        )
-        await sio.emit(
-            "room_snapshot",
-            snapshot_payload,
-            room=f"room_{room_id}",
-        )
-        await sio.emit(
-            "playback_sync",
-            {
-                "action": "video_ended",
-                "time": updated.position,
-                "rate": updated.playback_rate,
-                "is_playing": updated.state == "playing",
-                "user_id": user_id,
-                "playback_version": updated.version,
-                "server_time": room.updated_at.isoformat() if room.updated_at else None,
-            },
-            room=f"room_{room_id}",
-        )
-        record_realtime_audit(
-            db,
-            actor_id=user_id,
-            event_name="video_ended",
-            room_id=room_id,
-            outcome="success",
-            detail="advance=1",
-        )
-    except room_core.RoomPlaybackConflict as conflict:
-        await sio.emit(
-            "playback_conflict",
-            {
-                "message": "播放状态已更新，请刷新同步后再操作",
-                "room_id": room_id,
-                "snapshot": _serialize_room_snapshot(
-                    conflict.snapshot,
-                    server_now_ms=sync_room_crud.server_now_ms(),
-                ),
-            },
-            room=sid,
-        )
-    except (ValueError, room_core.InvalidRoomTransition):
-        await sio.emit("error", {"message": "无法自动切换视频"}, room=sid)
-    except Exception:
-        logger.exception("Failed to advance ended video")
-        await sio.emit("error", {"message": "视频切换暂时失败"}, room=sid)
-    finally:
-        db.close()
-
-
-async def music_ended(sid, data):
-    """Advance one music-room item using the same versioned authority as the timer."""
-    actor = await get_socket_actor(sid)
-    if actor is None or not await ensure_realtime_available(sid):
-        return
-    data = data if isinstance(data, dict) else {}
-    room_id = data.get("room_id")
-    item_id = data.get("item_id", data.get("media_id"))
-    expected_version = data.get("expected_version", data.get("playback_version"))
-    if not await ensure_socket_rate_limit(
-        sid, actor, "music_ended", room_id=room_id if type(room_id) is int else None
-    ):
-        return
-    if (
-        type(room_id) is not int
-        or type(item_id) is not int
-        or type(expected_version) is not int
-    ):
-        await sio.emit("error", {"message": "歌曲结束参数无效"}, room=sid)
-        return
-    db = SessionLocal()
-    try:
-        room = sync_room_crud.get_room_by_id(db, room_id)
-        if (
-            not room
-            or room.mode != "music"
-            or not sync_room_crud.is_room_member(db, room_id, actor["user_id"])
-            or not is_sid_connected(room_id, actor["user_id"], sid)
-        ):
-            await sio.emit("error", {"message": "请先加入听歌房"}, room=sid)
-            return
-        user = db.get(models.User, actor["user_id"])
-        if not sync_room_crud.can_perform_room_action(
-            db, room, user, "playback_control"
-        ):
-            await sio.emit("error", {"message": "只有房主可以确认歌曲结束"}, room=sid)
-            return
-        if not await _accept_room_operation(sid, actor, room_id, data, db, room):
-            return
-        current = (
-            db.query(models.MusicQueueItem)
-            .filter_by(room_id=room.id, status="playing")
-            .first()
-        )
-        if (
-            room.playback_version != expected_version
-            or not current
-            or current.id != item_id
-        ):
-            await sio.emit(
-                "room_snapshot",
-                sync_room_crud.authoritative_snapshot_payload(db, room),
-                room=sid,
-            )
-            return
-        music_service.advance_queue(
-            db,
-            room,
-            actor_user_id=actor["user_id"],
-            reason="host_ended",
-            expected_version=expected_version,
-            expected_item_id=item_id,
-        )
-        queue = music_service.queue_payload(db, room.id)
-        await sio.emit(
-            "music_queue_updated",
-            {"room_id": room.id, "queue": queue},
-            room=f"room_{room.id}",
-        )
-        await sio.emit(
-            "room_snapshot",
-            sync_room_crud.authoritative_snapshot_payload(db, room),
-            room=f"room_{room.id}",
-        )
-        await sio.emit(
-            "music_track_changed",
-            {
-                "room_id": room.id,
-                "track": next(
-                    (item for item in queue if item["status"] == "playing"), None
-                ),
-                "current_time": room.current_time,
-                "is_playing": room.is_playing,
-                "playback_version": room.playback_version,
-            },
-            room=f"room_{room.id}",
-        )
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to advance ended music")
-        await sio.emit("error", {"message": "歌曲切换暂时失败"}, room=sid)
     finally:
         db.close()

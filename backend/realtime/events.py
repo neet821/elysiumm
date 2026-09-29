@@ -1,6 +1,14 @@
 """Explicit grouping and registration of realtime domain event handlers."""
 
-from . import clock_events, lifecycle, playback_events, room_events, video_events
+from . import (
+    clock_events,
+    lifecycle,
+    music_completion_events,
+    playback_events,
+    room_events,
+    video_completion_events,
+    video_events,
+)
 from .runtime import register_handlers
 
 
@@ -28,9 +36,13 @@ _DOMAIN_EVENTS = {
         clock_events,
         ("clock_probe", "time_update"),
     ),
-    "playback-completion": (
-        playback_events,
-        ("video_ended", "music_ended"),
+    "video-completion": (
+        video_completion_events,
+        ("video_ended",),
+    ),
+    "music-completion": (
+        music_completion_events,
+        ("music_ended",),
     ),
     "video": (
         video_events,

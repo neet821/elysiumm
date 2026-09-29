@@ -10,7 +10,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import websocket_server  # noqa: E402
-from realtime import runtime  # noqa: E402
+from realtime import playback_events, runtime  # noqa: E402
 
 
 class RealtimeStructureTest(unittest.TestCase):
@@ -41,8 +41,8 @@ class RealtimeStructureTest(unittest.TestCase):
             "time_heartbeat": "realtime.playback_events",
             "clock_probe": "realtime.clock_events",
             "time_update": "realtime.clock_events",
-            "video_ended": "realtime.playback_events",
-            "music_ended": "realtime.playback_events",
+            "video_ended": "realtime.video_completion_events",
+            "music_ended": "realtime.music_completion_events",
             "video_buffer_status": "realtime.video_events",
             "video_local_ready": "realtime.video_events",
         }
@@ -74,6 +74,8 @@ class RealtimeStructureTest(unittest.TestCase):
                 handler = registered_handlers[event_name]
                 self.assertEqual(handler.__module__, module_name)
                 self.assertIs(getattr(websocket_server, event_name), handler)
+        self.assertIs(playback_events.video_ended, registered_handlers["video_ended"])
+        self.assertIs(playback_events.music_ended, registered_handlers["music_ended"])
         self.assertEqual(
             runtime.registered_event_names,
             frozenset(
