@@ -8,11 +8,7 @@ temporary root in tests; no path is hard-coded to a user's workstation.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from contextlib import contextmanager
-import fcntl
 import hashlib
-import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -31,8 +27,10 @@ from deployment.deploy_types import (
     InfrastructureApplyError,
     ProductionDeployError,
 )
+from deployment import deployment_lock as _deployment_lock_module
 from deployment import infrastructure_validation as _infrastructure_validation
 from deployment import infrastructure_apply as _infrastructure_apply
+from deployment import release_state as _release_state
 from deployment import systemd_operations as _systemd_operations
 from deployment import runtime_dependencies as _runtime_dependencies
 from deployment import git_component as _git_component
@@ -54,10 +52,8 @@ from deployment.release_builder import (
 )
 from deployment.release_impact import resolve_impact
 from deployment.release_metadata import (
-    COMPONENTS,
     deployment_transaction,
     deployment_history_path,
-    release_collection_path,
     finalize_transaction,
     utc_now,
     write_transaction,
@@ -99,6 +95,9 @@ _backend_release_has_tusd = _runtime_dependencies._backend_release_has_tusd
 _python_version = _runtime_dependencies._python_version
 _safe_extract_archive = _git_component._safe_extract_archive
 materialize_git_component = _git_component.materialize_git_component
+_current_record = _release_state._current_record
+current_snapshot = _release_state.current_snapshot
+_deployment_lock = _deployment_lock_module._deployment_lock
 
 
 def _sha256_file(path: Path) -> str:
@@ -119,42 +118,6 @@ def release_id_for(commit: str, component: str, *, timestamp: str | None = None)
         raise ProductionDeployError("commit must be a hexadecimal Git commit")
     label = component.replace("_", "-")
     return f"{short[:12]}-{label}-{timestamp or _release_timestamp()}"
-
-
-def _current_record(root: Path, component: str) -> dict[str, object] | None:
-    if component not in COMPONENTS:
-        raise ProductionDeployError(f"unsupported component: {component}")
-    link = root / f"{component}-current"
-    if not link.is_symlink():
-        return None
-    target = link.resolve(strict=False)
-    release_root = release_collection_path(root, component).resolve()
-    try:
-        target.relative_to(release_root)
-    except ValueError as exc:
-        raise ProductionDeployError(f"{link} points outside {release_root}") from exc
-    manifest_path = target / "RELEASE.json"
-    manifest: dict[str, object] = {}
-    if manifest_path.is_file():
-        try:
-            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ProductionDeployError(f"invalid release manifest: {manifest_path}") from exc
-        if isinstance(loaded, dict):
-            manifest = loaded
-    return {
-        "release_id": target.name,
-        "path": str(target.relative_to(root)),
-        "artifact_sha256": manifest.get("artifact_sha256") or manifest.get("source_tree_sha256"),
-        "manifest": str(manifest_path.relative_to(root)) if manifest_path.is_file() else None,
-    }
-
-
-def current_snapshot(root: Path) -> dict[str, object]:
-    return {
-        "frontend_current": _current_record(root, "frontend"),
-        "backend_current": _current_record(root, "backend"),
-    }
 
 
 def _transaction_path(root: Path, deployment_id: str) -> Path:
@@ -210,30 +173,6 @@ def _run_health(url: str, *, attempts: int = 12, delay: float = 0.5) -> tuple[bo
             time.sleep(delay)
 
     return False, last_detail
-
-
-@contextmanager
-def _deployment_lock(root: Path):
-    """Serialize deploys and rollbacks that share current links/database."""
-
-    root.mkdir(parents=True, exist_ok=True)
-    lock_path = root / "deployment.lock"
-    try:
-        handle = lock_path.open("a+")
-        os.chmod(lock_path, 0o600)
-    except OSError as exc:
-        raise ProductionDeployError(f"cannot open deployment lock: {lock_path}") from exc
-    try:
-        try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (BlockingIOError, OSError) as exc:
-            raise ProductionDeployError("another Elysium deploy or rollback is already running") from exc
-        yield
-    finally:
-        try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        finally:
-            handle.close()
 
 
 def _backend_release(

@@ -1,3 +1,4 @@
+import ast
 import inspect
 import unittest
 
@@ -6,10 +7,13 @@ from deployment import (
     git_component,
     infrastructure_apply,
     infrastructure_validation,
+    deployment_lock,
+    release_state,
     runtime_dependencies,
     systemd_operations,
 )
 from deployment import production_deploy
+from deployment import production_rollback
 
 
 class DeploymentModuleOwnershipTest(unittest.TestCase):
@@ -109,6 +113,38 @@ class DeploymentModuleOwnershipTest(unittest.TestCase):
                 getattr(production_deploy, name),
                 getattr(git_component, name),
             )
+
+    def test_release_state_and_shared_deploy_lock_have_domain_owners(self):
+        for module, names, module_name in (
+            (
+                release_state,
+                ("_current_record", "current_snapshot"),
+                "deployment.release_state",
+            ),
+            (deployment_lock, ("_deployment_lock",), "deployment.deployment_lock"),
+        ):
+            for name in names:
+                self.assertEqual(
+                    inspect.getmodule(getattr(module, name)).__name__,
+                    module_name,
+                )
+                self.assertIs(
+                    getattr(production_deploy, name),
+                    getattr(module, name),
+                )
+
+    def test_rollback_no_longer_imports_the_production_deploy_orchestrator(self):
+        tree = ast.parse(inspect.getsource(production_rollback))
+        imported_modules = {
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        }
+        imported_modules.update(
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+        self.assertNotIn("deployment.production_deploy", imported_modules)
 
 
 if __name__ == "__main__":

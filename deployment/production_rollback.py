@@ -8,7 +8,8 @@ import re
 import subprocess
 from typing import Any
 
-from deployment.production_deploy import _deployment_lock, current_snapshot
+from deployment.deployment_lock import _deployment_lock
+from deployment.release_state import current_snapshot
 from deployment.release_builder import atomic_component_link
 from deployment.release_metadata import (
     COMPONENTS,
