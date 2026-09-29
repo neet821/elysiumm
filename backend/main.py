@@ -5,7 +5,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import os
-import re
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +16,7 @@ import models
 from application_lifecycle import BackgroundTasks
 from articles import router as articles
 from config import config
+from cors_policy import build_cors_policy
 from database import engine
 from maintenance import maintenance_controller
 from music_test_catalog import asset_dir as music_test_asset_dir
@@ -151,52 +151,10 @@ app.mount(
 )
 
 # --- CORS 中间件 ---
-# 从配置中获取CORS origins
-# 基础允许的源
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    "http://localhost:8000",
-]
-
-# 添加配置中的CORS origins
-if hasattr(config, "CORS_ORIGINS"):
-    origins.extend(config.CORS_ORIGINS)
-
-
-# CORS 配置 - 支持通配符和动态验证
-def cors_allow_origin_validator(origin: str) -> bool:
-    """验证是否允许该来源"""
-    if origin in origins:
-        return True
-
-    # 允许 GitHub Codespaces 域名
-    codespaces_patterns = [
-        r"https://.*\.github\.dev$",
-        r"https://.*\.githubpreview\.dev$",
-        r"https://.*\.app\.github\.dev$",
-    ]
-
-    for pattern in codespaces_patterns:
-        if re.match(pattern, origin):
-            return True
-
-    # 检查配置的通配符模式
-    for allowed in origins:
-        if "*" in allowed:
-            pattern = allowed.replace(".", r"\.").replace("*", ".*")
-            if re.match(pattern, origin):
-                return True
-
-    return False
-
-
+cors_policy = build_cors_policy(getattr(config, "CORS_ORIGINS", ()))
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://[a-zA-Z0-9\-]+\.(github\.dev|githubpreview\.dev|app\.github\.dev)$",
-    allow_origins=origins,
+    **cors_policy,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
