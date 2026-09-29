@@ -34,6 +34,10 @@ owns authorization and data, and the browser consumes only the stable HTTP and
 Socket.IO contracts. This lets visual changes stay in the frontend without
 moving permission or persistence rules into presentation code.
 
+`AuthContext.jsx` owns React authentication/session state and local persistence;
+`features/auth/authApi.js` owns the existing login, registration, logout and
+current-user HTTP requests.
+
 The administrator console, Files workspace, authentication pages, music room,
 live pages, public transfer page, and sync-room list keep their styles beside
 the owning feature: `frontend/src/features/admin/`,
