@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Copy,
   Link2,
@@ -8,24 +8,13 @@ import {
   Users,
 } from 'lucide-react'
 
-import { API_ENDPOINTS } from '../config'
 import AdminLiveAudience from '../features/live/AdminLiveAudience'
 import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
+import useAdminLiveConsole from '../features/live/useAdminLiveConsole'
 import useLiveSession from '../features/live/useLiveSession'
-import apiClient from '../utils/request'
 import { Button, Dialog, Input } from '../components/ui'
 
-
-const endpointEntries = [
-  ['settings', API_ENDPOINTS.ADMIN_LIVE_SETTINGS],
-  ['status', API_ENDPOINTS.ADMIN_LIVE_STATUS],
-  ['allowedUsers', API_ENDPOINTS.ADMIN_LIVE_ALLOWED_USERS],
-  ['invites', API_ENDPOINTS.ADMIN_LIVE_INVITES],
-  ['audience', API_ENDPOINTS.ADMIN_LIVE_AUDIENCE],
-  ['sessions', API_ENDPOINTS.ADMIN_LIVE_SESSIONS],
-  ['users', API_ENDPOINTS.ADMIN_USERS],
-]
 
 const dateTime = (value) => (
   value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
@@ -33,109 +22,36 @@ const dateTime = (value) => (
 
 
 export default function AdminLivePage() {
-  const [data, setData] = useState({
-    allowedUsers: [],
-    audience: [],
-    audienceHistory: [],
-    invites: [],
-    sessions: [],
-    settings: null,
-    status: null,
-    users: [],
-  })
-  const [form, setForm] = useState(null)
-  const [selectedUsers, setSelectedUsers] = useState([])
-  const [, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
   const [confirmation, setConfirmation] = useState(null)
-  const [oneTimeSecret, setOneTimeSecret] = useState(null)
   const [inviteHours, setInviteHours] = useState(24)
-  const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
-  const [audienceRefreshedAt, setAudienceRefreshedAt] = useState(null)
   const [audienceExpanded, setAudienceExpanded] = useState(false)
   const [audienceView, setAudienceView] = useState('current')
-  const [historyLoading, setHistoryLoading] = useState(false)
   const preview = useLiveSession()
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    const results = await Promise.allSettled(
-      endpointEntries.map(([, endpoint]) => apiClient.get(endpoint)),
-    )
-    const failures = []
-    setData((current) => {
-      const next = { ...current }
-      results.forEach((result, index) => {
-        const [key] = endpointEntries[index]
-        if (result.status === 'fulfilled') next[key] = result.value.data
-        else failures.push(key)
-      })
-      return next
-    })
-    const audienceIndex = endpointEntries.findIndex(([key]) => key === 'audience')
-    if (results[audienceIndex]?.status === 'fulfilled') {
-      setAudienceRefreshedAt(new Date())
-    }
-    setError(failures.length ? `部分信息刷新失败（${new Date().toLocaleTimeString('zh-CN', { hour12: false })}）` : '')
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setAudienceRefreshTick((value) => value + 1)
-    }, 5000)
-    return () => window.clearInterval(timer)
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    const refreshAudience = async () => {
-      try {
-        const response = await apiClient.get(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE, {
-          params: {
-            session_id: data.status?.session?.id || undefined,
-            limit: 200,
-          },
-        })
-        if (!cancelled) {
-          setData((current) => ({ ...current, audience: response.data }))
-          setAudienceRefreshedAt(new Date())
-        }
-      } catch {
-        if (!cancelled) setError('在线观众刷新失败。')
-      }
-    }
-    refreshAudience()
-    return () => {
-      cancelled = true
-    }
-  }, [audienceRefreshTick, data.status?.session?.id])
-
-  useEffect(() => {
-    if (data.settings) setForm({ ...data.settings })
-  }, [data.settings])
-
-  useEffect(() => {
-    setSelectedUsers(data.allowedUsers.map((entry) => entry.user_id))
-  }, [data.allowedUsers])
+  const {
+    audienceRefreshedAt,
+    busy,
+    createInvite,
+    data,
+    error,
+    form,
+    historyLoading,
+    kickPublisher,
+    loadAudienceHistory,
+    oneTimeSecret,
+    revokeInvite,
+    rotateStreamKey,
+    runConfirmed: runAction,
+    saveSettings,
+    selectedUsers,
+    setForm,
+    setOneTimeSecret,
+    setSelectedUsers,
+  } = useAdminLiveConsole()
 
   const runConfirmed = async () => {
     const action = confirmation?.action
     setConfirmation(null)
-    if (!action) return
-    setBusy(true)
-    try {
-      await action()
-    } catch {
-      setError('操作没有完成，请稍后重试。')
-    } finally {
-      setBusy(false)
-    }
+    await runAction(action)
   }
 
   const ask = (title, description, confirmLabel, action) => {
@@ -146,63 +62,8 @@ export default function AdminLivePage() {
     '确认更换推流密钥',
     '旧密钥会立即失效，正在推流的 OBS 需要填写新密钥。',
     '确认更换',
-    async () => {
-      const response = await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_STREAM_KEY_ROTATE)
-      setOneTimeSecret({
-        label: 'OBS 推流密钥',
-        title: '新推流密钥',
-        value: response.data.obs_stream_key,
-      })
-      await load()
-    },
+    rotateStreamKey,
   )
-
-  const saveSettings = async (event) => {
-    event.preventDefault()
-    if (!form) return
-    setBusy(true)
-    try {
-      await apiClient.put(API_ENDPOINTS.ADMIN_LIVE_SETTINGS, {
-        access_mode: form.access_mode,
-        cover_url: form.cover_url || null,
-        description: form.description,
-        latency_mode: form.latency_mode,
-        recording_enabled: form.recording_enabled,
-        revision: form.revision,
-        stream_quality: form.stream_quality,
-        target_bitrate_kbps: form.target_bitrate_kbps ? Number(form.target_bitrate_kbps) : null,
-        title: form.title,
-        viewing_enabled: form.viewing_enabled,
-      })
-      await apiClient.put(API_ENDPOINTS.ADMIN_LIVE_ALLOWED_USERS, {
-        user_ids: selectedUsers,
-      })
-      await load()
-    } catch (requestError) {
-      setError(requestError?.response?.status === 409 ? '设置已在其他页面更新，请刷新后再保存。' : '设置保存失败。')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const createInvite = async () => {
-    setBusy(true)
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_INVITES, {
-        expires_in_hours: Number(inviteHours),
-      })
-      setOneTimeSecret({
-        label: '邀请链接',
-        title: '新邀请链接',
-        value: response.data.invite_url,
-      })
-      await load()
-    } catch {
-      setError('邀请链接创建失败。')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const copySecret = async () => {
     if (!oneTimeSecret?.value) return
@@ -211,20 +72,7 @@ export default function AdminLivePage() {
 
   const openAudienceHistory = async () => {
     setAudienceView('history')
-    setHistoryLoading(true)
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.ADMIN_LIVE_AUDIENCE_HISTORY, {
-        params: {
-          limit: 200,
-          session_id: data.status?.session?.id || undefined,
-        },
-      })
-      setData((current) => ({ ...current, audienceHistory: response.data }))
-    } catch {
-      setError('历史观看加载失败。')
-    } finally {
-      setHistoryLoading(false)
-    }
+    await loadAudienceHistory()
   }
 
   const activeInvite = data.invites.find((invite) => invite.status === 'active')
@@ -315,10 +163,7 @@ export default function AdminLivePage() {
                       '确认强制断流',
                       'OBS 会立即与服务器断开。',
                       '确认断流',
-                      async () => {
-                        await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_KICK)
-                        await load()
-                      },
+                      kickPublisher,
                     )}
                   >
                     <Unplug aria-hidden="true" /> 强制断流
@@ -335,7 +180,7 @@ export default function AdminLivePage() {
           <header><Link2 aria-hidden="true" /><div><h2>邀请链接</h2><p>新链接的完整地址只显示一次。</p></div></header>
           {!activeInvite && <div className="admin-live__invite-create">
             <Input label="有效小时数" min="1" max="8760" type="number" value={inviteHours} onChange={(event) => setInviteHours(event.target.value)} />
-            <Button onClick={createInvite} isLoading={busy}>创建邀请</Button>
+            <Button onClick={() => createInvite(inviteHours)} isLoading={busy}>创建邀请</Button>
           </div>}
           <ul className="admin-live__invites">
             {activeInvite && (
@@ -348,10 +193,7 @@ export default function AdminLivePage() {
                     '确认停用邀请',
                     `尾号 ${activeInvite.token_hint} 的链接会立即失效。`,
                     '确认停用',
-                    async () => {
-                      await apiClient.post(API_ENDPOINTS.ADMIN_LIVE_INVITE_REVOKE(activeInvite.id))
-                      await load()
-                    },
+                    () => revokeInvite(activeInvite.id),
                   )}
                 >
                   停用
