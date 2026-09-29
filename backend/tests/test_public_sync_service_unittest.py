@@ -18,6 +18,8 @@ tmp = tempfile.TemporaryDirectory()
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(tmp.name) / 'sync-service.sqlite'}"
 
 import models  # noqa: E402
+import public_sync_chunk_service  # noqa: E402
+import public_sync_file_service  # noqa: E402
 import public_sync_service  # noqa: E402
 from database import Base, SessionLocal, engine  # noqa: E402
 
@@ -37,7 +39,7 @@ class PublicSyncServiceTest(unittest.TestCase):
         self.db.commit()
         self.storage_root = Path(tmp.name) / "storage"
         shutil.rmtree(self.storage_root, ignore_errors=True)
-        public_sync_service.SYNC_STORAGE_ROOT = self.storage_root
+        public_sync_file_service.SYNC_STORAGE_ROOT = self.storage_root
         self.device, _ = public_sync_service.create_device(self.db, name="test-device")
         self.db.commit()
 
@@ -47,20 +49,26 @@ class PublicSyncServiceTest(unittest.TestCase):
     @contextmanager
     def upload_limits(self, *, file_size=64, chunk_size=32, quota=128):
         previous = (
-            public_sync_service.MAX_SYNC_FILE_SIZE,
-            public_sync_service.MAX_SYNC_CHUNK_SIZE,
-            public_sync_service.MAX_SYNC_DEVICE_BYTES,
+            public_sync_file_service.MAX_SYNC_FILE_SIZE,
+            public_sync_file_service.MAX_SYNC_CHUNK_SIZE,
+            public_sync_file_service.MAX_SYNC_DEVICE_BYTES,
+            public_sync_chunk_service.MAX_SYNC_FILE_SIZE,
+            public_sync_chunk_service.MAX_SYNC_CHUNK_SIZE,
         )
-        public_sync_service.MAX_SYNC_FILE_SIZE = file_size
-        public_sync_service.MAX_SYNC_CHUNK_SIZE = chunk_size
-        public_sync_service.MAX_SYNC_DEVICE_BYTES = quota
+        public_sync_file_service.MAX_SYNC_FILE_SIZE = file_size
+        public_sync_file_service.MAX_SYNC_CHUNK_SIZE = chunk_size
+        public_sync_file_service.MAX_SYNC_DEVICE_BYTES = quota
+        public_sync_chunk_service.MAX_SYNC_FILE_SIZE = file_size
+        public_sync_chunk_service.MAX_SYNC_CHUNK_SIZE = chunk_size
         try:
             yield
         finally:
             (
-                public_sync_service.MAX_SYNC_FILE_SIZE,
-                public_sync_service.MAX_SYNC_CHUNK_SIZE,
-                public_sync_service.MAX_SYNC_DEVICE_BYTES,
+                public_sync_file_service.MAX_SYNC_FILE_SIZE,
+                public_sync_file_service.MAX_SYNC_CHUNK_SIZE,
+                public_sync_file_service.MAX_SYNC_DEVICE_BYTES,
+                public_sync_chunk_service.MAX_SYNC_FILE_SIZE,
+                public_sync_chunk_service.MAX_SYNC_CHUNK_SIZE,
             ) = previous
 
     def test_issue_rotate_revoke_and_authenticate_lifecycle(self):
