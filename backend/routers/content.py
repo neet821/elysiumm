@@ -1,30 +1,14 @@
-"""HTTP handlers for content."""
+"""HTTP handlers for tags, posts, and the message board."""
 
-from fastapi import Depends, HTTPException, status, UploadFile, File
-
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-import os
-
-import shutil
-
-import uuid
-
-import logging
-
-import crud, models, schemas
-
+import crud
+import models
+import schemas
 from database import get_db
-
-from dependencies import get_current_user
-
-from config import config
-
-from fastapi import APIRouter
-
-from dependencies import get_current_admin
-
-logger = logging.getLogger("backend")
+from dependencies import get_current_admin, get_current_user
+from routers import photo_routes
 
 router = APIRouter()
 
@@ -148,93 +132,14 @@ def delete_post(
     return {"message": "文章已删除"}
 
 
-@router.get("/api/photos", response_model=list[schemas.Photo])
-def get_photos(
-    skip: int = 0,
-    limit: int = 100,
-    featured: bool = None,
-    db: Session = Depends(get_db),
-):
-    """获取照片列表"""
-    featured_only = featured if featured is not None else False
-    photos = crud.get_photos(db, skip=skip, limit=limit, featured_only=featured_only)
-    return photos
+get_photos = photo_routes.get_photos
+upload_photo_file = photo_routes.upload_photo_file
+create_photo = photo_routes.create_photo
+get_photo = photo_routes.get_photo
+update_photo = photo_routes.update_photo
+delete_photo = photo_routes.delete_photo
 
-
-@router.post("/api/photos/upload")
-async def upload_photo_file(
-    file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    """上传照片文件(仅管理员)"""
-    # 验证文件类型
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="文件必须是图片")
-
-    # 生成唯一文件名
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = config.UPLOAD_DIR / unique_filename
-
-    # 保存文件
-    try:
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="图片上传失败") from e
-
-    # 返回文件URL
-    file_url = f"/uploads/{unique_filename}"
-    return {"url": file_url, "filename": unique_filename}
-
-
-@router.post(
-    "/api/photos", response_model=schemas.Photo, status_code=status.HTTP_201_CREATED
-)
-def create_photo(
-    photo: schemas.PhotoCreate,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    """创建照片(仅管理员)"""
-    return crud.create_photo(db, photo)
-
-
-@router.get("/api/photos/{photo_id}", response_model=schemas.Photo)
-def get_photo(photo_id: int, db: Session = Depends(get_db)):
-    """获取单个照片详情"""
-    photo = db.query(models.Photo).filter(models.Photo.id == photo_id).first()
-    if not photo:
-        raise HTTPException(status_code=404, detail="照片不存在")
-    return photo
-
-
-@router.put("/api/photos/{photo_id}", response_model=schemas.Photo)
-def update_photo(
-    photo_id: int,
-    photo_update: schemas.PhotoUpdate,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    """更新照片(仅管理员)"""
-    updated_photo = crud.update_photo(db, photo_id, photo_update)
-    if not updated_photo:
-        raise HTTPException(status_code=404, detail="照片不存在")
-    return updated_photo
-
-
-@router.delete("/api/photos/{photo_id}")
-def delete_photo(
-    photo_id: int,
-    current_user: models.User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    """删除照片(仅管理员)"""
-    success = crud.delete_photo(db, photo_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="照片不存在")
-    return {"message": "照片已删除"}
+router.include_router(photo_routes.router)
 
 
 @router.get("/api/messages", response_model=list[schemas.MessageBoardResponse])
