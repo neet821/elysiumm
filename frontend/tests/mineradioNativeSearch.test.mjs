@@ -5,6 +5,7 @@ import test from 'node:test'
 const player = readFileSync(new URL('../src/features/music/MusicRoomPlayer.jsx', import.meta.url), 'utf8')
 const searchPanel = readFileSync(new URL('../src/features/music/MusicRoomSearchPanel.jsx', import.meta.url), 'utf8')
 const page = readFileSync(new URL('../src/pages/MineradioPage.jsx', import.meta.url), 'utf8')
+const actions = readFileSync(new URL('../src/features/music/musicRoomActions.js', import.meta.url), 'utf8')
 const config = readFileSync(new URL('../src/config.js', import.meta.url), 'utf8')
 
 test('room search is rendered by the native React player and calls the FastAPI catalog', () => {
@@ -18,10 +19,10 @@ test('room search is rendered by the native React player and calls the FastAPI c
 })
 
 test('native search selection only proposes a room queue item', () => {
-  assert.match(page, /action === 'propose-native-search'/)
+  assert.match(actions, /action === 'propose-native-search'/)
   assert.doesNotMatch(searchPanel, /postMessage|contentWindow|<iframe/i)
   assert.doesNotMatch(player, /postMessage|contentWindow|<iframe/i)
-  assert.doesNotMatch(page, /\/mineradio-api|postMessage|contentWindow|<iframe/i)
+  assert.doesNotMatch(`${page}\n${actions}`, /\/mineradio-api|postMessage|contentWindow|<iframe/i)
 })
 
 console.log('native music search source checks passed')
