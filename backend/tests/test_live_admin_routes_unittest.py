@@ -15,9 +15,6 @@ BACKEND = Path(__file__).resolve().parents[1]
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 tmp = tempfile.TemporaryDirectory()
-os.environ["DATABASE_URL"] = (
-    f"sqlite:///{Path(tmp.name) / 'live-admin-routes.sqlite'}"
-)
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
@@ -27,27 +24,24 @@ import database  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 from api_rate_limit import high_risk_rate_limiter  # noqa: E402
-from database import SessionLocal  # noqa: E402
 from live_media_client import MediaServiceUnavailable  # noqa: E402
 from live_stream_service import token_digest  # noqa: E402
 from routers import live  # noqa: E402
 
 
-if database.SQLALCHEMY_DATABASE_URL != os.environ["DATABASE_URL"]:
-    database.engine.dispose()
-    database.engine = create_engine(
-        os.environ["DATABASE_URL"],
-        connect_args={"check_same_thread": False},
-    )
-    database.SessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=database.engine,
-    )
-    SessionLocal = database.SessionLocal
-models.Base.metadata.create_all(bind=database.engine)
+engine = create_engine(
+    f"sqlite:///{Path(tmp.name) / 'live-admin-routes.sqlite'}",
+    connect_args={"check_same_thread": False},
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
 import main  # noqa: E402
+
+
+def tearDownModule():
+    engine.dispose()
+    tmp.cleanup()
 
 
 class LiveAdminRoutesTest(unittest.TestCase):
@@ -114,10 +108,28 @@ class LiveAdminRoutesTest(unittest.TestCase):
         self.db.commit()
         self.admin_auth = self._auth(self.admin)
         self.member_auth = self._auth(self.member)
+        self._previous_db_override = main.app.dependency_overrides.get(
+            database.get_db
+        )
+
+        def override_db():
+            db = SessionLocal()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        main.app.dependency_overrides[database.get_db] = override_db
         self.client = TestClient(main.app)
 
     def tearDown(self):
         self.client.close()
+        if self._previous_db_override is None:
+            main.app.dependency_overrides.pop(database.get_db, None)
+        else:
+            main.app.dependency_overrides[database.get_db] = (
+                self._previous_db_override
+            )
         self.db.close()
 
     @staticmethod
