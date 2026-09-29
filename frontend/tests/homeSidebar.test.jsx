@@ -3,7 +3,39 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import EssayCard from '../src/features/content/EssayCard.jsx'
 import HomeSidebar from '../src/features/content/HomeSidebar.jsx'
+import RecordCard from '../src/features/content/RecordCard.jsx'
+
+describe('sidebar cards', () => {
+  it('allows a long essay to expand and collapse independently', async () => {
+    const user = userEvent.setup()
+    render(
+      <EssayCard
+        item={{ excerpt: '随笔内容。'.repeat(30), slug: 'long-essay', title: '长随笔' }}
+      />,
+    )
+
+    const toggle = screen.getByRole('button', { name: '展开随笔' })
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: '收起随笔' })).toBeInTheDocument()
+  })
+
+  it('closes a full review when a pointer lands outside its card', async () => {
+    const user = userEvent.setup()
+    render(
+      <RecordCard
+        item={{ review: '一条用于检查侧栏完整评论关闭行为的长评论。'.repeat(4), slug: 'review', title: '评论记录', type: 'movie' }}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '展开完整评论' }))
+    expect(screen.getByRole('region', { name: '完整评论' })).toBeInTheDocument()
+    await user.click(document.body)
+    expect(screen.queryByRole('region', { name: '完整评论' })).not.toBeInTheDocument()
+  })
+})
 
 describe('HomeSidebar', () => {
   it('keeps record and essay sections, overflow cues, and drawer controls together', async () => {
