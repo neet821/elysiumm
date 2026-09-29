@@ -1,6 +1,4 @@
-export function sameVideoRoomUserId(left, right) {
-  return left != null && right != null && String(left) === String(right)
-}
+import { sameVideoRoomUserId } from './videoRoomShared.js'
 
 export function createVideoRoomRealtimeHandlers({
   acceptSnapshot,

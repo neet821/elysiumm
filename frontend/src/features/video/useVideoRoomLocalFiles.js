@@ -3,13 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { API_ENDPOINTS } from '../../config.js'
 import apiClient from '../../utils/request.js'
 import { fingerprintLocalVideo, localFileMatches } from './localVideo.js'
-
-function detailMessage(error, fallback) {
-  const detail = error?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
-  return error?.message || fallback
-}
+import { formatVideoRoomError } from './videoRoomShared.js'
 
 export function useVideoRoomLocalFiles({ numericRoomId, refreshVideoDetail, setBusy, setNotice, socketRef }) {
   const [localReady, setLocalReady] = useState({})
@@ -50,7 +44,7 @@ export function useVideoRoomLocalFiles({ numericRoomId, refreshVideoDetail, setB
       setNotice('本地视频已登记，文件内容没有上传')
       return item
     } catch (error) {
-      setNotice(detailMessage(error, '本地视频登记失败'))
+      setNotice(formatVideoRoomError(error, '本地视频登记失败'))
       return null
     } finally {
       setBusy(false)

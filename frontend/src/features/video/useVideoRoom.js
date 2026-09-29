@@ -6,20 +6,10 @@ import { useVideoRoomActions } from './useVideoRoomActions.js'
 import { useVideoRoomLocalFiles } from './useVideoRoomLocalFiles.js'
 import { useVideoRoomPlayback } from './useVideoRoomPlayback.js'
 import { useVideoRoomRealtime } from './useVideoRoomRealtime.js'
+import { formatVideoRoomError, sameVideoRoomUserId } from './videoRoomShared.js'
 
 
 const TRANSIENT_NOTICE_TIMEOUT_MS = 4_000
-
-function sameUserId(left, right) {
-  return left != null && right != null && String(left) === String(right)
-}
-
-function detailMessage(error, fallback) {
-  const detail = error?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
-  return error?.message || fallback
-}
 
 export function useVideoRoom({ navigate, roomId, user }) {
   const numericRoomId = Number(roomId)
@@ -51,7 +41,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
     }, TRANSIENT_NOTICE_TIMEOUT_MS)
   }, [])
 
-  const isHost = Boolean(room && user && sameUserId(room.host_user_id, user.id))
+  const isHost = Boolean(room && user && sameVideoRoomUserId(room.host_user_id, user.id))
   const canControl = Boolean(room && user && (
     room.control_mode === 'all_members' || isHost || user.role === 'admin'
   ))
@@ -99,7 +89,7 @@ export function useVideoRoom({ navigate, roomId, user }) {
       return response.data
     } catch (error) {
       if (!quiet) {
-        setNotice(detailMessage(error, '视频房状态暂时无法载入'))
+        setNotice(formatVideoRoomError(error, '视频房状态暂时无法载入'))
         setSyncStatus('error')
       }
       return null

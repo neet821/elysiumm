@@ -4,16 +4,10 @@ import { io } from 'socket.io-client'
 import { API_ENDPOINTS, WS_BASE_URL } from '../../config.js'
 import apiClient from '../../utils/request.js'
 import { startRoomClockProbes } from '../player/roomRealtimeSync.js'
-import { createVideoRoomRealtimeHandlers, sameVideoRoomUserId } from './videoRoomRealtimeEvents.js'
+import { createVideoRoomRealtimeHandlers } from './videoRoomRealtimeEvents.js'
+import { formatVideoRoomError, sameVideoRoomUserId } from './videoRoomShared.js'
 
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 10_000
-
-function detailMessage(error, fallback) {
-  const detail = error?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
-  return error?.message || fallback
-}
 
 export function useVideoRoomRealtime({
   acceptSnapshot,
@@ -97,7 +91,7 @@ export function useVideoRoomRealtime({
         }
       } catch (error) {
         if (!active) return
-        setNotice(detailMessage(error, '视频房无法进入'))
+        setNotice(formatVideoRoomError(error, '视频房无法进入'))
         setSyncStatus('error')
         navigate('/rooms/watch', { replace: true })
       } finally {

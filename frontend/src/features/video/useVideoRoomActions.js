@@ -2,13 +2,7 @@ import { useCallback, useState } from 'react'
 
 import { API_ENDPOINTS } from '../../config.js'
 import apiClient from '../../utils/request.js'
-
-function detailMessage(error, fallback) {
-  const detail = error?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
-  return error?.message || fallback
-}
+import { formatVideoRoomError } from './videoRoomShared.js'
 
 export function useVideoRoomActions({ numericRoomId, refreshVideoDetail, setNotice, setRoom, snapshotRef }) {
   const [busy, setBusy] = useState(false)
@@ -22,7 +16,7 @@ export function useVideoRoomActions({ numericRoomId, refreshVideoDetail, setNoti
       await refreshVideoDetail({ quiet: true })
       return result
     } catch (error) {
-      setNotice(detailMessage(error, fallback))
+      setNotice(formatVideoRoomError(error, fallback))
       return null
     } finally {
       setBusy(false)
