@@ -1,0 +1,126 @@
+@tailwind components;
+
+@layer components {
+  .ui-button {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    display: inline-flex;
+    font: 600 0.92rem/1 var(--font-interface);
+    gap: 0.55rem;
+    justify-content: center;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .ui-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+  .ui-button:not(:disabled):active {
+    transform: translateY(1px) scale(0.985);
+  }
+  .ui-button--primary {
+    background: var(--accent-blue);
+    color: var(--text-inverse);
+  }
+  .ui-button--secondary {
+    background: var(--surface-card);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+  .ui-button--ghost {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+  .ui-button--danger {
+    background: var(--accent-danger);
+    color: var(--text-inverse);
+  }
+  .ui-button--sm {
+    min-height: 2rem;
+    padding: 0.45rem 0.75rem;
+  }
+  .ui-button--md {
+    min-height: 2.65rem;
+    padding: 0.7rem 1rem;
+  }
+  .ui-button--lg {
+    min-height: 3.1rem;
+    padding: 0.85rem 1.25rem;
+  }
+  .ui-button--icon {
+    height: 2.65rem;
+    padding: 0;
+    width: 2.65rem;
+  }
+  .ui-button__spinner {
+    animation: spin-slow 900ms linear infinite;
+    border: 2px solid currentColor;
+    border-radius: 999px;
+    border-right-color: transparent;
+    height: 1rem;
+    width: 1rem;
+  }
+
+  .ui-field {
+    display: grid;
+    gap: 0.42rem;
+  }
+  .ui-field__label {
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .ui-field__required,
+  .ui-field__error {
+    color: var(--accent-danger);
+  }
+  .ui-field__hint,
+  .ui-field__error {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .ui-field__hint {
+    color: var(--text-muted);
+  }
+  .ui-input {
+    background: var(--surface-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    color: var(--text-primary);
+    font: inherit;
+    min-height: 2.7rem;
+    padding: 0.7rem 0.8rem;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard);
+    width: 100%;
+  }
+  .ui-input[aria-invalid="true"] {
+    border-color: var(--accent-danger);
+  }
+
+  .ui-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  .ui-card--muted {
+    background: var(--surface-card-muted);
+    box-shadow: none;
+  }
+  .ui-card--interactive {
+    transition:
+      border-color var(--motion-normal) var(--ease-standard),
+      box-shadow var(--motion-normal) var(--ease-standard),
+      transform var(--motion-normal) var(--ease-emphasized);
+  }
+}

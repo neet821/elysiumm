@@ -1,0 +1,100 @@
+@layer components {
+  .ui-tag {
+    align-items: center;
+    background: var(--surface-card-muted);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1;
+    min-height: 1.6rem;
+    padding: 0.3rem 0.62rem;
+  }
+  .ui-tag--blue {
+    background: color-mix(in srgb, var(--accent-blue) 12%, var(--surface-card));
+    border-color: color-mix(in srgb, var(--accent-blue) 26%, transparent);
+    color: var(--accent-blue);
+  }
+  .ui-tag--success {
+    color: var(--accent-success);
+  }
+  .ui-tag--danger {
+    color: var(--accent-danger);
+  }
+
+  .ui-avatar {
+    display: inline-grid;
+    flex: 0 0 auto;
+    position: relative;
+  }
+  .ui-avatar--sm {
+    height: 1.8rem;
+    width: 1.8rem;
+  }
+  .ui-avatar--md {
+    height: 2.45rem;
+    width: 2.45rem;
+  }
+  .ui-avatar--lg {
+    height: 3.5rem;
+    width: 3.5rem;
+  }
+  .ui-avatar__image,
+  .ui-avatar__fallback {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+  .ui-avatar__fallback {
+    align-items: center;
+    background: var(--surface-card-muted);
+    color: var(--accent-blue);
+    display: flex;
+    font-size: 0.72em;
+    font-weight: 700;
+    justify-content: center;
+  }
+  .ui-avatar__fallback::before {
+    content: attr(data-initials);
+  }
+  .ui-avatar__status {
+    background: var(--accent-success);
+    border: 2px solid var(--surface-card);
+    border-radius: 999px;
+    bottom: -0.05rem;
+    height: 0.65rem;
+    position: absolute;
+    right: -0.05rem;
+    width: 0.65rem;
+  }
+
+  .ui-room-status {
+    align-items: center;
+    color: var(--text-secondary);
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 600;
+    gap: 0.42rem;
+  }
+  .ui-room-status__dot {
+    background: var(--text-muted);
+    border-radius: 999px;
+    height: 0.52rem;
+    width: 0.52rem;
+  }
+  .ui-room-status[data-status="live"] .ui-room-status__dot {
+    background: var(--accent-success);
+    box-shadow: 0 0 0 0.25rem
+      color-mix(in srgb, var(--accent-success) 14%, transparent);
+  }
+  .ui-room-status[data-status="waiting"] .ui-room-status__dot {
+    background: var(--accent-warm);
+  }
+  .ui-room-status[data-status="closed"] .ui-room-status__dot {
+    background: var(--accent-danger);
+  }
+}
