@@ -19,10 +19,12 @@ os.environ.setdefault(
 import bookmark_service  # noqa: E402
 import bookmark_backup_service  # noqa: E402
 import bookmark_collection_service  # noqa: E402
+import bookmark_export_service  # noqa: E402
 import bookmark_transfer_service  # noqa: E402
 
 DOMAIN_MODULES = {
     "bookmark_collection_service": bookmark_collection_service,
+    "bookmark_export_service": bookmark_export_service,
     "bookmark_transfer_service": bookmark_transfer_service,
     "bookmark_backup_service": bookmark_backup_service,
 }
@@ -57,6 +59,10 @@ EXPECTED_DOMAIN_EXPORTS = {
         "import_bookmarks_html",
         "serialize_import_job",
     ),
+    "bookmark_export_service": (
+        "export_bookmarks_json",
+        "export_bookmarks_html",
+    ),
     "bookmark_backup_service": (
         "BookmarkBackupValidationError",
         "list_bookmark_backups",
@@ -78,6 +84,14 @@ class BookmarkServiceDomainsStructureTest(unittest.TestCase):
                         getattr(bookmark_service, name),
                         getattr(module, name),
                     )
+
+    def test_transfer_facade_reexports_export_domain_callables(self):
+        for name in ("export_bookmarks_json", "export_bookmarks_html"):
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(bookmark_transfer_service, name),
+                    getattr(bookmark_export_service, name),
+                )
 
     def test_domains_do_not_import_the_legacy_facade(self):
         for module_name, module in DOMAIN_MODULES.items():
