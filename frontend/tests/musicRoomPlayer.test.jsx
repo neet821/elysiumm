@@ -1,7 +1,8 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import MineradioRoomEmbed, { NativeAudioAdapter } from '../src/features/player/MineradioRoomEmbed.jsx'
+import MusicRoomPlayer from '../src/features/music/MusicRoomPlayer.jsx'
+import { NativeAudioAdapter } from '../src/features/music/NativeAudioAdapter.js'
 
 const track = {
   artist: 'Room artist',
@@ -26,7 +27,7 @@ function createAudio() {
   return audio
 }
 
-describe('native music room player compatibility entry', () => {
+describe('native music room player', () => {
   let audio
 
   beforeEach(() => { audio = createAudio() })
@@ -67,11 +68,11 @@ describe('native music room player compatibility entry', () => {
     adapter.destroy()
   })
 
-  it('keeps the legacy import path as a native component with room controls', async () => {
+  it('renders the native component with shared-room controls', async () => {
     const onAdapterReady = vi.fn()
     const onRoomAction = vi.fn()
     render(
-      <MineradioRoomEmbed
+      <MusicRoomPlayer
         onAdapterReady={onAdapterReady}
         onRoomAction={onRoomAction}
         playerTrack={track}

@@ -69,7 +69,8 @@ refer to the pre-cleanup graph; the current entrypoint has no path back to them.
 - Dependency: only the removed route table, old home/collection/archive/books/
   tools surfaces or standalone player tests.
 - Reason: no path from `frontend/src/main.jsx` and no current page imports these
-  modules; current room playback remains in `MineradioRoomEmbed.jsx`,
+  modules; current music playback is owned by
+  `frontend/src/features/music/MusicRoomPlayer.jsx`, while video rooms remain in
   `VideoRoomPage.jsx` and the room sync modules.
 - Restore: `git restore --source archive/pre-core-cleanup-2026-08-30 -- frontend/src/components frontend/src/features/elysium-room frontend/src/features/player frontend/src/pages frontend/src/navigation.js frontend/src/theme/useTheme.js frontend/src/utils/imageHelper.js frontend/src/styles/homeRebuild.css`
 
