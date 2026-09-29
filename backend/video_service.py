@@ -20,16 +20,18 @@ from video_playlist_service import (
     reorder_playlist,
     session_payload,
 )
-from video_session_service import (
-    advance_playlist,
+from video_playback_service import (
     apply_playback_update,
     current_video_snapshot,
+    select_item,
+    video_snapshot_payload,
+)
+from video_session_service import (
+    advance_playlist,
     delete_playlist_item,
     initialize_current_item_if_empty,
     replace_current_video_item,
-    select_item,
     set_current_item,
-    video_snapshot_payload,
 )
 from video_subtitle_service import (
     _subtitle_payload,

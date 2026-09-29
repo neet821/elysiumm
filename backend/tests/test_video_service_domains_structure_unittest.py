@@ -32,14 +32,16 @@ DOMAIN_EXPORTS = {
     ),
     "video_session_service": (
         "replace_current_video_item",
-        "current_video_snapshot",
-        "video_snapshot_payload",
         "initialize_current_item_if_empty",
-        "select_item",
-        "apply_playback_update",
         "advance_playlist",
         "delete_playlist_item",
         "set_current_item",
+    ),
+    "video_playback_service": (
+        "current_video_snapshot",
+        "video_snapshot_payload",
+        "select_item",
+        "apply_playback_update",
     ),
     "video_playlist_service": (
         "reorder_playlist",
