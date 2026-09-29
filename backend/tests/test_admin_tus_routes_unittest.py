@@ -26,6 +26,7 @@ import models  # noqa: E402
 import security  # noqa: E402
 import transfer_service  # noqa: E402
 import tus_upload_service  # noqa: E402
+from routers import admin_tus_protocol  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -150,7 +151,7 @@ class AdminTusRoutesTest(unittest.TestCase):
         )
         with (
             patch.object(tus_upload_service, "has_disk_reserve", return_value=True),
-            patch.object(tus_upload_service, "create_tusd_client", return_value=client),
+            patch.object(admin_tus_protocol, "create_tusd_client", return_value=client),
         ):
             response = self.client.post(
                 "/api/admin/tus/",
@@ -208,7 +209,7 @@ class AdminTusRoutesTest(unittest.TestCase):
             transport=httpx.MockTransport(tusd_handler),
             trust_env=False,
         )
-        with patch.object(tus_upload_service, "create_tusd_client", return_value=client):
+        with patch.object(admin_tus_protocol, "create_tusd_client", return_value=client):
             response = self.client.head(
                 f"/api/admin/tus/{upload_id}",
                 headers={**self.admin_headers, "Tus-Resumable": "1.0.0"},
@@ -251,7 +252,7 @@ class AdminTusRoutesTest(unittest.TestCase):
             transport=httpx.MockTransport(tusd_handler),
             trust_env=False,
         )
-        with patch.object(tus_upload_service, "create_tusd_client", return_value=client):
+        with patch.object(admin_tus_protocol, "create_tusd_client", return_value=client):
             response = self.client.patch(
                 f"/api/admin/tus/{upload_id}",
                 headers={
@@ -324,7 +325,7 @@ class AdminTusRoutesTest(unittest.TestCase):
         )
         with (
             patch.object(tus_upload_service, "has_disk_reserve", return_value=True),
-            patch.object(tus_upload_service, "create_tusd_client", return_value=client),
+            patch.object(admin_tus_protocol, "create_tusd_client", return_value=client),
         ):
             first = create_request("large.bin", 4)
             self.assertEqual(first.status_code, 201, first.text)
@@ -377,7 +378,7 @@ class AdminTusRoutesTest(unittest.TestCase):
         with (
             patch.object(tus_upload_service.config, "TUS_UPLOAD_DIR", staging_root),
             patch.object(tus_upload_service.config, "ADMIN_FILES_STORAGE_DIR", admin_root),
-            patch.object(tus_upload_service, "create_tusd_client", return_value=client),
+            patch.object(admin_tus_protocol, "create_tusd_client", return_value=client),
         ):
             uploaded = self.client.patch(
                 f"/api/admin/tus/{upload_id}",

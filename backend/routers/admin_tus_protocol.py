@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import HTTPException, Request, Response, status
 
-import tus_upload_service
+from tus_runtime import create_tusd_client, tusd_url
 
 
 UPLOAD_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -65,7 +65,7 @@ def _upload_id_from_location(location: str | None) -> str:
     if not location:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务未返回上传地址")
     parsed = urlsplit(location)
-    internal = urlsplit(tus_upload_service.tusd_url())
+    internal = urlsplit(tusd_url())
     if parsed.netloc and (parsed.scheme, parsed.netloc) != (internal.scheme, internal.netloc):
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务返回了无效地址")
     expected_prefix = internal.path.rstrip("/") + "/"
@@ -100,7 +100,7 @@ async def _send_upstream(
     url: str,
     headers: dict[str, str],
 ):
-    client = tus_upload_service.create_tusd_client()
+    client = create_tusd_client()
     content = request.stream() if method == "PATCH" else None
     upstream = None
     try:
