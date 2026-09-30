@@ -208,7 +208,7 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
                 }]}})
             if request.url.path == "/song/url/v1":
                 return json_response({"data": [{"id": 101, "url": "https://audio.example/blue.m4a", "expi": 60}]})
-            if request.url.path == "/api/song/lyric":
+            if request.url.path == "/lyric":
                 return json_response({"lrc": {"lyric": "[00:01.00]Blue"}, "tlyric": {"lyric": "[00:01.00]蓝"}})
             raise AssertionError(request.url)
 
@@ -233,7 +233,7 @@ class DirectMusicProvidersTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(lyrics.timed_text, "[00:01.00]Blue")
         self.assertEqual(lyrics.translation_text, "[00:01.00]蓝")
         self.assertEqual([request.url.path for request in requests], [
-            "/cloudsearch", "/song/url/v1", "/api/song/lyric",
+            "/cloudsearch", "/song/url/v1", "/lyric",
         ])
         self.assertEqual(requests[0].url.params["keywords"], "blue")
         self.assertEqual(requests[1].url.params["id"], "101")

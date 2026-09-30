@@ -60,7 +60,7 @@ def _systemctl(action: str, service: str) -> None:
 
     if "flclash" in service.casefold():
         raise ProductionRollbackError(f"rollback must not control FlClash service: {service}")
-    subprocess.run(["systemctl", action, service], check=True)
+    subprocess.run(["systemctl", *action.split(), service], check=True)
 
 
 def _load_transaction(root: Path, deployment_id: str) -> dict[str, Any]:

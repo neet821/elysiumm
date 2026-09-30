@@ -29,6 +29,7 @@ from deployment.migration_runner import MigrationRunResult
 from deployment.migration_state import MigrationPlan
 from deployment.production_rollback import (
     ProductionRollbackError,
+    _systemctl,
     _sync_music_api_service_to_current_backend,
     _sync_tusd_service_to_current_backend,
     rollback_component,
@@ -103,6 +104,15 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertTrue(passed)
         self.assertEqual(detail, '{"status":"ok"}')
         self.assertEqual(health.call_count, 2)
+
+    def test_rollback_systemctl_splits_disable_now_into_argv(self):
+        with patch("deployment.production_rollback.subprocess.run") as run:
+            _systemctl("disable --now", "elysiumm-tusd.service")
+
+        run.assert_called_once_with(
+            ["systemctl", "disable", "--now", "elysiumm-tusd.service"],
+            check=True,
+        )
 
     def test_git_archive_component_root_directory_is_safe(self):
         archive_buffer = io.BytesIO()

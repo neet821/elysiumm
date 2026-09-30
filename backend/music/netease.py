@@ -215,7 +215,7 @@ class NeteaseProviderAdapter(DirectMusicProvider):
             raise ProviderError("网易云歌曲编号无效")
         payload = await self._request_json(
             "GET",
-            "/api/song/lyric",
+            "/lyric",
             params={"id": track_id, "lv": 1, "kv": 1, "tv": -1},
         )
         lyric = payload.get("lrc") if isinstance(payload.get("lrc"), dict) else {}
