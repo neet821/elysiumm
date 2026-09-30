@@ -1,6 +1,7 @@
 """管理员专属 tus 上传代理。浏览器永远不直接访问 tusd。"""
 
 import json
+import asyncio
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -25,6 +26,12 @@ from routers.admin_tus_protocol import (
 
 
 router = APIRouter(prefix="/api/admin/tus", tags=["admin-tus"])
+
+
+async def _run_database_call(function, *args, **kwargs):
+    """Keep synchronous SQLAlchemy lock waits off the async request loop."""
+
+    return await asyncio.to_thread(function, *args, **kwargs)
 
 
 def require_tus_admin(
@@ -120,8 +127,12 @@ async def head_upload(
     _current_admin: models.User = Depends(require_tus_admin),
     db: Session = Depends(get_db),
 ):
-    tus_upload_service.lock_transfer_session_for_upload(db, upload_id)
-    reservation = tus_upload_service.reservation_for_owner(db, upload_id, _current_admin)
+    reservation = await _run_database_call(
+        tus_upload_service.lock_upload_for_upstream,
+        db,
+        upload_id,
+        _current_admin,
+    )
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")
     if reservation.status == "complete":
@@ -150,15 +161,21 @@ async def head_upload(
             or int(offset) > reservation.upload_length
         ):
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务状态不一致")
-        reservation.upload_offset = int(offset)
-        reservation.last_activity_at = tus_upload_service.utcnow()
-        reservation.expires_at = reservation.last_activity_at + timedelta(
-            seconds=tus_upload_service.config.TUS_UPLOAD_TTL_SECONDS
+        reservation = await _run_database_call(
+            tus_upload_service.record_upstream_offset,
+            db,
+            upload_id,
+            _current_admin,
+            expected_offset=None,
+            upstream_offset=int(offset),
         )
-        tus_upload_service.refresh_transfer_session(db, reservation)
-        db.commit()
         if reservation.upload_offset == reservation.upload_length:
-            tus_upload_service.finalize_upload(db, reservation=reservation)
+            await _run_database_call(
+                tus_upload_service.finalize_upload_for_owner,
+                db,
+                upload_id,
+                _current_admin,
+            )
     return _response(upstream, upload_id)
 
 
@@ -186,8 +203,12 @@ async def patch_upload(
     _current_admin: models.User = Depends(require_tus_admin),
     db: Session = Depends(get_db),
 ):
-    tus_upload_service.lock_transfer_session_for_upload(db, upload_id)
-    reservation = tus_upload_service.reservation_for_owner(db, upload_id, _current_admin)
+    reservation = await _run_database_call(
+        tus_upload_service.lock_upload_for_upstream,
+        db,
+        upload_id,
+        _current_admin,
+    )
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")
     if reservation.status != "active":
@@ -216,15 +237,21 @@ async def patch_upload(
             or int(new_offset) > reservation.upload_length
         ):
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务返回了无效偏移")
-        reservation.upload_offset = int(new_offset)
-        reservation.last_activity_at = tus_upload_service.utcnow()
-        reservation.expires_at = reservation.last_activity_at + timedelta(
-            seconds=tus_upload_service.config.TUS_UPLOAD_TTL_SECONDS
+        reservation = await _run_database_call(
+            tus_upload_service.record_upstream_offset,
+            db,
+            upload_id,
+            _current_admin,
+            expected_offset=int(raw_offset),
+            upstream_offset=int(new_offset),
         )
-        tus_upload_service.refresh_transfer_session(db, reservation)
-        db.commit()
         if reservation.upload_offset == reservation.upload_length:
-            tus_upload_service.finalize_upload(db, reservation=reservation)
+            await _run_database_call(
+                tus_upload_service.finalize_upload_for_owner,
+                db,
+                upload_id,
+                _current_admin,
+            )
     return _response(upstream, upload_id)
 
 

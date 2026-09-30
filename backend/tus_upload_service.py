@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
 from fastapi import HTTPException, status
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 import admin_file_service
@@ -29,6 +29,13 @@ from tus_transfer_file_service import finalize_transfer_file_upload
 
 
 ACTIVE_STATUSES = ("creating", "active")
+
+
+@dataclass(frozen=True)
+class UploadReservationState:
+    status: str
+    upload_length: int
+    upload_offset: int
 
 
 def utcnow() -> datetime:
@@ -80,7 +87,6 @@ def reserve_upload(
         )
         if (
             transfer_session is None
-            or transfer_session.created_by != owner.id
             or transfer_session.expires_at <= utcnow()
         ):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "中转会话不存在")
@@ -91,22 +97,20 @@ def reserve_upload(
                 "单文件不能超过 2GB",
             )
 
-        reserved_bytes = (
-            db.query(func.coalesce(func.sum(models.TusUploadReservation.upload_length), 0))
+        active_reservations = (
+            db.query(models.TusUploadReservation)
             .filter(
                 models.TusUploadReservation.transfer_session_id == transfer_session.id,
                 models.TusUploadReservation.status.in_(ACTIVE_STATUSES),
             )
-            .scalar()
-        ) or 0
-        active_count = (
-            db.query(models.TusUploadReservation.id)
-            .filter(
-                models.TusUploadReservation.transfer_session_id == transfer_session.id,
-                models.TusUploadReservation.status.in_(ACTIVE_STATUSES),
-            )
-            .count()
+            # Under InnoDB REPEATABLE READ, this locking read sees commits made
+            # before the parent-session lock was acquired. The parent lock
+            # serializes new reservations, while these rows cover both limits.
+            .with_for_update()
+            .all()
         )
+        reserved_bytes = sum(item.upload_length for item in active_reservations)
+        active_count = len(active_reservations)
         if active_count >= transfer_service.TRANSFER_MAX_ACTIVE:
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "同时上传数量已达上限")
         if transfer_session.total_bytes + reserved_bytes + upload_length > transfer_session.max_bytes:
@@ -221,6 +225,77 @@ def lock_transfer_session_for_upload(
     if latest_status in {None, "complete"}:
         return None
     raise HTTPException(status.HTTP_410_GONE, "中转会话已失效")
+
+
+def _reservation_state(reservation: models.TusUploadReservation) -> UploadReservationState:
+    return UploadReservationState(
+        status=reservation.status,
+        upload_length=reservation.upload_length,
+        upload_offset=reservation.upload_offset,
+    )
+
+
+def lock_upload_for_upstream(
+    db: Session,
+    upload_id: str,
+    owner: models.User,
+) -> UploadReservationState:
+    """Authorize an upload while releasing row locks before network I/O."""
+
+    try:
+        lock_transfer_session_for_upload(db, upload_id)
+        reservation = reservation_for_owner(db, upload_id, owner)
+        state = _reservation_state(reservation)
+        db.commit()
+        return state
+    except Exception:
+        db.rollback()
+        raise
+
+
+def record_upstream_offset(
+    db: Session,
+    upload_id: str,
+    owner: models.User,
+    *,
+    expected_offset: int | None,
+    upstream_offset: int,
+) -> UploadReservationState:
+    """Persist a tusd offset under the established session-then-upload order."""
+
+    try:
+        lock_transfer_session_for_upload(db, upload_id)
+        reservation = reservation_for_owner(db, upload_id, owner)
+        if reservation.status != "active":
+            raise HTTPException(status.HTTP_409_CONFLICT, "上传当前不可续传")
+        if expected_offset is not None and reservation.upload_offset != expected_offset:
+            raise HTTPException(status.HTTP_409_CONFLICT, "上传偏移已变化，请先检查续传状态")
+        if upstream_offset < reservation.upload_offset or upstream_offset > reservation.upload_length:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务返回了无效偏移")
+        reservation.upload_offset = upstream_offset
+        reservation.last_activity_at = utcnow()
+        reservation.expires_at = reservation.last_activity_at + timedelta(
+            seconds=config.TUS_UPLOAD_TTL_SECONDS
+        )
+        refresh_transfer_session(db, reservation)
+        state = _reservation_state(reservation)
+        db.commit()
+        return state
+    except Exception:
+        db.rollback()
+        raise
+
+
+def finalize_upload_for_owner(
+    db: Session,
+    upload_id: str,
+    owner: models.User,
+) -> dict:
+    """Re-load a completed offset under locks before publishing its file."""
+
+    lock_transfer_session_for_upload(db, upload_id)
+    reservation = reservation_for_owner(db, upload_id, owner)
+    return finalize_upload(db, reservation=reservation)
 
 
 def refresh_transfer_session(

@@ -3,10 +3,12 @@ import asyncio
 import os
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 from sqlalchemy.orm import Query
@@ -342,6 +344,106 @@ class AdminTusRoutesTest(unittest.TestCase):
         self.assertEqual(reservations[0].upload_length, 4)
         self.assertEqual(transfer_session.total_bytes, 0)
 
+    def test_transfer_reservation_locks_active_rows_before_calculating_quota(self):
+        now = datetime.utcnow()
+        session = models.TransferSession(
+            token_hash="f" * 64,
+            public_token="quota-lock-token",
+            created_by=self.admin.id,
+            total_bytes=0,
+            max_bytes=100,
+            last_activity_at=now,
+            expires_at=now + timedelta(hours=1),
+            created_at=now,
+        )
+        self.db.add(session)
+        self.db.commit()
+        locked_entities = []
+        original_lock = Query.with_for_update
+
+        def record_lock(query, *args, **kwargs):
+            locked_entities.append(query.column_descriptions[0]["entity"])
+            return original_lock(query, *args, **kwargs)
+
+        with (
+            patch.object(Query, "with_for_update", record_lock),
+            patch.object(tus_upload_service, "has_disk_reserve", return_value=True),
+        ):
+            tus_upload_service.reserve_upload(
+                self.db,
+                owner=self.admin,
+                filename="quota-lock.bin",
+                content_type="application/octet-stream",
+                purpose="transfer_file",
+                upload_length=1,
+                session_id=str(session.id),
+            )
+
+        self.assertEqual(
+            locked_entities,
+            [models.TransferSession, models.TusUploadReservation],
+        )
+
+    def test_head_lock_wait_does_not_stall_the_event_loop(self):
+        upload_id = "e" * 32
+        reservation = SimpleNamespace(
+            status="active",
+            upload_length=10,
+            upload_offset=0,
+            purpose="admin_file",
+        )
+        db = MagicMock()
+        heartbeat_at = []
+
+        def blocked_row_lock(*_args, **_kwargs):
+            time.sleep(0.15)
+
+        async def heartbeat():
+            await asyncio.sleep(0.01)
+            heartbeat_at.append(time.monotonic())
+
+        async def exercise():
+            started = time.monotonic()
+            heartbeat_task = asyncio.create_task(heartbeat())
+            with (
+                patch.object(
+                    tus_upload_service,
+                    "lock_transfer_session_for_upload",
+                    side_effect=blocked_row_lock,
+                ),
+                patch.object(
+                    tus_upload_service,
+                    "reservation_for_owner",
+                    return_value=reservation,
+                ),
+                patch.object(tus_upload_service, "refresh_transfer_session"),
+                patch.object(
+                    admin_tus,
+                    "_send_upstream",
+                    new=AsyncMock(
+                        return_value=httpx.Response(
+                            200,
+                            headers={"Upload-Offset": "0", "Upload-Length": "10"},
+                        )
+                    ),
+                ),
+            ):
+                response = await admin_tus.head_upload(
+                    upload_id,
+                    SimpleNamespace(headers={"Tus-Resumable": "1.0.0"}),
+                    self.admin,
+                    db,
+                )
+            await heartbeat_task
+            self.assertEqual(response.status_code, 200)
+            self.assertLess(
+                heartbeat_at[0] - started,
+                0.08,
+                "a synchronous row-lock wait stalled the event loop",
+            )
+
+        asyncio.run(exercise())
+
     def test_owner_can_finish_admin_file_once_and_repeat_head_without_tusd(self):
         upload_id = "22222222222222222222222222222222"
         now = datetime.utcnow()
@@ -648,7 +750,11 @@ class AdminTusRoutesTest(unittest.TestCase):
 
         self.assertEqual(head.status_code, 200, head.text)
         self.assertEqual(patch_response.status_code, 204, patch_response.text)
-        self.assertEqual(events, ["session", "reservation", "session", "reservation"])
+        self.assertEqual(
+            events,
+            ["session", "reservation"] * 4,
+            "every database phase must retain session-before-reservation locking",
+        )
 
     def test_another_admin_cannot_resume_or_cancel_upload(self):
         other_admin = models.User(

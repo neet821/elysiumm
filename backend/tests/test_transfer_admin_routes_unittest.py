@@ -5,6 +5,7 @@ import unittest
 import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
@@ -21,6 +22,7 @@ import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 import transfer_service  # noqa: E402
+import tus_upload_service  # noqa: E402
 import tus_transfer_file_service  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
@@ -155,6 +157,32 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(public_download.status_code, 206)
         self.assertEqual(public_download.content, b"ota")
         self.assertEqual(public_download.headers["content-range"], "bytes 1-3/7")
+
+    def test_second_admin_can_reserve_upload_on_shared_current_session(self):
+        other_admin = models.User(
+            username="other-admin",
+            email="other-admin@example.com",
+            hashed_password=security.get_password_hash("pw"),
+            role="admin",
+            is_active=True,
+        )
+        self.db.add(other_admin)
+        self.db.commit()
+        session = self.db.query(models.TransferSession).one()
+
+        with patch.object(tus_upload_service, "has_disk_reserve", return_value=True):
+            reservation = tus_upload_service.reserve_upload(
+                self.db,
+                owner=other_admin,
+                filename="other-admin.txt",
+                content_type="text/plain",
+                purpose="transfer_file",
+                upload_length=1,
+                session_id=str(session.id),
+            )
+
+        self.assertEqual(reservation.transfer_session_id, session.id)
+        self.assertEqual(reservation.owner_user_id, other_admin.id)
 
     def test_public_transfer_token_does_not_authorize_upload(self):
         def make_session():
