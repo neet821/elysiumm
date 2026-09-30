@@ -130,7 +130,7 @@ def validate_repository() -> list[str]:
         tuple(f"${{{name}:?" for name in ("DB_ROOT_PASSWORD", "DB_PASSWORD", "SECRET_KEY", "CORS_ORIGINS"))
         + (
             'DOCKER_ENV: "true"',
-            "NETEASE_API_BASE_URL:",
+            "NETEASE_INTERNAL_API_BASE_URL:",
             "QQ_API_BASE_URL:",
             "AUDIUS_API_BASE_URL:",
             "shared_uploads:/app/shared/uploads",

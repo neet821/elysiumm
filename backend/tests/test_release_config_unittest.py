@@ -31,6 +31,16 @@ class ReleaseConfigTest(unittest.TestCase):
             self.assertIn("- shared_transfers:/app/shared/transfers", source)
             self.assertIn("  shared_transfers:", source)
 
+    def test_repository_accepts_internal_netease_service_endpoint(self):
+        checker_path = ROOT / "scripts" / "check-release-config.py"
+        spec = spec_from_file_location("release_config_internal_netease", checker_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        checker = module_from_spec(spec)
+        spec.loader.exec_module(checker)
+
+        self.assertEqual(checker.validate_repository(), [])
+
     def test_release_environment_accepts_direct_music_providers_without_legacy_bridge(self):
         checker_path = ROOT / "scripts" / "check-release-config.py"
         spec = spec_from_file_location("release_config", checker_path)
