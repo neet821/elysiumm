@@ -24,6 +24,22 @@ test('binds the Netease API to loopback and disables duplicate unblock and brows
   assert.equal(env.CORS_ALLOW_ORIGIN, 'elysium-internal-service-only');
 });
 
+test('permits the Docker-only private listener only with its explicit guard', () => {
+  assert.deepEqual(createServerOptions({
+    ELYSIUM_NETEASE_API_PORT: '8765',
+    ELYSIUM_NETEASE_API_HOST: '0.0.0.0',
+    ELYSIUM_NETEASE_API_DOCKER_PRIVATE: 'true',
+  }), {
+    host: '0.0.0.0',
+    port: 8765,
+    checkVersion: false,
+  });
+  assert.throws(
+    () => createServerOptions({ ELYSIUM_NETEASE_API_HOST: '0.0.0.0' }),
+    /Docker-only private listener/,
+  );
+});
+
 test('rejects an invalid local service port instead of falling back to public default', () => {
   assert.throws(
     () => createServerOptions({ ELYSIUM_NETEASE_API_PORT: '0;touch /tmp/pwned' }),

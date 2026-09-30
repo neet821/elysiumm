@@ -205,6 +205,10 @@ Socket.IO, native music playback, Nginx/systemd state, shared data access and
 the deployment transaction. A single HTTP 200 or a successful SSH command is
 not production acceptance.
 
-Docker remains a local/self-hosted three-application-service path (`db`,
-`backend`, `frontend`) with named shared persistence volumes. It is separate
-from the immutable bare-metal release path and does not alter production.
+Docker remains a local/self-hosted path with `db`, `backend`, `frontend`, the
+pinned private `ncm-api` sidecar, and pinned `tusd` sidecar. `ncm-api` and
+`tusd` publish no host ports: they are reachable only from the Compose private
+network. The backend uses `http://ncm-api:8765` and `http://tusd:8766/files`,
+and shares the named tus staging volume with tusd. This is separate from the
+immutable bare-metal release path and does not alter production: bare-metal
+NCM and tusd remain loopback-only services.

@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import HTTPException, status
 
-from config import config
+from config import ENV, config
 
 
 def create_tusd_client() -> httpx.AsyncClient:
@@ -32,9 +32,10 @@ def tusd_url(upload_id: str | None = None) -> str:
             is_loopback = ipaddress.ip_address(host).is_loopback
         except ValueError:
             is_loopback = False
+    is_private_compose_service = host == "tusd" and ENV == "docker"
     if (
         parsed.scheme != "http"
-        or not is_loopback
+        or not (is_loopback or is_private_compose_service)
         or not parsed.port
         or parsed.username
         or parsed.password
@@ -43,7 +44,7 @@ def tusd_url(upload_id: str | None = None) -> str:
     ):
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "可续传上传服务地址必须是本机 HTTP 服务",
+            "可续传上传服务地址必须是本机 HTTP 服务或 Docker 私有服务",
         )
     suffix = f"/{upload_id}" if upload_id else "/"
     return f"{base_url}{suffix}"

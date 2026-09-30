@@ -16,7 +16,13 @@ function createServerOptions(env = process.env) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
     throw new Error('ELYSIUM_NETEASE_API_PORT must be a valid TCP port');
   }
-  return { host: '127.0.0.1', port, checkVersion: false };
+  const host = env.ELYSIUM_NETEASE_API_HOST || '127.0.0.1';
+  if (host !== '127.0.0.1') {
+    if (host !== '0.0.0.0' || env.ELYSIUM_NETEASE_API_DOCKER_PRIVATE !== 'true') {
+      throw new Error('Docker-only private listener requires explicit ELYSIUM_NETEASE_API_DOCKER_PRIVATE=true');
+    }
+  }
+  return { host, port, checkVersion: false };
 }
 
 function registerHealthRoute(app) {
