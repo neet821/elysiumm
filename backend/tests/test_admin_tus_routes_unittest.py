@@ -800,6 +800,53 @@ class AdminTusRoutesTest(unittest.TestCase):
                 )
                 self.assertEqual(response.status_code, 403, response.text)
 
+    def test_shared_transfer_upload_remains_owned_by_its_creating_admin(self):
+        other_admin = models.User(
+            username="transfer-creator",
+            email="transfer-creator@example.com",
+            hashed_password=security.get_password_hash("pw"),
+            role="admin",
+            is_active=True,
+        )
+        now = datetime.utcnow()
+        self.db.add(other_admin)
+        self.db.flush()
+        session = models.TransferSession(
+            token_hash="e" * 64,
+            public_token="shared-transfer-token",
+            created_by=self.admin.id,
+            total_bytes=0,
+            max_bytes=100,
+            last_activity_at=now,
+            expires_at=now + timedelta(hours=1),
+            created_at=now,
+        )
+        self.db.add(session)
+        self.db.flush()
+        self.db.add(
+            models.TusUploadReservation(
+                upload_id="f" * 32,
+                owner_user_id=other_admin.id,
+                purpose="transfer_file",
+                transfer_session_id=session.id,
+                original_name="creator-only.txt",
+                content_type="text/plain",
+                upload_length=5,
+                upload_offset=0,
+                status="active",
+                last_activity_at=now,
+                expires_at=now + timedelta(hours=1),
+            )
+        )
+        self.db.commit()
+
+        response = self.client.head(
+            "/api/admin/tus/" + "f" * 32,
+            headers={**self.admin_headers, "Tus-Resumable": "1.0.0"},
+        )
+
+        self.assertEqual(response.status_code, 403, response.text)
+
     def test_expired_transfer_session_is_preserved_while_tus_upload_is_active(self):
         now = datetime.utcnow()
         session = models.TransferSession(
