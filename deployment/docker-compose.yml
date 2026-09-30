@@ -20,7 +20,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
     container_name: elysiumm-backend
     restart: always
     depends_on:
@@ -96,7 +96,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
     container_name: elysiumm-frontend
     restart: always
     ports:

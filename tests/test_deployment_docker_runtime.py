@@ -9,6 +9,10 @@ class DockerRuntimeTopologyTest(unittest.TestCase):
     def test_compose_runs_private_pinned_music_and_tusd_sidecars(self):
         compose = (ROOT / "deployment/docker-compose.yml").read_text(encoding="utf-8")
         self.assertIn("ncm-api:", compose)
+        self.assertIn("context: ../backend\n", compose)
+        self.assertIn("context: ../frontend\n", compose)
+        self.assertTrue((ROOT / "backend/Dockerfile").is_file())
+        self.assertTrue((ROOT / "frontend/Dockerfile").is_file())
         self.assertIn("context: ../backend/music_node", compose)
         self.assertIn("ELYSIUM_NETEASE_API_DOCKER_PRIVATE: \"true\"", compose)
         self.assertIn("tusd:", compose)
