@@ -71,6 +71,7 @@ upload persistence, checksum metadata and audit writes.
 Shared player synchronization lives under `frontend/src/features/player/`:
 `roomRealtimeSync.js` sequences client operations and manages socket clock
 probes, `roomSyncClock.js` estimates round-trip time and server offset, and
+`roomSyncSnapshot.js` validates/projects snapshots and classifies drift, while
 `roomSyncEngine.js` applies authoritative snapshots and player drift
 corrections. Music and video adapters keep their media-specific behavior.
 
