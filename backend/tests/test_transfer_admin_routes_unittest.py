@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -20,6 +21,7 @@ import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 import transfer_service  # noqa: E402
+import tus_transfer_file_service  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -32,6 +34,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
         transfer_service.TRANSFER_ROOT = Path(tmp.name) / "storage"
         self.db = SessionLocal()
         self.db.query(models.AdminTransferNote).delete()
+        self.db.query(models.TusUploadReservation).delete()
         self.db.query(models.TransferFile).delete()
         self.db.query(models.TransferSession).delete()
         self.db.query(models.User).delete()
@@ -212,6 +215,72 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(self.db.query(models.TransferFile).count(), 1)
         self.assertEqual(response.json()["files"][0]["name"], "中文资料.txt")
         self.assertTrue(self.file_path.exists())
+
+    def test_active_tus_upload_keeps_its_transfer_session_until_finalization(self):
+        original = self.db.query(models.TransferSession).first()
+        now = datetime.utcnow() + timedelta(seconds=1)
+        newer = models.TransferSession(
+            token_hash="c" * 64,
+            public_token="newest-session-token",
+            created_by=self.admin.id,
+            max_bytes=2 * 1024**3,
+            last_activity_at=now,
+            expires_at=now + timedelta(minutes=5),
+            created_at=now,
+        )
+        self.db.add(newer)
+        self.db.flush()
+
+        upload_id = "d" * 32
+        staged_content = b"resumable transfer payload"
+        reservation = models.TusUploadReservation(
+            upload_id=upload_id,
+            owner_user_id=self.admin.id,
+            purpose="transfer_file",
+            transfer_session_id=original.id,
+            original_name="resumable.txt",
+            content_type="text/plain",
+            upload_length=len(staged_content),
+            upload_offset=0,
+            status="active",
+            created_at=now,
+            last_activity_at=now,
+            expires_at=now + timedelta(minutes=5),
+        )
+        self.db.add(reservation)
+        self.db.commit()
+
+        consolidated = self.client.post(
+            "/api/admin/transfers/current-link", headers=self.admin_auth
+        )
+        self.assertEqual(consolidated.status_code, 409, consolidated.text)
+
+        deleted = self.client.delete(
+            f"/api/admin/transfers/{original.id}", headers=self.admin_auth
+        )
+        self.assertEqual(deleted.status_code, 409, deleted.text)
+
+        self.db.expire_all()
+        reservation = self.db.query(models.TusUploadReservation).filter_by(
+            upload_id=upload_id
+        ).one()
+        self.assertEqual(reservation.transfer_session_id, original.id)
+        self.assertEqual(self.db.query(models.TransferSession).count(), 2)
+
+        staged_file = Path(tmp.name) / f"{upload_id}.upload"
+        staged_file.write_bytes(staged_content)
+        payload, published_file = tus_transfer_file_service.finalize_transfer_file_upload(
+            self.db,
+            reservation=reservation,
+            source=staged_file,
+            digest=hashlib.sha256(staged_content).hexdigest(),
+        )
+        self.db.commit()
+
+        self.assertEqual(payload["name"], "resumable.txt")
+        self.assertEqual(published_file.read_bytes(), staged_content)
+        self.assertEqual(reservation.transfer_session_id, original.id)
+        self.assertEqual(self.db.query(models.TransferFile).count(), 2)
 
     def test_admin_can_delete_one_transfer_file(self):
         endpoint = "/api/admin/transfers/files/1"

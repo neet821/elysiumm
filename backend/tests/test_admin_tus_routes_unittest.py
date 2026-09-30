@@ -6,9 +6,10 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
+from sqlalchemy.orm import Query
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
@@ -26,7 +27,7 @@ import models  # noqa: E402
 import security  # noqa: E402
 import transfer_service  # noqa: E402
 import tus_upload_service  # noqa: E402
-from routers import admin_tus_protocol  # noqa: E402
+from routers import admin_tus, admin_tus_protocol  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -411,6 +412,74 @@ class AdminTusRoutesTest(unittest.TestCase):
         record = self.db.query(models.AdminFile).one()
         self.assertEqual(Path(admin_root / record.stored_name).read_bytes(), b"hello")
 
+    def test_orphaned_transfer_upload_cannot_resume(self):
+        upload_id = "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        now = datetime.utcnow()
+        self.db.add(
+            models.TusUploadReservation(
+                upload_id=upload_id,
+                owner_user_id=self.admin.id,
+                purpose="transfer_file",
+                transfer_session_id=None,
+                original_name="orphaned.txt",
+                content_type="text/plain",
+                upload_length=5,
+                upload_offset=0,
+                status="active",
+                last_activity_at=now,
+                expires_at=now + timedelta(hours=1),
+            )
+        )
+        self.db.commit()
+        upstream = AsyncMock(
+            return_value=httpx.Response(
+                200,
+                headers={"Upload-Offset": "0", "Upload-Length": "5"},
+            )
+        )
+
+        with patch.object(admin_tus, "_send_upstream", upstream):
+            response = self.client.head(
+                f"/api/admin/tus/{upload_id}",
+                headers={**self.admin_headers, "Tus-Resumable": "1.0.0"},
+            )
+
+        self.assertEqual(response.status_code, 410, response.text)
+        upstream.assert_not_awaited()
+
+    def test_completed_transfer_upload_remains_head_readable_after_session_merge(self):
+        upload_id = "dededededededededededededededede"
+        now = datetime.utcnow()
+        self.db.add(
+            models.TusUploadReservation(
+                upload_id=upload_id,
+                owner_user_id=self.admin.id,
+                purpose="transfer_file",
+                transfer_session_id=None,
+                original_name="finished.txt",
+                content_type="text/plain",
+                upload_length=5,
+                upload_offset=5,
+                status="complete",
+                result_payload='{"name":"finished.txt"}',
+                last_activity_at=now,
+                completed_at=now,
+                expires_at=now + timedelta(hours=1),
+            )
+        )
+        self.db.commit()
+        upstream = AsyncMock()
+
+        with patch.object(admin_tus, "_send_upstream", upstream):
+            response = self.client.head(
+                f"/api/admin/tus/{upload_id}",
+                headers={**self.admin_headers, "Tus-Resumable": "1.0.0"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["upload-offset"], "5")
+        upstream.assert_not_awaited()
+
     def test_transfer_file_tus_finalization_rotates_token_and_is_idempotent(self):
         upload_id = "99999999999999999999999999999999"
         now = datetime.utcnow()
@@ -457,6 +526,10 @@ class AdminTusRoutesTest(unittest.TestCase):
                 self.db,
                 reservation=reservation,
             )
+            # A later session consolidation may set this nullable FK to NULL;
+            # a completed upload must still return its persisted result.
+            reservation.transfer_session_id = None
+            self.db.commit()
             repeated_result = tus_upload_service.finalize_upload(
                 self.db,
                 reservation=reservation,
@@ -473,6 +546,109 @@ class AdminTusRoutesTest(unittest.TestCase):
         self.assertEqual(Path(record.storage_path).read_bytes(), b"hello")
         self.assertFalse(staged_file.exists())
         self.assertEqual(reservation.status, "complete")
+
+    def test_transfer_tus_head_and_patch_lock_session_before_reservation(self):
+        upload_id = "abababababababababababababababab"
+        now = datetime.utcnow()
+        token = transfer_service.new_token()
+        session = models.TransferSession(
+            token_hash=transfer_service.token_hash(token),
+            public_token=token,
+            created_by=self.admin.id,
+            total_bytes=0,
+            max_bytes=100,
+            last_activity_at=now,
+            expires_at=now + timedelta(hours=1),
+            created_at=now,
+        )
+        self.db.add(session)
+        self.db.flush()
+        self.db.add(
+            models.TusUploadReservation(
+                upload_id=upload_id,
+                owner_user_id=self.admin.id,
+                purpose="transfer_file",
+                transfer_session_id=session.id,
+                original_name="notes.txt",
+                content_type="text/plain",
+                upload_length=10,
+                upload_offset=0,
+                status="active",
+                last_activity_at=now,
+                expires_at=now + timedelta(hours=1),
+            )
+        )
+        self.db.commit()
+
+        events = []
+        existing_parent_lock = getattr(
+            tus_upload_service, "lock_transfer_session_for_upload", None
+        )
+        existing_reservation_lock = tus_upload_service.reservation_for_owner
+
+        def track_parent_lock(db, requested_upload_id):
+            events.append("session")
+            if existing_parent_lock is not None:
+                return existing_parent_lock(db, requested_upload_id)
+            return None
+
+        def track_reservation_lock(*args, **kwargs):
+            events.append("reservation")
+            return existing_reservation_lock(*args, **kwargs)
+
+        async def tusd_handler(request):
+            if request.method == "HEAD":
+                return httpx.Response(
+                    200,
+                    headers={"Upload-Offset": "0", "Upload-Length": "10"},
+                )
+            self.assertEqual(request.method, "PATCH")
+            self.assertEqual(await request.aread(), b"hello")
+            return httpx.Response(
+                204,
+                headers={"Upload-Offset": "5", "Tus-Resumable": "1.0.0"},
+            )
+
+        with (
+            patch.object(
+                tus_upload_service,
+                "lock_transfer_session_for_upload",
+                side_effect=track_parent_lock,
+                create=True,
+            ),
+            patch.object(
+                tus_upload_service,
+                "reservation_for_owner",
+                side_effect=track_reservation_lock,
+            ),
+            patch.object(
+                admin_tus_protocol,
+                "create_tusd_client",
+                side_effect=lambda: httpx.AsyncClient(
+                    transport=httpx.MockTransport(tusd_handler),
+                    trust_env=False,
+                ),
+            ),
+        ):
+            head = self.client.head(
+                f"/api/admin/tus/{upload_id}",
+                headers={**self.admin_headers, "Tus-Resumable": "1.0.0"},
+            )
+            patch_response = self.client.patch(
+                f"/api/admin/tus/{upload_id}",
+                headers={
+                    **self.admin_headers,
+                    "Tus-Resumable": "1.0.0",
+                    "Upload-Offset": "0",
+                    "Content-Type": "application/offset+octet-stream",
+                    "Content-Length": "5",
+                },
+                content=b"hello",
+            )
+
+        self.assertEqual(head.status_code, 200, head.text)
+        self.assertEqual(patch_response.status_code, 204, patch_response.text)
+        self.assertEqual(events, ["session", "reservation", "session", "reservation"])
 
     def test_another_admin_cannot_resume_or_cancel_upload(self):
         other_admin = models.User(
@@ -546,9 +722,21 @@ class AdminTusRoutesTest(unittest.TestCase):
         self.db.add(reservation)
         self.db.commit()
 
-        deleted = transfer_service.cleanup_expired(self.db, now=now)
+        locked_entities = []
+        original_lock = Query.with_for_update
+
+        def record_lock(query, *args, **kwargs):
+            locked_entities.append(query.column_descriptions[0]["entity"])
+            return original_lock(query, *args, **kwargs)
+
+        with patch.object(Query, "with_for_update", record_lock):
+            deleted = transfer_service.cleanup_expired(self.db, now=now)
 
         self.assertEqual(deleted, 0)
+        self.assertEqual(
+            locked_entities,
+            [models.TransferSession, models.TusUploadReservation],
+        )
         self.assertIsNotNone(
             self.db.query(models.TransferSession).filter_by(id=session.id).first()
         )
@@ -625,7 +813,15 @@ class AdminTusRoutesTest(unittest.TestCase):
             transport=httpx.MockTransport(tusd_handler),
             trust_env=False,
         )
+        locked_entities = []
+        original_lock = Query.with_for_update
+
+        def record_lock(query, *args, **kwargs):
+            locked_entities.append(query.column_descriptions[0]["entity"])
+            return original_lock(query, *args, **kwargs)
+
         with (
+            patch.object(Query, "with_for_update", record_lock),
             patch.object(tus_upload_service.config, "TUS_UPLOAD_DIR", staging_root),
             patch.object(tus_upload_service, "create_tusd_client", return_value=client),
         ):
@@ -635,6 +831,7 @@ class AdminTusRoutesTest(unittest.TestCase):
 
         self.db.refresh(reservation)
         self.assertEqual(reservation.status, "cancelled")
+        self.assertEqual(locked_entities, [models.TusUploadReservation])
         self.assertFalse((staging_root / upload_id).exists())
 
 

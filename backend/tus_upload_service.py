@@ -166,6 +166,63 @@ def reservation_for_owner(
     return reservation
 
 
+def lock_transfer_session(db: Session, session_id: int | None) -> models.TransferSession:
+    if session_id is None:
+        raise HTTPException(status.HTTP_410_GONE, "中转会话已失效")
+    session = (
+        db.query(models.TransferSession)
+        .filter(models.TransferSession.id == session_id)
+        .with_for_update()
+        .first()
+    )
+    if session is None:
+        raise HTTPException(status.HTTP_410_GONE, "中转会话已失效")
+    return session
+
+
+def lock_transfer_session_for_upload(
+    db: Session,
+    upload_id: str,
+) -> models.TransferSession | None:
+    """Lock transfer uploads in session-then-reservation order."""
+
+    metadata = (
+        db.query(
+            models.TusUploadReservation.purpose,
+            models.TusUploadReservation.transfer_session_id,
+            models.TusUploadReservation.status,
+        )
+        .filter(models.TusUploadReservation.upload_id == upload_id)
+        .first()
+    )
+    if metadata is None:
+        return None
+    purpose, session_id, reservation_status = metadata
+    if purpose != "transfer_file" or reservation_status == "complete":
+        return None
+    if session_id is not None:
+        session = (
+            db.query(models.TransferSession)
+            .filter(models.TransferSession.id == session_id)
+            .with_for_update()
+            .first()
+        )
+        if session is not None:
+            return session
+
+    # A concurrent consolidation may finish and clear the nullable FK after
+    # the initial snapshot. Confirm the latest status before rejecting HEAD.
+    latest_status = (
+        db.query(models.TusUploadReservation.status)
+        .filter(models.TusUploadReservation.upload_id == upload_id)
+        .with_for_update()
+        .scalar()
+    )
+    if latest_status in {None, "complete"}:
+        return None
+    raise HTTPException(status.HTTP_410_GONE, "中转会话已失效")
+
+
 def refresh_transfer_session(
     db: Session,
     reservation: models.TusUploadReservation,
@@ -187,10 +244,15 @@ def finalize_upload(
     *,
     reservation: models.TusUploadReservation,
 ) -> dict:
+    if reservation.status == "complete" and reservation.result_payload:
+        return json.loads(reservation.result_payload)
+    if reservation.purpose == "transfer_file":
+        lock_transfer_session(db, reservation.transfer_session_id)
     reservation = (
         db.query(models.TusUploadReservation)
         .filter(models.TusUploadReservation.id == reservation.id)
         .with_for_update()
+        .populate_existing()
         .one()
     )
     if reservation.status == "complete" and reservation.result_payload:
@@ -257,6 +319,7 @@ async def cleanup_expired_uploads(db: Session, *, now: datetime | None = None) -
             models.TusUploadReservation.status.in_(ACTIVE_STATUSES),
             models.TusUploadReservation.expires_at <= current,
         )
+        .with_for_update()
         .all()
     )
     cleaned = 0

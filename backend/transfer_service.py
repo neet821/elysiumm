@@ -70,7 +70,12 @@ def delete_session_files(session: models.TransferSession) -> int:
 
 def cleanup_expired(db, now: datetime | None = None) -> int:
     current = now or utcnow()
-    sessions = db.query(models.TransferSession).filter(models.TransferSession.expires_at <= current).all()
+    sessions = (
+        db.query(models.TransferSession)
+        .filter(models.TransferSession.expires_at <= current)
+        .with_for_update()
+        .all()
+    )
     count = 0
     for session in sessions:
         resumable_upload = (
@@ -80,6 +85,7 @@ def cleanup_expired(db, now: datetime | None = None) -> int:
                 models.TusUploadReservation.status.in_(("creating", "active")),
                 models.TusUploadReservation.expires_at > current,
             )
+            .with_for_update()
             .first()
         )
         if resumable_upload:

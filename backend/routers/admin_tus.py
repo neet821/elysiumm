@@ -120,6 +120,7 @@ async def head_upload(
     _current_admin: models.User = Depends(require_tus_admin),
     db: Session = Depends(get_db),
 ):
+    tus_upload_service.lock_transfer_session_for_upload(db, upload_id)
     reservation = tus_upload_service.reservation_for_owner(db, upload_id, _current_admin)
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")
@@ -185,6 +186,7 @@ async def patch_upload(
     _current_admin: models.User = Depends(require_tus_admin),
     db: Session = Depends(get_db),
 ):
+    tus_upload_service.lock_transfer_session_for_upload(db, upload_id)
     reservation = tus_upload_service.reservation_for_owner(db, upload_id, _current_admin)
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")

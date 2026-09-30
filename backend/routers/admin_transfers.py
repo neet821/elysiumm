@@ -14,6 +14,7 @@ from transfer_download_service import (
 from database import get_db
 from dependencies import get_current_admin as admin_user
 from transfer_session_service import (
+    active_tus_uploads_for_sessions,
     get_or_create_current_session as get_or_create_current_session,
     serialize_datetime as serialize_datetime,
     serialize_session as serialize_session,
@@ -162,10 +163,16 @@ def delete_transfer(
     session = (
         db.query(models.TransferSession)
         .filter(models.TransferSession.id == session_id)
+        .with_for_update()
         .first()
     )
     if not session:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "中转链接不存在")
+    if active_tus_uploads_for_sessions(db, [session.id]):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "存在进行中的可续传上传，请完成或取消后再删除中转链接",
+        )
     transfer_service.delete_session_files(session)
     db.delete(session)
     db.commit()

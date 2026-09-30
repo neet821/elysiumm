@@ -6,6 +6,25 @@ from sqlalchemy.orm import Session
 import models
 import transfer_service
 
+ACTIVE_TUS_UPLOAD_STATUSES = ("creating", "active")
+
+
+def active_tus_uploads_for_sessions(
+    db: Session,
+    session_ids: list[int],
+) -> list[models.TusUploadReservation]:
+    if not session_ids:
+        return []
+    return (
+        db.query(models.TusUploadReservation)
+        .filter(
+            models.TusUploadReservation.transfer_session_id.in_(session_ids),
+            models.TusUploadReservation.status.in_(ACTIVE_TUS_UPLOAD_STATUSES),
+        )
+        .with_for_update()
+        .all()
+    )
+
 
 def session_for_token(
     db: Session,
@@ -73,12 +92,30 @@ def get_or_create_current_session(
     admin_id: int,
 ) -> tuple[models.TransferSession, str]:
     transfer_service.cleanup_expired(db)
+    # Sessions are shared across administrators. Lock a stable row even when
+    # no transfer session exists yet, so concurrent first-link requests cannot
+    # create competing sessions.
+    (
+        db.query(models.User.id)
+        .filter(models.User.role == "admin")
+        .order_by(models.User.id.asc())
+        .with_for_update()
+        .first()
+    )
     sessions = (
         db.query(models.TransferSession)
         .order_by(models.TransferSession.created_at.desc())
+        .with_for_update()
         .all()
     )
     session = sessions[0] if sessions else None
+    if len(sessions) > 1 and active_tus_uploads_for_sessions(
+        db, [item.id for item in sessions]
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "存在进行中的可续传上传，请完成或取消后再合并中转链接",
+        )
     obsolete_files = [
         item for obsolete in sessions[1:] for item in obsolete.files
     ]
