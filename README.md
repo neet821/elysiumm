@@ -43,7 +43,7 @@ scripts/check-all.sh
 
 后端测试使用临时测试数据，不连接生产数据库。完整发布前还要执行 `scripts/release-gate.sh`，并检查 `git diff --check`。
 
-正式功能入口包括 `/`、`/article/*`、`/content/*`、`/login`、`/register`、`/rooms/music`、`/rooms/watch`、`/live`、`/account`、`/transfer/:token` 和 `/admin/*`。`/music` 与 `/tools/sync-room` 仅作为旧链接重定向保留；Articles 和音乐不再有独立 Node 服务、iframe 或 3000/3100 端口。
+正式功能入口包括 `/`、`/article/*`、`/content/*`、`/login`、`/register`、`/rooms/music`、`/rooms/watch`、`/live`、`/account`、`/transfer/:token` 和 `/admin/*`。`/music` 与 `/tools/sync-room` 仅作为旧链接重定向保留；Articles 和面向浏览器的音乐功能不再有独立 Node 服务、iframe 或 3000/3100 端口。Docker Compose 仅在私有网络中运行 NCM Node 侧车，供后端 provider 调用，且不暴露宿主机端口。
 
 ## 发布资料
 
