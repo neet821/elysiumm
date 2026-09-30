@@ -444,6 +444,23 @@ class AdminTusRoutesTest(unittest.TestCase):
 
         asyncio.run(exercise())
 
+    def test_database_call_uses_a_worker_owned_session(self):
+        worker_db = MagicMock()
+        seen = []
+
+        def callback(db, marker):
+            seen.append((db, marker))
+            return "ok"
+
+        async def exercise():
+            with patch.object(admin_tus, "SessionLocal", return_value=worker_db):
+                result = await admin_tus._run_database_call(callback, "marker")
+            self.assertEqual(result, "ok")
+
+        asyncio.run(exercise())
+        self.assertEqual(seen, [(worker_db, "marker")])
+        worker_db.close.assert_called_once_with()
+
     def test_owner_can_finish_admin_file_once_and_repeat_head_without_tusd(self):
         upload_id = "22222222222222222222222222222222"
         now = datetime.utcnow()

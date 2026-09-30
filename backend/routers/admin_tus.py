@@ -7,6 +7,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
+from database import SessionLocal
 import models
 import tus_upload_service
 from database import get_db
@@ -31,7 +32,14 @@ router = APIRouter(prefix="/api/admin/tus", tags=["admin-tus"])
 async def _run_database_call(function, *args, **kwargs):
     """Keep synchronous SQLAlchemy lock waits off the async request loop."""
 
-    return await asyncio.to_thread(function, *args, **kwargs)
+    def run_in_worker():
+        worker_db = SessionLocal()
+        try:
+            return function(worker_db, *args, **kwargs)
+        finally:
+            worker_db.close()
+
+    return await asyncio.to_thread(run_in_worker)
 
 
 def require_tus_admin(
@@ -129,9 +137,8 @@ async def head_upload(
 ):
     reservation = await _run_database_call(
         tus_upload_service.lock_upload_for_upstream,
-        db,
         upload_id,
-        _current_admin,
+        _current_admin.id,
     )
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")
@@ -163,18 +170,16 @@ async def head_upload(
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务状态不一致")
         reservation = await _run_database_call(
             tus_upload_service.record_upstream_offset,
-            db,
             upload_id,
-            _current_admin,
+            _current_admin.id,
             expected_offset=None,
             upstream_offset=int(offset),
         )
         if reservation.upload_offset == reservation.upload_length:
             await _run_database_call(
                 tus_upload_service.finalize_upload_for_owner,
-                db,
                 upload_id,
-                _current_admin,
+                _current_admin.id,
             )
     return _response(upstream, upload_id)
 
@@ -205,9 +210,8 @@ async def patch_upload(
 ):
     reservation = await _run_database_call(
         tus_upload_service.lock_upload_for_upstream,
-        db,
         upload_id,
-        _current_admin,
+        _current_admin.id,
     )
     if request.headers.get("Tus-Resumable") != TUS_VERSION:
         raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, "不支持的 tus 协议版本")
@@ -239,18 +243,16 @@ async def patch_upload(
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "上传服务返回了无效偏移")
         reservation = await _run_database_call(
             tus_upload_service.record_upstream_offset,
-            db,
             upload_id,
-            _current_admin,
+            _current_admin.id,
             expected_offset=int(raw_offset),
             upstream_offset=int(new_offset),
         )
         if reservation.upload_offset == reservation.upload_length:
             await _run_database_call(
                 tus_upload_service.finalize_upload_for_owner,
-                db,
                 upload_id,
-                _current_admin,
+                _current_admin.id,
             )
     return _response(upstream, upload_id)
 

@@ -149,7 +149,7 @@ def reserve_upload(
 def reservation_for_owner(
     db: Session,
     upload_id: str,
-    owner: models.User,
+    owner: models.User | int,
     *,
     allowed_statuses: tuple[str, ...] = ("creating", "active", "complete"),
 ) -> models.TusUploadReservation:
@@ -161,7 +161,8 @@ def reservation_for_owner(
     )
     if reservation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "上传不存在")
-    if reservation.owner_user_id != owner.id:
+    owner_id = owner if isinstance(owner, int) else owner.id
+    if reservation.owner_user_id != owner_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "无权访问此上传")
     if reservation.expires_at <= utcnow() and reservation.status in ACTIVE_STATUSES:
         raise HTTPException(status.HTTP_410_GONE, "上传已过期")
@@ -238,7 +239,7 @@ def _reservation_state(reservation: models.TusUploadReservation) -> UploadReserv
 def lock_upload_for_upstream(
     db: Session,
     upload_id: str,
-    owner: models.User,
+    owner: models.User | int,
 ) -> UploadReservationState:
     """Authorize an upload while releasing row locks before network I/O."""
 
@@ -256,7 +257,7 @@ def lock_upload_for_upstream(
 def record_upstream_offset(
     db: Session,
     upload_id: str,
-    owner: models.User,
+    owner: models.User | int,
     *,
     expected_offset: int | None,
     upstream_offset: int,
@@ -289,7 +290,7 @@ def record_upstream_offset(
 def finalize_upload_for_owner(
     db: Session,
     upload_id: str,
-    owner: models.User,
+    owner: models.User | int,
 ) -> dict:
     """Re-load a completed offset under locks before publishing its file."""
 
