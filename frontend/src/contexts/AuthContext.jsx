@@ -5,6 +5,7 @@ import {
   logoutCurrentSession,
   registerAccount,
 } from "../features/auth/authApi";
+import { getAuthErrorMessage } from "../features/auth/authErrors";
 
 const AuthContext = createContext(null);
 
@@ -96,21 +97,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error("注册失败:", error);
-      let errorMessage = "注册失败，请重试";
-
-      if (error.response?.data?.detail) {
-        if (typeof error.response.data.detail === "string") {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail
-            .map((e) => e.msg)
-            .join(", ");
-        } else if (typeof error.response.data.detail === "object") {
-             errorMessage = error.response.data.detail.msg || JSON.stringify(error.response.data.detail);
-        }
-      }
-
-      return { success: false, message: errorMessage };
+      return {
+        success: false,
+        message: getAuthErrorMessage(error, "注册失败，请重试"),
+      };
     } finally {
       setLoading(false);
     }
@@ -128,24 +118,9 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error("登录失败:", error);
-      let errorMessage = "登录失败，请检查用户名和密码";
-
-      if (error.response?.data?.detail) {
-        if (typeof error.response.data.detail === "string") {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail
-            .map((e) => e.msg)
-            .join(", ");
-        } else if (typeof error.response.data.detail === "object") {
-             // Handle case where detail might be a single object (though less common for 422)
-             errorMessage = error.response.data.detail.msg || JSON.stringify(error.response.data.detail);
-        }
-      }
-
       return {
         success: false,
-        message: errorMessage,
+        message: getAuthErrorMessage(error, "登录失败，请检查用户名和密码"),
       };
     } finally {
       setLoading(false);

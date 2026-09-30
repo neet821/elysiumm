@@ -36,7 +36,8 @@ moving permission or persistence rules into presentation code.
 
 `AuthContext.jsx` owns React authentication/session state and local persistence;
 `features/auth/authApi.js` owns the existing login, registration, logout and
-current-user HTTP requests.
+current-user HTTP requests, while `features/auth/authErrors.js` maps API
+failures to the existing user-facing messages.
 
 The administrator console, Files workspace, authentication pages, music room,
 live pages, public transfer page, and sync-room list keep their styles beside
