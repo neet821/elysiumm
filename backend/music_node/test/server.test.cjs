@@ -75,7 +75,22 @@ test('real Netease API package starts on loopback and exits after SIGTERM', asyn
 
   const child = spawn(process.execPath, [path.resolve(__dirname, '../server.cjs')], {
     env: { ...process.env, ELYSIUM_NETEASE_API_PORT: String(port) },
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let childOutput = '';
+  let childError = '';
+  const appendOutput = (current, chunk) => `${current}${chunk}`.slice(-4000);
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    childOutput = appendOutput(childOutput, chunk);
+  });
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => {
+    childError = appendOutput(childError, chunk);
+  });
+  let spawnError = '';
+  child.once('error', (error) => {
+    spawnError = error.message;
   });
   let health;
   try {
@@ -90,7 +105,16 @@ test('real Netease API package starts on loopback and exits after SIGTERM', asyn
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
-    assert.ok(health, 'service should become ready on its loopback listener');
+    assert.ok(
+      health,
+      [
+        'service should become ready on its loopback listener',
+        `child exit code: ${child.exitCode}`,
+        spawnError ? `spawn error: ${spawnError}` : '',
+        childError ? `stderr:\n${childError.trim()}` : '',
+        childOutput ? `stdout:\n${childOutput.trim()}` : '',
+      ].filter(Boolean).join('\n'),
+    );
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { status: 'ok' });
     assert.equal(health.headers.get('access-control-allow-origin'), null);
