@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 const net = require('node:net');
+const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -72,9 +74,10 @@ test('real Netease API package starts on loopback and exits after SIGTERM', asyn
   });
   const { port } = reservation.address();
   await new Promise((resolve, reject) => reservation.close((error) => error ? reject(error) : resolve()));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'elysium-music-api-test-'));
 
   const child = spawn(process.execPath, [path.resolve(__dirname, '../server.cjs')], {
-    env: { ...process.env, ELYSIUM_NETEASE_API_PORT: String(port) },
+    env: { ...process.env, ELYSIUM_NETEASE_API_PORT: String(port), TMPDIR: tmpDir },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let childOutput = '';
@@ -115,6 +118,14 @@ test('real Netease API package starts on loopback and exits after SIGTERM', asyn
         childOutput ? `stdout:\n${childOutput.trim()}` : '',
       ].filter(Boolean).join('\n'),
     );
+    const runtimeEntries = fs.readdirSync(tmpDir, { withFileTypes: true });
+    assert.equal(runtimeEntries.length, 1);
+    assert.equal(runtimeEntries[0].isDirectory(), true);
+    const runtimeDirectory = path.join(tmpDir, runtimeEntries[0].name);
+    assert.equal(fs.statSync(runtimeDirectory).mode & 0o777, 0o700);
+    const anonymousTokenPath = path.join(runtimeDirectory, 'anonymous_token');
+    assert.equal(fs.readFileSync(anonymousTokenPath, 'utf8'), '');
+    assert.equal(fs.statSync(anonymousTokenPath).mode & 0o777, 0o600);
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { status: 'ok' });
     assert.equal(health.headers.get('access-control-allow-origin'), null);
@@ -142,7 +153,14 @@ test('real Netease API package starts on loopback and exits after SIGTERM', asyn
     }
     assert.equal(signal, null);
     assert.equal(code, 0);
+    assert.deepEqual(fs.readdirSync(tmpDir), []);
   } finally {
-    if (child.exitCode === null) child.kill('SIGKILL');
+    if (child.exitCode === null && child.signalCode === null) {
+      await new Promise((resolve) => {
+        child.once('exit', resolve);
+        child.kill('SIGKILL');
+      });
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
