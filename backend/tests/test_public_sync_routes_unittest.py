@@ -20,11 +20,11 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import main  # noqa: E402
 import models  # noqa: E402
-import public_sync_service  # noqa: E402
 import security  # noqa: E402
+import public_sync_file_service  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
-public_sync_service.SYNC_STORAGE_ROOT = root / "storage"
+public_sync_file_service.SYNC_STORAGE_ROOT = root / "storage"
 
 
 class PublicSyncRoutesTest(unittest.TestCase):
@@ -209,8 +209,8 @@ class PublicSyncRoutesTest(unittest.TestCase):
             files={"file": ("b.txt", b"hello")},
         )
         self.assertEqual(invalid_digest.status_code, 400)
-        previous_limit = public_sync_service.MAX_SYNC_FILE_SIZE
-        public_sync_service.MAX_SYNC_FILE_SIZE = 4
+        previous_limit = public_sync_file_service.MAX_SYNC_FILE_SIZE
+        public_sync_file_service.MAX_SYNC_FILE_SIZE = 4
         try:
             too_large = self.client.post(
                 "/api/sync/files",
@@ -219,7 +219,7 @@ class PublicSyncRoutesTest(unittest.TestCase):
                 files={"file": ("large.txt", b"hello")},
             )
         finally:
-            public_sync_service.MAX_SYNC_FILE_SIZE = previous_limit
+            public_sync_file_service.MAX_SYNC_FILE_SIZE = previous_limit
         self.assertEqual(too_large.status_code, 400)
         rejected = self.client.post(
             "/api/sync/files",

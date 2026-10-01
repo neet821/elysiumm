@@ -4,13 +4,13 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import ProtectedRoute from './components/ProtectedRoute'
 import { THEME } from './theme'
 import { isTransferHost } from './config.js'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
 
 const LIGHT_STYLES = THEME.light
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ContentHomePage = lazy(() => import('./pages/ContentHomePage.jsx'))
-const ArticleFlowHome = lazy(() => import('./pages/ContentHomePage.jsx').then((module) => ({ default: module.ArticleFlowHome })))
-const LegacyArticlePage = lazy(() => import('./pages/ContentHomePage.jsx').then((module) => ({ default: module.LegacyArticlePage })))
+const ArticleFlowHome = lazy(() => import('./pages/ArticleFlowHome.jsx'))
+const LegacyArticlePage = lazy(() => import('./pages/LegacyArticlePage.jsx'))
 const AdminShell = lazy(() => import('./components/admin/AdminShell'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))

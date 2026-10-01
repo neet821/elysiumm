@@ -10,11 +10,13 @@
     "lint": "eslint src tests vite.config.js",
     "test": "npm run test:source && npm run test:unit",
     "test:source": "node --test tests/*.test.mjs",
-    "test:unit": "NODE_ENV=test vitest run",
+    "test:unit": "NODE_ENV=test vitest run --maxWorkers=2",
     "check:budget": "node ../scripts/check-frontend-budget.mjs",
     "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
+    "@uppy/core": "6.0.0",
+    "@uppy/tus": "6.0.0",
     "axios": "^1.7.2",
     "hls.js": "^1.6.16",
     "lucide-react": "^0.400.0",

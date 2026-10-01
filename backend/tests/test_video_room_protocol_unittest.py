@@ -19,6 +19,7 @@ import schemas  # noqa: E402
 import sync_room_crud  # noqa: E402
 import video_service  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from database import Base  # noqa: E402
 
 
@@ -88,11 +89,11 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.sessions = {}
         self.emitted = []
         self.entered_rooms = []
-        self.original_get_db = websocket_server.get_db
+        self.original_get_db = realtime_common.get_db
         self.original_get_session = websocket_server.sio.get_session
         self.original_emit = websocket_server.sio.emit
         self.original_enter_room = websocket_server.sio.enter_room
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
 
         async def fake_get_session(sid):
             return self.sessions.get(sid)
@@ -114,16 +115,18 @@ class VideoRoomProtocolTest(unittest.TestCase):
         websocket_server.sio.emit = fake_emit
         websocket_server.sio.enter_room = fake_enter_room
         websocket_server.room_connections.clear()
+        websocket_server.room_operation_sequence_guard.clear()
         websocket_server.socket_event_limiter.clear()
         websocket_server.video_buffer_states.clear()
         websocket_server.video_local_ready_states.clear()
 
     def tearDown(self):
-        websocket_server.get_db = self.original_get_db
+        realtime_common.get_db = self.original_get_db
         websocket_server.sio.get_session = self.original_get_session
         websocket_server.sio.emit = self.original_emit
         websocket_server.sio.enter_room = self.original_enter_room
         websocket_server.room_connections.clear()
+        websocket_server.room_operation_sequence_guard.clear()
         websocket_server.socket_event_limiter.clear()
         websocket_server.video_buffer_states.clear()
         websocket_server.video_local_ready_states.clear()
@@ -278,6 +281,29 @@ class VideoRoomProtocolTest(unittest.TestCase):
         self.assertEqual(set(conflict["data"]["snapshot"]), VIDEO_SNAPSHOT_KEYS)
         self.assertEqual(conflict["data"]["snapshot"]["version"], 1)
         self.assertFalse(self.events("room_snapshot"))
+
+    def test_versioned_playback_operation_must_match_current_media(self):
+        self.join("sid-host", self.host)
+        self.emitted.clear()
+
+        asyncio.run(websocket_server.playback_control(
+            "sid-host",
+            {
+                "room_id": self.room.id,
+                "action": "pause",
+                "time": 5,
+                "playback_version": self.room.playback_version,
+                "media_id": self.second.id,
+                "client_instance_id": "00000000-0000-4000-8000-000000000003",
+                "operation_seq": 1,
+            },
+        ))
+
+        conflict = self.events("playback_conflict")[-1]["data"]
+        self.db.expire_all()
+        self.assertEqual(self.db.get(models.SyncRoom, self.room.id).playback_version, 0)
+        self.assertEqual(conflict["snapshot"]["media_id"], self.first.id)
+        self.assertIn("视频已切换", conflict["message"])
 
     def test_ended_advances_once_and_rejects_member_without_control(self):
         self.join("sid-host", self.host)
@@ -607,6 +633,54 @@ class VideoRoomProtocolTest(unittest.TestCase):
         )
         self.db.expire_all()
         self.assertEqual(self.db.get(models.SyncRoom, self.room.id).playback_version, 0)
+
+    def test_versioned_video_heartbeat_rejects_a_previous_media_identity(self):
+        self.join("sid-host", self.host)
+        self.emitted.clear()
+
+        asyncio.run(
+            websocket_server.time_heartbeat(
+                "sid-host",
+                {
+                    "room_id": self.room.id,
+                    "playback_version": 0,
+                    "position": 0,
+                    "media_id": self.second.id,
+                    "client_instance_id": "00000000-0000-4000-8000-000000000004",
+                    "operation_seq": 1,
+                },
+            )
+        )
+
+        self.assertFalse(self.events("time_heartbeat"))
+        conflict = self.events("playback_conflict")[-1]["data"]
+        self.assertEqual(conflict["snapshot"]["media_id"], self.first.id)
+
+    def test_versioned_video_control_rejects_old_media_when_selection_is_empty(self):
+        self.join("sid-host", self.host)
+        self.emitted.clear()
+        self.db.get(models.VideoSession, self.room.id).current_item_id = None
+        self.db.commit()
+
+        asyncio.run(
+            websocket_server.playback_control(
+                "sid-host",
+                {
+                    "room_id": self.room.id,
+                    "action": "pause",
+                    "playback_version": 0,
+                    "media_id": self.first.id,
+                    "client_instance_id": "00000000-0000-4000-8000-000000000005",
+                    "operation_seq": 1,
+                },
+            )
+        )
+
+        self.assertFalse(self.events("room_snapshot"))
+        conflicts = self.events("playback_conflict")
+        self.assertEqual(len(conflicts), 1)
+        conflict = conflicts[-1]["data"]
+        self.assertIsNone(conflict["snapshot"]["media_id"])
 
 
 if __name__ == "__main__":

@@ -26,7 +26,10 @@ class GameRemovalTest(unittest.TestCase):
 
   def test_game_models_and_router_are_deleted(self):
     self.assertFalse((ROOT / "routers/games.py").exists())
-    models_source = read("models.py")
+    models_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((ROOT / "models").glob("*.py"))
+    )
     schemas_source = read("schemas.py")
     self.assertNotIn("class Game(", models_source)
     self.assertNotIn("class GameRoom", models_source)

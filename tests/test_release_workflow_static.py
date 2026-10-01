@@ -95,7 +95,9 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
         self.assertIsInstance(condition, str)
         for required in (
             "github.event.workflow_run.conclusion == 'success'",
+            "github.event.workflow_run.event == 'push'",
             "github.event.workflow_run.head_branch == 'main'",
+            "github.event.workflow_run.head_repository.full_name == github.repository",
             "vars.PRODUCTION_DEPLOY_ENABLED == 'true'",
         ):
             self.assertIn(required, condition)

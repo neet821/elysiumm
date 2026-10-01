@@ -3,7 +3,6 @@ import sys
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -30,8 +29,8 @@ from catalog_domain import (  # noqa: E402
     canonicalize_tracks,
 )
 from database import Base, get_db  # noqa: E402
-from music_providers import ProviderError, ProviderResolution  # noqa: E402
-from routers import music as music_router  # noqa: E402
+from music.base import ProviderError, ProviderResolution  # noqa: E402
+from routers import music_catalog  # noqa: E402
 
 
 class FakeResolverAdapter:
@@ -99,6 +98,50 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["provider"], "local")
         self.assertIsNone(payload["expires_at"])
         self.assertEqual(adapter.calls, 0)
+
+    async def test_provider_track_filter_does_not_reuse_unmapped_local_audio(self):
+        canonical = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-filtered-local",
+                title="Filtered Local",
+                artist="Artist",
+                availability=TrackAvailability.PLAYABLE,
+            )
+        )
+        self.db.add(
+            models.TrackAudioSource(
+                canonical_track_id=canonical.id,
+                source_type="local",
+                playback_url="/api/music/local/filtered.mp3",
+                availability="playable",
+                expires_at=None,
+            )
+        )
+        self.db.commit()
+        adapter = FakeResolverAdapter(
+            resolution=ProviderResolution(
+                provider="netease",
+                availability=TrackAvailability.PLAYABLE,
+                playback_url="/api/music/stream/netease/ne-filtered-local",
+                source_type="anonymous_full",
+            )
+        )
+
+        payload = await audio_resolver.resolve_audio(
+            self.db,
+            canonical.id,
+            {"netease": adapter},
+            provider_track_id="ne-filtered-local",
+        )
+
+        self.assertEqual(payload["provider"], "netease")
+        self.assertEqual(payload["source_type"], "anonymous_full")
+        self.assertEqual(
+            payload["playback_url"],
+            "/api/music/stream/netease/ne-filtered-local",
+        )
+        self.assertEqual(adapter.calls, 1)
 
     async def test_unexpired_cache_is_reused_and_force_refresh_replaces_it(self):
         now = datetime(2026, 7, 16, 2, 0, 0)
@@ -217,7 +260,7 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 provider_track_id="ne-none",
                 title="Unavailable",
                 artist="Artist",
-                availability=TrackAvailability.UNAVAILABLE,
+                availability=TrackAvailability.PLAYABLE,
             )
         )
         payload = await audio_resolver.resolve_audio(
@@ -229,11 +272,12 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             payload,
             {
                 "availability": "unavailable",
+                "resolution_status": "temporary_failure",
                 "playback_url": None,
                 "expires_at": None,
                 "source_type": "unavailable",
                 "provider": None,
-                "unavailable_reason": "所有已配置来源都无法提供可播放地址",
+                "unavailable_reason": "曲库暂时不可用，请稍后重试",
             },
         )
 
@@ -264,6 +308,26 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    def test_provider_host_patterns_allow_only_configured_subdomains(self):
+        self.assertTrue(
+            audio_resolver.is_safe_playback_url(
+                "https://m701.music.126.net/track.mp3",
+                {"*.music.126.net"},
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://music.126.net/track.mp3",
+                {"*.music.126.net"},
+            )
+        )
+        self.assertFalse(
+            audio_resolver.is_safe_playback_url(
+                "https://evil-music.126.net/track.mp3",
+                {"*.music.126.net"},
+            )
+        )
+
     async def test_route_returns_404_409_and_success_payloads(self):
         user = models.User(
             username="audio-user",
@@ -283,6 +347,15 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
                 title="No Route",
                 artist="Artist",
                 availability=TrackAvailability.UNAVAILABLE,
+            )
+        )
+        temporary = self.canonical(
+            ProviderTrack(
+                provider="netease",
+                provider_track_id="ne-route-temporary",
+                title="Temporary Error",
+                artist="Artist",
+                availability=TrackAvailability.PLAYABLE,
             )
         )
         local = self.canonical(
@@ -319,12 +392,20 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
             )
         }
         try:
-            with patch.object(music_router, "music_provider_registry", registry):
+            with patch.object(music_catalog, "music_provider_registry", registry):
                 client = TestClient(main.app)
                 missing = client.get("/api/music/tracks/999/audio", headers=headers)
                 no_source = client.get(
                     f"/api/music/tracks/{unavailable.id}/audio", headers=headers
                 )
+                with patch.object(
+                    music_catalog,
+                    "music_provider_registry",
+                    {"netease": FakeResolverAdapter(error=ProviderError("private upstream detail"))},
+                ):
+                    temporary_failure = client.get(
+                        f"/api/music/tracks/{temporary.id}/audio", headers=headers
+                    )
                 success = client.get(
                     f"/api/music/tracks/{local.id}/audio", headers=headers
                 )
@@ -334,6 +415,10 @@ class AudioResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(missing.status_code, 404)
         self.assertEqual(no_source.status_code, 409)
         self.assertEqual(no_source.json()["availability"], "unavailable")
+        self.assertEqual(temporary_failure.status_code, 503)
+        self.assertEqual(temporary_failure.json()["availability"], "unavailable")
+        self.assertEqual(temporary_failure.json()["resolution_status"], "temporary_failure")
+        self.assertNotIn("private upstream detail", temporary_failure.text)
         self.assertEqual(success.status_code, 200)
         self.assertEqual(success.json()["source_type"], "local")
 

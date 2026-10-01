@@ -1,36 +1,24 @@
 import argparse
-import hashlib
-import os
 import re
-import shutil
-import sqlite3
-import subprocess
 import tarfile
-import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-
-@dataclass(frozen=True)
-class DatabaseInfo:
-    driver: str
-    database: str
-    username: str | None = None
-    password: str | None = None
-    host: str | None = None
-    port: int | None = None
-    sqlite_path: Path | None = None
-
-
-@dataclass(frozen=True)
-class BackupArtifact:
-    path: Path
-    file_size: int
-    sha256: str
-    summary: dict[str, Any]
+import shutil as shutil
+from database_backup_mysql import (
+    backup_mysql as backup_mysql,
+    prepare_mysql_dump as prepare_mysql_dump,
+    restore_mysql as restore_mysql,
+)
+from database_backup_sqlite import (
+    backup_sqlite as backup_sqlite,
+    restore_sqlite as restore_sqlite,
+    summarize_sqlite_database as summarize_sqlite_database,
+)
+from database_backup_types import BackupArtifact, DatabaseInfo
+from file_integrity import sha256_file
 
 
 def parse_database_url(database_url: str) -> DatabaseInfo:
@@ -79,14 +67,6 @@ def build_backup_filename(
     return f"{sanitize_filename_part(database_name)}-{timestamp}{suffix}"
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def create_config_archive(output_dir: Path, candidates: list[Path], now: datetime | None = None) -> tuple[Path, list[str]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / build_backup_filename("blue-album-config", ".tar.gz", now=now)
@@ -105,21 +85,6 @@ def create_config_archive(output_dir: Path, candidates: list[Path], now: datetim
     return archive, included
 
 
-def summarize_sqlite_database(path: Path) -> dict[str, Any]:
-    with sqlite3.connect(path) as connection:
-        tables = [
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
-            ).fetchall()
-        ]
-    return {
-        "driver": "sqlite",
-        "tables": tables,
-        "table_count": len(tables),
-    }
-
-
 def summarize_backup(info: DatabaseInfo, backup_path: Path) -> dict[str, Any]:
     if info.driver == "sqlite":
         summary = summarize_sqlite_database(backup_path)
@@ -130,122 +95,6 @@ def summarize_backup(info: DatabaseInfo, backup_path: Path) -> dict[str, Any]:
         "driver": info.driver,
         "database": info.database,
     }
-
-
-def prepare_mysql_dump(
-    info: DatabaseInfo,
-    base_env: dict[str, str],
-) -> tuple[list[str], dict[str, str]]:
-    command = [
-        "mysqldump",
-        "--host",
-        info.host or "127.0.0.1",
-        "--port",
-        str(info.port or 3306),
-        "--user",
-        info.username or "",
-        "--single-transaction",
-        "--add-drop-database",
-        "--routines",
-        "--triggers",
-        "--databases",
-        info.database,
-    ]
-    env = base_env.copy()
-    if info.password:
-        env["MYSQL_PWD"] = info.password
-    return command, env
-
-
-def backup_mysql(info: DatabaseInfo, output_path: Path) -> None:
-    if not shutil.which("mysqldump"):
-        raise RuntimeError("找不到 mysqldump，无法备份 MySQL 数据库")
-
-    command, env = prepare_mysql_dump(info, os.environ.copy())
-    with output_path.open("w", encoding="utf-8") as handle:
-        result = subprocess.run(
-            command,
-            stdout=handle,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-            check=False,
-        )
-
-    if result.returncode != 0:
-        output_path.unlink(missing_ok=True)
-        raise RuntimeError(result.stderr.strip() or "mysqldump 执行失败")
-
-
-def backup_sqlite(info: DatabaseInfo, output_path: Path) -> None:
-    if not info.sqlite_path or not info.sqlite_path.exists():
-        raise FileNotFoundError(f"SQLite 数据库不存在: {info.sqlite_path}")
-    shutil.copy2(info.sqlite_path, output_path)
-
-
-def restore_mysql(info: DatabaseInfo, input_path: Path) -> None:
-    if not shutil.which("mysql"):
-        raise RuntimeError("找不到 mysql，无法恢复 MySQL 数据库")
-    if not input_path.exists():
-        raise FileNotFoundError(f"备份文件不存在: {input_path}")
-
-    command = [
-        "mysql",
-        "--host",
-        info.host or "127.0.0.1",
-        "--port",
-        str(info.port or 3306),
-        "--user",
-        info.username or "",
-    ]
-    env = os.environ.copy()
-    if info.password:
-        env["MYSQL_PWD"] = info.password
-
-    with input_path.open("r", encoding="utf-8") as handle:
-        result = subprocess.run(
-            command,
-            stdin=handle,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-            check=False,
-        )
-
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "mysql 恢复执行失败")
-
-
-def restore_sqlite(info: DatabaseInfo, input_path: Path) -> None:
-    if not info.sqlite_path:
-        raise ValueError("SQLite 数据库地址无效")
-    if not input_path.exists():
-        raise FileNotFoundError(f"备份文件不存在: {input_path}")
-    input_path = input_path.resolve()
-    target_path = info.sqlite_path.resolve()
-    if input_path == target_path:
-        raise ValueError("不能用当前数据库文件覆盖自身")
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(
-        f".{target_path.name}.restore-{uuid.uuid4().hex}"
-    )
-    try:
-        shutil.copy2(input_path, temporary_path)
-        with temporary_path.open("rb") as handle:
-            os.fsync(handle.fileno())
-        os.replace(temporary_path, target_path)
-        for suffix in ("-wal", "-shm"):
-            Path(f"{target_path}{suffix}").unlink(missing_ok=True)
-        try:
-            directory_fd = os.open(target_path.parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        except (AttributeError, OSError):
-            pass
-    finally:
-        temporary_path.unlink(missing_ok=True)
 
 
 def restore_database(database_url: str, backup_path: Path) -> dict[str, Any]:

@@ -25,7 +25,9 @@ import sync_room_crud  # noqa: E402
 import video_service  # noqa: E402
 from external_media import ExternalMediaError, ExternalVideoProbe  # noqa: E402
 from database import Base  # noqa: E402
+import video_runtime  # noqa: E402
 from routers import video as video_router  # noqa: E402
+from routers import video_items, video_streams  # noqa: E402
 
 
 class VideoRoutesTest(unittest.TestCase):
@@ -36,14 +38,14 @@ class VideoRoutesTest(unittest.TestCase):
         self.subtitle_root = root / "subtitles"
         self.video_root.mkdir()
         self.subtitle_root.mkdir()
-        self.original_video_root = video_router.VIDEO_UPLOAD_ROOT
-        self.original_subtitle_root = video_router.VIDEO_SUBTITLE_ROOT
-        self.original_video_limit = video_router.MAX_VIDEO_SIZE_USER
-        self.original_subtitle_limit = video_router.MAX_SUBTITLE_SIZE
+        self.original_video_root = video_runtime.VIDEO_UPLOAD_ROOT
+        self.original_subtitle_root = video_runtime.VIDEO_SUBTITLE_ROOT
+        self.original_video_limit = video_runtime.MAX_VIDEO_SIZE_USER
+        self.original_subtitle_limit = video_runtime.MAX_SUBTITLE_SIZE
         self.original_cleanup_video_root = room_cleanup_task.VIDEO_UPLOAD_ROOT
         self.original_cleanup_subtitle_root = room_cleanup_task.VIDEO_SUBTITLE_ROOT
-        self.original_socket_emit = video_router.sio.emit
-        self.original_external_probe = getattr(video_router, "inspect_external_video", None)
+        self.original_socket_emit = video_runtime.sio.emit
+        self.original_external_probe = video_items.inspect_external_video
         self.emitted = []
         self.probed_urls = []
 
@@ -57,7 +59,7 @@ class VideoRoutesTest(unittest.TestCase):
                 }
             )
 
-        video_router.sio.emit = fake_emit
+        video_runtime.sio.emit = fake_emit
 
         async def fake_probe(url):
             self.probed_urls.append(url)
@@ -71,13 +73,13 @@ class VideoRoutesTest(unittest.TestCase):
                 file_size=None if is_hls else 1200,
             )
 
-        video_router.inspect_external_video = fake_probe
-        video_router.video_buffer_states.clear()
-        video_router.video_local_ready_states.clear()
-        video_router.VIDEO_UPLOAD_ROOT = self.video_root
-        video_router.VIDEO_SUBTITLE_ROOT = self.subtitle_root
-        video_router.MAX_VIDEO_SIZE_USER = 64
-        video_router.MAX_SUBTITLE_SIZE = 256
+        video_items.inspect_external_video = fake_probe
+        video_runtime.video_buffer_states.clear()
+        video_runtime.video_local_ready_states.clear()
+        video_runtime.VIDEO_UPLOAD_ROOT = self.video_root
+        video_runtime.VIDEO_SUBTITLE_ROOT = self.subtitle_root
+        video_runtime.MAX_VIDEO_SIZE_USER = 64
+        video_runtime.MAX_SUBTITLE_SIZE = 256
         room_cleanup_task.VIDEO_UPLOAD_ROOT = self.video_root
         room_cleanup_task.VIDEO_SUBTITLE_ROOT = self.subtitle_root
 
@@ -119,19 +121,16 @@ class VideoRoutesTest(unittest.TestCase):
         main.app.dependency_overrides.clear()
         self.db.close()
         self.engine.dispose()
-        video_router.VIDEO_UPLOAD_ROOT = self.original_video_root
-        video_router.VIDEO_SUBTITLE_ROOT = self.original_subtitle_root
-        video_router.MAX_VIDEO_SIZE_USER = self.original_video_limit
-        video_router.MAX_SUBTITLE_SIZE = self.original_subtitle_limit
+        video_runtime.VIDEO_UPLOAD_ROOT = self.original_video_root
+        video_runtime.VIDEO_SUBTITLE_ROOT = self.original_subtitle_root
+        video_runtime.MAX_VIDEO_SIZE_USER = self.original_video_limit
+        video_runtime.MAX_SUBTITLE_SIZE = self.original_subtitle_limit
         room_cleanup_task.VIDEO_UPLOAD_ROOT = self.original_cleanup_video_root
         room_cleanup_task.VIDEO_SUBTITLE_ROOT = self.original_cleanup_subtitle_root
-        video_router.sio.emit = self.original_socket_emit
-        if self.original_external_probe is None:
-            delattr(video_router, "inspect_external_video")
-        else:
-            video_router.inspect_external_video = self.original_external_probe
-        video_router.video_buffer_states.clear()
-        video_router.video_local_ready_states.clear()
+        video_runtime.sio.emit = self.original_socket_emit
+        video_items.inspect_external_video = self.original_external_probe
+        video_runtime.video_buffer_states.clear()
+        video_runtime.video_local_ready_states.clear()
         self.temporary_directory.cleanup()
 
     def create_user(self, username, email):
@@ -217,14 +216,24 @@ class VideoRoutesTest(unittest.TestCase):
         forbidden = self.client.post(
             f"/api/video/rooms/{self.room.id}/items/local",
             headers=self.headers(self.member),
-            json={"title": "本地影片", "filename": "movie.mp4", "file_size": 4096, "fingerprint": fingerprint},
+            json={
+                "title": "本地影片",
+                "filename": "movie.mp4",
+                "file_size": 4096,
+                "fingerprint": fingerprint,
+            },
         )
         self.assertEqual(forbidden.status_code, 403)
 
         created = self.client.post(
             f"/api/video/rooms/{self.room.id}/items/local",
             headers=self.headers(self.host),
-            json={"title": "本地影片", "filename": "../movie.mp4", "file_size": 4096, "fingerprint": fingerprint},
+            json={
+                "title": "本地影片",
+                "filename": "../movie.mp4",
+                "file_size": 4096,
+                "fingerprint": fingerprint,
+            },
         )
         self.assertEqual(created.status_code, 201, created.text)
         item = created.json()["item"]
@@ -241,7 +250,12 @@ class VideoRoutesTest(unittest.TestCase):
         invalid = self.client.post(
             f"/api/video/rooms/{self.room.id}/items/local",
             headers=self.headers(self.host),
-            json={"title": "无效", "filename": "bad.mp4", "file_size": 1, "fingerprint": "not-a-hash"},
+            json={
+                "title": "无效",
+                "filename": "bad.mp4",
+                "file_size": 1,
+                "fingerprint": "not-a-hash",
+            },
         )
         self.assertEqual(invalid.status_code, 422)
 
@@ -321,17 +335,32 @@ class VideoRoutesTest(unittest.TestCase):
         self.assertEqual(invalid_metadata.status_code, 422)
 
     def test_external_items_are_probed_and_return_only_protected_playback_urls(self):
-        file_item = self.create_external("public-file", "https://media.example/movie.mp4")
-        hls_item = self.create_external("public-hls", "https://media.example/master.m3u8")
+        file_item = self.create_external(
+            "public-file", "https://media.example/movie.mp4"
+        )
+        hls_item = self.create_external(
+            "public-hls", "https://media.example/master.m3u8"
+        )
 
-        self.assertEqual(self.probed_urls, [
-            "https://media.example/movie.mp4",
-            "https://media.example/master.m3u8",
-        ])
+        self.assertEqual(
+            self.probed_urls,
+            [
+                "https://media.example/movie.mp4",
+                "https://media.example/master.m3u8",
+            ],
+        )
         self.assertEqual(file_item["playback_kind"], "file")
         self.assertEqual(hls_item["playback_kind"], "hls")
-        self.assertTrue(file_item["playback_url"].startswith(f"/api/video/items/{file_item['id']}/stream?access="))
-        self.assertTrue(hls_item["playback_url"].startswith(f"/api/video/items/{hls_item['id']}/stream?access="))
+        self.assertTrue(
+            file_item["playback_url"].startswith(
+                f"/api/video/items/{file_item['id']}/stream?access="
+            )
+        )
+        self.assertTrue(
+            hls_item["playback_url"].startswith(
+                f"/api/video/items/{hls_item['id']}/stream?access="
+            )
+        )
         self.assertNotIn("media.example", file_item["playback_url"])
 
         rejected = self.client.post(
@@ -381,7 +410,9 @@ class VideoRoutesTest(unittest.TestCase):
         stream_path = f"/api/video/items/{item['id']}/stream"
         self.assertEqual(self.client.get(stream_path).status_code, 401)
         self.assertEqual(
-            self.client.get(stream_path, headers=self.headers(self.attacker)).status_code,
+            self.client.get(
+                stream_path, headers=self.headers(self.attacker)
+            ).status_code,
             403,
         )
         streamed = self.client.get(stream_path, headers=self.headers(self.member))
@@ -440,7 +471,9 @@ class VideoRoutesTest(unittest.TestCase):
                         "content-length": "5",
                         "accept-ranges": "bytes",
                     }
-                    self.content = b"all-v" if headers.get("Range") else b"small-video-bytes"
+                    self.content = (
+                        b"all-v" if headers.get("Range") else b"small-video-bytes"
+                    )
 
             async def aiter_bytes(self):
                 yield self.content
@@ -452,31 +485,40 @@ class VideoRoutesTest(unittest.TestCase):
             calls.append((url, dict(headers or {})))
             return FakeRemote(url, headers or {})
 
-        original = getattr(video_router, "open_external_stream", None)
-        video_router.open_external_stream = fake_open
+        original = video_streams.open_external_stream
+        video_streams.open_external_stream = fake_open
         try:
-            file_item = self.create_external("remote-file", "https://media.example/movie.mp4")
+            file_item = self.create_external(
+                "remote-file", "https://media.example/movie.mp4"
+            )
             file_url = file_item["playback_url"]
             self.assertEqual(self.client.get(file_url).status_code, 200)
             ranged = self.client.get(file_url, headers={"Range": "bytes=2-6"})
             self.assertEqual(ranged.status_code, 206)
             self.assertEqual(ranged.content, b"all-v")
             self.assertEqual(ranged.headers["content-range"], "bytes 2-6/17")
-            self.assertEqual(calls[-1], ("https://media.example/movie.mp4", {"Range": "bytes=2-6"}))
+            self.assertEqual(
+                calls[-1], ("https://media.example/movie.mp4", {"Range": "bytes=2-6"})
+            )
 
-            hls_item = self.create_external("remote-hls", "https://media.example/master.m3u8")
+            hls_item = self.create_external(
+                "remote-hls", "https://media.example/master.m3u8"
+            )
             playlist = self.client.get(hls_item["playback_url"])
             self.assertEqual(playlist.status_code, 200, playlist.text)
-            self.assertIn(f"/api/video/items/{hls_item['id']}/hls?resource=", playlist.text)
-            segment_path = next(line for line in playlist.text.splitlines() if line.startswith("/api/video/"))
+            self.assertIn(
+                f"/api/video/items/{hls_item['id']}/hls?resource=", playlist.text
+            )
+            segment_path = next(
+                line
+                for line in playlist.text.splitlines()
+                if line.startswith("/api/video/")
+            )
             segment = self.client.get(segment_path)
             self.assertEqual(segment.status_code, 200, segment.text)
             self.assertEqual(segment.content, b"segment")
         finally:
-            if original is None:
-                delattr(video_router, "open_external_stream")
-            else:
-                video_router.open_external_stream = original
+            video_streams.open_external_stream = original
 
     def test_srt_subtitle_is_normalized_selected_and_safely_streamed(self):
         item = self.create_external("subtitled")
@@ -605,7 +647,10 @@ class VideoRoutesTest(unittest.TestCase):
         ).json()
         self.assertEqual(detail["snapshot"]["version"], 0)
         self.assertEqual(detail["session"]["current_item_id"], current["id"])
-        self.assertEqual([item["source_type"] for item in detail["session"]["playlist"]], ["external", "upload"])
+        self.assertEqual(
+            [item["source_type"] for item in detail["session"]["playlist"]],
+            ["external", "upload"],
+        )
         self.assertEqual(len(list(self.video_root.iterdir())), 1)
 
     def test_cleanup_and_streaming_never_follow_a_tampered_outside_path(self):
@@ -640,7 +685,9 @@ class VideoRoutesTest(unittest.TestCase):
         self.assertTrue(outside.exists())
 
     def test_managed_path_recovers_files_from_a_previous_private_storage_root(self):
-        current_root = Path(self.temporary_directory.name) / "private-storage" / "video_rooms"
+        current_root = (
+            Path(self.temporary_directory.name) / "private-storage" / "video_rooms"
+        )
         current_root.mkdir(parents=True)
         managed = current_root / "legacy-video.mp4"
         managed.write_bytes(b"managed")

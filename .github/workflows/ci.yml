@@ -38,9 +38,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/music_node/package-lock.json
 
       - name: Install browser smoke dependencies
         run: |
@@ -93,6 +95,25 @@ jobs:
             echo "full=$full"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Install pinned tusd runtime
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        run: |
+          set -euo pipefail
+          tusd_binary="$(scripts/install-tusd.sh "$RUNNER_TEMP/elysium-tusd")"
+          tusd_binary_sha256="$(sha256sum "$tusd_binary" | awk '{print $1}')"
+          {
+            printf 'TUSD_BINARY=%s\n' "$tusd_binary"
+            printf 'TUSD_BINARY_SHA256=%s\n' "$tusd_binary_sha256"
+          } >> "$GITHUB_ENV"
+
+      - name: Install pinned internal music API dependencies
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        run: npm ci --prefix backend/music_node
+
+      - name: Test internal music API wrapper
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        run: npm test --prefix backend/music_node
+
       - name: Backend focused checks
         if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
         run: |
@@ -138,12 +159,16 @@ jobs:
         run: |
           set -euo pipefail
           frontend_lock_sha256="$(sha256sum frontend/package-lock.json | awk '{print $1}')"
-          api_schema_sha256="$(sha256sum backend/schemas.py | awk '{print $1}')"
+          api_schema_sha256="$(backend/.venv/bin/python -c 'from pathlib import Path; from deployment.api_schema import api_schema_sha256; print(api_schema_sha256(Path("backend")))')"
           {
             printf 'frontend_package_lock_sha256=%s\n' "$frontend_lock_sha256"
             printf 'frontend_api_schema_sha256=%s\n' "$api_schema_sha256"
             printf 'backend_api_schema_sha256=%s\n' "$api_schema_sha256"
-            printf 'node_version=20\n'
+            printf 'node_version=22\n'
+            if [[ -n "${TUSD_BINARY:-}" ]]; then
+              printf 'tusd_version=v2.10.0\n'
+              printf 'tusd_binary_sha256=%s\n' "$TUSD_BINARY_SHA256"
+            fi
           } > release-metadata.env
 
       - name: Check patch formatting
@@ -175,3 +200,14 @@ jobs:
           path: |
             frontend/dist
             frontend-budget.json
+
+      - name: Upload pinned tusd runtime artifact
+        if: steps.impact.outputs.backend == 'true' || steps.impact.outputs.full == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: elysium-tusd-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/elysium-tusd/tusd
+            ${{ runner.temp }}/elysium-tusd/LICENSE.txt

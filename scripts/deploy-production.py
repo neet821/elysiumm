@@ -45,6 +45,8 @@ def main() -> int:
     parser.add_argument("--path", dest="paths", action="append", default=[])
     parser.add_argument("--base-commit")
     parser.add_argument("--backend-source", type=_path)
+    parser.add_argument("--tusd-binary-source", type=_path)
+    parser.add_argument("--tusd-binary-sha256", default="")
     parser.add_argument("--frontend-source", type=_path)
     parser.add_argument("--frontend-dist", type=_path)
     parser.add_argument("--repository", type=_path)
@@ -148,6 +150,10 @@ def main() -> int:
                 github_run_id=args.github_run_id,
                 changed_paths=tuple(paths),
                 backend_source=args.backend_source.resolve() if args.backend_source else None,
+                tusd_binary_source=(
+                    args.tusd_binary_source.resolve() if args.tusd_binary_source else None
+                ),
+                tusd_binary_sha256=args.tusd_binary_sha256,
                 impact_map=impact_map,
                 frontend_source=args.frontend_source.resolve() if args.frontend_source else None,
                 frontend_dist=args.frontend_dist.resolve() if args.frontend_dist else None,

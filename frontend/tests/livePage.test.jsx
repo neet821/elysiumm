@@ -1,8 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { resolveLiveCss } from './helpers/liveStyles.mjs'
 
 vi.mock('../src/utils/request.js', () => ({
   default: {
@@ -34,7 +33,7 @@ import { API_ENDPOINTS } from '../src/config.js'
 import LivePage from '../src/pages/LivePage.jsx'
 import apiClient from '../src/utils/request.js'
 
-const liveCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+const liveCss = resolveLiveCss()
 
 
 const liveStatus = {

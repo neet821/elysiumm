@@ -59,6 +59,7 @@ ensure_directory "$ROOT_DIR/shared" root root 0755
 ensure_directory "$ROOT_DIR/shared/uploads" www-data www-data 0775
 ensure_directory "$ROOT_DIR/shared/uploads/live-recordings" elysium-live elysium-live 0755
 ensure_directory "$ROOT_DIR/shared/private-storage" www-data www-data 0750
+ensure_directory "$ROOT_DIR/shared/tus-staging" www-data www-data 0750
 ensure_directory "$ROOT_DIR/shared/sync-storage" www-data www-data 0755
 ensure_directory "$ROOT_DIR/shared/sync-storage/articles" root www-data 2750
 ensure_directory "$ROOT_DIR/shared/sync-storage/media" root www-data 2750

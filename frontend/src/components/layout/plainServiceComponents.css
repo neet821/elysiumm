@@ -1,0 +1,128 @@
+.service-shell:not(.app-shell--home)
+  :where(
+    .ui-card,
+    .ui-card--muted,
+    .ui-dialog,
+    .ui-drawer,
+    .ui-overlay__body,
+    .ui-overlay__header,
+    .ui-empty-state,
+    .ui-toast,
+    .admin-dashboard__card,
+    .admin-live__card,
+    .live-state
+  ) {
+  background: #fff !important;
+  border: 1px solid #c8c8c8 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #111;
+}
+.service-shell:not(.app-shell--home)
+  :where(
+    [class*="rounded"],
+    [class*="shadow"],
+    [class*="backdrop"],
+    [class*="gradient"]
+  ) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.service-shell:not(.app-shell--home)
+  :where(
+    .ui-button,
+    button:not(.home-experience__mode-switch),
+    input,
+    textarea,
+    select
+  ) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-button, button:not(.home-experience__mode-switch)) {
+  background: #fff;
+  border: 1px solid #777;
+  color: #111;
+  cursor: pointer;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-button--primary, .ui-button--danger) {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-button--danger) {
+  background: #fff;
+  border-color: #b00020;
+  color: #b00020;
+}
+.service-shell:not(.app-shell--home)
+  :where(
+    button:hover,
+    button:focus-visible,
+    .ui-button:hover,
+    .ui-button:focus-visible
+  ) {
+  background: #eee;
+  color: #111;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-button--primary:hover, .ui-button--primary:focus-visible) {
+  background: #333;
+  color: #fff;
+}
+.service-shell:not(.app-shell--home)
+  :where(input, textarea, select) {
+  background: #fff !important;
+  border: 1px solid #888 !important;
+  color: #111 !important;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.6rem;
+}
+.service-shell:not(.app-shell--home)
+  :where(a) {
+  color: #0645ad;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-tabs__list) {
+  border-bottom: 1px solid #bbb;
+  border-radius: 0;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-tabs__tab) {
+  border-radius: 0 !important;
+  color: #333;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-tabs__tab[aria-selected="true"]) {
+  background: #111;
+  color: #fff;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-overlay__backdrop) {
+  background: rgb(0 0 0 / 35%);
+  backdrop-filter: none;
+}
+.service-shell:not(.app-shell--home)
+  :where(.ui-overlay__close) {
+  border-radius: 0;
+  color: #111;
+}
+
+.service-shell:not(.app-shell--home)
+  .live-player {
+  border: 1px solid #222;
+  box-shadow: none;
+}
+.service-shell:not(.app-shell--home)
+  .route-loading__spinner {
+  animation: none;
+  border-color: #888;
+  border-top-color: #111;
+  border-radius: 50% !important;
+}

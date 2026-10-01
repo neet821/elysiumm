@@ -1,0 +1,111 @@
+/* Legacy article URL reader shell and its responsive presentation. */
+
+.legacy-old-home:not(.legacy-old-home--flat) {
+  background: #fff;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+  color: #111;
+  font-family: var(--font-editorial, serif);
+  line-height: 1.75;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader--article .reader-header h1 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.service-shell:has(.reader--article),
+.service-shell:has(.reader--article) .app-shell__main {
+  background: #f3f5f7 !important;
+  color: #111;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) {
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  box-sizing: border-box;
+  margin: clamp(1rem, 3vw, 2.5rem) auto 4rem;
+  max-width: 960px;
+  min-height: calc(100vh - 6rem);
+  padding-inline: clamp(1rem, 5vw, 4rem);
+  width: min(calc(100% - 2rem), 960px);
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader {
+  background: #fff;
+  margin-inline: auto;
+  max-width: 760px;
+  padding: clamp(2rem, 5vw, 4rem) 0 5rem;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .back-link {
+  align-items: center;
+  background: #fff;
+  border: 2px solid #252a30;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 8%);
+  color: #111;
+  display: inline-flex;
+  font-size: 1.75rem;
+  height: 3.25rem;
+  justify-content: center;
+  line-height: 1;
+  margin-bottom: 2.5rem;
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  width: 3.25rem;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .back-link:hover,
+.legacy-old-home:not(.legacy-old-home--flat) .back-link:focus-visible {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+  text-decoration: none;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader-header {
+  max-width: none;
+}
+
+.legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+  color: #222;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .legacy-old-home:not(.legacy-old-home--flat) {
+    margin: .5rem auto 2rem;
+    padding-inline: .75rem;
+    width: min(calc(100% - 0.5rem), 960px);
+  }
+
+  .legacy-old-home:not(.legacy-old-home--flat) .reader {
+    padding: 1.25rem 0 3rem;
+  }
+
+  .legacy-old-home:not(.legacy-old-home--flat) .back-link {
+    height: 3rem;
+    margin-bottom: 2rem;
+    width: 3rem;
+  }
+
+  .legacy-old-home:not(.legacy-old-home--flat) .reader-header h1 {
+    font-size: clamp(1.5rem, 7vw, 2.1rem);
+    line-height: 1.25;
+  }
+
+  .legacy-old-home:not(.legacy-old-home--flat) .reader-body {
+    font-size: 1rem;
+    line-height: 1.85;
+    padding-top: 1.25rem;
+  }
+
+  .legacy-old-home:not(.legacy-old-home--flat) .reader-body h1,
+  .legacy-old-home:not(.legacy-old-home--flat) .reader-body h2,
+  .legacy-old-home:not(.legacy-old-home--flat) .reader-body h3 {
+    margin-block: 1.5em .6em;
+  }
+}

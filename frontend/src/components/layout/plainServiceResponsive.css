@@ -1,0 +1,70 @@
+@media (max-width: 800px) {
+  .service-shell.app-shell--home .app-header__nav {
+    display: flex;
+  }
+  .service-shell.app-shell--home .app-header__nav > .app-header__nav-link {
+    display: none;
+  }
+  .service-shell.app-shell--home .app-header__menu {
+    display: inline-flex;
+  }
+  .service-shell.app-shell--home .app-header__mobile-nav {
+    display: grid;
+    gap: 0;
+  }
+  .service-shell.app-shell--home .app-header__mobile-nav .app-header__nav-link {
+    display: flex;
+    margin-bottom: 0.35rem;
+    width: 100%;
+  }
+  .service-shell:not(.app-shell--home)
+    .app-header__nav {
+    display: flex;
+  }
+  .service-shell:not(.app-shell--home)
+    .app-header__nav
+    > .app-header__nav-link,
+  .service-shell:not(.app-shell--home)
+    .app-header__nav
+    > .app-header__current {
+    display: none;
+  }
+  .service-shell:not(.app-shell--home)
+    .app-header__menu {
+    display: inline-flex;
+  }
+  .service-shell:not(.app-shell--home)
+    .app-header__mobile-nav {
+    display: grid;
+    gap: 0;
+  }
+  .service-shell:not(.app-shell--home)
+    .app-header__mobile-nav
+    .app-header__nav-link,
+  .service-shell:not(.app-shell--home)
+    .app-header__mobile-nav
+    .app-header__current {
+    display: flex;
+    margin-bottom: 0.35rem;
+    width: 100%;
+  }
+  .service-shell:not(.app-shell--home)
+    .service-directory__items {
+    grid-template-columns: 1fr;
+  }
+  .service-shell:not(.app-shell--home)
+    .service-directory__item:nth-child(odd) {
+    border-right: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

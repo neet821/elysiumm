@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlparse
 
 from sqlalchemy.orm import Session
 
-import catalog_repository
+import catalog_audio_repository
 import models
 from catalog_domain import TrackAvailability
 from music import MusicProviderAdapter, ProviderError
@@ -55,7 +55,15 @@ def is_safe_playback_url(
         return False
     if parsed.username or parsed.password or not hostname:
         return False
-    return hostname.lower() in {host.lower() for host in approved_hosts}
+    normalized_hostname = hostname.lower()
+    for approved_host in approved_hosts:
+        normalized_approved = str(approved_host).strip().lower()
+        if normalized_approved.startswith("*."):
+            if normalized_hostname.endswith(normalized_approved[1:]):
+                return True
+        elif normalized_hostname == normalized_approved:
+            return True
+    return False
 
 
 def _provider_for_source(
@@ -81,6 +89,7 @@ def _approved_hosts(
 def _payload(
     *,
     availability: str,
+    resolution_status: str | None = None,
     playback_url: str | None,
     expires_at: datetime | None,
     source_type: str,
@@ -89,6 +98,7 @@ def _payload(
 ) -> dict[str, object]:
     payload = {
         "availability": availability,
+        "resolution_status": resolution_status or availability,
         "playback_url": playback_url,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "source_type": source_type,
@@ -108,7 +118,7 @@ def _cached_source(
     provider: str | None = None,
     provider_track_id: str | None = None,
 ) -> models.TrackAudioSource | None:
-    sources = catalog_repository.audio_sources_for_track(db, canonical_id)
+    sources = catalog_audio_repository.audio_sources_for_track(db, canonical_id)
     sources.sort(
         key=lambda source: (
             _SOURCE_PRIORITY.get(source.source_type, 99),
@@ -129,7 +139,9 @@ def _cached_source(
         source_provider = _provider_for_source(db, source)
         if provider is not None and source_provider != provider:
             continue
-        if provider_track_id is not None and source.provider_mapping_id is not None:
+        if provider_track_id is not None:
+            if source.provider_mapping_id is None:
+                continue
             mapping = db.get(models.TrackProviderMapping, source.provider_mapping_id)
             if mapping is None or mapping.provider_track_id != provider_track_id:
                 continue
@@ -194,6 +206,7 @@ async def resolve_audio(
             mapping.id,
         )
     )
+    transient_failure = False
     for mapping in mappings:
         adapter = registry.get(mapping.provider)
         if adapter is None:
@@ -201,6 +214,7 @@ async def resolve_audio(
         try:
             resolution = await adapter.resolve(mapping)
         except ProviderError:
+            transient_failure = True
             continue
         if (
             resolution.availability is TrackAvailability.UNAVAILABLE
@@ -212,7 +226,7 @@ async def resolve_audio(
         ):
             continue
         expires_at = resolution.expires_at or current_time + _DEFAULT_CACHE_TTL
-        source = catalog_repository.upsert_audio_source(
+        source = catalog_audio_repository.upsert_audio_source(
             db,
             canonical_id=canonical_id,
             provider_mapping_id=mapping.id,
@@ -237,13 +251,18 @@ async def resolve_audio(
     )
     return _payload(
         availability=TrackAvailability.UNAVAILABLE.value,
+        resolution_status="temporary_failure" if transient_failure else "unavailable",
         playback_url=None,
         expires_at=None,
         source_type="unavailable",
         provider=None,
         unavailable_reason=(
-            "需要会员权限，或服务器配置的音乐账号无权播放这首歌"
-            if requires_membership
-            else "所有已配置来源都无法提供可播放地址"
+            "曲库暂时不可用，请稍后重试"
+            if transient_failure
+            else (
+                "需要会员权限，或服务器配置的音乐账号无权播放这首歌"
+                if requires_membership
+                else "所有已配置来源都无法提供可播放地址"
+            )
         ),
     )

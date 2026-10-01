@@ -1,0 +1,71 @@
+@keyframes ui-skeleton-pulse {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes ui-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.7rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(var(--drawer-from, 1.5rem));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (hover: hover) {
+  .ui-button--primary:not(:disabled):hover {
+    box-shadow: 0 0 0 0.28rem
+      color-mix(in srgb, var(--accent-blue) 15%, transparent);
+  }
+  .ui-button--secondary:not(:disabled):hover,
+  .ui-button--ghost:not(:disabled):hover {
+    background: var(--surface-card-muted);
+    border-color: var(--border-active);
+  }
+  .ui-card--interactive:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button,
+  .ui-card--interactive,
+  .ui-input,
+  .ui-skeleton,
+  .ui-dialog,
+  .ui-drawer,
+  .ui-toast {
+    animation: none !important;
+    transition: none !important;
+  }
+}

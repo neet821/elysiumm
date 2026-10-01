@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { consumeAuthRedirect, getLocationTarget, getPostLoginTarget } from "../utils/authRedirect";
 import LoginCard from "../components/auth/LoginCard.jsx";
+import "../features/auth/auth.css";
 
 const LoginPage = ({ styles, isDark }) => {
   const navigate = useNavigate();

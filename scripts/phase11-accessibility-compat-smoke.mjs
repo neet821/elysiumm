@@ -36,7 +36,6 @@ function environmentFor(rootPath, appBase) {
     LIVE_RECORDING_ROOT: path.join(storage, 'uploads', 'live-recordings'),
     MEDIA_ROOT: path.join(storage, 'sync-storage', 'media'),
     MUSIC_PROVIDER_CREDENTIAL_DIR: path.join(storage, 'private-storage', 'music'),
-    MUSIC_PROVIDER_LEGACY_COMPAT: '0',
     PRIVATE_STORAGE_DIR: path.join(storage, 'private-storage'),
     PUBLIC_SYNC_STORAGE: path.join(storage, 'sync-storage'),
     SECRET_KEY: 'phase11-accessibility-isolated-secret-for-tests',

@@ -1,0 +1,29 @@
+[Unit]
+Description=Elysium internal Netease music API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/services/elysium/backend-current/backend/music_node
+Environment=NODE_ENV=production
+Environment=ELYSIUM_NETEASE_API_PORT=8765
+Environment=ENABLE_GENERAL_UNBLOCK=false
+Environment=CORS_ALLOW_ORIGIN=elysium-internal-service-only
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/env node /srv/services/elysium/backend-current/backend/music_node/server.cjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=384M
+TasksMax=128
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

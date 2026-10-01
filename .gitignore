@@ -16,7 +16,8 @@ backend/.venv/
 .idea/
 .local-deploy/
 .local/
-/elysium-local.sqlite
+/elysium-local.sqlite*
+/.elysium-local-tus/
 /sqlite3
 
 # Local runtime data; never commit generated uploads, recordings, or logs

@@ -8,7 +8,8 @@ import re
 import subprocess
 from typing import Any
 
-from deployment.production_deploy import _deployment_lock, current_snapshot
+from deployment.deployment_lock import _deployment_lock
+from deployment.release_state import current_snapshot
 from deployment.release_builder import atomic_component_link
 from deployment.release_metadata import (
     COMPONENTS,
@@ -20,6 +21,35 @@ from deployment.release_metadata import (
     release_path,
 )
 
+MUSIC_API_UNIT_PATH = Path("/etc/systemd/system/elysiumm-music-api.service")
+TUSD_UNIT_PATH = Path("/etc/systemd/system/elysiumm-tusd.service")
+
+
+def _sync_music_api_service_to_current_backend(root: Path) -> None:
+    if not MUSIC_API_UNIT_PATH.is_file():
+        return
+    server = root / "backend-current/backend/music_node/server.cjs"
+    if server.is_file():
+        _systemctl("enable", "elysiumm-music-api.service")
+        _systemctl("restart", "elysiumm-music-api.service")
+    else:
+        # Older immutable backend releases predate this sidecar. Keep their
+        # rollback working instead of starting systemd in a missing directory.
+        _systemctl("disable --now", "elysiumm-music-api.service")
+
+
+def _sync_tusd_service_to_current_backend(root: Path) -> None:
+    if not TUSD_UNIT_PATH.is_file():
+        return
+    binary = root / "backend-current/backend/bin/tusd"
+    if binary.is_file() and binary.stat().st_mode & 0o111:
+        _systemctl("enable", "elysiumm-tusd.service")
+        _systemctl("restart", "elysiumm-tusd.service")
+    else:
+        # Older immutable backend releases have no tusd runtime.  Keep rollback
+        # safe by stopping this release-coupled sidecar before restarting API.
+        _systemctl("disable --now", "elysiumm-tusd.service")
+
 
 class ProductionRollbackError(RuntimeError):
     """The requested rollback target is unavailable or unsafe."""
@@ -30,7 +60,7 @@ def _systemctl(action: str, service: str) -> None:
 
     if "flclash" in service.casefold():
         raise ProductionRollbackError(f"rollback must not control FlClash service: {service}")
-    subprocess.run(["systemctl", action, service], check=True)
+    subprocess.run(["systemctl", *action.split(), service], check=True)
 
 
 def _load_transaction(root: Path, deployment_id: str) -> dict[str, Any]:
@@ -101,6 +131,8 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
         atomic_component_link(root, component, release_id)
         switched = True
         if component == "backend":
+            _sync_music_api_service_to_current_backend(root)
+            _sync_tusd_service_to_current_backend(root)
             _systemctl("restart", "elysiumm-backend.service")
         transaction["after"] = current_snapshot(root)
         transaction["rollback"]["attempted"] = True
@@ -117,6 +149,8 @@ def _rollback_component_unlocked(*, root: Path, deployment_id: str, component: s
                 else:
                     (root / f"{component}-current").unlink(missing_ok=True)
                 if component == "backend":
+                    _sync_music_api_service_to_current_backend(root)
+                    _sync_tusd_service_to_current_backend(root)
                     _systemctl("restart", "elysiumm-backend.service")
             except Exception as recovery_error:  # pragma: no cover - defensive production path
                 recovery_errors.append(str(recovery_error))

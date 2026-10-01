@@ -1,0 +1,17 @@
+{
+  "name": "elysium-internal-music-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Loopback-only Netease API adapter for Elysium",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node --test test/*.test.cjs"
+  },
+  "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "4.40.1"
+  }
+}

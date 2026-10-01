@@ -6,7 +6,7 @@ import VideoRoomSidebar from '../features/video/VideoRoomSidebar.jsx'
 import VideoRoomCommunity from '../features/video/VideoRoomCommunity.jsx'
 import VideoStage from '../features/video/VideoStage.jsx'
 import { useVideoRoom } from '../features/video/useVideoRoom.js'
-import { buildRoomShareUrl, copyText } from './roomShareUtils.js'
+import { buildRoomShareUrl, copyText } from '../features/video/roomShareUtils.js'
 
 
 const STATUS_LABELS = {

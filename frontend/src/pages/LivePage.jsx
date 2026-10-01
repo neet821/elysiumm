@@ -3,6 +3,7 @@ import { Clock3, LogIn, RefreshCw, ShieldCheck } from 'lucide-react'
 import LiveMessageBoard from '../features/live/LiveMessageBoard'
 import LivePlayer from '../features/live/LivePlayer'
 import useLiveSession from '../features/live/useLiveSession'
+import '../features/live/live.css'
 import AdminLivePage from './AdminLivePage'
 import { useOptionalAuth } from '../contexts/AuthContext'
 

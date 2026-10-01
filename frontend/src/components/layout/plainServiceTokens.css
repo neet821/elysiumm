@@ -1,0 +1,48 @@
+/* Plain service presentation: the 3D room keeps its own visual system. */
+:root {
+  --surface-page: #fff;
+  --surface-card: #fff;
+  --surface-card-muted: #f7f7f7;
+  --surface-elevated: #fff;
+  --surface-inverse: #111;
+  --text-primary: #111;
+  --text-secondary: #444;
+  --text-muted: #666;
+  --text-inverse: #fff;
+  --accent-blue: #0645ad;
+  --accent-cyan: #0645ad;
+  --accent-warm: #111;
+  --accent-danger: #b00020;
+  --accent-success: #176b36;
+  --border-subtle: #c8c8c8;
+  --border-strong: #888;
+  --border-active: #0645ad;
+  --radius-control: 0;
+  --radius-card: 0;
+  --radius-dialog: 0;
+  --shadow-card: none;
+  --shadow-hover: none;
+  --shadow-floating: none;
+  --motion-fast: 0ms;
+  --motion-normal: 0ms;
+  --motion-slow: 0ms;
+  --font-interface:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-editorial: inherit;
+  --font-handwritten: inherit;
+  color-scheme: light;
+  font-family: var(--font-interface);
+}
+
+html {
+  background: #fff;
+  color-scheme: light;
+}
+body {
+  background: #fff;
+  color: #111;
+  font-family: var(--font-interface);
+}
+body::before {
+  display: none !important;
+}

@@ -21,10 +21,12 @@ const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 class CdpClient {
   constructor(target, label) {
     this.errors = []
+    this.failedRequests = []
     this.label = label
     this.nextId = 1
     this.pending = new Map()
     this.requests = []
+    this.responses = []
     this.target = target
   }
 
@@ -49,6 +51,21 @@ class CdpClient {
       if (message.method === 'Network.requestWillBeSent') {
         this.requests.push(message.params.request.url)
       }
+      if (message.method === 'Network.responseReceived') {
+        this.responses.push({
+          mimeType: message.params.response.mimeType,
+          status: message.params.response.status,
+          url: message.params.response.url,
+        })
+      }
+      if (message.method === 'Network.loadingFailed') {
+        this.failedRequests.push({
+          canceled: message.params.canceled || false,
+          errorText: message.params.errorText,
+          requestId: message.params.requestId,
+          type: message.params.type,
+        })
+      }
     })
     await new Promise((resolve, reject) => {
       this.socket.addEventListener('open', resolve, { once: true })
@@ -62,6 +79,21 @@ class CdpClient {
       source: `(() => {
         const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')
         window.__phase8CookieReads = 0
+        window.__phase8MediaOperations = []
+        const mediaMethods = ['load', 'play', 'removeAttribute', 'setAttribute']
+        for (const method of mediaMethods) {
+          const original = HTMLMediaElement.prototype[method]
+          HTMLMediaElement.prototype[method] = function(...args) {
+            window.__phase8MediaOperations.push({
+              args: method === 'setAttribute'
+                ? [String(args[0]), String(args[1] || '').split('?')[0]]
+                : args.map((value) => String(value).slice(0, 80)),
+              method,
+              stack: new Error().stack?.split('\\n').slice(1, 5).join('\\n'),
+            })
+            return original.apply(this, args)
+          }
+        }
         if (descriptor?.configurable) {
           Object.defineProperty(Document.prototype, 'cookie', {
             configurable: true,
@@ -860,13 +892,75 @@ async function main() {
       subtitleId: subtitle.id,
     }, null, 2))
   } catch (error) {
+    const browserDiagnostics = await Promise.all(clients.map(async (client) => {
+      let media = null
+      try {
+        media = await client.evaluate(`(() => {
+          const video = document.querySelector('[data-testid="video-room-media"]')
+          return {
+            currentSrc: video?.currentSrc?.split('?')[0] || '',
+            duration: video?.duration,
+            error: video?.error ? { code: video.error.code, message: video.error.message } : null,
+            networkState: video?.networkState,
+            paused: video?.paused,
+            readyState: video?.readyState,
+            src: video?.src?.split('?')[0] || '',
+          }
+        })()`)
+      } catch (diagnosticError) {
+        media = { diagnosticError: diagnosticError.message }
+      }
+      let page = null
+      try {
+        page = await client.evaluate(`(async () => {
+          const token = localStorage.getItem('token')
+          const roomId = location.pathname.split('/').filter(Boolean).at(-1)
+          const response = await fetch('/api/video/rooms/' + roomId, {
+            headers: token ? { Authorization: 'Bearer ' + token } : {},
+          })
+          const detail = await response.json().catch(() => ({}))
+          return {
+            body: document.body.innerText.slice(0, 1200),
+            detailStatus: response.status,
+            heading: document.querySelector('h1')?.textContent || null,
+            mediaOperations: window.__phase8MediaOperations,
+            session: detail.session ? {
+              current_item_id: detail.session.current_item_id,
+              playlist: detail.session.playlist.map((item) => ({
+                availability: item.availability,
+                id: item.id,
+                playbackPath: item.playback_url ? new URL(item.playback_url, location.origin).pathname : null,
+                source_type: item.source_type,
+              })),
+            } : null,
+            snapshot: detail.snapshot || null,
+          }
+        })()`)
+      } catch (diagnosticError) {
+        page = { diagnosticError: diagnosticError.message }
+      }
+      const safeUrl = (value) => value.split('?')[0]
+      return {
+        browserErrors: client.errors,
+        failedRequests: client.failedRequests,
+        label: client.label,
+        media,
+        page,
+        mediaRequests: client.requests.filter((url) => /\/api\/video\//.test(url)).map(safeUrl),
+        mediaResponses: client.responses.filter((item) => /\/api\/video\//.test(item.url)).map((item) => ({
+          mimeType: item.mimeType,
+          status: item.status,
+          url: safeUrl(item.url),
+        })),
+      }
+    }))
     const logs = fs.existsSync(temporaryRoot)
       ? fs.readdirSync(temporaryRoot).filter((name) => name.endsWith('.log')).map((name) => {
           const content = fs.readFileSync(path.join(temporaryRoot, name), 'utf8')
           return `\n--- ${name} ---\n${content.slice(-5000)}`
         }).join('')
       : ''
-    throw new Error(`${error.stack || error.message}${logs}`)
+    throw new Error(`${error.stack || error.message}\n--- browser diagnostics ---\n${JSON.stringify(browserDiagnostics, null, 2)}${logs}`)
   } finally {
     sockets.forEach((socket) => socket.disconnect())
     clients.forEach((client) => client.close())

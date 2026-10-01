@@ -7,19 +7,11 @@ temporary root in tests; no path is hard-coded to a user's workstation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from contextlib import contextmanager
-import difflib
-import fcntl
 import hashlib
-import io
-import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
-import tarfile
 import tempfile
 import time
 from typing import Any, Mapping
@@ -30,6 +22,19 @@ from deployment.environment import (
     EnvironmentError,
     require_production_database_environment,
 )
+from deployment.deploy_types import (
+    DeploymentOptions,
+    InfrastructureApplyError,
+    ProductionDeployError,
+)
+from deployment import deployment_lock as _deployment_lock_module
+from deployment import infrastructure_validation as _infrastructure_validation
+from deployment import infrastructure_apply as _infrastructure_apply
+from deployment import release_state as _release_state
+from deployment import systemd_operations as _systemd_operations
+from deployment import runtime_dependencies as _runtime_dependencies
+from deployment import git_component as _git_component
+from deployment.api_schema import api_schema_sha256 as compute_api_schema_sha256
 from deployment.legacy_path_scan import scan_legacy_paths
 from deployment.migration_runner import MigrationRunError, run_migrations_if_needed
 from deployment.migration_state import (
@@ -47,74 +52,52 @@ from deployment.release_builder import (
 )
 from deployment.release_impact import resolve_impact
 from deployment.release_metadata import (
-    COMPONENTS,
     deployment_transaction,
     deployment_history_path,
-    release_collection_path,
     finalize_transaction,
     utc_now,
     write_transaction,
 )
 
 
-class ProductionDeployError(RuntimeError):
-    """The requested release could not be prepared or safely activated."""
+# Keep the established production_deploy import surface while the policy lives
+# in its infrastructure-specific module.
+_allow_initial_backend_current_verify_failure = (
+    _infrastructure_validation._allow_initial_backend_current_verify_failure
+)
+_allow_initial_tusd_current_verify_failure = (
+    _infrastructure_validation._allow_initial_tusd_current_verify_failure
+)
+_has_infrastructure_changes = _infrastructure_validation._has_infrastructure_changes
+_infra_change_requested = _infrastructure_validation._infra_change_requested
+_nginx_candidates = _infrastructure_validation._nginx_candidates
+_nginx_path_literal = _infrastructure_validation._nginx_path_literal
+_nginx_remove_targets = _infrastructure_validation._nginx_remove_targets
+_systemd_remove_units = _infrastructure_validation._systemd_remove_units
+_validate_fixed_file_target = _infrastructure_validation._validate_fixed_file_target
+_validate_infrastructure = _infrastructure_validation._validate_infrastructure
+_validate_nginx_target = _infrastructure_validation._validate_nginx_target
+_validate_regular_source = _infrastructure_validation._validate_regular_source
+_validate_systemd_target_dir = _infrastructure_validation._validate_systemd_target_dir
+_within = _infrastructure_validation._within
 
-
-class InfrastructureApplyError(ProductionDeployError):
-    """Infrastructure application failed after changing one or more targets."""
-
-    def __init__(self, message: str, *, previous: Mapping[str, object]) -> None:
-        super().__init__(message)
-        self.previous = dict(previous)
-
-
-@dataclass(frozen=True)
-class DeploymentOptions:
-    root: Path
-    commit: str
-    deployment_id: str
-    trigger: str
-    changed_paths: tuple[str, ...]
-    git_ref: str = "refs/heads/main"
-    impact_map: Path | None = None
-    backend_source: Path | None = None
-    frontend_source: Path | None = None
-    frontend_dist: Path | None = None
-    repository: Path | None = None
-    backend_env_file: Path = Path("/etc/elysium/backend.env")
-    python_executable: Path = Path("/usr/bin/python3")
-    nginx_source: Path | None = None
-    systemd_sources: Mapping[str, Path] | None = None
-    nginx_target: Path = Path("/etc/nginx/sites-available/elysiumm")
-    nginx_sources: Mapping[Path, Path] | None = None
-    nginx_remove_targets: tuple[Path, ...] = ()
-    systemd_target_dir: Path = Path("/etc/systemd/system")
-    systemd_remove_units: tuple[str, ...] = ()
-    mediamtx_config_source: Path | None = None
-    mediamtx_config_target: Path = Path("/etc/elysium/mediamtx.yml")
-    health_guard_source: Path | None = None
-    health_guard_target: Path = Path("/usr/local/sbin/elysium-health-guard")
-    health_guard_service: str = "elysiumm-health-guard.service"
-    defer_health_guard_restart: bool = False
-    backend_service: str = "elysiumm-backend.service"
-    nginx_service: str = "nginx.service"
-    health_url: str = "http://127.0.0.1:8000/api/health"
-    node_version: str = "CI"
-    frontend_package_lock_sha256: str = ""
-    frontend_api_schema_sha256: str = ""
-    backend_api_schema_sha256: str = ""
-    compatible_backend_api: str = "*"
-    compatible_frontend_api: str = "*"
-    build_budget: Mapping[str, object] | None = None
-    github_run_id: str = ""
-    skip_health: bool = False
-    # Split the documentation/migration literal so the repository scanner
-    # does not mistake this default declaration for an actual runtime access.
-    legacy_path: str = "/srv/services/elysium/" + "data/"
-    legacy_systemd_root: Path = Path("/etc/systemd/system")
-    legacy_nginx_root: Path = Path("/etc/nginx")
-    legacy_proc_root: Path | None = Path("/proc")
+_apply_infrastructure = _infrastructure_apply._apply_infrastructure
+_config_diff = _infrastructure_apply._config_diff
+_restore_infrastructure = _infrastructure_apply._restore_infrastructure
+_unlink_if_present = _infrastructure_apply._unlink_if_present
+_systemctl = _systemd_operations._systemctl
+_systemd_state = _systemd_operations._systemd_state
+_install_backend_dependencies = _runtime_dependencies._install_backend_dependencies
+_music_api_service_installed = _runtime_dependencies._music_api_service_installed
+_backend_release_has_music_api = _runtime_dependencies._backend_release_has_music_api
+_tusd_service_installed = _runtime_dependencies._tusd_service_installed
+_backend_release_has_tusd = _runtime_dependencies._backend_release_has_tusd
+_python_version = _runtime_dependencies._python_version
+_safe_extract_archive = _git_component._safe_extract_archive
+materialize_git_component = _git_component.materialize_git_component
+_current_record = _release_state._current_record
+current_snapshot = _release_state.current_snapshot
+_deployment_lock = _deployment_lock_module._deployment_lock
 
 
 def _sha256_file(path: Path) -> str:
@@ -135,105 +118,6 @@ def release_id_for(commit: str, component: str, *, timestamp: str | None = None)
         raise ProductionDeployError("commit must be a hexadecimal Git commit")
     label = component.replace("_", "-")
     return f"{short[:12]}-{label}-{timestamp or _release_timestamp()}"
-
-
-def _current_record(root: Path, component: str) -> dict[str, object] | None:
-    if component not in COMPONENTS:
-        raise ProductionDeployError(f"unsupported component: {component}")
-    link = root / f"{component}-current"
-    if not link.is_symlink():
-        return None
-    target = link.resolve(strict=False)
-    release_root = release_collection_path(root, component).resolve()
-    try:
-        target.relative_to(release_root)
-    except ValueError as exc:
-        raise ProductionDeployError(f"{link} points outside {release_root}") from exc
-    manifest_path = target / "RELEASE.json"
-    manifest: dict[str, object] = {}
-    if manifest_path.is_file():
-        try:
-            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ProductionDeployError(f"invalid release manifest: {manifest_path}") from exc
-        if isinstance(loaded, dict):
-            manifest = loaded
-    return {
-        "release_id": target.name,
-        "path": str(target.relative_to(root)),
-        "artifact_sha256": manifest.get("artifact_sha256") or manifest.get("source_tree_sha256"),
-        "manifest": str(manifest_path.relative_to(root)) if manifest_path.is_file() else None,
-    }
-
-
-def current_snapshot(root: Path) -> dict[str, object]:
-    return {
-        "frontend_current": _current_record(root, "frontend"),
-        "backend_current": _current_record(root, "backend"),
-    }
-
-
-def _safe_extract_archive(archive_bytes: bytes, destination: Path, component: str) -> Path:
-    destination.mkdir(parents=True, exist_ok=False)
-    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:") as archive:
-        members = archive.getmembers()
-        prefix = f"{component}/"
-        for member in members:
-            name = member.name
-            if (name != component and not name.startswith(prefix)) or member.issym() or member.islnk():
-                raise ProductionDeployError("Git archive contains an unsafe entry")
-            relative = Path(name[len(prefix) :])
-            if relative.is_absolute() or ".." in relative.parts:
-                raise ProductionDeployError("Git archive path escapes component root")
-            target = destination / relative
-            resolved = target.resolve(strict=False)
-            try:
-                resolved.relative_to(destination.resolve())
-            except ValueError as exc:
-                raise ProductionDeployError("Git archive path escapes component root") from exc
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            if not member.isfile():
-                raise ProductionDeployError("Git archive contains a non-regular file")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            source = archive.extractfile(member)
-            if source is None:
-                raise ProductionDeployError("Git archive entry cannot be read")
-            with target.open("wb") as handle:
-                shutil.copyfileobj(source, handle)
-    return destination
-
-
-def materialize_git_component(repository: Path, commit: str, component: str, destination: Path) -> Path:
-    """Materialize one component from a bare repository without a mutable checkout."""
-
-    repository = repository.expanduser().resolve()
-    if not repository.is_dir():
-        raise ProductionDeployError(f"Git repository is missing: {repository}")
-    if component not in {"backend", "frontend"}:
-        raise ProductionDeployError(f"component cannot be materialized: {component}")
-    verify = subprocess.run(
-        ["git", "--git-dir", str(repository), "cat-file", "-e", f"{commit}^{{commit}}"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if verify.returncode:
-        raise ProductionDeployError(f"Git commit is unavailable: {commit}")
-    archive = subprocess.run(
-        ["git", "--git-dir", str(repository), "archive", "--format=tar", commit, "--", component],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if archive.returncode:
-        detail = archive.stderr.decode("utf-8", errors="replace").strip()
-        raise ProductionDeployError(detail or f"cannot archive {component} from {commit}")
-    if not archive.stdout:
-        raise ProductionDeployError(f"Git commit does not contain {component}")
-    return _safe_extract_archive(archive.stdout, destination, component)
 
 
 def _transaction_path(root: Path, deployment_id: str) -> Path:
@@ -291,98 +175,6 @@ def _run_health(url: str, *, attempts: int = 12, delay: float = 0.5) -> tuple[bo
     return False, last_detail
 
 
-def _systemctl(action: str, service: str) -> None:
-    if "flclash" in service.casefold():
-        raise ProductionDeployError(f"deployment must not control FlClash service: {service}")
-    if action == "disable --now":
-        command = ["systemctl", "disable", "--now", service]
-    else:
-        command = ["systemctl", action, service]
-    subprocess.run(command, check=True)
-
-
-def _systemd_state(unit: str) -> dict[str, bool]:
-    """Capture state before a unit file is replaced or removed."""
-
-    if "flclash" in unit.casefold():
-        raise ProductionDeployError(f"deployment must not inspect FlClash unit: {unit}")
-    enabled = subprocess.run(
-        ["systemctl", "is-enabled", "--quiet", unit],
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ).returncode == 0
-    active = subprocess.run(
-        ["systemctl", "is-active", "--quiet", unit],
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ).returncode == 0
-    return {"enabled": enabled, "active": active}
-
-
-@contextmanager
-def _deployment_lock(root: Path):
-    """Serialize deploys and rollbacks that share current links/database."""
-
-    root.mkdir(parents=True, exist_ok=True)
-    lock_path = root / "deployment.lock"
-    try:
-        handle = lock_path.open("a+")
-        os.chmod(lock_path, 0o600)
-    except OSError as exc:
-        raise ProductionDeployError(f"cannot open deployment lock: {lock_path}") from exc
-    try:
-        try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (BlockingIOError, OSError) as exc:
-            raise ProductionDeployError("another Elysium deploy or rollback is already running") from exc
-        yield
-    finally:
-        try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        finally:
-            handle.close()
-
-
-def _install_backend_dependencies(release: ReleaseAssembly, lockfile: Path, environment: Mapping[str, str]) -> None:
-    python = release.path / ".venv/bin/python"
-    if not python.is_file():
-        raise ProductionDeployError(f"backend virtualenv is incomplete: {python}")
-    command = [str(python), "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "-r", str(lockfile)]
-    result = subprocess.run(
-        command,
-        cwd=release.path / "backend",
-        env=dict(environment),
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
-        raise ProductionDeployError(f"backend dependency installation failed: {detail[-1200:]}")
-
-
-def _python_version(python_executable: Path) -> str:
-    """Record the version of the interpreter that will own the release venv."""
-
-    result = subprocess.run(
-        [str(python_executable.resolve()), "--version"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
-        raise ProductionDeployError(detail or f"cannot execute deployment Python: {python_executable}")
-    version = (result.stdout or result.stderr).strip()
-    if not version.startswith("Python "):
-        raise ProductionDeployError(f"deployment Python returned an invalid version: {python_executable}")
-    return version.removeprefix("Python ").strip()
-
-
 def _backend_release(
     options: DeploymentOptions,
     *,
@@ -400,6 +192,19 @@ def _backend_release(
             source_temp = Path(tempfile.mkdtemp(prefix=f".backend-{deployment_id}-", dir=options.root))
             source = materialize_git_component(repository, options.commit, "backend", source_temp / "backend")
         source = source.resolve()
+        if options.tusd_binary_source is not None:
+            raw_tusd_source = options.tusd_binary_source.expanduser()
+            tusd_source = raw_tusd_source.resolve()
+            if raw_tusd_source.is_symlink() or not tusd_source.is_file():
+                raise ProductionDeployError(f"tusd binary is not a regular file: {raw_tusd_source}")
+            actual_tusd_sha256 = _sha256_file(tusd_source)
+            if (
+                not options.tusd_binary_sha256
+                or actual_tusd_sha256 != options.tusd_binary_sha256
+            ):
+                raise ProductionDeployError("tusd binary does not match the CI-verified SHA-256")
+        elif options.tusd_binary_sha256:
+            raise ProductionDeployError("tusd binary SHA-256 was provided without a binary")
         lockfile = source / "requirements.txt"
         if not lockfile.is_file():
             raise ProductionDeployError(f"backend requirements lockfile is missing: {lockfile}")
@@ -421,13 +226,14 @@ def _backend_release(
             backend_source=source,
             python_version=_python_version(options.python_executable),
             requirements_lock_sha256=_sha256_file(lockfile),
-            api_schema_sha256=options.backend_api_schema_sha256 or _sha256_file(source / "schemas.py"),
+            api_schema_sha256=options.backend_api_schema_sha256 or compute_api_schema_sha256(source),
             compatible_frontend_api=options.compatible_frontend_api,
             target_alembic_heads=list(target_heads),
             python_executable=options.python_executable,
             freeze=False,
             activate=False,
             git_ref=options.git_ref,
+            tusd_binary=options.tusd_binary_source,
         )
         try:
             _install_backend_dependencies(assembly, assembly.path / "backend/requirements.txt", environment)
@@ -558,9 +364,9 @@ def _frontend_release(options: DeploymentOptions, *, deployment_id: str) -> Rele
             package_lock_sha256 = _sha256_file(options.frontend_source.resolve() / "package-lock.json")
         api_schema_sha256 = options.frontend_api_schema_sha256
         if not api_schema_sha256:
-            schema = options.root / "backend/schemas.py"
-            if schema.is_file():
-                api_schema_sha256 = _sha256_file(schema)
+            backend_dir = options.root / "backend"
+            if (backend_dir / "schemas.py").is_file():
+                api_schema_sha256 = compute_api_schema_sha256(backend_dir)
         if not package_lock_sha256 or not api_schema_sha256:
             raise ProductionDeployError("frontend release metadata requires lockfile and API schema hashes")
         release_id = release_id_for(options.commit, "frontend")
@@ -580,400 +386,6 @@ def _frontend_release(options: DeploymentOptions, *, deployment_id: str) -> Rele
         )
     except (ReleaseBuildError, OSError) as exc:
         raise ProductionDeployError(str(exc)) from exc
-
-
-def _config_diff(before: Path | None, after: Path) -> str:
-    old = before.read_text(encoding="utf-8").splitlines(keepends=True) if before and before.is_file() else []
-    new = after.read_text(encoding="utf-8").splitlines(keepends=True)
-    return "".join(difflib.unified_diff(old, new, fromfile=str(before or "/dev/null"), tofile=str(after)))
-
-
-def _unlink_if_present(path: Path) -> None:
-    try:
-        path.unlink()
-    except (FileNotFoundError, NotADirectoryError):
-        pass
-
-
-def _nginx_path_literal(path: Path) -> str:
-    return '"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def _nginx_candidates(options: DeploymentOptions) -> list[tuple[Path, Path]]:
-    candidates: list[tuple[Path, Path]] = []
-    if options.nginx_source is not None:
-        candidates.append((options.nginx_target, options.nginx_source))
-    for target, source in (options.nginx_sources or {}).items():
-        candidates.append((Path(target), Path(source)))
-    unique: dict[Path, Path] = {}
-    for target, source in candidates:
-        unique[target.expanduser()] = source.expanduser()
-    return list(unique.items())
-
-
-def _nginx_remove_targets(options: DeploymentOptions) -> list[Path]:
-    return list(dict.fromkeys(Path(item).expanduser() for item in options.nginx_remove_targets))
-
-
-def _systemd_remove_units(options: DeploymentOptions) -> list[str]:
-    return list(dict.fromkeys(str(item) for item in options.systemd_remove_units))
-
-
-def _has_infrastructure_changes(options: DeploymentOptions) -> bool:
-    return bool(
-        _nginx_candidates(options)
-        or _nginx_remove_targets(options)
-        or options.systemd_sources
-        or _systemd_remove_units(options)
-        or options.mediamtx_config_source
-        or options.health_guard_source
-    )
-
-
-def _infra_change_requested(impact: Mapping[str, Any], options: DeploymentOptions) -> bool:
-    """Distinguish infra validation scope from an actual infra mutation.
-
-    The impact map intentionally selects all components for unknown paths and
-    release-tooling changes so CI runs full validation. Those paths do not
-    imply that a production Nginx/systemd target should be changed. A real
-    infrastructure rule still requires an explicit replacement/removal target
-    and therefore remains fail-closed when the caller omits one.
-    """
-
-    if _has_infrastructure_changes(options):
-        return True
-    matched_rules = impact.get("matched_rules", [])
-    if not isinstance(matched_rules, list):
-        return False
-    return any(
-        isinstance(rule, Mapping)
-        and isinstance(rule.get("id"), str)
-        and rule["id"].endswith("-infrastructure")
-        for rule in matched_rules
-    )
-
-
-def _within(path: Path, root: Path) -> bool:
-    try:
-        path.resolve(strict=False).relative_to(root.resolve())
-    except ValueError:
-        return False
-    return True
-
-
-def _validate_nginx_target(options: DeploymentOptions, target: Path) -> None:
-    # Production writes are constrained to the explicit Nginx configuration
-    # directories.  A temporary root is also allowed for isolated rehearsals
-    # and unit tests.
-    allowed = (
-        Path("/etc/nginx/sites-available"),
-        Path("/etc/nginx/sites-enabled"),
-        Path("/etc/nginx/conf.d"),
-        options.root,
-    )
-    if not any(_within(target, candidate) for candidate in allowed) or target in {
-        Path("/etc/nginx/sites-available"),
-        Path("/etc/nginx/sites-enabled"),
-        Path("/etc/nginx/conf.d"),
-        options.root,
-    }:
-        raise ProductionDeployError(f"Nginx target must be a site file: {target}")
-
-
-def _validate_fixed_file_target(
-    options: DeploymentOptions,
-    target: Path,
-    expected: Path,
-    label: str,
-) -> None:
-    """Allow one production target plus a path below the isolated test root."""
-
-    target = target.expanduser()
-    if not target.is_absolute() or target == Path("/") or target.is_symlink():
-        raise ProductionDeployError(f"unsafe {label} target: {target}")
-    if target.exists() and not target.is_file():
-        raise ProductionDeployError(f"{label} target must be a regular file: {target}")
-    if target != expected and not _within(target, options.root):
-        raise ProductionDeployError(f"{label} target is not the managed production file: {target}")
-
-
-def _validate_regular_source(source: Path, label: str) -> Path:
-    raw_source = source.expanduser()
-    resolved = raw_source.resolve()
-    if raw_source.is_symlink() or not resolved.is_file():
-        raise ProductionDeployError(f"candidate {label} is not a regular file: {raw_source}")
-    return resolved
-
-
-def _allow_initial_backend_current_verify_failure(
-    options: DeploymentOptions,
-    unit: str,
-    detail: str,
-) -> bool:
-    """Allow only systemd's expected pre-release missing-current diagnostic.
-
-    The first production cutover intentionally starts without a
-    ``backend-current`` link.  ``systemd-analyze verify`` reports the
-    eventual Uvicorn executable as missing even though the release builder
-    creates it before the unit is installed.  Keep the exception narrow: a
-    dangling link, another unit, or any additional diagnostic must still fail
-    the infrastructure preflight.
-    """
-
-    current = options.root.expanduser().resolve() / "backend-current"
-    if unit != options.backend_service or current.exists() or current.is_symlink():
-        return False
-    expected_command = current / ".venv/bin/python"
-    expected = (
-        f"{unit}: Command {expected_command} is not executable: "
-        "No such file or directory"
-    )
-    lines = [line.strip() for line in detail.splitlines() if line.strip()]
-    return lines == [expected]
-
-
-def _validate_systemd_target_dir(options: DeploymentOptions) -> None:
-    target_dir = options.systemd_target_dir
-    if not any(_within(target_dir, candidate) for candidate in (Path("/etc/systemd/system"), options.root)):
-        raise ProductionDeployError(f"unsafe systemd target directory: {target_dir}")
-
-
-def _validate_infrastructure(options: DeploymentOptions) -> None:
-    if not _has_infrastructure_changes(options):
-        raise ProductionDeployError(
-            "infrastructure validation requires an explicit Nginx or systemd replacement/removal target"
-        )
-    _validate_systemd_target_dir(options)
-    nginx_targets = {target for target, _candidate in _nginx_candidates(options)}
-    for target in _nginx_remove_targets(options):
-        if target in nginx_targets:
-            raise ProductionDeployError(f"Nginx target cannot be both replaced and removed: {target}")
-        if not target.is_absolute() or target == Path("/") or target.is_symlink():
-            raise ProductionDeployError(f"unsafe Nginx removal target: {target}")
-        _validate_nginx_target(options, target)
-    for target, candidate in _nginx_candidates(options):
-        if not target.is_absolute() or target == Path("/") or target.is_symlink():
-            raise ProductionDeployError(f"unsafe Nginx target: {target}")
-        _validate_nginx_target(options, target)
-        raw_source = candidate
-        source = raw_source.resolve()
-        if raw_source.is_symlink() or not source.is_file():
-            raise ProductionDeployError(f"candidate Nginx config is not a regular file: {raw_source}")
-        with tempfile.TemporaryDirectory(prefix=".nginx-validate-", dir=options.root) as directory:
-            validation_root = Path(directory)
-            validation_config = validation_root / "nginx.conf"
-            mime_include = (
-                "    include /etc/nginx/mime.types;\n"
-                if Path("/etc/nginx/mime.types").is_file()
-                else ""
-            )
-            validation_config.write_text(
-                "worker_processes 1;\n"
-                f"pid {_nginx_path_literal(validation_root / 'nginx.pid')};\n"
-                f"error_log {_nginx_path_literal(validation_root / 'error.log')};\n"
-                "events { worker_connections 16; }\n"
-                "http {\n"
-                f"{mime_include}"
-                f"    include {_nginx_path_literal(source)};\n"
-                "}\n",
-                encoding="utf-8",
-            )
-            result = subprocess.run(
-                ["nginx", "-t", "-p", f"{validation_root}/", "-c", str(validation_config)],
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            if result.returncode:
-                raise ProductionDeployError(
-                    (result.stderr or result.stdout).strip()
-                    or "candidate Nginx syntax check failed"
-                )
-    systemd_sources = set((options.systemd_sources or {}))
-    for unit in _systemd_remove_units(options):
-        if unit in systemd_sources:
-            raise ProductionDeployError(f"systemd unit cannot be both replaced and removed: {unit}")
-        if Path(unit).name != unit or not unit.endswith((".service", ".timer")):
-            raise ProductionDeployError(f"unsafe systemd removal unit name: {unit}")
-        if "flclash" in unit.casefold():
-            raise ProductionDeployError(f"deployment must not control FlClash unit: {unit}")
-        target = options.systemd_target_dir / unit
-        if target.is_symlink():
-            raise ProductionDeployError(f"refusing to remove symlinked systemd unit: {target}")
-    for unit, source in (options.systemd_sources or {}).items():
-        if Path(unit).name != unit or not unit.endswith((".service", ".timer")):
-            raise ProductionDeployError(f"unsafe systemd unit name: {unit}")
-        if "flclash" in unit.casefold():
-            raise ProductionDeployError(f"deployment must not control FlClash unit: {unit}")
-        raw_source = source.expanduser()
-        source = _validate_regular_source(raw_source, "systemd unit")
-        if (options.systemd_target_dir / unit).is_symlink():
-            raise ProductionDeployError(
-                f"refusing to overwrite symlinked systemd unit: {options.systemd_target_dir / unit}"
-            )
-        if shutil.which("systemd-analyze"):
-            result = subprocess.run(["systemd-analyze", "verify", str(source)], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if result.returncode:
-                detail = "\n".join(
-                    part.strip()
-                    for part in (result.stderr, result.stdout)
-                    if part and part.strip()
-                )
-                if not _allow_initial_backend_current_verify_failure(options, unit, detail):
-                    raise ProductionDeployError(detail or f"systemd verification failed: {source}")
-    if options.mediamtx_config_source is not None:
-        _validate_fixed_file_target(
-            options,
-            options.mediamtx_config_target,
-            Path("/etc/elysium/mediamtx.yml"),
-            "MediaMTX config",
-        )
-        _validate_regular_source(options.mediamtx_config_source, "MediaMTX config")
-    if options.health_guard_source is not None:
-        _validate_fixed_file_target(
-            options,
-            options.health_guard_target,
-            Path("/usr/local/sbin/elysium-health-guard"),
-            "health guard",
-        )
-        _validate_regular_source(options.health_guard_source, "health guard")
-        if "flclash" in options.health_guard_service.casefold():
-            raise ProductionDeployError(
-                f"deployment must not control FlClash service: {options.health_guard_service}"
-            )
-
-
-def _apply_infrastructure(
-    options: DeploymentOptions,
-    transaction: dict[str, Any],
-) -> dict[str, object]:
-    _validate_infrastructure(options)
-    history_dir = deployment_history_path(options.root) / f"{options.deployment_id}.rollback"
-    history_dir.mkdir(parents=True, exist_ok=False)
-    transaction["rollback"]["config_backup"] = str(history_dir.relative_to(options.root))
-    previous: dict[str, object] = {}
-    try:
-        nginx_candidates = _nginx_candidates(options)
-        for index, (target, source) in enumerate(nginx_candidates):
-            key = f"nginx:{target}"
-            previous[key] = None
-            if target.is_file():
-                backup = history_dir / f"nginx-{index}.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-            diff = _config_diff(previous.get(key), source)
-            (history_dir / f"nginx-{index}.diff").write_text(diff, encoding="utf-8")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-        for index, target in enumerate(_nginx_remove_targets(options), start=len(nginx_candidates)):
-            key = f"nginx:{target}"
-            previous[key] = None
-            if target.exists():
-                if not target.is_file() or target.is_symlink():
-                    raise ProductionDeployError(f"Nginx removal target is not a regular file: {target}")
-                backup = history_dir / f"nginx-{index}.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-                old = target.read_text(encoding="utf-8").splitlines(keepends=True)
-                diff = "".join(difflib.unified_diff(old, [], fromfile=str(backup), tofile="/dev/null"))
-            else:
-                diff = ""
-            (history_dir / f"nginx-{index}.diff").write_text(diff, encoding="utf-8")
-            _unlink_if_present(target)
-        if options.mediamtx_config_source is not None:
-            target = options.mediamtx_config_target
-            key = f"mediamtx-config:{target}"
-            previous[key] = None
-            if target.is_file():
-                backup = history_dir / "mediamtx.conf.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-            source = _validate_regular_source(options.mediamtx_config_source, "MediaMTX config")
-            before = previous[key] if isinstance(previous[key], Path) else None
-            (history_dir / "mediamtx.conf.diff").write_text(
-                _config_diff(before, source), encoding="utf-8"
-            )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-        if options.health_guard_source is not None:
-            target = options.health_guard_target
-            key = f"health-guard:{target}"
-            previous[key] = None
-            previous[f"health-guard-state:{options.health_guard_service}"] = _systemd_state(
-                options.health_guard_service
-            )
-            if target.is_file():
-                backup = history_dir / "health-guard.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-            source = _validate_regular_source(options.health_guard_source, "health guard")
-            before = previous[key] if isinstance(previous[key], Path) else None
-            (history_dir / "health-guard.diff").write_text(
-                _config_diff(before, source), encoding="utf-8"
-            )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            os.chmod(target, 0o755)
-        for unit, source in (options.systemd_sources or {}).items():
-            target = options.systemd_target_dir / unit
-            key = f"systemd:{unit}"
-            previous[key] = None
-            previous[f"systemd-state:{unit}"] = _systemd_state(unit)
-            if target.is_file():
-                backup = history_dir / f"{unit}.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-            diff = _config_diff(previous[key], source)
-            (history_dir / f"{unit}.diff").write_text(diff, encoding="utf-8")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-        for unit in _systemd_remove_units(options):
-            target = options.systemd_target_dir / unit
-            key = f"systemd:{unit}"
-            previous[key] = None
-            previous[f"systemd-state:{unit}"] = _systemd_state(unit)
-            if target.exists():
-                if not target.is_file() or target.is_symlink():
-                    raise ProductionDeployError(f"systemd removal target is not a regular file: {target}")
-                backup = history_dir / f"{unit}.before"
-                shutil.copy2(target, backup)
-                previous[key] = backup
-                old = target.read_text(encoding="utf-8").splitlines(keepends=True)
-                diff = "".join(difflib.unified_diff(old, [], fromfile=str(backup), tofile="/dev/null"))
-            else:
-                diff = ""
-            (history_dir / f"{unit}.diff").write_text(diff, encoding="utf-8")
-            state = previous[f"systemd-state:{unit}"]
-            if isinstance(state, Mapping) and (state.get("enabled") or state.get("active")):
-                # Disable before deleting the unit so systemd cannot leave a
-                # dangling wants link or immediately respawn the retired app.
-                _systemctl("disable --now", unit)
-            _unlink_if_present(target)
-    except Exception as exc:
-        transaction["rollback"]["infrastructure_state"] = {
-            key.removeprefix("systemd-state:"): dict(value)
-            for key, value in previous.items()
-            if key.startswith("systemd-state:") and isinstance(value, Mapping)
-        }
-        if options.health_guard_source is not None:
-            state = previous.get(f"health-guard-state:{options.health_guard_service}")
-            if isinstance(state, Mapping):
-                transaction["rollback"]["health_guard_state"] = dict(state)
-        raise InfrastructureApplyError(
-            f"infrastructure apply failed: {exc}",
-            previous=previous,
-        ) from exc
-    transaction["rollback"]["infrastructure_state"] = {
-        key.removeprefix("systemd-state:"): dict(value)
-        for key, value in previous.items()
-        if key.startswith("systemd-state:") and isinstance(value, Mapping)
-    }
-    if options.health_guard_source is not None:
-        state = previous.get(f"health-guard-state:{options.health_guard_service}")
-        if isinstance(state, Mapping):
-            transaction["rollback"]["health_guard_state"] = dict(state)
-    return previous
 
 
 def _restart_changed_systemd_units(
@@ -1003,98 +415,6 @@ def _stop_removed_systemd_units(options: DeploymentOptions, units: list[str]) ->
         _systemctl("stop", unit)
         stopped.append(unit)
     return stopped
-
-
-def _restore_infrastructure(
-    options: DeploymentOptions,
-    previous: Mapping[str, object],
-) -> None:
-    nginx_was_changed = False
-    for key, backup in previous.items():
-        if not isinstance(backup, (Path, type(None))):
-            continue
-        if not key.startswith("nginx:"):
-            continue
-        nginx_was_changed = True
-        target = Path(key.removeprefix("nginx:"))
-        if backup is not None:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(backup, target)
-        else:
-            _unlink_if_present(target)
-    for key, backup in previous.items():
-        if not isinstance(backup, (Path, type(None))):
-            continue
-        if not key.startswith("mediamtx-config:"):
-            continue
-        target = Path(key.removeprefix("mediamtx-config:"))
-        if backup is None:
-            _unlink_if_present(target)
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(backup, target)
-    for key, backup in previous.items():
-        if not isinstance(backup, (Path, type(None))):
-            continue
-        if not key.startswith("health-guard:"):
-            continue
-        target = Path(key.removeprefix("health-guard:"))
-        if backup is None:
-            _unlink_if_present(target)
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(backup, target)
-    for key, backup in previous.items():
-        if not isinstance(backup, (Path, type(None))):
-            continue
-        if not key.startswith("systemd:"):
-            continue
-        target = options.systemd_target_dir / key.split(":", 1)[1]
-        if backup is None:
-            _unlink_if_present(target)
-        else:
-            shutil.copy2(backup, target)
-    systemd_units = [
-        key.split(":", 1)[1]
-        for key, backup in previous.items()
-        if key.startswith("systemd:") and isinstance(backup, (Path, type(None)))
-    ]
-    if systemd_units:
-        subprocess.run(["systemctl", "daemon-reload"], check=True)
-        for unit in systemd_units:
-            state = previous.get(f"systemd-state:{unit}")
-            if not isinstance(state, Mapping):
-                if previous.get(f"systemd:{unit}") is not None:
-                    _systemctl("restart", unit)
-                continue
-            if bool(state.get("enabled")):
-                _systemctl("enable", unit)
-            else:
-                _systemctl("disable", unit)
-            if bool(state.get("active")):
-                _systemctl("restart", unit)
-            else:
-                _systemctl("stop", unit)
-    health_state = next(
-        (
-            value
-            for key, value in previous.items()
-            if key.startswith("health-guard-state:") and isinstance(value, Mapping)
-        ),
-        None,
-    )
-    if health_state is not None:
-        if bool(health_state.get("enabled")):
-            _systemctl("enable", options.health_guard_service)
-        else:
-            _systemctl("disable", options.health_guard_service)
-        if bool(health_state.get("active")):
-            _systemctl("restart", options.health_guard_service)
-        else:
-            _systemctl("stop", options.health_guard_service)
-    if nginx_was_changed:
-        subprocess.run(["nginx", "-t"], check=True)
-        subprocess.run(["systemctl", "reload", options.nginx_service], check=True)
 
 
 def _legacy_path_audit(options: DeploymentOptions, root: Path) -> dict[str, object]:
@@ -1145,6 +465,8 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
     switched: list[str] = []
     previous_infra: dict[str, object] = {}
     environment: dict[str, str] | None = None
+    music_api_available = False
+    tusd_available = False
     try:
         legacy_audit = _legacy_path_audit(options, root)
         transaction["legacy_path_audit"] = legacy_audit
@@ -1157,11 +479,32 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
         _write_progress(transaction_path, transaction)
         components = set(impact["components"])
         infrastructure_change_requested = _infra_change_requested(impact, options)
+        music_api_unit_is_candidate = bool(
+            options.systemd_sources and options.music_api_service in options.systemd_sources
+        )
+        music_api_unit_installed = _music_api_service_installed(options)
+        tusd_unit_is_candidate = bool(
+            options.systemd_sources and options.tusd_service in options.systemd_sources
+        )
+        tusd_unit_installed = _tusd_service_installed(options)
+        if tusd_unit_is_candidate and "backend" not in components:
+            raise ProductionDeployError(
+                "tusd systemd unit requires a backend release containing its pinned runtime"
+            )
+        if "backend" in components and (tusd_unit_is_candidate or tusd_unit_installed):
+            if options.tusd_binary_source is None or not options.tusd_binary_sha256:
+                raise ProductionDeployError(
+                    "backend deployment with the tusd service requires its CI-verified runtime artifact"
+                )
         backend_restart_deferred = bool(
             "backend" in components
             and infrastructure_change_requested
             and options.systemd_sources
-            and options.backend_service in options.systemd_sources
+            and (
+                options.backend_service in options.systemd_sources
+                or music_api_unit_is_candidate
+                or tusd_unit_is_candidate
+            )
         )
         if "infra" in components and infrastructure_change_requested:
             _validate_infrastructure(options)
@@ -1189,6 +532,30 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 transaction=transaction,
                 transaction_path=transaction_path,
             )
+            release_has_music_api = _backend_release_has_music_api(assembly.path)
+            if music_api_unit_is_candidate and not release_has_music_api:
+                raise ProductionDeployError(
+                    "internal music API systemd unit cannot be installed without backend/music_node/server.cjs"
+                )
+            if release_has_music_api and not (music_api_unit_installed or music_api_unit_is_candidate):
+                raise ProductionDeployError(
+                    "internal music API systemd unit is not installed; include its unit before deploying this backend"
+                )
+            music_api_available = release_has_music_api and (
+                music_api_unit_installed or music_api_unit_is_candidate
+            )
+            release_has_tusd = _backend_release_has_tusd(assembly.path)
+            if tusd_unit_is_candidate and not release_has_tusd:
+                raise ProductionDeployError(
+                    "tusd systemd unit cannot be installed without backend/bin/tusd"
+                )
+            if release_has_tusd and not (tusd_unit_installed or tusd_unit_is_candidate):
+                raise ProductionDeployError(
+                    "pinned tusd runtime is present but its systemd unit is not installed"
+                )
+            tusd_available = release_has_tusd and (
+                tusd_unit_installed or tusd_unit_is_candidate
+            )
             atomic_component_link(root, "backend", assembly.release_id)
             switched.append("backend")
             _stage(transaction, "backend_current_switch", "succeeded", release_id=assembly.release_id)
@@ -1203,6 +570,30 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 )
                 _write_progress(transaction_path, transaction)
             else:
+                if "backend" in components and music_api_available:
+                    _systemctl("enable", options.music_api_service)
+                    _systemctl("restart", options.music_api_service)
+                    _stage(
+                        transaction,
+                        "music_api_service_restart",
+                        "succeeded",
+                        service=options.music_api_service,
+                    )
+                    _write_progress(transaction_path, transaction)
+                elif "backend" in components and music_api_unit_installed:
+                    _systemctl("disable --now", options.music_api_service)
+                if "backend" in components and tusd_available:
+                    _systemctl("enable", options.tusd_service)
+                    _systemctl("restart", options.tusd_service)
+                    _stage(
+                        transaction,
+                        "tusd_service_restart",
+                        "succeeded",
+                        service=options.tusd_service,
+                    )
+                    _write_progress(transaction_path, transaction)
+                elif "backend" in components and tusd_unit_installed:
+                    _systemctl("disable --now", options.tusd_service)
                 _systemctl("restart", options.backend_service)
                 _stage(transaction, "backend_service_restart", "succeeded", service=options.backend_service)
                 _write_progress(transaction_path, transaction)
@@ -1235,6 +626,48 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
                 if options.systemd_sources or _systemd_remove_units(options):
                     subprocess.run(["systemctl", "daemon-reload"], check=True)
                     restart_units = list((options.systemd_sources or {}))
+                    if backend_restart_deferred:
+                        # Restart release-coupled services after their units
+                        # are installed and before the backend that calls them.
+                        if music_api_available:
+                            _systemctl("enable", options.music_api_service)
+                        elif music_api_unit_installed:
+                            _systemctl("disable --now", options.music_api_service)
+                        if tusd_available:
+                            _systemctl("enable", options.tusd_service)
+                        elif tusd_unit_installed:
+                            _systemctl("disable --now", options.tusd_service)
+                        restart_units = [
+                            unit
+                            for unit in restart_units
+                            if unit not in {
+                                options.music_api_service,
+                                options.tusd_service,
+                            }
+                        ]
+                        if music_api_available:
+                            restart_units.append(options.music_api_service)
+                        if tusd_available:
+                            restart_units.append(options.tusd_service)
+                        restart_units.append(options.backend_service)
+                        restart_units = [
+                            unit
+                            for unit in dict.fromkeys(restart_units)
+                            if unit
+                            not in {
+                                options.music_api_service,
+                                options.tusd_service,
+                                options.backend_service,
+                            }
+                        ] + (
+                            [options.music_api_service]
+                            if music_api_available
+                            else []
+                        ) + (
+                            [options.tusd_service]
+                            if tusd_available
+                            else []
+                        ) + [options.backend_service]
                     if options.health_guard_source is not None and not options.defer_health_guard_restart:
                         restart_units.append(options.health_guard_service)
                     restarted_units = _restart_changed_systemd_units(options, restart_units)
@@ -1314,10 +747,26 @@ def _deploy_unlocked(options: DeploymentOptions) -> dict[str, Any]:
             try:
                 if isinstance(previous, dict) and previous.get("release_id"):
                     atomic_component_link(root, "backend", str(previous["release_id"]))
+                    if _music_api_service_installed(options):
+                        if _backend_release_has_music_api(root / "backend-current"):
+                            _systemctl("enable", options.music_api_service)
+                            _systemctl("restart", options.music_api_service)
+                        else:
+                            _systemctl("disable --now", options.music_api_service)
+                    if _tusd_service_installed(options):
+                        if _backend_release_has_tusd(root / "backend-current"):
+                            _systemctl("enable", options.tusd_service)
+                            _systemctl("restart", options.tusd_service)
+                        else:
+                            _systemctl("disable --now", options.tusd_service)
                     _systemctl("restart", options.backend_service)
                 else:
                     (root / "backend-current").unlink(missing_ok=True)
                     _systemctl("stop", options.backend_service)
+                    if _music_api_service_installed(options):
+                        _systemctl("disable --now", options.music_api_service)
+                    if _tusd_service_installed(options):
+                        _systemctl("disable --now", options.tusd_service)
             except Exception as rollback_error:  # pragma: no cover - defensive production path
                 rollback_errors.append(f"backend: {rollback_error}")
         rollback_payload = {

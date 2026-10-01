@@ -7,6 +7,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { HomeNavigationContext, HomeSidebarContext } from '../../contexts/HomeSidebarContext.jsx'
 import HomeNavigation from './HomeNavigation.jsx'
+import './appShell.css'
+import './plainService.css'
+import './homeNavigation.css'
 import { isTransferHost } from '../../config.js'
 
 function homeNavigationView(pathname) {

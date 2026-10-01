@@ -1,3 +1,5 @@
+import './ui.css'
+
 export { Avatar } from './Avatar.jsx'
 export { Button, IconButton } from './Button.jsx'
 export { Card } from './Card.jsx'

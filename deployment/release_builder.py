@@ -62,6 +62,14 @@ def sha256_tree(root: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def atomic_component_link(root: Path, component: str, release_id: str) -> Path:
     scope = FRONTEND_SCOPE if component == "frontend" else BACKEND_SCOPE if component == "backend" else None
     if scope is None:
@@ -164,10 +172,19 @@ def assemble_backend_release(
     freeze: bool = True,
     activate: bool = False,
     git_ref: str = "refs/heads/main",
+    tusd_binary: Path | None = None,
 ) -> ReleaseAssembly:
     source = backend_source.resolve()
     if not source.is_dir():
         raise ReleaseBuildError(f"backend source is not a directory: {source}")
+    tusd_source: Path | None = None
+    tusd_binary_sha256: str | None = None
+    if tusd_binary is not None:
+        raw_tusd_source = tusd_binary.expanduser()
+        tusd_source = raw_tusd_source.resolve()
+        if raw_tusd_source.is_symlink() or not tusd_source.is_file():
+            raise ReleaseBuildError(f"tusd binary is not a regular file: {raw_tusd_source}")
+        tusd_binary_sha256 = sha256_file(tusd_source)
     destination = release_path(root, "backend", release_id)
     if destination.exists():
         raise ReleaseBuildError(f"backend release already exists: {destination}")
@@ -176,6 +193,15 @@ def assemble_backend_release(
     temporary = Path(tempfile.mkdtemp(prefix=f".{release_id}.", dir=release_root))
     try:
         shutil.copytree(source, temporary / "backend", symlinks=False, ignore=shutil.ignore_patterns(".venv", "__pycache__", "*.pyc"))
+        if tusd_source is not None:
+            license_source = source / "third_party_licenses/tusd/LICENSE.txt"
+            if not license_source.is_file():
+                raise ReleaseBuildError(f"tusd license notice is missing: {license_source}")
+            tusd_destination = temporary / "backend/bin/tusd"
+            tusd_destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(tusd_source, tusd_destination)
+            os.chmod(tusd_destination, 0o755)
+            shutil.copyfile(license_source, tusd_destination.with_name("tusd.LICENSE.txt"))
         virtualenv_path = temporary / ".venv"
         if create_virtualenv:
             # Use the requested interpreter explicitly.  EnvBuilder otherwise
@@ -211,6 +237,11 @@ def assemble_backend_release(
             compatible_frontend_api=compatible_frontend_api,
             target_alembic_heads=sorted(set(target_alembic_heads)),
             venv_ready=virtualenv_path.is_dir() if create_virtualenv else False,
+            **(
+                {"tusd_binary_sha256": tusd_binary_sha256}
+                if tusd_binary_sha256 is not None
+                else {}
+            ),
         )
         write_release_manifest(temporary / "RELEASE.json", manifest)
         os.replace(temporary, destination)

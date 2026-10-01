@@ -69,7 +69,8 @@ refer to the pre-cleanup graph; the current entrypoint has no path back to them.
 - Dependency: only the removed route table, old home/collection/archive/books/
   tools surfaces or standalone player tests.
 - Reason: no path from `frontend/src/main.jsx` and no current page imports these
-  modules; current room playback remains in `MineradioRoomEmbed.jsx`,
+  modules; current music playback is owned by
+  `frontend/src/features/music/MusicRoomPlayer.jsx`, while video rooms remain in
   `VideoRoomPage.jsx` and the room sync modules.
 - Restore: `git restore --source archive/pre-core-cleanup-2026-08-30 -- frontend/src/components frontend/src/features/elysium-room frontend/src/features/player frontend/src/pages frontend/src/navigation.js frontend/src/theme/useTheme.js frontend/src/utils/imageHelper.js frontend/src/styles/homeRebuild.css`
 
@@ -164,3 +165,15 @@ It was not a retirement candidate and remains registered.
   changing the protected production data boundary.
 - User-provided untracked operations files were inventoried before cleanup and
   were not staged, edited or deleted.
+
+## Later internal-refactor audit
+
+The consumer-by-consumer disposition of bookmarks, Books, resource requests and
+the old Mineradio provider bridge is recorded in
+[`legacy-feature-audit.md`](legacy-feature-audit.md). In short, bookmarks, the
+Books API/data and resource-request API remain protected because current
+in-process or browser-gate consumers exist, or external use cannot be ruled out.
+The unused Python Mineradio HTTP adapter package and its explicit rollback
+configuration were retired; active music playback remains on the direct
+`backend/music` provider adapters. The `MineradioPage` name refers to the live
+Elysium music room and is not part of that retirement.

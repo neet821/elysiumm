@@ -9,6 +9,10 @@ const authContextSource = readFileSync(
   new URL("../src/contexts/AuthContext.jsx", import.meta.url),
   "utf8",
 );
+const authApiSource = readFileSync(
+  new URL("../src/features/auth/authApi.js", import.meta.url),
+  "utf8",
+);
 const requestSource = readFileSync(
   new URL("../src/utils/request.js", import.meta.url),
   "utf8",
@@ -42,8 +46,13 @@ assert.match(
 );
 assert.match(
   authContextSource,
-  /apiClient\.post\(API_ENDPOINTS\.LOGOUT/,
-  "logout should notify the backend endpoint",
+  /logoutCurrentSession\(\)/,
+  "logout should delegate the backend request to the auth API owner",
+);
+assert.match(
+  authApiSource,
+  /apiClient\.post\(API_ENDPOINTS\.LOGOUT\)/,
+  "the auth API owner should notify the backend logout endpoint",
 );
 
 assert.match(

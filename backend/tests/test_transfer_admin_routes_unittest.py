@@ -2,8 +2,10 @@ import os
 import sys
 import tempfile
 import unittest
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
@@ -20,6 +22,8 @@ import main  # noqa: E402
 import models  # noqa: E402
 import security  # noqa: E402
 import transfer_service  # noqa: E402
+import tus_upload_service  # noqa: E402
+import tus_transfer_file_service  # noqa: E402
 from database import SessionLocal  # noqa: E402
 
 
@@ -32,6 +36,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
         transfer_service.TRANSFER_ROOT = Path(tmp.name) / "storage"
         self.db = SessionLocal()
         self.db.query(models.AdminTransferNote).delete()
+        self.db.query(models.TusUploadReservation).delete()
         self.db.query(models.TransferFile).delete()
         self.db.query(models.TransferSession).delete()
         self.db.query(models.User).delete()
@@ -107,6 +112,14 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(download.status_code, 200)
         self.assertEqual(download.content, b"hello")
         self.assertIn("filename*=UTF-8''", download.headers["content-disposition"])
+
+        ranged_download = self.client.get(
+            payload[0]["download_url"],
+            headers={**self.admin_auth, "Range": "bytes=1-3"},
+        )
+        self.assertEqual(ranged_download.status_code, 206)
+        self.assertEqual(ranged_download.content, b"ell")
+        self.assertEqual(ranged_download.headers["content-range"], "bytes 1-3/5")
         self.assertEqual(
             self.client.get(payload[0]["download_url"], headers=self.member_auth).status_code,
             403,
@@ -123,6 +136,7 @@ class TransferAdminRoutesTest(unittest.TestCase):
 
         uploaded = self.client.put(
             f"/api/transfers/{old_token}?filename=rotated.txt",
+            headers=self.admin_auth,
             content=b"rotated",
         )
 
@@ -135,6 +149,78 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(refreshed.status_code, 200)
         self.assertEqual([item["name"] for item in refreshed.json()["files"]], ["rotated.txt"])
         self.assertTrue(refreshed.json()["expires_at"].endswith("Z"))
+
+        public_download = self.client.get(
+            payload["download_url"],
+            headers={"Range": "bytes=1-3"},
+        )
+        self.assertEqual(public_download.status_code, 206)
+        self.assertEqual(public_download.content, b"ota")
+        self.assertEqual(public_download.headers["content-range"], "bytes 1-3/7")
+
+    def test_second_admin_can_reserve_upload_on_shared_current_session(self):
+        other_admin = models.User(
+            username="other-admin",
+            email="other-admin@example.com",
+            hashed_password=security.get_password_hash("pw"),
+            role="admin",
+            is_active=True,
+        )
+        self.db.add(other_admin)
+        self.db.commit()
+        session = self.db.query(models.TransferSession).one()
+
+        with patch.object(tus_upload_service, "has_disk_reserve", return_value=True):
+            reservation = tus_upload_service.reserve_upload(
+                self.db,
+                owner=other_admin,
+                filename="other-admin.txt",
+                content_type="text/plain",
+                purpose="transfer_file",
+                upload_length=1,
+                session_id=str(session.id),
+            )
+
+        self.assertEqual(reservation.transfer_session_id, session.id)
+        self.assertEqual(reservation.owner_user_id, other_admin.id)
+
+    def test_public_transfer_token_does_not_authorize_upload(self):
+        def make_session():
+            now = datetime.utcnow()
+            token = transfer_service.new_token()
+            session = models.TransferSession(
+                token_hash=transfer_service.token_hash(token),
+                public_token=token,
+                created_by=self.admin.id,
+                total_bytes=0,
+                max_bytes=2 * 1024**3,
+                last_activity_at=now,
+                expires_at=now + timedelta(minutes=5),
+                created_at=now,
+            )
+            self.db.add(session)
+            self.db.commit()
+            return token, session.id
+
+        anonymous_token, anonymous_session_id = make_session()
+        member_token, member_session_id = make_session()
+
+        anonymous = self.client.put(
+            f"/api/transfers/{anonymous_token}?filename=anonymous.txt",
+            content=b"anonymous",
+        )
+        member = self.client.put(
+            f"/api/transfers/{member_token}?filename=member.txt",
+            headers=self.member_auth,
+            content=b"member",
+        )
+
+        self.assertEqual(anonymous.status_code, 401, anonymous.text)
+        self.assertEqual(member.status_code, 403, member.text)
+        for session_id in (anonymous_session_id, member_session_id):
+            session = self.db.query(models.TransferSession).filter_by(id=session_id).one()
+            self.assertEqual(session.total_bytes, 0)
+            self.assertEqual(len(session.files), 0)
 
     def test_current_link_consolidates_old_sessions_to_one(self):
         now = datetime.utcnow() + timedelta(seconds=1)
@@ -157,6 +243,72 @@ class TransferAdminRoutesTest(unittest.TestCase):
         self.assertEqual(self.db.query(models.TransferFile).count(), 1)
         self.assertEqual(response.json()["files"][0]["name"], "中文资料.txt")
         self.assertTrue(self.file_path.exists())
+
+    def test_active_tus_upload_keeps_its_transfer_session_until_finalization(self):
+        original = self.db.query(models.TransferSession).first()
+        now = datetime.utcnow() + timedelta(seconds=1)
+        newer = models.TransferSession(
+            token_hash="c" * 64,
+            public_token="newest-session-token",
+            created_by=self.admin.id,
+            max_bytes=2 * 1024**3,
+            last_activity_at=now,
+            expires_at=now + timedelta(minutes=5),
+            created_at=now,
+        )
+        self.db.add(newer)
+        self.db.flush()
+
+        upload_id = "d" * 32
+        staged_content = b"resumable transfer payload"
+        reservation = models.TusUploadReservation(
+            upload_id=upload_id,
+            owner_user_id=self.admin.id,
+            purpose="transfer_file",
+            transfer_session_id=original.id,
+            original_name="resumable.txt",
+            content_type="text/plain",
+            upload_length=len(staged_content),
+            upload_offset=0,
+            status="active",
+            created_at=now,
+            last_activity_at=now,
+            expires_at=now + timedelta(minutes=5),
+        )
+        self.db.add(reservation)
+        self.db.commit()
+
+        consolidated = self.client.post(
+            "/api/admin/transfers/current-link", headers=self.admin_auth
+        )
+        self.assertEqual(consolidated.status_code, 409, consolidated.text)
+
+        deleted = self.client.delete(
+            f"/api/admin/transfers/{original.id}", headers=self.admin_auth
+        )
+        self.assertEqual(deleted.status_code, 409, deleted.text)
+
+        self.db.expire_all()
+        reservation = self.db.query(models.TusUploadReservation).filter_by(
+            upload_id=upload_id
+        ).one()
+        self.assertEqual(reservation.transfer_session_id, original.id)
+        self.assertEqual(self.db.query(models.TransferSession).count(), 2)
+
+        staged_file = Path(tmp.name) / f"{upload_id}.upload"
+        staged_file.write_bytes(staged_content)
+        payload, published_file = tus_transfer_file_service.finalize_transfer_file_upload(
+            self.db,
+            reservation=reservation,
+            source=staged_file,
+            digest=hashlib.sha256(staged_content).hexdigest(),
+        )
+        self.db.commit()
+
+        self.assertEqual(payload["name"], "resumable.txt")
+        self.assertEqual(published_file.read_bytes(), staged_content)
+        self.assertEqual(reservation.transfer_session_id, original.id)
+        self.assertEqual(self.db.query(models.TransferFile).count(), 2)
 
     def test_admin_can_delete_one_transfer_file(self):
         endpoint = "/api/admin/transfers/files/1"

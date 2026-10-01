@@ -17,7 +17,8 @@ class TrackAvailability(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
-_PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
+PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
+_PROVIDER_ORDER = PROVIDER_ORDER
 _AVAILABILITY_ORDER = {
     TrackAvailability.PLAYABLE: 0,
     TrackAvailability.PREVIEW: 1,
@@ -173,7 +174,9 @@ def _deduplicate_provider_tracks(tracks: Iterable[ProviderTrack]) -> list[Provid
 
 
 def _duration_matches(left: int, right: int) -> bool:
-    return left == 0 or right == 0 or abs(left - right) <= 3
+    # Unknown duration is missing evidence, not a wildcard. Provider mappings
+    # with matching ISRCs are handled earlier as the stronger identity proof.
+    return left > 0 and right > 0 and abs(left - right) <= 3
 
 
 def _group_matches(group: list[ProviderTrack], track: ProviderTrack) -> bool:

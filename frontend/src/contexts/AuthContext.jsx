@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import apiClient from "../utils/request";
-import { API_ENDPOINTS } from "../config";
+import {
+  fetchCurrentUser,
+  loginWithPassword,
+  logoutCurrentSession,
+  registerAccount,
+} from "../features/auth/authApi";
+import { getAuthErrorMessage } from "../features/auth/authErrors";
 
 const AuthContext = createContext(null);
 
@@ -57,7 +62,7 @@ export const AuthProvider = ({ children }) => {
     const hasToken = Boolean(localStorage.getItem("token"));
     if (notifyServer && hasToken) {
       try {
-        await apiClient.post(API_ENDPOINTS.LOGOUT);
+        await logoutCurrentSession();
       } catch (error) {
         console.warn("退出登录通知失败，已清理本地登录态:", error);
       }
@@ -68,7 +73,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserInfo = async () => {
     try {
-      const response = await apiClient.get(API_ENDPOINTS.USER_INFO);
+      const response = await fetchCurrentUser();
       setUser(response.data);
       setToken(localStorage.getItem("token"));
       setRefreshToken(localStorage.getItem("refresh_token"));
@@ -84,11 +89,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     try {
       setLoading(true);
-      const response = await apiClient.post(API_ENDPOINTS.REGISTER, {
-        username,
-        email,
-        password,
-      });
+      const response = await registerAccount(username, email, password);
 
       if (response.data) {
         await login(username, password);
@@ -96,21 +97,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error("注册失败:", error);
-      let errorMessage = "注册失败，请重试";
-
-      if (error.response?.data?.detail) {
-        if (typeof error.response.data.detail === "string") {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail
-            .map((e) => e.msg)
-            .join(", ");
-        } else if (typeof error.response.data.detail === "object") {
-             errorMessage = error.response.data.detail.msg || JSON.stringify(error.response.data.detail);
-        }
-      }
-
-      return { success: false, message: errorMessage };
+      return {
+        success: false,
+        message: getAuthErrorMessage(error, "注册失败，请重试"),
+      };
     } finally {
       setLoading(false);
     }
@@ -119,13 +109,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setLoading(true);
-      const formData = new FormData();
-      formData.append("username", username);
-      formData.append("password", password);
-
-      // Let the browser set Content-Type (with boundary) when using FormData.
-      // Manually setting it may omit boundary and break parsing on the server.
-      const response = await apiClient.post(API_ENDPOINTS.LOGIN, formData);
+      const response = await loginWithPassword(username, password);
 
       const authUser = applyAuthPayload(response.data);
       if (!authUser) {
@@ -134,24 +118,9 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error("登录失败:", error);
-      let errorMessage = "登录失败，请检查用户名和密码";
-
-      if (error.response?.data?.detail) {
-        if (typeof error.response.data.detail === "string") {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail
-            .map((e) => e.msg)
-            .join(", ");
-        } else if (typeof error.response.data.detail === "object") {
-             // Handle case where detail might be a single object (though less common for 422)
-             errorMessage = error.response.data.detail.msg || JSON.stringify(error.response.data.detail);
-        }
-      }
-
       return {
         success: false,
-        message: errorMessage,
+        message: getAuthErrorMessage(error, "登录失败，请检查用户名和密码"),
       };
     } finally {
       setLoading(false);

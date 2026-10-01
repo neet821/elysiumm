@@ -105,6 +105,14 @@ class CatalogDomainTest(unittest.TestCase):
         self.assertEqual(len(groups[0].providers), 2)
         self.assertEqual(len(groups[1].providers), 1)
 
+    def test_missing_duration_is_not_enough_evidence_to_merge_provider_tracks(self):
+        groups = canonicalize_tracks([
+            provider_track(provider="netease", provider_track_id="ne-unknown-duration", duration_seconds=0),
+            provider_track(provider="qq", provider_track_id="qq-known-duration", duration_seconds=180),
+        ])
+
+        self.assertEqual(len(groups), 2)
+
     def test_featured_artist_order_does_not_create_a_duplicate(self):
         groups = canonicalize_tracks([
             provider_track(provider="netease", provider_track_id="ne-1", artist="Alice feat. Bob"),

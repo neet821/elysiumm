@@ -20,20 +20,23 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
     container_name: elysiumm-backend
     restart: always
     depends_on:
       db:
         condition: service_healthy
+      ncm-api:
+        condition: service_started
+      tusd:
+        condition: service_started
     environment:
       DATABASE_URL: mysql+pymysql://${DB_USER:?set DB_USER in .env}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:3306/${DB_NAME:?set DB_NAME in .env}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
       EXTERNAL_MEDIA_DOH_URL: ${EXTERNAL_MEDIA_DOH_URL:-https://cloudflare-dns.com/dns-query}
-      MUSIC_PROVIDER_LEGACY_COMPAT: "0"
       MUSIC_PROVIDER_TIMEOUT_SECONDS: ${MUSIC_PROVIDER_TIMEOUT_SECONDS:-5}
-      NETEASE_API_BASE_URL: ${NETEASE_API_BASE_URL:-https://music.163.com}
+      NETEASE_INTERNAL_API_BASE_URL: http://ncm-api:8765
       QQ_API_BASE_URL: ${QQ_API_BASE_URL:-https://u.y.qq.com}
       AUDIUS_API_BASE_URL: ${AUDIUS_API_BASE_URL:-https://api.audius.co/v1}
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
@@ -45,12 +48,16 @@ services:
       TRANSFER_STORAGE_DIR: /app/shared/transfers
       BACKUP_OUTPUT_DIR: /app/shared/backups
       MUSIC_PROVIDER_CREDENTIAL_DIR: /app/shared/private-storage/music
+      TUS_INTERNAL_BASE_URL: http://tusd:8766/files
+      TUS_UPLOADS_ENABLED: "true"
+      TUS_UPLOAD_DIR: /app/shared/tus
     volumes:
       - shared_uploads:/app/shared/uploads
       - shared_private_storage:/app/shared/private-storage
       - shared_sync_storage:/app/shared/sync-storage
       - shared_transfers:/app/shared/transfers
       - shared_backups:/app/shared/backups
+      - shared_tus_staging:/app/shared/tus
     networks:
       - app-network
     healthcheck:
@@ -60,9 +67,36 @@ services:
       retries: 12
       start_period: 30s
 
+  ncm-api:
+    build:
+      context: ../backend/music_node
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      ELYSIUM_NETEASE_API_HOST: 0.0.0.0
+      ELYSIUM_NETEASE_API_PORT: "8765"
+      ELYSIUM_NETEASE_API_DOCKER_PRIVATE: "true"
+    networks:
+      - app-network
+
+  tusd:
+    image: tusproject/tusd:v2.10.0
+    restart: always
+    command:
+      - --host=0.0.0.0
+      - --port=8766
+      - --base-path=/files/
+      - --upload-dir=/var/lib/tusd
+      - --disable-download
+      - --disable-concatenation
+    volumes:
+      - shared_tus_staging:/var/lib/tusd
+    networks:
+      - app-network
+
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
     container_name: elysiumm-frontend
     restart: always
     ports:
@@ -80,6 +114,7 @@ volumes:
   shared_sync_storage:
   shared_transfers:
   shared_backups:
+  shared_tus_staging:
 
 networks:
   app-network:

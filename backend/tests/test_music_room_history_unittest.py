@@ -21,12 +21,14 @@ if str(BACKEND_DIR) not in sys.path:
 import database  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
+import music_room_runtime  # noqa: E402
 import music_service  # noqa: E402
 import room_cleanup_task  # noqa: E402
 import schemas  # noqa: E402
 import security  # noqa: E402
 import sync_room_crud  # noqa: E402
 import websocket_server  # noqa: E402
+from realtime import common as realtime_common  # noqa: E402
 from database import Base  # noqa: E402
 from routers import music as music_router  # noqa: E402
 
@@ -284,15 +286,15 @@ class MusicRoomHistoryTest(unittest.TestCase):
                 "stream_url": "/fresh/history",
             }
 
-        original_validator = music_router._validated_room_track
-        music_router._validated_room_track = validated
+        original_validator = music_room_runtime._validated_room_track
+        music_room_runtime._validated_room_track = validated
         try:
             response = self.client.post(
                 f"/api/music/rooms/{self.room.id}/history/{self.db.query(models.MusicRoomEvent).first().id}/queue",
                 headers=self.headers(self.member),
             )
         finally:
-            music_router._validated_room_track = original_validator
+            music_room_runtime._validated_room_track = original_validator
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["queue"][0]["title"], "History song")
         self.assertEqual(
@@ -360,7 +362,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
             music_router.sio.emit = original_emit
 
     def test_private_chat_target_must_also_be_a_room_member(self):
-        original_get_db = websocket_server.get_db
+        original_get_db = realtime_common.get_db
         original_get_session = websocket_server.sio.get_session
         original_emit = websocket_server.sio.emit
         emitted = []
@@ -375,7 +377,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
         async def emit(event, data=None, room=None, skip_sid=None):
             emitted.append((event, data or {}, room, skip_sid))
 
-        websocket_server.get_db = lambda: self.Session()
+        realtime_common.get_db = lambda: self.Session()
         websocket_server.sio.get_session = get_session
         websocket_server.sio.emit = emit
         websocket_server.room_connections[self.room.id] = {
@@ -389,7 +391,7 @@ class MusicRoomHistoryTest(unittest.TestCase):
                 "target_user_id": self.attacker.id,
             }))
         finally:
-            websocket_server.get_db = original_get_db
+            realtime_common.get_db = original_get_db
             websocket_server.sio.get_session = original_get_session
             websocket_server.sio.emit = original_emit
 

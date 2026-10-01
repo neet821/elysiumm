@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -195,6 +195,41 @@ describe('live administrator workspace', () => {
     render(<AdminLivePage />)
 
     expect(await screen.findByLabelText('直播名称')).toHaveValue('今晚直播')
+  })
+
+  it('saves the current live settings and allowlist through their existing endpoints', async () => {
+    const user = userEvent.setup()
+    apiClient.put.mockResolvedValue({ data: {} })
+    render(<AdminLivePage />)
+
+    const title = await screen.findByLabelText('直播名称')
+    await user.clear(title)
+    await user.type(title, '周末音乐直播')
+    await user.click(screen.getByRole('button', { name: '保存设置' }))
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenNthCalledWith(
+        1,
+        API_ENDPOINTS.ADMIN_LIVE_SETTINGS,
+        {
+          access_mode: 'public',
+          cover_url: null,
+          description: '测试',
+          latency_mode: 'low',
+          recording_enabled: true,
+          revision: 3,
+          stream_quality: 'balanced',
+          target_bitrate_kbps: 4200,
+          title: '周末音乐直播',
+          viewing_enabled: true,
+        },
+      )
+      expect(apiClient.put).toHaveBeenNthCalledWith(
+        2,
+        API_ENDPOINTS.ADMIN_LIVE_ALLOWED_USERS,
+        { user_ids: [] },
+      )
+    })
   })
 
   it('places settings before the read-only audience and message panels', async () => {

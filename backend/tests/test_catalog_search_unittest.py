@@ -31,8 +31,8 @@ import models  # noqa: E402
 import security  # noqa: E402
 from catalog_domain import ProviderTrack, TrackAvailability  # noqa: E402
 from database import SessionLocal  # noqa: E402
-from music_providers import ProviderError  # noqa: E402
-from routers import music as music_router  # noqa: E402
+from music.base import ProviderError  # noqa: E402
+from routers import music_catalog  # noqa: E402
 
 
 class FakeAdapter:
@@ -209,7 +209,7 @@ class CatalogSearchServiceTest(unittest.IsolatedAsyncioTestCase):
 class CatalogSearchRouteTest(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(main.app)
-        music_router.catalog_search_rate_limiter.clear()
+        music_catalog.catalog_search_rate_limiter.clear()
         self.db = SessionLocal()
         self.db.query(models.TrackLyrics).delete()
         self.db.query(models.TrackAudioSource).delete()
@@ -276,7 +276,7 @@ class CatalogSearchRouteTest(unittest.TestCase):
             "qq": FakeAdapter(error=ProviderError("private upstream token")),
             "audius": FakeAdapter([]),
         }
-        with patch.object(music_router, "music_provider_registry", registry):
+        with patch.object(music_catalog, "music_provider_registry", registry):
             response = self.client.get(
                 "/api/music/search?q=blue&providers=netease,qq,audius&limit=20",
                 headers=self.headers,
@@ -295,7 +295,7 @@ class CatalogSearchRouteTest(unittest.TestCase):
         failing = {
             "netease": FakeAdapter(error=ProviderError("secret upstream detail")),
         }
-        with patch.object(music_router, "music_provider_registry", failing):
+        with patch.object(music_catalog, "music_provider_registry", failing):
             unavailable = self.client.get(
                 "/api/music/search?q=blue&providers=netease",
                 headers=self.headers,
@@ -303,11 +303,11 @@ class CatalogSearchRouteTest(unittest.TestCase):
         self.assertEqual(unavailable.status_code, 502)
         self.assertNotIn("secret upstream detail", unavailable.text)
 
-        music_router.catalog_search_rate_limiter.clear()
+        music_catalog.catalog_search_rate_limiter.clear()
         registry = {"netease": FakeAdapter([track("netease", "ne-limit")])}
         with (
-            patch.object(music_router, "music_provider_registry", registry),
-            patch.object(music_router, "CATALOG_SEARCH_RATE_LIMIT_MAX", 1),
+            patch.object(music_catalog, "music_provider_registry", registry),
+            patch.object(music_catalog, "CATALOG_SEARCH_RATE_LIMIT_MAX", 1),
         ):
             first = self.client.get(
                 "/api/music/search?q=blue&providers=netease",

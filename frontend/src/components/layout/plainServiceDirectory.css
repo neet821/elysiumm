@@ -1,0 +1,70 @@
+.service-shell:not(.app-shell--home)
+  .service-directory {
+  border-top: 1px solid #bbb;
+  margin-top: 3rem;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__heading {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  padding: 1.25rem 0 0.75rem;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__heading
+  h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__group {
+  border-top: 1px solid #bbb;
+  padding: 1rem 0;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__group
+  h3 {
+  font-size: 0.82rem;
+  margin: 0 0 0.65rem;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__items {
+  border-top: 1px solid #ddd;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__item {
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  color: #111;
+  display: flex;
+  justify-content: space-between;
+  min-height: 4.25rem;
+  padding: 0.9rem 0.75rem;
+  text-decoration: none;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__item:nth-child(odd) {
+  border-right: 1px solid #ddd;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__item:hover,
+.service-shell:not(.app-shell--home)
+  .service-directory__item:focus-visible {
+  background: #eee;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__item
+  strong,
+.service-shell:not(.app-shell--home)
+  .service-directory__item
+  small {
+  display: block;
+}
+.service-shell:not(.app-shell--home)
+  .service-directory__item
+  small {
+  color: #555;
+  margin-top: 0.25rem;
+}

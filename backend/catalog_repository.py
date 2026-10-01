@@ -9,11 +9,18 @@ from urllib.parse import unquote, urlparse
 from sqlalchemy.orm import Session
 
 import models
-from catalog_domain import CanonicalGroup, TrackAvailability
+from catalog_audio_repository import (
+    audio_sources_for_track as audio_sources_for_track,
+    upsert_audio_source as upsert_audio_source,
+)
+from catalog_domain import CanonicalGroup, PROVIDER_ORDER as _PROVIDER_ORDER, TrackAvailability
+from catalog_lyrics_repository import (
+    cached_lyrics as cached_lyrics,
+    upsert_lyrics as upsert_lyrics,
+)
 
 
 _METADATA_LIMIT_BYTES = 16_384
-_PROVIDER_ORDER = {"local": -1, "netease": 0, "qq": 1, "audius": 2}
 _AVAILABILITY_ORDER = {
     TrackAvailability.PLAYABLE.value: 0,
     TrackAvailability.PREVIEW.value: 1,
@@ -223,6 +230,8 @@ def _refresh_availability(
 def upsert_canonical_groups(
     db: Session,
     groups: Iterable[CanonicalGroup],
+    *,
+    commit: bool = True,
 ) -> list[models.CanonicalTrack]:
     persisted: list[models.CanonicalTrack] = []
     for group in groups:
@@ -234,9 +243,12 @@ def upsert_canonical_groups(
             _upsert_mapping(db, canonical, track)
         _refresh_availability(db, canonical)
         persisted.append(canonical)
-    db.commit()
-    for canonical in persisted:
-        db.refresh(canonical)
+    if commit:
+        db.commit()
+        for canonical in persisted:
+            db.refresh(canonical)
+    else:
+        db.flush()
     return persisted
 
 
@@ -277,104 +289,3 @@ def canonical_payload(db: Session, canonical_id: int) -> dict[str, object] | Non
             for mapping in mappings
         ],
     }
-
-
-def audio_sources_for_track(
-    db: Session,
-    canonical_id: int,
-) -> list[models.TrackAudioSource]:
-    return (
-        db.query(models.TrackAudioSource)
-        .filter(models.TrackAudioSource.canonical_track_id == canonical_id)
-        .all()
-    )
-
-
-def upsert_audio_source(
-    db: Session,
-    *,
-    canonical_id: int,
-    provider_mapping_id: int | None,
-    source_type: str,
-    playback_url: str,
-    availability: str,
-    expires_at,
-) -> models.TrackAudioSource:
-    source = (
-        db.query(models.TrackAudioSource)
-        .filter(
-            models.TrackAudioSource.canonical_track_id == canonical_id,
-            models.TrackAudioSource.provider_mapping_id == provider_mapping_id,
-            models.TrackAudioSource.source_type == source_type,
-        )
-        .one_or_none()
-    )
-    if source is None:
-        source = models.TrackAudioSource(
-            canonical_track_id=canonical_id,
-            provider_mapping_id=provider_mapping_id,
-            source_type=source_type,
-        )
-        db.add(source)
-    source.playback_url = playback_url
-    source.availability = availability
-    source.expires_at = expires_at
-    source.failed_at = None
-    db.flush()
-    return source
-
-
-def cached_lyrics(
-    db: Session,
-    canonical_id: int,
-    language: str,
-    now,
-) -> models.TrackLyrics | None:
-    rows = (
-        db.query(models.TrackLyrics)
-        .filter(
-            models.TrackLyrics.canonical_track_id == canonical_id,
-            models.TrackLyrics.language == language,
-        )
-        .all()
-    )
-    valid = [row for row in rows if row.expires_at is None or row.expires_at > now]
-    valid.sort(key=lambda row: (_PROVIDER_ORDER.get(row.provider, 100), row.id))
-    return valid[0] if valid else None
-
-
-def upsert_lyrics(
-    db: Session,
-    *,
-    canonical_id: int,
-    provider_mapping_id: int,
-    provider: str,
-    language: str,
-    timed_text: str,
-    translation_text: str | None,
-    fetched_at,
-    expires_at,
-) -> models.TrackLyrics:
-    row = (
-        db.query(models.TrackLyrics)
-        .filter(
-            models.TrackLyrics.canonical_track_id == canonical_id,
-            models.TrackLyrics.provider == provider,
-            models.TrackLyrics.language == language,
-        )
-        .one_or_none()
-    )
-    if row is None:
-        row = models.TrackLyrics(
-            canonical_track_id=canonical_id,
-            provider=provider,
-            language=language,
-        )
-        db.add(row)
-    row.provider_mapping_id = provider_mapping_id
-    row.timed_text = timed_text
-    row.translation_text = translation_text
-    row.fetched_at = fetched_at
-    row.expires_at = expires_at
-    db.flush()
-    return row

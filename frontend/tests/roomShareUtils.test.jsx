@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildRoomShareUrl, normalizeSearchQuery } from '../src/pages/roomShareUtils.js'
+import { buildRoomShareUrl, normalizeSearchQuery } from '../src/features/video/roomShareUtils.js'
 
 describe('room share and search helpers', () => {
   it('builds a complete share URL from the current room route', () => {

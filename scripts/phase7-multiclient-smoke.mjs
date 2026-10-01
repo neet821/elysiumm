@@ -77,7 +77,6 @@ function environmentFor(rootPath, appBase) {
     DATABASE_URL: `sqlite:///${path.join(rootPath, 'phase7.sqlite')}`,
     LIVE_RECORDING_ROOT: path.join(storage, 'uploads', 'live-recordings'),
     MUSIC_PROVIDER_CREDENTIAL_DIR: path.join(storage, 'private-storage', 'music'),
-    MUSIC_PROVIDER_LEGACY_COMPAT: '0',
     PRIVATE_STORAGE_DIR: path.join(storage, 'private-storage'),
     PUBLIC_SYNC_STORAGE: path.join(storage, 'sync-storage'),
     SECRET_KEY: 'phase7-browser-isolated-secret-for-tests',

@@ -4,6 +4,7 @@ import { Button, Card, Input, Skeleton } from '../components/ui/index.js'
 import { DEFAULT_HOMEPAGE_SETTINGS } from '../components/home/homepageModel.js'
 import { API_ENDPOINTS } from '../config.js'
 import apiClient from '../utils/request.js'
+import '../features/admin/adminHomepage.css'
 
 const errorDetail = (error, fallback) => {
   const detail = error?.response?.data?.detail

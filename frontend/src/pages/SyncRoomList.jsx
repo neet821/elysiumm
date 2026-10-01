@@ -1,40 +1,11 @@
-import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Plus,
-  Film,
-  Users,
-  Lock,
-  Unlock,
-  Clock,
-  Play,
-  Pause,
-  Trash2,
-  ExternalLink,
-  User,
-  Copy,
-} from "lucide-react";
+import { Film, Plus, User } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import apiClient from "../utils/request";
-import { API_ENDPOINTS } from "../config";
 import { THEME } from "../theme.js";
-import {
-  formatEmptyRoomCountdown,
-  getOnlineMemberCount,
-} from "./syncRoomListUtils.js";
-import { buildRoomShareUrl, copyText } from './roomShareUtils.js'
-
-const buildRoomPayload = (roomName, isMusicRoom) => {
-  const payload = { room_name: roomName };
-  if (isMusicRoom) {
-    Object.assign(payload, {
-      control_mode: "host_only",
-      mode: "music",
-      type: "video",
-    });
-  }
-  return payload;
-};
+import "../features/player/player.css";
+import { useSyncRoomListController } from "../features/video/useSyncRoomListController.js";
+import SyncRoomCard from "../features/video/SyncRoomCard.jsx";
+import SyncRoomCreateModal from "../features/video/SyncRoomCreateModal.jsx";
 
 const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video" }) => {
   const navigate = useNavigate();
@@ -46,260 +17,23 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
     : "创建或加入房间，与朋友一起观看视频 · 空房间将在10分钟后自动关闭";
   const createButtonLabel = isMusicRoom ? "创建听歌房" : "创建新房间";
   const modalTitle = isMusicRoom ? "创建听歌房间" : "创建观影房间";
-  const matchesRoomMode = (room) => (isMusicRoom ? room.mode === "music" : room.mode !== "music");
-  const [rooms, setRooms] = useState([]);
-  const [myRooms, setMyRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roomName, setRoomName] = useState("");
-  const [now, setNow] = useState(() => Date.now());
-  const [copiedRoomId, setCopiedRoomId] = useState(null)
-
-  useEffect(() => {
-    fetchRooms();
-    const refreshInterval = setInterval(fetchRooms, 10000); // 每10秒刷新一次
-    const clockInterval = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(clockInterval);
-    };
-  }, []);
-
-  const fetchRooms = async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.SYNC_ROOMS);
-      const allRooms = response.data || [];
-      const visibleRooms = allRooms.filter(matchesRoomMode);
-      setRooms(visibleRooms);
-
-      // 筛选出我创建的房间
-      if (user) {
-        const userRooms = visibleRooms.filter(room => room.host?.id === user.id);
-        setMyRooms(userRooms);
-      }
-    } catch (error) {
-      console.error("获取房间列表失败:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateRoom = async (e) => {
-    e.preventDefault();
-
-    // 检查用户是否登录
-    if (!user) {
-      alert("请先登录后再创建房间");
-      navigate("/login");
-      return;
-    }
-
-    try {
-      const payload = buildRoomPayload(roomName, isMusicRoom);
-
-      const response = await apiClient.post(API_ENDPOINTS.SYNC_ROOMS, payload);
-
-      setShowCreateModal(false);
-      resetForm();
-      navigate(`${isMusicRoom ? "/rooms/music" : "/rooms/watch"}/${response.data.id}`);
-    } catch (error) {
-      console.error("创建房间失败:", error);
-      alert(error.response?.data?.detail || "创建失败，请重试");
-    }
-  };
-
-  const handleJoinRoom = async (roomId) => {
-    try {
-      await apiClient.post(API_ENDPOINTS.SYNC_ROOM_JOIN(roomId));
-      navigate(`${isMusicRoom ? "/rooms/music" : "/rooms/watch"}/${roomId}`);
-    } catch (error) {
-      console.error("加入房间失败:", error);
-      alert(error.response?.data?.detail || "加入失败，请重试");
-    }
-  };
-
-  const handleDeleteRoom = async (roomId) => {
-    if (!confirm("确定要删除这个房间吗？")) return;
-
-    try {
-      const endpoint = isAdmin
-        ? `${API_ENDPOINTS.ADMIN_ROOMS}/${roomId}`
-        : `${API_ENDPOINTS.SYNC_ROOMS}/${roomId}`;
-      await apiClient.delete(endpoint);
-      fetchRooms();
-    } catch (error) {
-      console.error("删除房间失败:", error);
-      alert("删除失败，请重试");
-    }
-  };
-
-  const handleToggleRoomLock = async (room) => {
-    try {
-      await apiClient.put(API_ENDPOINTS.ADMIN_ROOM_LOCK(room.id), {
-        is_locked: !room.is_locked,
-      });
-      await fetchRooms();
-    } catch (error) {
-      console.error("设置房间锁定状态失败:", error);
-      alert(error.response?.data?.detail || "设置失败，请重试");
-    }
-  };
-
-  const resetForm = () => {
-    setRoomName("");
-  };
-
-  const handleCopyShare = async (event, roomId) => {
-    event.stopPropagation()
-    try {
-      await copyText(buildRoomShareUrl({ ...window.location, pathname: `${isMusicRoom ? '/rooms/music' : '/rooms/watch'}/${roomId}`, search: '', hash: '' }))
-      setCopiedRoomId(roomId)
-      window.setTimeout(() => setCopiedRoomId((value) => value === roomId ? null : value), 1800)
-    } catch {
-      alert('复制失败，请手动复制当前地址')
-    }
-  }
-
-  const RoomCard = ({ room, showDelete = false }) => {
-    const onlineMemberCount = getOnlineMemberCount(room);
-    const isEmpty = onlineMemberCount === 0;
-    const canDelete = isAdmin || (showDelete && !room.is_locked);
-
-    return (
-    <div
-      className={`${styles.bg} p-4 sm:p-6 rounded-xl border ${
-        styles.border
-      } shadow-sm transition-all duration-300 group relative overflow-hidden
-        ${isDark ? "hover:border-orange-500" : "hover:border-[#189BCC] hover:shadow-lg"}
-      `}
-    >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                room.is_playing
-                  ? "bg-green-500 animate-pulse"
-                  : "bg-gray-400"
-              }`}
-            ></div>
-            <h4
-              className={`font-bold text-base sm:text-lg ${styles.text} group-hover:${styles.accentClass} transition-colors`}
-            >
-              {room.room_name}
-            </h4>
-            {room.control_mode === "host_only" && (
-              <Lock size={14} className={styles.textMuted} />
-            )}
-            {room.is_locked ? (
-              <Lock size={14} className="text-amber-500" title="已锁定，不自动删除" />
-            ) : (
-              <Unlock size={14} className={styles.textMuted} title="空房间会自动删除" />
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 text-xs sm:text-sm mb-2">
-            <span className={`${styles.textMuted} flex items-center gap-1`}>
-              <User size={12} />
-              房主：{room.host?.username || "未知"}
-            </span>
-          </div>
-        </div>
-
-        {canDelete && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteRoom(room.id);
-            }}
-            className="relative z-10 text-red-500 hover:text-red-600 p-2"
-            title="删除房间"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleRoomLock(room);
-            }}
-            className={`relative z-10 p-2 rounded ${room.is_locked ? "text-amber-500 hover:text-amber-600" : `${styles.textMuted} hover:${styles.text}`} transition-colors`}
-            title={room.is_locked ? "解除锁定" : "锁定房间，不自动删除"}
-            aria-label={room.is_locked ? `解除 ${room.room_name} 的锁定` : `锁定 ${room.room_name}，不自动删除`}
-            aria-pressed={room.is_locked}
-          >
-            {room.is_locked ? <Lock size={16} /> : <Unlock size={16} />}
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-2 mb-4">
-        <div
-          className={`flex items-center justify-between text-xs sm:text-sm p-2 rounded ${
-            isDark ? "bg-gray-800" : "bg-gray-50"
-          }`}
-        >
-          <span className={`${styles.textMuted} flex items-center gap-1`}>
-            <Users size={14} />
-            {isEmpty ? "空房间" : `在线成员 ${onlineMemberCount} / ${room.max_members || 10}`}
-          </span>
-          <span
-            className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-              room.is_playing
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-            }`}
-          >
-            {room.is_playing ? <Play size={10} /> : <Pause size={10} />}
-            {room.is_playing ? "播放中" : "已暂停"}
-          </span>
-        </div>
-
-        <div className={`text-xs ${styles.textMuted} flex items-center justify-between`}>
-          <span className="flex items-center gap-1">
-            <Film size={12} />
-            {isMusicRoom
-              ? "听歌房"
-              : (room.mode === "url" || room.mode === "link" ? "网络地址" : room.mode === "upload" ? "上传视频" : "本地同步")
-            }
-          </span>
-          <button type="button" onClick={(event) => handleCopyShare(event, room.id)} className="room-share-button" aria-label="复制分享链接">
-            <Copy size={12} /> {copiedRoomId === room.id ? '已复制' : '复制分享链接'}
-          </button>
-        </div>
-
-        <div className={`text-xs ${styles.textMuted} flex items-center justify-between gap-2`} role="status">
-          <span className="flex items-center gap-1">
-            {room.is_locked ? <Lock size={12} className="text-amber-500" /> : <Unlock size={12} />}
-            {room.is_locked ? "已锁定 · 不自动删除" : "未锁定 · 空房间会自动删除"}
-          </span>
-          {isEmpty && !room.is_locked && (
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              {formatEmptyRoomCountdown(room.last_activity_at, now)}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <button
-        onClick={() => handleJoinRoom(room.id)}
-        className={`w-full py-2 rounded-lg text-white text-sm font-medium transition-colors ${
-          isDark
-            ? "bg-orange-600 hover:bg-orange-500"
-            : "bg-[#189BCC] hover:bg-[#1589b5]"
-        }`}
-      >
-        <span className="flex items-center justify-center gap-2">
-          进入房间
-          <ExternalLink size={14} />
-        </span>
-      </button>
-
-    </div>
-    );
-  };
+  const {
+    copiedRoomId,
+    handleCopyShare,
+    handleCreateRoom,
+    handleDeleteRoom,
+    handleJoinRoom,
+    handleToggleRoomLock,
+    loading,
+    myRooms,
+    now,
+    resetForm,
+    roomName,
+    rooms,
+    setRoomName,
+    setShowCreateModal,
+    showCreateModal,
+  } = useSyncRoomListController({ isAdmin, navigate, roomMode, user })
 
   return (
     <div className={`pt-24 sm:pt-28 md:pt-32 pb-16 md:pb-20 min-h-screen ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}>
@@ -348,7 +82,21 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {myRooms.map((room) => (
-                    <RoomCard key={room.id} room={room} showDelete={true} />
+                    <SyncRoomCard
+                      key={room.id}
+                      room={room}
+                      showDelete
+                      styles={styles}
+                      isDark={isDark}
+                      isMusicRoom={isMusicRoom}
+                      isAdmin={isAdmin}
+                      now={now}
+                      copied={copiedRoomId === room.id}
+                      onDelete={handleDeleteRoom}
+                      onToggleLock={handleToggleRoomLock}
+                      onCopyShare={handleCopyShare}
+                      onJoin={handleJoinRoom}
+                    />
                   ))}
                 </div>
               </div>
@@ -372,7 +120,21 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-fade-in">
                   {rooms.map((room) => (
-                    <RoomCard key={room.id} room={room} showDelete={isAdmin} />
+                    <SyncRoomCard
+                      key={room.id}
+                      room={room}
+                      showDelete={isAdmin}
+                      styles={styles}
+                      isDark={isDark}
+                      isMusicRoom={isMusicRoom}
+                      isAdmin={isAdmin}
+                      now={now}
+                      copied={copiedRoomId === room.id}
+                      onDelete={handleDeleteRoom}
+                      onToggleLock={handleToggleRoomLock}
+                      onCopyShare={handleCopyShare}
+                      onJoin={handleJoinRoom}
+                    />
                   ))}
                 </div>
               )}
@@ -381,60 +143,20 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
         )}
       </div>
 
-      {/* 创建房间模态框 */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`${styles.bg} rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto`}>
-            <h3 className={`text-xl font-bold ${styles.text} mb-6`}>
-              {modalTitle}
-            </h3>
-
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label htmlFor="sync-room-name" className={`block text-sm ${styles.text} mb-2`}>
-                  房间名称
-                </label>
-                <input
-                  id="sync-room-name"
-                  type="text"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  className={`w-full px-4 py-2 border ${styles.border} rounded ${styles.bgSecondary} ${styles.text} focus:outline-none focus:ring-2 ${
-                    isDark ? "focus:ring-orange-500" : "focus:ring-[#189BCC]"
-                  }`}
-                  placeholder="输入房间名称"
-                  required
-                />
-              </div>
-
-              <p className={`text-sm ${styles.textMuted}`}>{isMusicRoom ? "播放曲目和控制权限将在进入房间后设置。" : "视频来源和控制权限将在进入房间后设置。"}</p>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  className={`flex-1 py-2 text-white rounded transition-colors ${
-                    isDark
-                      ? "bg-orange-600 hover:bg-orange-500"
-                      : "bg-[#189BCC] hover:bg-[#1589b5]"
-                  }`}
-                >
-                  创建房间
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
-                  }}
-                  className={`flex-1 py-2 border ${styles.border} rounded ${styles.text} hover:${styles.bgSecondary} transition-colors`}
-                >
-                  取消
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <SyncRoomCreateModal
+        open={showCreateModal}
+        styles={styles}
+        isDark={isDark}
+        isMusicRoom={isMusicRoom}
+        title={modalTitle}
+        roomName={roomName}
+        onRoomNameChange={setRoomName}
+        onSubmit={handleCreateRoom}
+        onClose={() => {
+          setShowCreateModal(false);
+          resetForm();
+        }}
+      />
     </div>
   );
 };

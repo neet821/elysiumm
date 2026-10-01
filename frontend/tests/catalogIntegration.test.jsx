@@ -176,9 +176,11 @@ describe('unified room catalog integration', () => {
   })
 
   it('keeps the room page free of the legacy Mineradio service endpoint', async () => {
-    const source = readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
-    expect(source).not.toContain('/mineradio-api')
-    expect(source).not.toMatch(/fetch\s*\(/)
-    expect(source).toContain("action === 'propose-native-search'")
+    const pageSource = readFileSync(path.resolve(process.cwd(), 'src/pages/MineradioPage.jsx'), 'utf8')
+    const actionsSource = readFileSync(path.resolve(process.cwd(), 'src/features/music/musicRoomActions.js'), 'utf8')
+    const currentRoomSource = `${pageSource}\n${actionsSource}`
+    expect(currentRoomSource).not.toContain('/mineradio-api')
+    expect(currentRoomSource).not.toMatch(/fetch\s*\(/)
+    expect(actionsSource).toContain("action === 'propose-native-search'")
   })
 })

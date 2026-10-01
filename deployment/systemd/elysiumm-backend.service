@@ -1,6 +1,6 @@
 [Unit]
 Description=Elysium backend
-After=network-online.target mariadb.service
+After=network-online.target mariadb.service elysiumm-music-api.service elysiumm-tusd.service
 Wants=network-online.target
 
 [Service]
@@ -10,9 +10,13 @@ Group=www-data
 WorkingDirectory=/srv/services/elysium/backend-current/backend
 EnvironmentFile=/etc/elysium/backend.env
 Environment=PYTHONUNBUFFERED=1
+Environment=NETEASE_INTERNAL_API_BASE_URL=http://127.0.0.1:8765
 Environment=UPLOAD_DIR=/srv/services/elysium/shared/uploads
 Environment=PRIVATE_STORAGE_DIR=/srv/services/elysium/shared/private-storage
 Environment=ADMIN_FILES_STORAGE_DIR=/srv/services/elysium/shared/private-storage/admin_files
+Environment=TUS_UPLOAD_DIR=/srv/services/elysium/shared/tus-staging
+Environment=TUS_INTERNAL_BASE_URL=http://127.0.0.1:8766/files
+Environment=TUS_UPLOADS_ENABLED=true
 Environment=PUBLIC_SYNC_STORAGE=/srv/services/elysium/shared/sync-storage
 Environment=ARTICLE_ROOT=/srv/services/elysium/shared/sync-storage/articles
 Environment=MEDIA_ROOT=/srv/services/elysium/shared/sync-storage/media

@@ -5,6 +5,7 @@ import stat
 import sys
 import tempfile
 import unittest
+import hashlib
 
 from deployment.release_builder import (
     ReleaseBuildError,
@@ -18,6 +19,46 @@ SHA = "b" * 64
 
 
 class ReleaseBuilderTests(unittest.TestCase):
+    def test_backend_release_includes_checksum_recorded_tusd_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "backend-source"
+            source.mkdir()
+            (source / "requirements.txt").write_text("", encoding="utf-8")
+            license_path = source / "third_party_licenses/tusd/LICENSE.txt"
+            license_path.parent.mkdir(parents=True)
+            license_path.write_text("tusd license notice\n", encoding="utf-8")
+            tusd = root / "tusd"
+            tusd.write_bytes(b"pinned tusd test binary")
+
+            assembly = assemble_backend_release(
+                root=root,
+                release_id="abcdef1-tusd",
+                deployment_id="tusd-deploy",
+                git_commit="abcdef1234567890",
+                backend_source=source,
+                python_version="3.12",
+                requirements_lock_sha256=SHA,
+                api_schema_sha256=SHA,
+                compatible_frontend_api="*",
+                target_alembic_heads=["head"],
+                python_executable=Path(sys.executable),
+                freeze=False,
+                tusd_binary=tusd,
+            )
+
+            installed = assembly.path / "backend/bin/tusd"
+            self.assertEqual(installed.read_bytes(), tusd.read_bytes())
+            self.assertTrue(installed.stat().st_mode & 0o111)
+            self.assertEqual(
+                (assembly.path / "backend/bin/tusd.LICENSE.txt").read_text(encoding="utf-8"),
+                "tusd license notice\n",
+            )
+            self.assertEqual(
+                assembly.manifest["tusd_binary_sha256"],
+                hashlib.sha256(tusd.read_bytes()).hexdigest(),
+            )
+
     def test_frontend_release_is_independent_and_switches_only_frontend(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

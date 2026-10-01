@@ -70,6 +70,22 @@ class PlatformConfig:
             str(PRIVATE_STORAGE_DIR / "admin_files"),
         )
     ).expanduser().resolve()
+    TUS_UPLOAD_DIR = Path(
+        os.getenv("TUS_UPLOAD_DIR", str(PRIVATE_STORAGE_DIR / "tus"))
+    ).expanduser().resolve()
+    TUS_INTERNAL_BASE_URL = os.getenv(
+        "TUS_INTERNAL_BASE_URL", "http://127.0.0.1:8766/files"
+    ).strip().rstrip("/")
+    TUS_UPLOADS_ENABLED = os.getenv("TUS_UPLOADS_ENABLED", "true").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    TUS_UPLOAD_TTL_SECONDS = int(os.getenv("TUS_UPLOAD_TTL_SECONDS", str(24 * 60 * 60)))
+    TUS_DISK_RESERVE_BYTES = int(
+        os.getenv("TUS_DISK_RESERVE_BYTES", str(5 * 1024**3))
+    )
     # 日志文件直接放在仓库根目录，避免额外 logs/ 目录
     LOGS_DIR = DEPLOYMENT_ROOT / "shared" / "logs"
     RUNTIME_DATA_ROOT = DEPLOYMENT_ROOT
@@ -201,18 +217,14 @@ class PlatformConfig:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if ENV == "production" else "DEBUG")
 
     # Provider-neutral music catalog. Player clients never receive provider cookies.
-    # Direct provider adapters live in backend/music. The old Mineradio HTTP
-    # bridge is opt-in compatibility for an explicit rollback/test profile only.
-    MUSIC_PROVIDER_LEGACY_COMPAT = os.getenv("MUSIC_PROVIDER_LEGACY_COMPAT", "0").lower() in {"1", "true", "yes"}
-    NETEASE_API_BASE_URL = os.getenv("NETEASE_API_BASE_URL", "https://music.163.com").rstrip("/")
+    NETEASE_API_BASE_URL = os.getenv(
+        "NETEASE_INTERNAL_API_BASE_URL",
+        os.getenv("NETEASE_API_BASE_URL", "http://127.0.0.1:8765"),
+    ).rstrip("/")
     QQ_API_BASE_URL = os.getenv("QQ_API_BASE_URL", "https://u.y.qq.com").rstrip("/")
     MUSIC_PROVIDER_CREDENTIAL_DIR = Path(
         os.getenv("MUSIC_PROVIDER_CREDENTIAL_DIR", str(PRIVATE_STORAGE_DIR / "music"))
     ).expanduser().resolve()
-    # Deprecated names are deliberately empty by default; no production code
-    # should discover a local Mineradio service through an implicit default.
-    MUSIC_PROVIDER_BASE_URL = os.getenv("MUSIC_PROVIDER_BASE_URL", "").rstrip("/")
-    MUSIC_PROVIDER_ADMIN_TOKEN = os.getenv("MUSIC_PROVIDER_ADMIN_TOKEN", "").strip()
     MUSIC_PROVIDER_TIMEOUT_SECONDS = float(
         os.getenv("MUSIC_PROVIDER_TIMEOUT_SECONDS", "5")
     )
