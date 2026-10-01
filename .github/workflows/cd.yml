@@ -208,7 +208,8 @@ jobs:
             "$PRODUCTION_GIT_ORIGIN" \
             "/tmp/$ELYSIUM_PAYLOAD_NAME" \
             "$DEPLOY_FRONTEND" \
-            "$DEPLOY_BACKEND" <<'REMOTE_SCRIPT'
+            "$DEPLOY_BACKEND" \
+            "$TUSD_BINARY_SHA256" <<'REMOTE_SCRIPT'
           set -euo pipefail
           root="$1"
           baseline_root="$2"
@@ -220,6 +221,12 @@ jobs:
           archive="$8"
           deploy_frontend="$9"
           deploy_backend="${10}"
+          tusd_binary_sha256="${11}"
+
+          if [[ "$deploy_backend" == true && ! "$tusd_binary_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "invalid pinned tusd SHA-256" >&2
+            exit 1
+          fi
 
           if [[ ! "$baseline_id" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
             echo "invalid production baseline id" >&2
@@ -343,7 +350,7 @@ jobs:
             deploy_command+=(
               --python "$deployment_python"
               --tusd-binary-source "$stage/tusd/tusd"
-              --tusd-binary-sha256 "$TUSD_BINARY_SHA256"
+              --tusd-binary-sha256 "$tusd_binary_sha256"
             )
           fi
           if [[ "$deploy_frontend" == true ]]; then
