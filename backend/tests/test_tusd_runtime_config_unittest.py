@@ -118,7 +118,9 @@ class TusdRuntimeConfigTest(unittest.TestCase):
         self.assertIn("elysium-tusd-${{ github.event.workflow_run.head_sha }}", cd)
         self.assertIn("run-id: ${{ github.event.workflow_run.id }}", cd)
         self.assertIn("sha256sum --check --status", cd)
-        self.assertIn('--tusd-binary-sha256 "$TUSD_BINARY_SHA256"', cd)
+        self.assertIn('"$TUSD_BINARY_SHA256" <<\'REMOTE_SCRIPT\'', cd)
+        self.assertIn('tusd_binary_sha256="${11}"', cd)
+        self.assertIn('--tusd-binary-sha256 "$tusd_binary_sha256"', cd)
 
     def test_local_preview_makes_tusd_optional_but_disables_uploads_explicitly(self):
         preview = (ROOT / "scripts/local-preview.sh").read_text(encoding="utf-8")

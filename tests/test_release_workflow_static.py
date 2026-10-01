@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
 import unittest
 
 import yaml
@@ -127,6 +131,122 @@ class ReleaseWorkflowStaticTests(unittest.TestCase):
 
     def test_deployment_preflight_checks_the_running_backend_health_endpoint(self):
         self.assertIn("--health-url http://127.0.0.1:8000/api/health", self.cd_source)
+
+    def test_deployment_forwards_the_pinned_tusd_digest_to_the_remote_shell(self):
+        deployment = self.cd_workflow["jobs"]["deployment"]
+        deploy_step = next(
+            step
+            for step in deployment["steps"]
+            if step.get("name") == "Run production deployment"
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload_root = root / "payload"
+            (payload_root / "scripts").mkdir(parents=True)
+            (payload_root / "scripts" / "verify-baseline.py").touch()
+            (payload_root / "scripts" / "install-release-layout.sh").touch()
+            (payload_root / "scripts" / "release-preflight.sh").touch()
+            (payload_root / "scripts" / "deploy-production.py").touch()
+            (payload_root / "release-impact.yml").write_text("version: 1\n")
+            (payload_root / "release-impact.json").write_text(
+                '{"changed_paths": []}\n'
+            )
+            (payload_root / "release-metadata.env").write_text(
+                "frontend_package_lock_sha256=" + "a" * 64 + "\n"
+                "frontend_api_schema_sha256=" + "b" * 64 + "\n"
+                "backend_api_schema_sha256=" + "c" * 64 + "\n"
+            )
+
+            archive_fd, archive_name = tempfile.mkstemp(
+                prefix="elysium-cd-test-", suffix=".tar.gz", dir="/tmp"
+            )
+            os.close(archive_fd)
+            archive_path = Path(archive_name)
+            with tarfile.open(archive_path, "w:gz") as archive:
+                for path in payload_root.rglob("*"):
+                    archive.add(path, arcname=path.relative_to(payload_root))
+
+            binary_dir = root / "bin"
+            binary_dir.mkdir()
+            fake_ssh = binary_dir / "ssh"
+            fake_ssh.write_text(
+                "#!/bin/bash\n"
+                "while [[ $# -gt 0 ]]; do\n"
+                "  case $1 in\n"
+                "    -i|-o) shift 2 ;;\n"
+                "    *) break ;;\n"
+                "  esac\n"
+                "done\n"
+                "shift\n"
+                "unset TUSD_BINARY_SHA256\n"
+                'exec "$@"\n'
+            )
+            fake_sudo = binary_dir / "sudo"
+            fake_sudo.write_text(
+                "#!/bin/bash\n"
+                "for arg in \"$@\"; do\n"
+                "  if [[ $arg == */deploy-production.py ]]; then\n"
+                "    printf '%s\\0' \"$@\" > \"$CAPTURE_FILE\"\n"
+                "    exit 0\n"
+                "  fi\n"
+                "done\n"
+                "exit 0\n"
+            )
+            fake_ssh.chmod(0o755)
+            fake_sudo.chmod(0o755)
+
+            deployment_python = (
+                root / "production" / "backend-current" / ".venv" / "bin" / "python"
+            )
+            deployment_python.parent.mkdir(parents=True)
+            deployment_python.touch()
+            deployment_python.chmod(0o755)
+            ssh_key = root / "ssh-key"
+            known_hosts = root / "known-hosts"
+            ssh_key.touch()
+            known_hosts.touch()
+            capture_file = root / "deploy-args"
+            digest = "b01e54afb2449738cee6114aeca65b1b339b3e56bcbe301ce7b7bcd3db37537c"
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{binary_dir}:{environment['PATH']}",
+                    "CAPTURE_FILE": str(capture_file),
+                    "ELYSIUM_SSH_KEY": str(ssh_key),
+                    "ELYSIUM_SSH_KNOWN_HOSTS": str(known_hosts),
+                    "ELYSIUM_PAYLOAD_NAME": archive_path.name,
+                    "PRODUCTION_SSH_HOST": "production.example.invalid",
+                    "PRODUCTION_SSH_USER": "deploy",
+                    "PRODUCTION_ROOT": str(root / "production"),
+                    "PRODUCTION_BASELINE_ROOT": str(root / "baseline"),
+                    "PRODUCTION_BASELINE_ID": "test-baseline",
+                    "PRODUCTION_GIT_ORIGIN": "https://example.invalid/repository.git",
+                    "DEPLOYMENT_ID": "test-deployment",
+                    "DEPLOY_COMMIT": "d" * 40,
+                    "DEPLOY_RUN_ID": "12345",
+                    "DEPLOY_FRONTEND": "false",
+                    "DEPLOY_BACKEND": "true",
+                    "TUSD_BINARY_SHA256": digest,
+                }
+            )
+
+            try:
+                result = subprocess.run(
+                    ["bash", "-c", deploy_step["run"]],
+                    cwd=ROOT,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            finally:
+                archive_path.unlink(missing_ok=True)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            deploy_args = capture_file.read_bytes().split(b"\0")
+            checksum_option = deploy_args.index(b"--tusd-binary-sha256")
+            self.assertEqual(deploy_args[checksum_option + 1], digest.encode())
 
     def test_operations_doc_records_gate_secrets_baseline_and_rollback(self):
         self.assertTrue(OPERATIONS_DOC.is_file(), f"missing operations doc: {OPERATIONS_DOC}")
