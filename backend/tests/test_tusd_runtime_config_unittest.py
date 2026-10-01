@@ -42,7 +42,7 @@ class TusdRuntimeConfigTest(unittest.TestCase):
                 "  fi\n"
                 "done\n"
                 "mkdir -p \"$destination/tusd_linux_amd64\"\n"
-                "printf '#!/bin/sh\\nprintf \\\"Version: v2.10.0\\\\n\\\"\\n' > \"$destination/tusd_linux_amd64/tusd\"\n"
+                "printf '%s\\n' '#!/bin/sh' 'echo Version: v2.10.0' > \"$destination/tusd_linux_amd64/tusd\"\n"
                 "chmod +x \"$destination/tusd_linux_amd64/tusd\"\n"
                 "printf 'pinned release license fixture\\n' > \"$destination/LICENSE.txt\"\n",
                 encoding="utf-8",
