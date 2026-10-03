@@ -29,23 +29,45 @@ export function useArticleFlowData() {
   const [homeLabel, setHomeLabel] = useState('')
   const [articleTitleScale, setArticleTitleScale] = useState(DEFAULT_ARTICLE_TITLE_SCALE)
   const [error, setError] = useState('')
-  const homeLabelLoadedRef = useRef(false)
+  const essayCacheRef = useRef(new Map())
 
   useEffect(() => {
     let active = true
     let hasLoaded = false
+    let inFlight = false
+    let lastContent = ''
+    const metadataCache = new Map()
     const refreshArticles = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
         const response = await fetch('/api/articles')
         if (!response.ok) throw new Error('服务器没有返回文章。')
         const data = await response.json()
-        const items = await Promise.all((data.articles || []).map(enrichArticle))
+        const keys = new Set()
+        const items = await Promise.all((data.articles || []).map(async (item) => {
+          const key = JSON.stringify(item)
+          keys.add(key)
+          const cached = metadataCache.get(key)
+          if (cached && Date.now() < cached.retryAt) return cached.article
+          const article = await enrichArticle(item)
+          const needsMetadata = ['movie', 'album', 'book', 'game'].includes(item.type) && !item.cover && !item.excerpt
+          metadataCache.set(key, { article, retryAt: needsMetadata && article === item ? Date.now() + 60_000 : Infinity })
+          return article
+        }))
         if (!active) return
-        setArticles(items)
+        for (const key of metadataCache.keys()) if (!keys.has(key)) metadataCache.delete(key)
+        const content = JSON.stringify(items)
+        if (content !== lastContent) {
+          lastContent = content
+          setArticles(items)
+        }
         setError('')
         hasLoaded = true
       } catch (reason) {
         if (active && !hasLoaded) setError(reason.message || '暂时无法打开')
+      } finally {
+        inFlight = false
       }
     }
     const refreshIfVisible = () => {
@@ -68,13 +90,17 @@ export function useArticleFlowData() {
     if (!articles) return undefined
     let active = true
     const essays = articles.filter((item) => articleType(item) === 'essay')
+    const cache = essayCacheRef.current
+    const keys = new Set(essays.map((item) => JSON.stringify(item)))
+    for (const key of cache.keys()) if (!keys.has(key)) cache.delete(key)
     Promise.all(essays.map(async (item) => {
-      try {
-        const response = await fetch(`/api/articles/${encodeURIComponent(item.slug)}`)
-        return [item.slug, response.ok ? ((await response.json()).article || null) : null]
-      } catch {
-        return [item.slug, null]
+      const key = JSON.stringify(item)
+      if (!cache.has(key)) {
+        cache.set(key, fetch(`/api/articles/${encodeURIComponent(item.slug)}`)
+          .then(async (response) => response.ok ? ((await response.json()).article || null) : null)
+          .catch(() => null))
       }
+      return [item.slug, await cache.get(key)]
     })).then((entries) => {
       if (active) setFullEssays(Object.fromEntries(entries))
     })
@@ -82,8 +108,6 @@ export function useArticleFlowData() {
   }, [articles])
 
   useEffect(() => {
-    if (!articles || homeLabelLoadedRef.current) return undefined
-    homeLabelLoadedRef.current = true
     let active = true
     fetch('/api/homepage')
       .then((response) => (response.ok ? response.json() : null))
@@ -94,7 +118,7 @@ export function useArticleFlowData() {
       })
       .catch(() => {})
     return () => { active = false }
-  }, [articles])
+  }, [])
 
   return { articleTitleScale, articles, error, fullEssays, homeLabel }
 }

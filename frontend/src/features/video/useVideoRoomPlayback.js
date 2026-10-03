@@ -170,14 +170,22 @@ export function useVideoRoomPlayback({
     const adapter = adapterRef.current
     const time = adapter?.snapshot().currentTime || 0
     if (state === 'playing' && !needsUserGesture) {
-      adapter?.pause()
+      runPlaybackCorrection(() => adapter?.pause())
       emitControl('pause', { time })
       return
     }
 
     // Start in the click handler so browsers treat this as a user-initiated
     // playback. Waiting for the socket round-trip loses that permission.
-    const localPlay = adapter?.play()
+    // Programmatic play/pause also fires native events. Only this handler
+    // sends the command; native controls still use handleNativePlaybackControl.
+    const release = beginRemoteApply()
+    let localPlay
+    try {
+      localPlay = adapter?.play()
+    } catch (error) {
+      localPlay = Promise.reject(error)
+    }
     Promise.resolve(localPlay).then(() => {
       playbackUnlockedRef.current = true
       setNeedsUserGesture(false)
@@ -190,9 +198,9 @@ export function useVideoRoomPlayback({
       }
       setNeedsUserGesture(false)
       refreshMediaSource()
-    })
+    }).finally(release)
     emitControl('play', { time })
-  }, [emitControl, latestSnapshotRef, needsUserGesture, refreshMediaSource, setNotice])
+  }, [beginRemoteApply, emitControl, latestSnapshotRef, needsUserGesture, refreshMediaSource, runPlaybackCorrection, setNotice])
 
   const seek = useCallback((time) => {
     emitControl('seek', { time: Math.max(0, Number(time) || 0) })

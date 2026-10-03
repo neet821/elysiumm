@@ -19,6 +19,46 @@ vi.mock('../src/features/video/VideoPlayerAdapter.js', async (importOriginal) =>
 import { useVideoRoomPlayback } from '../src/features/video/useVideoRoomPlayback.js'
 
 describe('useVideoRoomPlayback', () => {
+  it.each([
+    ['paused', 'play', 'onPlay'],
+    ['playing', 'pause', 'onPause'],
+  ])('sends one command when a custom toggle from %s also fires a native media event', async (state, action, event) => {
+    const socket = { emit: vi.fn() }
+    const { result } = renderHook(() => useVideoRoomPlayback({
+      canControl: true, currentItem: { id: 7 }, isHost: false,
+      latestSnapshotRef: { current: { snapshot: { state, version: 5 } } },
+      numericRoomId: 9, requestSnapshot: vi.fn(), selectedSubtitleId: null,
+      setNotice: vi.fn(), setSyncStatus: vi.fn(), snapshotRecord: null,
+      socketRef: { current: socket },
+    }))
+    playbackMocks.adapter.snapshot = () => ({ currentTime: 12, playbackRate: 1 })
+    playbackMocks.adapter[action] = () => {
+      result.current.onVideoEvent[event]()
+      return Promise.resolve()
+    }
+    act(() => result.current.setVideoElement(document.createElement('video')))
+    await act(async () => result.current.togglePlayback())
+    const controls = socket.emit.mock.calls.filter(([name]) => name === 'playback_control')
+    expect(controls).toHaveLength(1)
+    expect(controls[0][1]).toMatchObject({ action, time: 12, media_id: 7, playback_version: 5 })
+  })
+
+  it('keeps genuine native play controls available', () => {
+    const socket = { emit: vi.fn() }
+    const { result } = renderHook(() => useVideoRoomPlayback({
+      canControl: true, currentItem: { id: 7 }, isHost: false,
+      latestSnapshotRef: { current: { snapshot: { state: 'paused', version: 5 } } },
+      numericRoomId: 9, requestSnapshot: vi.fn(), selectedSubtitleId: null,
+      setNotice: vi.fn(), setSyncStatus: vi.fn(), snapshotRecord: null,
+      socketRef: { current: socket },
+    }))
+    playbackMocks.adapter.snapshot = () => ({ currentTime: 12, playbackRate: 1 })
+    act(() => result.current.setVideoElement(document.createElement('video')))
+    act(() => result.current.onVideoEvent.onPlay())
+    expect(socket.emit).toHaveBeenCalledTimes(1)
+    expect(socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({ action: 'play' }))
+  })
+
   it('applies the latest room snapshot when the video element attaches after room state loads', async () => {
     const snapshotRecord = {
       receivedAtMs: 10_000,

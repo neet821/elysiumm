@@ -78,7 +78,7 @@ describe('administrator Files workspace', () => {
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_STATUS)
     expect(apiClient.get).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_FILE_SYNC_BROWSE, { params: { path: '' } })
     expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue(`${window.location.origin}/transfer/current-token`)).toBeInTheDocument()
     expect(screen.getByText('notes.txt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'docs' })).not.toBeInTheDocument()
     expect(screen.getByText('transfer.pdf')).toBeInTheDocument()
@@ -189,15 +189,15 @@ describe('administrator Files workspace', () => {
 
     render(<AdminFilesPage />)
 
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue(`${window.location.origin}/transfer/current-token`)).toBeInTheDocument()
     await user.upload(screen.getByLabelText('选择文件上传'), file)
 
     expect(apiClient.post).toHaveBeenCalledWith(API_ENDPOINTS.ADMIN_TRANSFER_CURRENT_LINK)
     expect(tusMocks.manager.addFiles).toHaveBeenCalledWith([file], { purpose: 'transfer_file', sessionId: 3 })
-    expect(screen.getByDisplayValue('https://send.elysiumm.top/current-token')).toBeInTheDocument()
+    expect(screen.getByDisplayValue(`${window.location.origin}/transfer/current-token`)).toBeInTheDocument()
 
     await tusMocks.onUploadComplete({ token: 'rotated-token' }, { meta: { purpose: 'transfer_file', session_id: '3' } })
-    expect(await screen.findByDisplayValue('https://send.elysiumm.top/rotated-token')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue(`${window.location.origin}/transfer/rotated-token`)).toBeInTheDocument()
   })
 
   it('uses the same resumable queue for administrator-private file uploads', async () => {
