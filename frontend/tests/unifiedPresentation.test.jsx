@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import { MemoryRouter } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import HomeSidebar from '../src/features/content/HomeSidebar.jsx'
 
 vi.mock('../src/pages/SyncRoomList.jsx', () => ({ default: () => <p>房间内容</p> }))
@@ -10,6 +10,26 @@ vi.mock('../src/features/music/MusicPlaylistManager.jsx', () => ({ default: () =
 import MusicLobbyPage from '../src/pages/MusicLobbyPage.jsx'
 
 describe('plain unified presentation', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('uses labelled regions for simultaneous desktop panels and updates semantics on resize', () => {
+    let onChange
+    const media = {
+      matches: false,
+      addEventListener: vi.fn((event, listener) => { onChange = listener }),
+      removeEventListener: vi.fn(),
+    }
+    vi.stubGlobal('matchMedia', vi.fn(() => media))
+    const { unmount } = render(<MusicLobbyPage />)
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getByRole('region', { name: '一起听' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '我的歌单' })).toBeInTheDocument()
+    act(() => onChange({ matches: true }))
+    expect(screen.getByRole('tablist')).toBeInTheDocument()
+    expect(screen.getByRole('tabpanel', { name: '一起听' })).toBeInTheDocument()
+    unmount()
+    expect(media.removeEventListener).toHaveBeenCalledWith('change', onChange)
+  })
   it('shows bounded previews and explicit routes to all supporting content', () => {
     render(<MemoryRouter><HomeSidebar
       essays={Array.from({ length: 4 }, (_, i) => ({ slug: `e${i}`, title: `随笔${i}` }))}
@@ -24,6 +44,7 @@ describe('plain unified presentation', () => {
   })
 
   it('keeps rooms and playlists mounted and supports keyboard switching in the mobile tabs', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
     const user = userEvent.setup()
     render(<MusicLobbyPage />)
     const rooms = screen.getByRole('tab', { name: '一起听' })
