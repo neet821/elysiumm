@@ -62,7 +62,11 @@ export function createVideoRoomMediaEvents({
         width,
       }).catch(() => setNotice('视频信息暂时无法保存'))
     },
-    onPause: () => handleNativePlaybackControl('pause'),
+    // Browsers pause at the natural end before firing ended. Only video_ended
+    // owns that transition; a separate pause would race its version check.
+    onPause: (event) => {
+      if (!event?.currentTarget?.ended) handleNativePlaybackControl('pause')
+    },
     onPlay: () => handleNativePlaybackControl('play'),
     onPlaying: () => {
       playbackUnlockedRef.current = true

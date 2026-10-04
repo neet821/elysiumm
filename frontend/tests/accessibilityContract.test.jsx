@@ -28,9 +28,9 @@ describe('application accessibility contract', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
     expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
-    expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '首页导航' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /切换到/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '返回首页' })).toHaveAttribute('title', '返回首页')
+    expect(screen.getByRole('link', { name: '首页' })).toHaveAttribute('href', '/')
   })
 
   it('shows a generic named alert without disclosing runtime details', () => {
@@ -47,7 +47,8 @@ describe('application accessibility contract', () => {
   it('keeps visible focus and reduced-motion fallbacks in the production stylesheet', () => {
     const css = applicationStyles
     expect(css).toMatch(/:focus-visible\s*\{[\s\S]*?outline:/)
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?--motion-normal:\s*0ms/)
+    expect(css).toMatch(/--motion-normal:\s*0ms/)
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
     expect(css).toMatch(/\.route-loading__spinner\s*\{\s*animation:\s*none/)
   })
 })

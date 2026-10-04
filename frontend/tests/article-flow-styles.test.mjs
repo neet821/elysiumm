@@ -20,33 +20,16 @@ test('homepage stylesheet keeps its cascade layers explicit and ordered', () => 
   assert.deepEqual(articleFlowCssImports(), ARTICLE_FLOW_CSS_LAYERS)
 
   const resolved = postcss.parse(resolveArticleFlowCss())
-  const compactEssayRules = []
-  const mobileDrawerRules = []
-  const desktopRailRules = []
+  const layoutRules = []
+  const sidebarRules = []
 
   resolved.walkRules((rule) => {
-    if (rule.selector === '.legacy-old-home--flat .essay-card--compact') {
-      compactEssayRules.push({
-        media: enclosingMedia(rule),
-        padding: rule.nodes.find((node) => node.type === 'decl' && node.prop === 'padding')?.value,
-      })
-    }
-    if (rule.selector.includes('.home-sidebar.home-sidebar--drawer-open > .sidebar-section--records')) {
-      mobileDrawerRules.push({
-        media: enclosingMedia(rule),
-        order: rule.nodes.find((node) => node.type === 'decl' && node.prop === 'order')?.value,
-      })
-    }
-    if (rule.selector === '.legacy-old-home--flat .home-nav') {
-      desktopRailRules.push({
-        media: enclosingMedia(rule),
-        position: rule.nodes.find((node) => node.type === 'decl' && node.prop === 'position')?.value,
-        width: rule.nodes.find((node) => node.type === 'decl' && node.prop === 'width')?.value,
-      })
-    }
+    if (rule.selector === '.legacy-old-home--flat .home-layout') layoutRules.push(rule)
+    if (rule.selector === '.legacy-old-home--flat .home-sidebar') sidebarRules.push(rule)
   })
 
-  assert.ok(compactEssayRules.some((rule) => rule.media === null && rule.padding === '10px 0 16px'))
-  assert.ok(mobileDrawerRules.some((rule) => rule.media === '(max-width: 800px)' && rule.order === '0'))
-  assert.ok(desktopRailRules.some((rule) => rule.media === '(min-width: 1101px)' && rule.position === 'fixed' && rule.width === 'var(--home-nav-rail-width)'))
+  assert.ok(layoutRules.some((rule) => enclosingMedia(rule) === null && rule.nodes.some((node) => node.prop === 'grid-template-areas' && node.value === '"articles sidebar" "photos photos"')))
+  assert.ok(layoutRules.some((rule) => enclosingMedia(rule) === '(max-width: 800px)' && rule.nodes.some((node) => node.prop === 'grid-template-areas' && node.value === '"articles" "sidebar" "photos"')))
+  assert.ok(sidebarRules.some((rule) => enclosingMedia(rule) === null && rule.nodes.some((node) => node.prop === 'grid-area' && node.value === 'sidebar')))
+  assert.doesNotMatch(resolveArticleFlowCss(), /sidebar-scroll-viewport|sidebar-scroll-cue|home-nav-rail-width/)
 })

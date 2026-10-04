@@ -56,8 +56,8 @@ async function uploadTrack(base, roomId, token, title, frequency) {
   const form = new FormData()
   form.set('title', title)
   form.set('artist', 'Phase 7 Fixture')
-  form.set('duration_seconds', '8')
-  form.set('file', new Blob([wavBuffer(8, frequency)], { type: 'audio/wav' }), `${title}.wav`)
+  form.set('duration_seconds', '30')
+  form.set('file', new Blob([wavBuffer(30, frequency)], { type: 'audio/wav' }), `${title}.wav`)
   return expectOk(await api(base, `/api/music/rooms/${roomId}/uploads`, {
     form,
     method: 'POST',
@@ -100,7 +100,7 @@ async function inspectPage(page, appBase) {
   assert.equal(state.iframeCount, 0, `${page.label} rendered a legacy iframe`)
   assert.equal(state.nativePlayer, true, `${page.label} did not render the native room player`)
   assert.equal(state.audio, true, `${page.label} did not render the native audio element`)
-  assert.equal(state.canvas, true, `${page.label} did not render the particle field`)
+  assert.equal(state.canvas, false, `${page.label} rendered a retired decorative particle field`)
   assert.equal(state.lyrics, true, `${page.label} did not render the lyrics surface`)
   assert.equal(state.search, true, `${page.label} did not render the room search surface`)
   assert.equal(state.syncStatus, 'synced', `${page.label} did not reach the synced state`)
@@ -162,7 +162,14 @@ async function main() {
     }), 'member join')
     const first = await uploadTrack(appBase, roomId, hostAuth.access_token, 'Fixture Alpha', 330)
     assert(first.queue.some((item) => item.title === 'Fixture Alpha' && item.status === 'playing'))
-    const second = await uploadTrack(appBase, roomId, memberAuth.access_token, 'Fixture Beta', 440)
+    const forbiddenUpload = new FormData()
+    forbiddenUpload.set('file', new Blob([wavBuffer(1, 440)], { type: 'audio/wav' }), 'forbidden.wav')
+    const denied = await api(appBase, `/api/music/rooms/${roomId}/uploads`, {
+      form: forbiddenUpload, method: 'POST', token: memberAuth.access_token,
+    })
+    assert.equal(denied.status, 403, 'ordinary members must not upload room audio')
+    const second = await uploadTrack(appBase, roomId, hostAuth.access_token, 'Fixture Beta', 440)
+    assert.equal(second.queue.length, 2, 'rejected uploads must not add queue entries')
     assert(second.queue.some((item) => item.title === 'Fixture Beta' && item.status !== 'playing'))
 
     for (const [label, debugPort] of [['host', hostDebugPort], ['member', memberDebugPort]]) {
@@ -201,6 +208,21 @@ async function main() {
       member.waitFor("document.querySelector('.music-room-native__visual h1')?.textContent === 'Fixture Beta'", 20000),
     ])
 
+    // A rendered player is not proof of playback: both clients must decode and advance.
+    await Promise.all(clients.map((page) => page.waitFor(`(() => {
+      const audio = document.querySelector('audio[aria-label="听歌房音频播放器"]')
+      return audio && !audio.paused && audio.readyState >= 2 && audio.duration > 0
+    })()`, 20000)))
+    const before = await Promise.all(clients.map((page) => page.evaluate('document.querySelector("audio").currentTime')))
+    await sleep(700)
+    const playback = await Promise.all(clients.map(async (page, index) => {
+      const time = await page.evaluate('document.querySelector("audio").currentTime')
+      assert(time > before[index] + 0.2, `${page.label} audio did not advance`)
+      return { client: page.label, from: before[index], to: time }
+    }))
+    await clickText(host, '重新同步')
+    await host.waitFor("document.querySelector('.music-room-native__room-meta [data-sync-status]')?.dataset.syncStatus === 'synced'", 15000)
+
     await fillInput(member, '[aria-label="聊天消息"]', 'Phase 7 native room hello')
     await clickText(member, '发送')
     await host.waitFor("document.body.textContent.includes('Phase 7 native room hello')", 15000)
@@ -217,6 +239,7 @@ async function main() {
     console.log(JSON.stringify({
       historyItems: history.items.length,
       nativePlayer: true,
+      playback,
       roomId,
       screenshots,
       states,

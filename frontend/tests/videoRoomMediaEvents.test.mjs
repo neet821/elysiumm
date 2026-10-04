@@ -82,6 +82,16 @@ test('video ended events are permission-checked and emitted once per media versi
   assert.equal(restricted.socketEvents.length, 0)
 })
 
+test('natural completion sends only the ended transition, not a racing native pause', () => {
+  const { calls, events, socketEvents } = fixture()
+  events.onPause({ currentTarget: { ended: true } })
+  events.onEnded()
+  assert.deepEqual(calls.handleNativePlaybackControl, [])
+  assert.equal(socketEvents.length, 1)
+  events.onPause({ currentTarget: { ended: false } })
+  assert.deepEqual(calls.handleNativePlaybackControl, ['pause'])
+})
+
 test('video metadata is validated, deduplicated, and reports persistence errors', async () => {
   const { calls, events } = fixture()
 

@@ -344,6 +344,26 @@ describe('video room page', () => {
     expect(await screen.findByText('操作与房间新状态冲突，已重新同步')).toHaveAttribute('role', 'status')
   })
 
+  it('accepts an authoritative empty snapshot after completion and selects again with the new version', async () => {
+    renderRoom()
+    await screen.findByRole('heading', { name: 'Video room' })
+    const empty = snapshot({ media_id: null, media_kind: null, position: 0, version: 12 })
+    act(() => mocks.handlers.get('room_snapshot')(empty))
+    fireEvent.click(screen.getByRole('button', { name: '重新同步' }))
+    expect(screen.getByText('正在同步…')).toBeInTheDocument()
+    act(() => mocks.handlers.get('room_snapshot')(empty))
+    expect(screen.getByText('已与服务器同步')).toBeInTheDocument()
+    act(() => mocks.handlers.get('room_snapshot')(snapshot({ media_kind: null, version: 15 })))
+    act(() => mocks.handlers.get('room_snapshot')(snapshot({ media_kind: 'music', version: 15 })))
+    act(() => mocks.handlers.get('room_snapshot')(snapshot({ room_id: 10, version: 15 })))
+    // A late, old-media snapshot must not overwrite the completed version.
+    act(() => mocks.handlers.get('room_snapshot')(snapshot({ version: 6 })))
+    fireEvent.click(screen.getByRole('button', { name: /第 2 集.*Next film/ }))
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      expect.stringContaining('/items/8/select'), { autoplay: true, expected_version: 12 },
+    ))
+  })
+
   it('automatically clears the conflict notice after resync completes', async () => {
     renderRoom()
     await screen.findByRole('heading', { name: 'Video room' })

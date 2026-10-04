@@ -5,7 +5,8 @@ const fallbackOrigin = window?.location?.origin || ''
 const API_BASE_URL = fromEnv('VITE_API_BASE_URL') || fallbackOrigin
 const WS_BASE_URL = fromEnv('VITE_WS_BASE_URL') || API_BASE_URL
 export const TRANSFER_HOST = fromEnv('VITE_TRANSFER_HOST') || 'send.elysiumm.top'
-export const TRANSFER_PUBLIC_BASE_URL = `https://${TRANSFER_HOST}`
+export const TRANSFER_PUBLIC_BASE_URL = (fromEnv('VITE_TRANSFER_PUBLIC_BASE_URL')
+  || (import.meta.env.DEV ? `${fallbackOrigin}/transfer` : `https://${TRANSFER_HOST}`)).replace(/\/+$/, '')
 export const isTransferHost = (hostname = typeof window !== 'undefined' ? window.location.hostname : '') => hostname === TRANSFER_HOST
 
 export const API_ENDPOINTS = {

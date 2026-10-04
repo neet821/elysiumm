@@ -10,20 +10,11 @@
     font: 600 0.92rem/1 var(--font-interface);
     gap: 0.55rem;
     justify-content: center;
-    transition:
-      background-color var(--motion-fast) var(--ease-standard),
-      border-color var(--motion-fast) var(--ease-standard),
-      box-shadow var(--motion-fast) var(--ease-standard),
-      color var(--motion-fast) var(--ease-standard),
-      transform var(--motion-fast) var(--ease-standard);
   }
 
   .ui-button:disabled {
     cursor: not-allowed;
     opacity: 0.58;
-  }
-  .ui-button:not(:disabled):active {
-    transform: translateY(1px) scale(0.985);
   }
   .ui-button--primary {
     background: var(--accent-blue);
@@ -43,11 +34,11 @@
     color: var(--text-inverse);
   }
   .ui-button--sm {
-    min-height: 2rem;
+    min-height: 44px;
     padding: 0.45rem 0.75rem;
   }
   .ui-button--md {
-    min-height: 2.65rem;
+    min-height: 44px;
     padding: 0.7rem 1rem;
   }
   .ui-button--lg {
@@ -55,12 +46,11 @@
     padding: 0.85rem 1.25rem;
   }
   .ui-button--icon {
-    height: 2.65rem;
+    height: 44px;
     padding: 0;
-    width: 2.65rem;
+    width: 44px;
   }
   .ui-button__spinner {
-    animation: spin-slow 900ms linear infinite;
     border: 2px solid currentColor;
     border-radius: 999px;
     border-right-color: transparent;
@@ -96,11 +86,8 @@
     border-radius: var(--radius-control);
     color: var(--text-primary);
     font: inherit;
-    min-height: 2.7rem;
+    min-height: 44px;
     padding: 0.7rem 0.8rem;
-    transition:
-      border-color var(--motion-fast) var(--ease-standard),
-      box-shadow var(--motion-fast) var(--ease-standard);
     width: 100%;
   }
   .ui-input[aria-invalid="true"] {
@@ -111,16 +98,8 @@
     background: var(--surface-card);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow-card);
   }
   .ui-card--muted {
     background: var(--surface-card-muted);
-    box-shadow: none;
-  }
-  .ui-card--interactive {
-    transition:
-      border-color var(--motion-normal) var(--ease-standard),
-      box-shadow var(--motion-normal) var(--ease-standard),
-      transform var(--motion-normal) var(--ease-emphasized);
   }
 }

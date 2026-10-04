@@ -1,24 +1,6 @@
-
-@media (max-width: 1100px) {
-  .music-room-shell__stage .music-room-native {
-    height: 100%;
-  }
-}
-
 @media (max-width: 700px) {
-  .music-room-shell__stage {
-    height: calc(100vh - 6rem);
-    min-height: 32rem;
-  }
-  .music-room-native {
-    display: block;
-    height: auto;
-    min-height: 100%;
-  }
-  .music-room-native__visual {
-    min-height: 39rem;
-  }
-  .music-room-native__lower {
-    grid-template-columns: 1fr;
-  }
+  .music-room-native__visual { padding: 24px 16px; }
+  .music-room-native__lower { grid-template-columns: 1fr; }
+  .music-room-native__cover.is-large { height: 128px; width: 128px; }
+  .music-room-native__notice { left: 16px; right: 16px; transform: none; width: auto; }
 }

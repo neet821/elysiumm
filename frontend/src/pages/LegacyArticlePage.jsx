@@ -33,7 +33,7 @@ export default function LegacyArticlePage() {
       <article className="reader reader--article">
         <Link className="back-link" to="/" aria-label="返回首页" title="返回首页">←</Link>
         <header className="reader-header"><h1>{article.title}</h1></header>
-        <MarkdownContent markdown={article.markdown} html={article.html} className="reader-body" />
+        <MarkdownContent markdown={article.markdown} html={article.html} omitLeadingTitle={article.title} className="reader-body" />
       </article>
     </div>
   )

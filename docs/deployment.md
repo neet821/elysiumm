@@ -1,186 +1,83 @@
-# Deployment and rollback
+# Elysium 部署、基线与回滚
 
-## Safety boundary
+## 安全边界
 
-Production is not modified by tests. The canonical bare-metal layout is
-`/srv/services/elysium`; the deployment scripts use temporary roots in tests and
-never read the production environment unless a production command explicitly
-receives its `EnvironmentFile`. FlClash and FlClashCore are outside this
-workflow and must never be restarted or modified.
+测试只使用临时根目录和数据库，不连接生产环境。生产根目录是 `/srv/services/elysium`；部署工具不读取生产环境文件，除非显式收到 backend systemd 的 EnvironmentFile。FlClash 和 FlClashCore 永远不由 Elysium 重启、检查、baseline 或回滚。
 
-## Host layout
+## 裸机布局
 
-Initialize an empty or separately audited root with:
+| 内容 | 位置 |
+| --- | --- |
+| 裸 Git 仓库 | `/srv/services/elysium/repository.git` |
+| 后端/前端 release | `releases/backend-releases/<id>`、`releases/frontend-releases/<id>` |
+| 激活点 | `backend-current`、`frontend-current` |
+| 发布事务 | `releases/deployment-history/<deployment-id>.json` |
+| 共享上传/私有/同步/传输/备份 | `/srv/services/elysium/shared/` |
+| 不可变 baseline | `/srv/backups/elysium/baseline/<baseline-id>/` |
+| 生产环境 | `/etc/elysium/backend.env`、`/etc/elysium/mediamtx.*` |
+
+release 是不可变快照并带组件级 `RELEASE.json`；只有 current 链接是激活点。旧 `data -> shared` 兼容链接不再由安装器创建。Articles 镜像、上传和其他 shared 数据是 baseline manifest 中声明的外部依赖，不自动复制进普通 release。
+
+## 初始化与 baseline
+
+基线包含 `BASELINE.json` 和 `SHA256SUMS`，必须先校验可恢复性，不能只确认目录存在。
 
 ```bash
-sudo scripts/install-release-layout.sh --root /srv/services/elysium \
+# 只创建缺失的 release/shared/裸仓库目录，不切换 current、不停服务
+sudo scripts/install-release-layout.sh \
+  --root /srv/services/elysium \
   --origin https://github.com/<org>/<repo>.git
-```
 
-The script creates `repository.git`, `releases/backend-releases/`,
-`releases/frontend-releases/`, `releases/deployment-history/`, the
-`backend-current`/`frontend-current` link locations, and `shared/` storage. It
-does not move production data, stop services, switch a current link, or delete
-a legacy checkout. The former `data -> shared` compatibility link is not
-created by the installer.
+# 查看基线工具的全部参数；不能复制半份参数表执行生产快照
+python3 scripts/create-baseline.py --help
 
-Each component release is immutable and contains a component-specific
-`RELEASE.json`. A deployment writes an atomically updated transaction to
-`deployment-history/<deployment-id>.json`; finalized transactions are mode
-0444 and are retained independently of release cleanup.
-
-## Baseline prerequisite
-
-Before enabling automatic deployment, create a baseline from the actually
-running production stack. It must contain dereferenced backend, frontend,
-Mineradio and Articles runtime trees, the complete backend `.venv`, a
-consistent database backup, original and baseline-internal restore
-configuration, `BASELINE.json`, `SHA256SUMS`, and restore/verify/rollback
-scripts. Shared uploads and the Articles mirror remain external data
-dependencies and must be listed in the manifest. The baseline must not depend
-on old release paths or compatibility links.
-
-Create it from the paths that are actually serving traffic. The example keeps
-the old runtime trees as read-only sources, copies the live backend virtualenv,
-and rewrites those source paths in the generated restore configuration; replace
-the Articles/Mineradio paths if the host uses different locations:
-
-```bash
-sudo install -d -m 0755 /srv/backups/elysium/baseline
-sudo python3 scripts/create-baseline.py \
-  --baseline-root /srv/backups/elysium/baseline \
-  --baseline-id current-production-<timestamp> \
-  --component backend=/srv/services/elysium/releases/66d1b0b-20260911-160920/backend \
-  --component frontend=/srv/services/elysium/web-releases/071f14d-20260911-1550 \
-  --component mineradio=/srv/services/elysium/releases/93e8188/mineradio \
-  --component articles=/srv/services/elysium/articles \
-  --dependency backend/runtime/mediamtx=/usr/local/libexec/elysium/mediamtx \
-  --config env/backend.env=/etc/elysium/backend.env \
-  --config env/articles.env=/etc/elysium/articles.env \
-  --config env/mineradio.env=/etc/elysium/mineradio.env \
-  --config env/mediamtx.env=/etc/elysium/mediamtx.env \
-  --config systemd/elysiumm-backend.service=/etc/systemd/system/elysiumm-backend.service \
-  --config systemd/elysiumm-articles.service=/etc/systemd/system/elysiumm-articles.service \
-  --config systemd/elysiumm-mineradio.service=/etc/systemd/system/elysiumm-mineradio.service \
-  --config systemd/elysiumm-mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
-  --config systemd/obsidian-livesync-mirror.service=/etc/systemd/system/obsidian-livesync-mirror.service \
-  --config systemd/elysiumm-health-guard.service=/etc/systemd/system/elysiumm-health-guard.service \
-  --config nginx/sites-available/elysiumm=/etc/nginx/sites-available/elysiumm \
-  --config nginx/conf.d/send-elysiumm.conf=/etc/nginx/conf.d/send-elysiumm.conf \
-  --config nginx/sites-available/elysiumm-sync=/etc/nginx/sites-available/elysiumm-sync \
-  --config usr/local/sbin/elysium-health-guard=/usr/local/sbin/elysium-health-guard \
-  --restore-target env/backend.env=/etc/elysium/backend.env \
-  --restore-target env/articles.env=/etc/elysium/articles.env \
-  --restore-target env/mineradio.env=/etc/elysium/mineradio.env \
-  --restore-target env/mediamtx.env=/etc/elysium/mediamtx.env \
-  --restore-target systemd/elysiumm-backend.service=/etc/systemd/system/elysiumm-backend.service \
-  --restore-target systemd/elysiumm-articles.service=/etc/systemd/system/elysiumm-articles.service \
-  --restore-target systemd/elysiumm-mineradio.service=/etc/systemd/system/elysiumm-mineradio.service \
-  --restore-target systemd/elysiumm-mediamtx.service=/etc/systemd/system/elysiumm-mediamtx.service \
-  --restore-target systemd/obsidian-livesync-mirror.service=/etc/systemd/system/obsidian-livesync-mirror.service \
-  --restore-target systemd/elysiumm-health-guard.service=/etc/systemd/system/elysiumm-health-guard.service \
-  --restore-target nginx/sites-available/elysiumm=/etc/nginx/sites-available/elysiumm \
-  --restore-target nginx/conf.d/send-elysiumm.conf=/etc/nginx/conf.d/send-elysiumm.conf \
-  --restore-target nginx/sites-available/elysiumm-sync=/etc/nginx/sites-available/elysiumm-sync \
-  --restore-target usr/local/sbin/elysium-health-guard=/usr/local/sbin/elysium-health-guard \
-  --replace /srv/services/elysium/current=/srv/services/elysium/baseline/current-production-<timestamp> \
-  --replace /srv/services/elysium/web-current=/srv/services/elysium/baseline/current-production-<timestamp>/frontend \
-  --replace /srv/services/elysium/mineradio=/srv/services/elysium/baseline/current-production-<timestamp>/mineradio \
-  --replace /srv/services/elysium/articles=/srv/services/elysium/baseline/current-production-<timestamp>/articles \
-  --replace /srv/services/obsidian-livesync/mirror/vault=/srv/services/elysium/shared/sync-storage/articles \
-  --replace /srv/services/obsidian-livesync/mirror/database=/srv/services/elysium/shared/sync-storage/media \
-  --replace /usr/local/libexec/elysium=/srv/services/elysium/baseline/current-production-<timestamp>/backend/runtime \
-  --replace '/srv/services/elysium/current/backend/.venv/bin/uvicorn=/srv/services/elysium/baseline/current-production-<timestamp>/backend/.venv/bin/python -m uvicorn' \
-  --forbidden-reference /srv/services/elysium/current \
-  --forbidden-reference /srv/services/elysium/web-current \
-  --forbidden-reference /srv/services/elysium/mineradio \
-  --forbidden-reference /srv/services/elysium/articles \
-  --forbidden-reference /usr/local/libexec/elysium \
-  --shared-path /srv/services/elysium/shared/uploads \
-  --shared-path /srv/services/elysium/shared/sync-storage/articles \
-  --shared-path /srv/services/elysium/shared/sync-storage/media \
-  --service elysiumm-backend.service \
-  --service elysiumm-articles.service \
-  --service elysiumm-mineradio.service \
-  --service elysiumm-mediamtx.service \
-  --service obsidian-livesync-mirror.service \
-  --service elysiumm-health-guard.service \
-  --service-command '/srv/services/elysium/current/backend/.venv/bin/python -m uvicorn main:app --app-dir /srv/services/elysium/current/backend --host 127.0.0.1 --port 8000 --workers 1'
-```
-
-The command always makes a consistency backup because baseline creation is a
-one-time snapshot operation. It does not switch either current link or stop
-the live services. Confirm the resulting `BASELINE.json` and backup checksum,
-then run the restore rehearsal on an isolated host/port before deleting or
-migrating any old runtime directory.
-
-Verify it without changing production:
-
-```bash
+# 只读校验 manifest、摘要、权限、路径和恢复依赖
 sudo python3 scripts/verify-baseline.py \
   --baseline /srv/backups/elysium/baseline/<baseline-id>
 ```
 
-Run the restore rehearsal on an isolated port and database before moving or
-deleting any old runtime directory. Keep the baseline permanently; it is not a
-candidate for ordinary release cleanup.
+基线工具沿用历史四组件合同：`--component` 必须恰好给出 backend、frontend、mineradio、articles 的实际 runtime 路径；名称不代表要重新启动旧独立服务。必需项还包括 `--env-file`、相同文件的 `--config env/backend.env=...`、完整 backend `.venv`（外置时用 `--dependency backend/.venv=...`）、uploads 与 Articles 的 `--shared-path`、backend `.venv/bin/python -m uvicorn` 的 `--service-command`，以及配置的 `--restore-target`、服务与路径重写声明。环境文件必须权限 600 或更严，数据库 revision 必须与快照后端一致。逐项核对后才能创建；已有验证基线不因一次前端发布而重建。
 
-## CI/CD release path
+真实 baseline 必须包含数据库备份、恢复配置、必要的 systemd/Nginx/MediaMTX 目标和共享依赖。创建后先做隔离端口/数据库恢复演练，再考虑迁移旧目录；baseline 永久保留。
 
-The versioned root-level `release-impact.yml` is read by
-`scripts/resolve-release-impact.py`. Matching rules choose `frontend`,
-`backend`, `infra`, and validation profiles; unknown paths and changes to the
-impact map require full validation. The GitHub workflow builds only the
-affected component artifact, stores hashes and the decision, and enables
-production only for a successful push to `main`, the `production` environment
-approval, and `PRODUCTION_DEPLOY_ENABLED=true`.
+## 现役模板与独立服务
 
-The remote deployment uses the exact commit and pinned SSH host keys. It first
-fetches that commit into `repository.git` and materializes backend source from
-the bare repository without a mutable checkout. It uses a trusted
-existing/baseline Python runtime to create the target release `.venv`,
-and does not put secrets in manifests, arguments or logs.
+- Compose 模板是本地/自托管路径；NCM 和 tusd 侧车只在私有网络可达，不发布宿主机端口，shared volumes 必须保留。
+- `deployment/nginx/`、`deployment/mediamtx/` 和 `deployment/systemd/` 由 release impact map、CD payload 和静态测试消费；不要根据某个文件缺少直接引用就删除。
+- `deployment/live/{mediamtx.yml,elysiumm-mediamtx.service,nginx-live.conf}` 由 `scripts/provision-live-streaming.sh` 和 `scripts/check-release-config.py` 消费，负责 RTMP/HLS、鉴权、录制和 Nginx `/live-media/`。它和普通 `deployment/mediamtx/` 不是同一模板。
+- 直播录像位于 `/srv/services/elysium/shared/uploads/live-recordings`，不自动删除；公网只需开放 RTMP 1935，其余 MediaMTX 管理/播放端口保持本机访问并经过 Nginx 授权。
+- Obsidian LiveSync 的 CouchDB 保持 loopback，只暴露已鉴权的 Nginx 路径；`LIVE_PATH`、凭据、mirror settings 和 `.env` 不进入 release 或日志。设备端必须用现有加密连接创建无害笔记验证。
 
-## Migration gate
+## CI/CD 与发布事务
 
-For a backend release, the script loads the exact environment file used by the
-backend systemd unit. Failure to load the production database environment
-aborts the deployment. It reads `alembic_version`, reads target heads from the
-release's Alembic graph, and computes the graph delta:
+### 直播安装与使用
 
-- no pending revision: no database backup and no `alembic upgrade`;
-- pending descendants: create and checksum a backup first, then run
-  `alembic upgrade heads`, and require exact target heads afterward;
-- ahead, divergent, unknown, missing, or indeterminate state: abort before
-  switching `backend-current`.
+直播安装器固定 MediaMTX `v1.18.2`。`scripts/provision-live-streaming.sh --check` 只校验资产；`sudo scripts/provision-live-streaming.sh --install` 会安装并启动服务，只能在获批的初始配置/维护窗口执行。然后在站点包含 `/etc/nginx/snippets/elysium-live.conf`，补全环境中的 `LIVE_*`，执行 `sudo nginx -t` 成功后才 reload。公网 TCP 1935 同时需安全组/防火墙放行；8000、8888、9996、9997 保持本机访问。
 
-Frontend-only deployment never reads the production environment, database or
-backend `.venv`; it creates and switches only `frontend-current`. Backend-only
-deployment never builds or switches the frontend. Full/infra deployment
-prepares the backend first, switches the frontend next, then validates and
-applies only the explicitly mapped Nginx/systemd candidates. MediaMTX is not
-restarted by ordinary application releases.
+OBS 使用管理员页显示的服务器地址和一次性推流密钥；H.264 视频、AAC 音频、2 秒关键帧，建议从 1080p/30fps、4–6Mbps 开始。当前服务不转码。权限分为公开、指定登录用户、有效期邀请；撤销邀请后后续媒体请求也会失败。网页无画面时依次查后端健康、`systemctl status elysiumm-mediamtx`、本机 HLS 和 Nginx 授权路径。`sudo systemctl restart elysiumm-mediamtx` 会短暂中断直播，需单独授权窗口，不是普通前端发布步骤。
 
-## Deploy and rollback commands
+### 内部侧车
 
-The GitHub workflow invokes the same command used for a reviewed manual
-deployment:
+音乐服务监听 loopback 8765，健康路径 `/healthz`；unit 指向 `backend-current/backend/music_node/server.cjs`，固定系统 PATH 中需有 Node 22+。发布脚本在新 release 执行 `npm ci --omit=dev`，切换/回滚后端时协调该侧车；测试入口是 `npm test --prefix backend/music_node`，不在当前运行目录安装或覆盖依赖。
+
+本地 tusd 可通过 `TUSD_BINARY=<已验证的二进制>` 指定。不可用时预览其他功能仍启动，但上传返回 503、按钮禁用；必须真实恢复侧车并完成断线续传验收，不能把降级提示当作上传通过。
+
+版本化的 `release-impact.yml` 决定 frontend/backend/infra 和验证 profiles；未知路径或 impact map 变化走 full validation。质量工作流构建锁定依赖、测试、前端产物、摘要和非 secret metadata；生产部署只允许成功的 main push、人工批准的 `production` environment 和 `PRODUCTION_DEPLOY_ENABLED=true`。
+
+远端部署使用精确 commit 和 pinned SSH host keys，先把 commit fetch 到裸仓库，再由 release CLI 物化不可变 release。frontend-only 不读取生产数据库或 backend `.venv`；backend-only 不切换前端；infra 只应用显式映射的 Nginx/systemd/MediaMTX 目标。普通应用发布不重启不受影响的 MediaMTX，也不控制 FlClash。
+
+## 部署、迁移与回滚命令
 
 ```bash
-sudo /srv/services/elysium/backend-current/.venv/bin/python \
-  scripts/deploy-production.py \
+# 先检查配置、baseline、数据库连通性、健康端点和 shared 空间
+sudo bash scripts/release-preflight.sh \
   --root /srv/services/elysium \
-  --commit <commit> \
-  --deployment-id <deployment-id> \
-  --repository /srv/services/elysium/repository.git \
-  --frontend-dist <staged-frontend-dist> \
-  --path <changed-path>
-```
+  --baseline-root /srv/backups/elysium/baseline \
+  --env-file /etc/elysium/backend.env \
+  --web-root /srv/services/elysium/frontend-current/dist \
+  --health-url http://127.0.0.1:8000/api/health
 
-For a component rollback, review the immutable transaction and use an exact
-confirmation string:
-
-```bash
+# 只回滚指定组件；确认串必须与事务和组件完全一致
 sudo python3 scripts/rollback-production.py \
   --root /srv/services/elysium \
   --deployment-id <deployment-id> \
@@ -188,27 +85,12 @@ sudo python3 scripts/rollback-production.py \
   --confirm 'ROLLBACK:<deployment-id>:frontend'
 ```
 
-Backend rollback restarts the one-worker backend after switching its link.
-Rollback does not guess a database downgrade. If a migration was performed,
-database restoration is a manual, database-owner-approved operation using the
-recorded checksum-bearing backup or the tested baseline restore procedure.
-Combined failures roll back switched components in reverse order and restore
-only the Nginx/systemd candidates changed by that transaction.
+backend release 会读取 systemd 使用的数据库环境，比较当前 revision 与目标 heads：无 pending 不备份/不迁移；pending 先备份并校验摘要，再 `alembic upgrade heads`；ahead、divergent、unknown 或环境失败都在切换 `backend-current` 前终止。回滚不猜测 downgrade；迁移后的数据恢复必须使用获批 backup/baseline。
 
-## Preflight and acceptance
+标准发布通过成功 CI 的 CD payload 执行，不使用手工简化的 `deploy-production.py` 调用。完整合约在 `.github/workflows/cd.yml` 的 `deploy_command`：staged 脚本、impact map、精确 commit/run-id、main ref、锁/API 摘要、Node 22、受信 Python、按需 tusd 二进制/摘要、前端 dist/预算及逐项 changed path。缺少其中依赖或元数据应失败，不能临时删参数绕过。
 
-Run `scripts/check-release-config.py`,
-`scripts/release-preflight.sh`, the release gate, and the isolated baseline
-restore rehearsal before production. Afterward verify the actual backend
-health, public routes, `/api/articles/**`, `/api/content/**`, `/media/**`,
-Socket.IO, native music playback, Nginx/systemd state, shared data access and
-the deployment transaction. A single HTTP 200 or a successful SSH command is
-not production acceptance.
+## 生产验收
 
-Docker remains a local/self-hosted path with `db`, `backend`, `frontend`, the
-pinned private `ncm-api` sidecar, and pinned `tusd` sidecar. `ncm-api` and
-`tusd` publish no host ports: they are reachable only from the Compose private
-network. The backend uses `http://ncm-api:8765` and `http://tusd:8766/files`,
-and shares the named tus staging volume with tusd. This is separate from the
-immutable bare-metal release path and does not alter production: bare-metal
-NCM and tusd remain loopback-only services.
+发布后必须分别记录 backend health、公开首页、Articles/content、媒体、Socket.IO 重连、音乐播放、管理员文件/tus、共享路径、Nginx/systemd 状态、直播授权/录制、Obsidian 设备同步和 deployment transaction。单个 HTTP 200、SSH 成功、配置文件存在或静态构建成功都不是用户可见的生产验收。
+
+详见 [架构](./architecture.md)、[迁移](./migrations.md)、[测试与证据](./testing.md)、[发布检查表](./release-checklist.md) 和 [CI/CD 运维](./operations/release-cicd.md)。本页只描述命令和边界，不表示当前主机已执行这些操作。

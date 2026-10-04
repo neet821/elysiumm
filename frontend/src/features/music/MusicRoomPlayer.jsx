@@ -22,76 +22,6 @@ function formatTime(value) {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-function ParticleField({ active, color = '#74c9ff' }) {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return undefined
-    let context
-    try {
-      context = canvas.getContext('2d')
-    } catch {
-      context = null
-    }
-    if (!context) return undefined
-    let frame = 0
-    let animationFrame = 0
-    const particles = Array.from({ length: 46 }, (_, index) => ({
-      angle: (index / 46) * Math.PI * 2,
-      distance: 0.14 + ((index * 0.071) % 0.8),
-      phase: index * 1.73,
-      speed: 0.00022 + ((index % 5) * 0.00005),
-    }))
-
-    const resize = () => {
-      const ratio = Math.min(2, window.devicePixelRatio || 1)
-      const width = canvas.clientWidth || 640
-      const height = canvas.clientHeight || 520
-      canvas.width = width * ratio
-      canvas.height = height * ratio
-      context.setTransform(ratio, 0, 0, ratio, 0, 0)
-    }
-    const draw = (timestamp) => {
-      frame = timestamp
-      const width = canvas.clientWidth || 640
-      const height = canvas.clientHeight || 520
-      const centerX = width / 2
-      const centerY = height / 2
-      const radius = Math.min(width, height) * 0.42
-      context.clearRect(0, 0, width, height)
-      const glow = context.createRadialGradient(centerX, centerY, 4, centerX, centerY, radius)
-      glow.addColorStop(0, `${color}33`)
-      glow.addColorStop(1, `${color}00`)
-      context.fillStyle = glow
-      context.beginPath()
-      context.arc(centerX, centerY, radius, 0, Math.PI * 2)
-      context.fill()
-      for (const particle of particles) {
-        const orbit = particle.distance * radius
-        const phase = particle.phase + frame * particle.speed * (active ? 1 : 0.26)
-        const x = centerX + Math.cos(particle.angle + phase) * orbit
-        const y = centerY + Math.sin(particle.angle + phase) * orbit * 0.78
-        const size = 1 + (Math.sin(phase * 1.7) + 1) * 1.1
-        context.fillStyle = `${color}${active ? 'aa' : '55'}`
-        context.beginPath()
-        context.arc(x, y, size, 0, Math.PI * 2)
-        context.fill()
-      }
-      animationFrame = window.requestAnimationFrame(draw)
-    }
-    resize()
-    window.addEventListener('resize', resize)
-    animationFrame = window.requestAnimationFrame(draw)
-    return () => {
-      window.removeEventListener('resize', resize)
-      window.cancelAnimationFrame(animationFrame)
-    }
-  }, [active, color])
-
-  return <canvas aria-hidden="true" className="music-room-native__particles" ref={canvasRef} />
-}
-
 export default function MusicRoomPlayer({ onAdapterReady = () => {}, onEvent = () => {}, onRoomAction = () => {}, playerTrack, roomId, roomState = {}, track }) {
   const audioRef = useRef(null)
   const adapterRef = useRef(null)
@@ -166,9 +96,8 @@ export default function MusicRoomPlayer({ onAdapterReady = () => {}, onEvent = (
   return (
     <div className="music-room-native" data-room-id={roomId} data-room-sync-ready="true">
       <div className="music-room-native__visual">
-        <ParticleField active={playing} />
         <div className="music-room-native__visual-content">
-          <div className="music-room-native__badge"><i />{playing ? 'LIVE ROOM' : 'ROOM READY'}</div>
+          <div className="music-room-native__badge"><i />{playing ? '正在播放' : '等待点歌'}</div>
           <MusicRoomCover large track={current} />
           <p className="music-room-native__provider">{current?.provider === 'qq' ? 'QQ 音乐' : current?.provider === 'netease' ? '网易云' : current?.provider === 'audius' ? 'Audius' : current ? '共享音源' : '等待点歌'}</p>
           <h1>{current?.title || '等待第一首歌'}</h1>

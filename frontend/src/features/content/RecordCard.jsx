@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
   ChevronDown,
@@ -126,7 +127,7 @@ export default function RecordCard({ item }) {
       <div className="record-info">
         <h2>
           <RecordTypeIcon type={item.type} />
-          <span>{item.title}</span>
+          <Link to={`/article/${encodeURIComponent(item.slug)}`}>{item.title}</Link>
         </h2>
         {fields.length > 0 && <dl className="record-details">{fields}</dl>}
         {item.createdAt && (

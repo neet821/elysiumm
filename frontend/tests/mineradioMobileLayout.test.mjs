@@ -25,7 +25,6 @@ test('native room player has responsive visual, lyric, and queue surfaces', () =
     'music-room-native',
     'music-room-native__visual',
     'music-room-native__lyrics',
-    'music-room-native__particles',
     'music-room-native__panel',
     'music-room-native__search',
   ]) {
@@ -35,6 +34,8 @@ test('native room player has responsive visual, lyric, and queue surfaces', () =
   }
   assert.match(css, /@media\s*\(/)
   assert.match(css, /music-room-native__lower/)
+  assert.doesNotMatch(roomExperience, /music-room-native__particles|ParticleField|<canvas/i)
+  assert.match(player, /<audio aria-label="听歌房音频播放器"/)
 })
 
 test('native player does not require the old standalone Mineradio service', () => {

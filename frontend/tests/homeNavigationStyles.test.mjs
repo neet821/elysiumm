@@ -10,7 +10,7 @@ const stylesPath = new URL('../src/components/layout/homeNavigation.css', import
 const styles = existsSync(stylesPath) ? readFileSync(stylesPath, 'utf8') : ''
 const articleFlowNavigationStyles = resolveArticleFlowCss()
 
-test('shared wide navigation styles load with the eager application shell', () => {
+test('shared labelled navigation styles load with the eager application shell', () => {
   assert.match(app, /import\s+\{\s*AppShell\s*\}\s+from\s+["']\.\/components\/layout\/AppShell["']/, 'the app must eagerly mount AppShell')
   assert.ok(entry.indexOf('import "./index.css"') < entry.indexOf('import App from "./App.jsx"'), 'base styles must load before eager component styles')
   assert.match(appShell, /import\s+["']\.\/homeNavigation\.css["']/, 'the shared shell must own navigation styles')
@@ -19,13 +19,14 @@ test('shared wide navigation styles load with the eager application shell', () =
   for (const selector of [
     '.app-shell--wide-navigation .app-shell__main',
     '.home-nav--global {',
-    '.home-nav--global .home-nav__identity',
-    '.home-nav--global .home-nav__action',
+    '.home-nav__action-label',
+    '.home-nav__action',
   ]) {
     assert.ok(styles.includes(selector), `the shared stylesheet must include ${selector}`)
   }
-  assert.match(styles, /@media\s*\(min-width:\s*1101px\)/, 'the wide rail breakpoint must remain')
-  assert.match(styles, /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.home-nav--global\s*\{\s*display:\s*none/s, 'the compact breakpoint must hide the global rail')
+  assert.match(styles, /max-width:\s*1200px/, 'navigation should share the 1200px content canvas')
+  assert.match(styles, /min-height:\s*44px/, 'navigation controls must remain touch-sized')
+  assert.doesNotMatch(styles, /home-nav-rail-width|position:\s*fixed/, 'shared navigation must not recreate the fixed rail')
   assert.doesNotMatch(articleFlowNavigationStyles, /\.home-nav--global/, 'shared navigation rules must not depend on the lazy homepage stylesheet')
-  assert.match(articleFlowNavigationStyles, /\.legacy-old-home--flat \.home-nav\s*\{/, 'homepage-local navigation presentation must remain page-owned')
+  assert.match(articleFlowNavigationStyles, /\.legacy-old-home--flat \.home-nav\s*\{/, 'homepage-local navigation width must remain page-owned')
 })

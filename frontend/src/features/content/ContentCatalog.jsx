@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { omitDuplicateHtmlTitle, omitDuplicateMarkdownTitle } from './readerTitle.js'
 
 const CATEGORY_LABELS = {
   article: '文章',
@@ -31,13 +32,13 @@ function coverUrl(item) {
   return `/media/${encodeURIComponent(item.slug)}/${encodeURIComponent(item.cover)}`
 }
 
-export function MarkdownContent({ markdown, html, fallback, className, id }) {
+export function MarkdownContent({ markdown, html, fallback, className, id, omitLeadingTitle }) {
   return (
     <div className={className} id={id}>
       {html
-        ? <div dangerouslySetInnerHTML={{ __html: html }} />
+        ? <div dangerouslySetInnerHTML={{ __html: omitDuplicateHtmlTitle(html, omitLeadingTitle) }} />
         : markdown
-          ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+          ? <ReactMarkdown remarkPlugins={omitLeadingTitle ? [remarkGfm, omitDuplicateMarkdownTitle(omitLeadingTitle)] : [remarkGfm]}>{markdown}</ReactMarkdown>
           : fallback
             ? <p>{fallback}</p>
             : null}
@@ -137,6 +138,7 @@ export function ContentDetail({ article }) {
       <MarkdownContent
         markdown={article.markdown}
         html={article.html}
+        omitLeadingTitle={article.title}
         className="content-reader__body"
       />
     </article>

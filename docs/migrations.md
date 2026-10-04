@@ -1,101 +1,78 @@
-# Database migrations
+# Elysium 迁移与数据路径
 
-## Source of truth
+## 唯一 schema 来源
 
-Alembic files in `backend/alembic/versions` are the only production schema history. Application import must not mutate a production schema. `backend/run_migrations.py` classifies an empty or recognized legacy database, stamps only known baselines, runs to head and performs a Schema drift check. Unknown or partly migrated legacy structures fail closed.
+`backend/alembic/versions/` 是生产 schema 的唯一历史；应用 import 不得隐式修改生产库。`backend/run_migrations.py` 会识别空库和已知 legacy baseline，只 stamp 已知基线，再升级到当前 head 并检查 drift；未知或半迁移状态必须 fail closed。
 
-The current linear revisions are:
+当前是线性 `0001`–`0027`：
 
-- `0001_legacy_baseline`: original users, content, rooms and backup baseline.
-- `0002_phase1_security`: administrator files/audits and verified restore records.
-- `0003_phase3_homepage`: homepage settings.
-- `0004_phase4_collection`: owned/public Collection fields, jobs and search engines.
-- `0005_phase6_catalog`: canonical music catalog, provider mappings, sources and lyrics.
-- `0006_phase7_music_room_authority`: authoritative music state and room activity.
-- `0007_phase8_video_room_core`: independent video session, playlist and subtitles.
-- `0008_phase9_game_platform`: unified game state, members, events, invites, results and replay.
-- `0009_phase10_books_files_admin`: Books, lists, sync credential/upload changes and administrator persistence.
-- `0010_repair_legacy_gaps`: Repairs older databases whose recorded revision skipped required Phase 1-4 columns and indexes.
-- `0011_local_video_fingerprint` through `0017_media_homepage_v2`: video identity,
-  room timing/live streaming, music-room switching and the current media homepage
-  supply chain.
-- `0018_public_archive_types`: public content type compatibility (the retired
-  HTTP Archive router is a code-only removal; this history remains immutable).
-- `0019_temporary_video_uploads`, `0020_transfer_sessions`,
-  `0021_live_viewer_ip_identity`, `0022_sync_room_lock` and
-  `0023_remove_game_platform`: upload, transfer, live identity, room locking and
-  game-removal compatibility revisions.
-- `0024_transfer_public_token` and `0025_admin_transfer_note`: transfer sharing
-  and administrator transfer-note fields.
+- `0001`–`0010`：legacy baseline、安全、首页、Collection、曲库、音乐房、视频房、游戏、Books/Files/Admin 及 legacy repair。
+- `0011`–`0017`：视频指纹、房间时钟、直播、音乐房切换和媒体首页。
+- `0018`–`0025`：Archive 类型兼容、临时视频、传输、直播访客、房间锁、游戏移除、公开 token 和管理员备注。
+- `0026_user_playlists`：用户播放列表；`0027_tus_upload_reservations`：断点上传预约/最终化记录。当前 head 是 `0027_tus_upload_reservations`，不能退回写成 `0025`。
 
-The Books ORM and the `books`, `book_lists` and `book_list_items` tables remain
-active because homepage/media/admin services still consume them. No destructive
-migration or Alembic retired-table ignore entry is part of this cleanup.
+Books ORM 以及 `books`、`book_lists`、`book_list_items` 表仍被首页/媒体/管理员服务和测试消费；退役旧页面不代表可以删表或添加 Alembic ignore。
 
-## Normal upgrade
-
-Set an isolated or production `DATABASE_URL`, then run from the repository root:
+## 日常与发布迁移
 
 ```bash
+# 在隔离数据库或明确授权的运维环境中运行当前迁移入口
 backend/.venv/bin/python backend/run_migrations.py
-```
 
-The underlying explicit Alembic command is:
-
-```bash
+# 仅对已验证的非生产临时数据库使用显式 Alembic 命令
 cd backend
 DATABASE_URL='<validated URL>' .venv/bin/alembic upgrade head
 ```
 
-Ordinary backend service startup does not invoke the migration runner. The
-bare-metal release transaction loads the same production environment as
-systemd, reads the current revision and target heads through the Alembic graph,
-and creates a backup followed by `alembic upgrade heads` only when pending
-revisions exist. A missing environment, divergent graph, ahead production
-revision or failed post-upgrade readback aborts publication. The standalone
-`run_migrations.py` entrypoint remains available for isolated development and
-explicit operator/CI diagnostics; re-running it at head is expected to be safe.
+普通 backend systemd 启动不调用迁移。发布事务加载 backend systemd 使用的同一环境文件，读取生产 `alembic_version` 和目标 release 的 Alembic heads：
 
-## Pre-migration evidence
+1. 无 pending revision：不创建迁移前数据库备份，也不执行 upgrade。
+2. 有 pending descendants：先创建并校验带摘要的 backup，再执行 `alembic upgrade heads`，升级后必须精确到目标 heads。
+3. ahead、divergent、unknown、缺少环境或无法确定：在切换 `backend-current` 前终止。
 
-The release transaction records **backup before migration** whenever the
-target graph has unapplied revisions.
+组件回滚不猜测数据库 downgrade。若迁移已执行，数据库恢复必须由数据库负责人批准，使用记录中的 checksum-bearing backup 或经过演练的 baseline restore；代码链接回滚和数据恢复是两个动作。
 
-Before any live upgrade, require all of the following:
+## 迁移前证据与恢复演练
 
-1. clean, reviewed candidate commit;
-2. successful `scripts/release-preflight.sh`;
-3. database reachability and enough backup disk;
-4. a timestamped database/config/frontend bundle with verified `SHA256SUMS`;
-5. a recorded previous code revision;
-6. an operator who understands the abort and rollback conditions.
-
-No test in this repository points at production data. Migration tests create temporary SQLite databases, upgrade from empty and recognized legacy fixtures, exercise downgrade compatibility, and compare model metadata with head.
-
-## Downgrade policy
-
-`alembic downgrade -1` is a development/compatibility diagnostic, not the production rollback procedure. A production failure can involve code, data and static assets together; guessing one schema step can lose data or leave code/schema mismatch. Use the verified deployment transaction and `scripts/rollback-production.py` for component links; if migration was attempted, database restoration is a separately approved baseline/backup operation.
-
-To test one reversible step only on a disposable database:
+生产升级前必须有 reviewed commit、成功的 `scripts/release-preflight.sh`、数据库可达性、足够磁盘、时间戳备份/配置/前端包、`SHA256SUMS`、上一版本标识和明确的 abort owner。恢复包必须在受管根目录中，不能依赖旧 release 或兼容链接。
 
 ```bash
-cd backend
-DATABASE_URL='sqlite:////tmp/blue-album-migration-check.sqlite' .venv/bin/alembic downgrade -1
-DATABASE_URL='sqlite:////tmp/blue-album-migration-check.sqlite' .venv/bin/alembic upgrade head
+# 只在操作系统临时目录创建 SQLite 演练库；不连 MariaDB、不读生产 env
+backend/.venv/bin/python scripts/rehearse-backup-restore.py --json
 ```
 
-Never run that example against a configured production URL.
+演练应迁移到当前 head、写入 marker、备份、修改、恢复、检查 marker 和 integrity，再确认临时工作区已删除。非零退出、摘要不一致、剩余工作区、意外 revision、计数差异或凭据泄露都不是通过证据。
 
-## Adding a migration
+开发/兼容性诊断可以在 disposable database 使用 `alembic downgrade -1` 后再升级；绝不能对生产 URL 使用。新增迁移必须在当前 head 后追加，不编辑已经部署的 revision，并覆盖空库、legacy、约束、保留数据和可逆性测试。
 
-Import current model metadata, generate or hand-author one revision after the current head, review every operation and add tests for empty upgrade, representative legacy upgrade, constraints, preserved rows and downgrade behavior. Then run:
+## `/data` 到 `shared` 与 baseline
+
+新代码统一使用 `/srv/services/elysium/shared/`；旧 `data -> shared` 只作为迁移期兼容边界，不为新 release 创建。每次发布扫描仓库、systemd、Nginx、维护脚本和进程中的旧路径，保留 deployment ID 和结果；至少两个成功 release 且 baseline restore 不再依赖旧链接后，才可另行审批删除。
 
 ```bash
-scripts/check-all.sh
+# 开发检查：仅仓库/显式配置扫描，不将本机进程当成生产消费者
+python3 scripts/check-legacy-paths.py --root . --no-processes
+
+# 获批的生产只读检查：包含 systemd、Nginx、/proc，不能带 --no-processes
+sudo python3 scripts/check-legacy-paths.py \
+  --root /srv/services/elysium \
+  --git-dir /srv/services/elysium/repository.git --revision <候选commit> \
+  --systemd-root /etc/systemd/system --nginx-root /etc/nginx --proc-root /proc
 ```
 
-Commit the model, migration and tests together. Do not edit a migration that has already been deployed; add the next revision.
+扫描非零退出应记录具体消费者，不通过增加 runtime 排除项掩盖。默认排除仅覆盖审计器自身、专属测试和写有历史路径的运维指南。生产扫描结果保留到至少两次成功发布；旧目录、基线和恢复依赖未经复核不得删除。
 
-## Failure handling
+生产 baseline 永久放在服务根目录之外的 `/srv/backups/elysium/baseline/<baseline-id>/`，包含自洽 runtime、完整 backend `.venv`、数据库备份、`BASELINE.json`、`SHA256SUMS` 和只指向 baseline 内部的恢复配置。baseline 外置、迁移和恢复失败时保留旧目录和失败状态，不擅自删除。
 
-Stop immediately on backup, migration or drift failure. Do not start the new backend and do not manually stamp an unknown schema. Preserve logs without credentials, the release bundle and database error. If mutation began, follow [deployment rollback](./deployment.md) and verify health plus representative reads after recovery.
+`scripts/relocate-baseline.py` 只接受同文件系统内的真实 baseline 子目录，拒绝 symlink 和已有目标；先校验摘要，再原子 rename、重写内部路径、重新校验，并写入 relocation 事务。失败时尝试原子退回原路径，保存失败/回退状态；它不是复制后随意删除源目录的工具。
+
+```bash
+# 仅在获批外置窗口、验证源/目标与恢复计划后执行；不是日常发布步骤
+sudo python3 scripts/relocate-baseline.py \
+  --source <已核对的旧baseline目录> \
+  --destination-root /srv/backups/elysium/baseline \
+  --history-root /srv/services/elysium/releases/deployment-history \
+  --commit <批准的commit>
+```
+
+相关操作见 [部署指南](./deployment.md)、[测试与证据](./testing.md) 和 [发布检查表](./release-checklist.md)。本页不宣称当前生产迁移已经执行或通过。

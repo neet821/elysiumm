@@ -1,225 +1,28 @@
-.music-room-shell__stage {
-  background: #080a0d;
-  height: min(78rem, calc(100vh - 8rem));
-  min-height: 36rem;
-  overflow: hidden;
-}
-.music-room-shell__stage .music-room-native {
-  height: 100%;
-}
-.music-room-immersive {
-  background: #080a0d;
-  height: 100svh;
-  min-height: 0;
-  overflow: hidden;
-  width: 100%;
-}
-.music-room-immersive .music-room-shell__stage {
-  height: 100%;
-  min-height: 0;
-}
-.music-room-native {
-  background: #080a0d;
-  color: #eaf3ff;
-  display: grid;
-  grid-template-rows: minmax(32rem, 1fr) auto;
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-  position: relative;
-}
-.music-room-native__visual {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  min-height: 32rem;
-  overflow: hidden;
-  padding: clamp(2rem, 6vw, 5rem) 1.5rem 3rem;
-  position: relative;
-}
-.music-room-native__visual::before {
-  background:
-    radial-gradient(
-      circle at 50% 44%,
-      rgba(80, 158, 220, 0.16),
-      transparent 35%
-    ),
-    linear-gradient(145deg, #0d1823, #080a0d 65%);
-  content: "";
-  inset: 0;
-  opacity: 0.9;
-  position: absolute;
-}
-.music-room-native__particles {
-  height: 100%;
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  width: 100%;
-}
-.music-room-native__visual-content {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  max-width: 36rem;
-  position: relative;
-  text-align: center;
-  width: 100%;
-  z-index: 1;
-}
-.music-room-native__badge {
-  align-items: center;
-  color: rgba(198, 224, 247, 0.62);
-  display: inline-flex;
-  font: 700 0.66rem/1 var(--font-interface);
-  gap: 0.45rem;
-  letter-spacing: 0.18em;
-  margin-bottom: 1.2rem;
-  text-transform: uppercase;
-}
-.music-room-native__badge i,
-.music-room-native__room-meta i {
-  background: #72caff;
-  border-radius: 50%;
-  box-shadow: 0 0 1rem rgba(114, 202, 255, 0.8);
-  display: block;
-  height: 0.42rem;
-  width: 0.42rem;
-}
-.music-room-native__cover {
-  background: radial-gradient(
-    circle at 30% 20%,
-    rgba(114, 202, 255, 0.35),
-    rgba(255, 255, 255, 0.04)
-  );
-  border-radius: 0.8rem;
-  flex: 0 0 3.15rem;
-  height: 3.15rem;
-  object-fit: cover;
-  width: 3.15rem;
-}
-.music-room-native__cover.is-large {
-  border-radius: 1.25rem;
-  box-shadow:
-    0 1.5rem 4rem rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  height: clamp(11rem, 25vw, 18rem);
-  width: clamp(11rem, 25vw, 18rem);
-}
-.music-room-native__cover--empty {
-  align-items: center;
-  color: rgba(215, 237, 255, 0.5);
-  display: flex;
-  font: 2.8rem/1 var(--font-editorial);
-  justify-content: center;
-}
-.music-room-native__provider {
-  color: rgba(190, 218, 242, 0.54);
-  font: 700 0.68rem/1 var(--font-interface);
-  letter-spacing: 0.14em;
-  margin: 1.4rem 0 0.65rem;
-  text-transform: uppercase;
-}
-.music-room-native__visual h1 {
-  color: #f4f8fc;
-  font: 400 clamp(2rem, 5vw, 4.1rem)/1.04 var(--font-editorial);
-  letter-spacing: -0.035em;
-  margin: 0;
-  max-width: 30rem;
-  overflow-wrap: anywhere;
-}
-.music-room-native__artist {
-  color: rgba(218, 232, 247, 0.72);
-  font-size: 0.9rem;
-  margin: 0.75rem 0 1.35rem;
-}
-.music-room-native audio {
-  height: 0;
-  opacity: 0;
-  position: absolute;
-  width: 0;
-}
-.music-room-native__progress {
-  max-width: 30rem;
-  width: min(100%, 30rem);
-}
-.music-room-native__progress input {
-  accent-color: #79cfff;
-  background: linear-gradient(
-    90deg,
-    #79cfff var(--progress),
-    rgba(255, 255, 255, 0.14) var(--progress)
-  );
-  border-radius: 999px;
-  height: 0.3rem;
-  margin: 0.3rem 0 0.55rem;
-  width: 100%;
-}
-.music-room-native__progress input:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.music-room-native__progress > div {
-  color: rgba(212, 229, 246, 0.54);
-  display: flex;
-  font: 0.67rem/1 var(--font-interface);
-  justify-content: space-between;
-}
-.music-room-native__controls {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
+/* 音乐房：真实播放器、歌词和操作状态；不包含装饰画布。 */
+.music-room-shell__stage, .music-room-immersive { background: var(--surface-page); height: auto; min-height: 0; width: 100%; }
+.music-room-native { color: var(--text-primary); display: grid; min-width: 0; position: relative; }
+.music-room-native__visual { display: flex; justify-content: center; padding: 32px 24px; }
+.music-room-native__visual-content { align-items: center; display: flex; flex-direction: column; max-width: 640px; text-align: center; width: 100%; }
+.music-room-native__badge { align-items: center; color: var(--text-muted); display: inline-flex; font-size: 12px; gap: 8px; letter-spacing: .08em; margin-bottom: 20px; }
+.music-room-native__badge i, .music-room-native__room-meta i { background: var(--accent-success); border-radius: 50%; display: block; height: 6px; width: 6px; }
+.music-room-native__cover { background: var(--surface-card-muted); border: 1px solid var(--border-subtle); flex: 0 0 48px; height: 48px; object-fit: cover; width: 48px; }
+.music-room-native__cover.is-large { flex: none; height: 160px; width: 160px; }
+.music-room-native__cover--empty { align-items: center; color: var(--text-muted); display: flex; font: 32px/1 var(--font-editorial); justify-content: center; }
+.music-room-native__provider { color: var(--text-muted); font-size: 12px; margin: 20px 0 8px; }
+.music-room-native__visual h1 { font: 600 clamp(24px, 4vw, 36px)/1.3 var(--font-editorial); margin: 0; overflow-wrap: anywhere; }
+.music-room-native__artist { color: var(--text-secondary); font-size: 14px; margin: 12px 0 20px; }
+.music-room-native audio { height: 0; opacity: 0; position: absolute; width: 0; }
+.music-room-native__progress { max-width: 480px; width: 100%; }
+.music-room-native__progress input { accent-color: var(--accent-blue); min-height: 44px; padding: 0; width: 100%; }
+.music-room-native__progress input:disabled { cursor: not-allowed; opacity: .6; }
+.music-room-native__progress > div { color: var(--text-muted); display: flex; font-size: 12px; justify-content: space-between; }
+.music-room-native__controls { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
 .music-room-native__controls button,
 .music-room-native__search-form button,
 .music-room-native__chat-form button,
 .music-room-native__panel button,
-.music-room-native__admin button {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 999px;
-  color: #e7f2fe;
-  cursor: pointer;
-  font: 600 0.75rem/1 var(--font-interface);
-  min-height: 2.35rem;
-  padding: 0.55rem 0.85rem;
-}
-.music-room-native__controls button:first-child {
-  background: #dff4ff;
-  border-color: #dff4ff;
-  color: #102231;
-  font-size: 1rem;
-  min-width: 2.7rem;
-  padding-inline: 0.72rem;
-}
-.music-room-native button:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-.music-room-native__lyrics {
-  display: grid;
-  gap: 0.2rem;
-  margin-top: 1.6rem;
-  max-width: 28rem;
-  min-height: 4.3rem;
-  overflow: hidden;
-  width: 100%;
-}
-.music-room-native__lyrics p {
-  color: rgba(202, 222, 240, 0.42);
-  font: 0.82rem/1.35 var(--font-interface);
-  margin: 0;
-  transition:
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-.music-room-native__lyrics p.is-active {
-  color: #dff4ff;
-  transform: scale(1.04);
-}
-.music-room-native__lyrics p.is-empty {
-  color: rgba(202, 222, 240, 0.44);
-}
+.music-room-native__admin button { background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); color: var(--text-primary); cursor: pointer; font: 500 14px/1.4 var(--font-interface); min-height: 44px; padding: 8px 12px; }
+.music-room-native button:disabled { cursor: not-allowed; opacity: .5; }
+.music-room-native__lyrics { display: grid; gap: 6px; margin-top: 24px; min-height: 64px; width: 100%; }
+.music-room-native__lyrics p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.music-room-native__lyrics p.is-active { color: var(--text-primary); font-weight: 600; }

@@ -1,115 +1,66 @@
-# Elysium 核心代码清理发布检查单
+# Elysium 发布检查表
 
-基线：2026-08-30，注释标签 `archive/pre-core-cleanup-2026-08-30`。本次只提交代码、文档和标签，不部署生产。
+本表是发布前填写的证据模板，不是预先通过声明。每项都记录命令、commit、时间、环境、摘要和实际结果；未执行写 UNRUN，外部条件未满足写 BLOCKED。静态检查、单个 HTTP 200、SSH 成功或已写入部署事务都不能替代用户可见验收。
 
-## Status meanings
+## 1. 代码范围和工具链
 
-- **PASS**：当前命令或证据已完成。
-- **BLOCKED**：按计划保留的真实限制、外部环境或尚未满足的退役条件；不伪装成通过。
+- [ ] 记录目标 commit、变更摘要、影响范围和回滚目标；保留依赖锁、许可证与历史迁移。文档清理须先合并现役说明、检查消费者并保存历史。
+- [ ] git diff --check 无错误；没有混入用户未提交修改、示例数据库、截图、日志或过程资料。
+- [ ] CI 使用 Python 3.12、Node.js 22、锁定的依赖和 release-impact；前端构建产物与 commit/hash 对应。
+- [ ] 版本化模板、systemd/Nginx/live 资产和许可文件仍可从仓库追溯；不以文件名推断未使用。
 
-## Automated release evidence
+## 2. 数据、迁移和恢复
 
-| Area | Status | Current evidence |
-| --- | --- | --- |
-| Repository checks | BLOCKED | `scripts/check-all.sh` 的步骤 1–5 已完成（后端 357 tests、前端 source 51 files、Vitest 34 files/238 tests、编译和 lint fatal checks）；步骤 6 因既有 JavaScript 预算超标停止，详见下行。 |
-| Migrations | PASS | 临时 SQLite 空库升级到 `0023_remove_game_platform`，autogenerate 无新操作。 |
-| Frontend build | PASS | 生产构建完成；initial JS 423,764 B、total JS 1,141,499 B、CSS 170,190 B、async chunks 30。 |
-| JavaScript budget | BLOCKED | 既有阈值 360,000 B / gzip 120,000 B 未改变，当前 423,764 B / 134,918 B；后续作为独立性能任务。 |
-| CSS budget | PASS | 清理旧样式后 170,190 B，低于 230,000 B 阈值。 |
-| Backup/recovery | PASS | 隔离数据库迁移、备份、修改、恢复、完整性和摘要校验完成；临时目录已清理。 |
-| Archive API contract | PASS | `/api/archive` 返回 404，专属 schema/router 已移出，后端契约测试通过。 |
-| Browser acceptance | PASS | Phase 11 用 Chrome 152 via CDP 检查 8 个视口、50 个页面状态，包含 FastAPI Articles API、认证、首页侧栏、原生音乐房、404、焦点、溢出和第三方请求。 |
-| Production deploy | BLOCKED | 本次明确不部署；没有修改 Aliyun、Nginx、systemd、FRP、静态目录或数据库。 |
+- [ ] 数据库迁移从当前状态可达 0027_tus_upload_reservations，且 head、模型和迁移无漂移；不把 0025 当当前 head。
+- [ ] 发布前完成与目标环境匹配的备份、摘要校验和恢复目标记录；生产恢复须有批准窗口。
+- [ ] 外置基线位于 /srv/backups/elysium/baseline/<baseline-id>/，是自包含、可校验且不回指旧 checkout 的副本。
+- [ ] 临时 SQLite 恢复演练覆盖迁移、marker、备份、修改、恢复、完整性和清理；生产/预发布演练另外记录隔离、健康、认证和 Socket.IO 结果。
+- [ ] /data -> shared 迁移仅在扫描进程、systemd、Nginx、同步客户端后推进；保留兼容期间不得删除旧路径。
+- [ ] secrets、数据库凭据、LiveSync 配置和用户数据未进入 Git、artifact、命令参数或日志。
 
-## Homepage and navigation
+## 3. 安全和现役功能
 
-| Target | Status | Evidence |
-| --- | --- | --- |
-| 当前首页文章流和 `/api/homepage` 供给链可达 | PASS | `ContentHomePage`、Header、首页设置测试及 Phase 11 `/` 验收。 |
-| 文章、认证、音乐房、观影房、直播、账户、传输和 `/admin/*` 当前入口可达 | PASS | `frontend/src/routes.jsx` 路由合同与 Phase 11/现有页面测试。 |
-| 旧 3D 房间、旧首页、旧 Archive/Collection/Books/Tools 页面不回流 | PASS | 旧入口/模块已移出；`/music` 和 `/tools/sync-room` 仅保留兼容重定向，归档路径返回 NotFound。 |
-| 键盘跳转、移动侧栏、减少动画和宽度溢出 | PASS | Phase 11 八档视口真实 Chrome 验收。 |
+- [ ] 登录、管理员授权、CORS、Socket.IO 房间权限、速率限制、审计字段和 SSRF/path 校验均有实际证据。
+- [ ] tus 上传、tusd sidecar、管理员 Files 和写入路径保持 admin-only；验证大小/类型/路径/冲突响应和恢复行为。
+- [ ] 首页、文章、认证、音乐 provider/音乐房、视频 Range、直播/MediaMTX、Public Sync、Books 和后台入口按影响范围验收。
+- [ ] Obsidian 使用原有加密 LiveSync 连接和无害测试笔记；不把 endpoint、凭据或 .env 写入仓库。
+- [ ] 真实浏览器检查控制台错误、失败请求、第三方流量、隐私泄露、移动溢出、重连和多客户端权威状态。
 
-## Collection
+## 4. 兼容性、退役和许可证
 
-| Target | Status | Evidence |
-| --- | --- | --- |
-| Collection API、备份/恢复、公开字段和权限边界 | PASS | 后端 collection、bookmark backup、授权和序列化测试；数据表与迁移未删除。 |
-| 旧 Collection UI、文件夹组件和专属测试归档 | PASS | 路由图无当前消费者，路径记录在 [legacy-code-archive.md](reference/legacy-code-archive.md)。 |
-| `/api/homepage` 的书签/媒体供给链保持可用 | PASS | 首页服务和媒体服务仍有内部调用，未纳入退役组。 |
+- [ ] 旧公开路径、重定向、MineradioPage、当前 direct adapters、历史表和 Alembic 迁移按证据保留；旧 Mineradio bridge 不作为当前入口。
+- [ ] Archive 的 2026-08-28 至 2026-08-30 48 小时零请求记录只作为历史证据；没有新的消费者扫描就不扩大退役范围。
+- [ ] Books 因内部服务、首页供给链、测试、ORM 和表/迁移仍保留；resource-request 的外部使用未知时继续保留。
+- [ ] FRP/Public Sync、MediaMTX、LiveSync、Nginx/systemd、生产路径和公开兼容性均有明确消费者结论；未知消费者一律阻断删除。
+- [ ] 音乐依赖保留 @neteasecloudmusicapienhanced/api 4.40.1 MIT、unblockmusic-utils 0.4.4 MIT、@unblockneteasemusic/server 0.28.0 LGPL-3.0-only，并保持 general unblock=false。
+- [ ] 上传依赖保留 @uppy/core 6.0.0 MIT、@uppy/tus 6.0.0 MIT、tusd v2.10.0 Linux x86_64 MIT，以及 backend/third_party_licenses/tusd/LICENSE.txt 和发布摘要。
 
-## Player and catalog
+## 5. 发布、审批和回滚
 
-| Target | Status | Evidence |
-| --- | --- | --- |
-| 原生音乐房、房间同步和视频播放器可达 | PASS | `MusicRoomPlayer`、`playerTrack`、`roomPlayerIntegration`、视频房间测试和 Phase 7/11 原生播放器验收。 |
-| 旧独立播放器和专属样式/测试移出 | PASS | 当前入口图无消费者；恢复命令见归档索引。 |
-| Mineradio 许可和上游边界保留 | PASS | 由归档标签 `archive/pre-slimming-20260913-d7d039b` 中的许可和上游文件继续跟踪；独立服务已退役。 |
-| 曲库 provider、签名音频、歌词和失败降级 | PASS | 当前音乐服务/路由/适配器测试。 |
+- [ ] 只接受同仓库 main 的成功 CI；production 环境人工审批和 PRODUCTION_DEPLOY_ENABLED=true 均有记录，未使用 GitHub 网页手工绕过流程。
+- [ ] 生产布局仍为 /srv/services/elysium，backend-current、frontend-current、shared 和 releases/deployment-history 的切换是独立、原子且可追溯的。
+- [ ] 前端变更不重建未变化的后端。当前后端组装器创建独立虚拟环境；尚未实现带完整性校验的安全复用，不能改写或复制运行中的环境来加速发布。
+- [ ] 单 worker 约束仍满足 Socket.IO/rooms/limits；backend/frontend 可独立发布，不把前后端 current 链接混切。
+- [ ] 发布前后记录健康、路由、Socket.IO、Nginx/systemd、共享目录、迁移和实际设备/浏览器证据；没有真实证据的项目保持 UNRUN 或 BLOCKED。
+- [ ] 组件回滚使用对应 deployment-id 和确认串；涉及迁移或 shared 基础设施时不猜测 downgrade，改走批准的基线恢复。
+- [ ] 未修改 FlClash、生产代理、权限、真实部署设置或未授权服务；未把本地门禁结果写成生产验收。
 
-## Music rooms
+## 6. 最小复核命令
 
-| Target | Status | Evidence |
-| --- | --- | --- |
-| JWT 身份、成员/主持权限和服务端快照 | PASS | realtime、music-room service/protocol 测试。 |
-| 队列、投票、聊天、历史、重连和漂移校正 | PASS | Phase 7 当前 `/rooms/music/:roomId` 脚本及多客户端测试。 |
-| 原生音乐房在隔离浏览器中运行 | PASS | Phase 7/11 Chrome 视口验收；无 iframe、无 3000 端口依赖，本地依赖由前端锁文件安装到 ignored `node_modules`。 |
-
-## Video rooms
-
-| Target | Status | Evidence |
-| --- | --- | --- |
-| 当前观影房入口、播放列表、上传、字幕和 Range 流 | PASS | Phase 8 当前 `/rooms/watch/:id` 脚本及后端视频测试。 |
-| 权威播放状态、重连和权限边界 | PASS | Room Core、video route 和多客户端测试。 |
-| 旧 `/tools/sync-room` 页面不再作为实现入口 | PASS | 路由只做兼容重定向，旧页面代码已归档。 |
-
-## Games
-
-| Target | Status | Evidence |
-| --- | --- | --- |
-| 当前网站不提供旧游戏前端入口 | PASS | 旧页面、导航和专属测试已移出；当前路由无 games 页面。 |
-| 游戏数据/迁移历史不被清理破坏 | PASS | Alembic `0023_remove_game_platform` 已验证，历史迁移保持不可变。 |
-| 未来恢复旧实现 | PASS | 使用归档标签按路径恢复，不从生产数据库删除数据。 |
-
-## Books, Files and administration
-
-| Target | Status | Evidence |
-| --- | --- | --- |
-| `/api/archive` 退役并明确返回 404 | PASS | 连续 48 小时无请求、无入口/内部/基础设施消费者；router/schema 删除和 404 合同测试完成。 |
-| Books API、服务、ORM 和表退役 | BLOCKED | 同一窗口为 0 请求，但媒体首页、`media_service`、后台服务、测试和 ORM 仍消费 Book/BookList/BookListItem；保留 `/api/books`、后台接口、三张表及全部迁移。 |
-| 当前 Files、用户、首页设置、音乐 provider、服务状态后台可达 | PASS | 当前 admin shell/route 测试和 Phase 10 Files/admin 脚本。 |
-| FRP 文件同步、Public Sync、传输和备份边界保留 | PASS | 认证、路径安全、摘要凭据、上传/恢复测试；未修改生产同步代理。 |
-
-## Release readiness
-
-| Target | Status | Evidence |
-| --- | --- | --- |
-| 归档标签可列出并恢复每个移出路径 | PASS | `git tag --list 'archive/pre-core-cleanup-2026-08-30'` 与索引中的 `git restore --source ... -- <paths>`。 |
-| 未跟踪运维文件未被写入或暂存 | PASS | 清理前后状态和摘要快照一致；只新增 `docs/reference/legacy-code-archive.md`。 |
-| CI/本地门禁复用同一 release gate | PASS | `.github/workflows/ci.yml`、`scripts/release-gate.sh` 和 `docs/testing.md`。 |
-| JavaScript 预算与性能后续项 | BLOCKED | 真实预算失败已保留；不得通过提高阈值关闭门禁。 |
-| 生产部署、Nginx/systemd/FRP/数据库验收 | BLOCKED | 本次范围不含生产写操作，需后续授权窗口、迁移前备份和真实设备验收。 |
-
-## Required commands
-
-```bash
-scripts/check-all.sh
-scripts/release-gate.sh
-node scripts/phase11-accessibility-compat-smoke.mjs
+~~~bash
+# 检查工作树差异，不执行部署
 git diff --check
-```
 
-`scripts/release-gate.sh` 在 JavaScript 预算步骤保留真实非零结果并停止；Phase 7、8、10、11 和直播脚本均已改为当前路由，需在预算任务单独处理后作为完整门禁运行。
+# 检查发布配置和版本化模板
+python3 scripts/check-release-config.py
 
-## 48-hour retirement record
+# 隔离环境恢复演练；不触碰生产数据库
+backend/.venv/bin/python scripts/rehearse-backup-restore.py --json
 
-窗口：2026-08-28 00:51–2026-08-30 00:51（Asia/Shanghai）；来源：生产
-Nginx `access.log`、`.1`、`.2.gz`。候选 `/api/archive`、`/api/books`、
-`/api/admin/books*`、`/api/admin/book-lists*` 均为 0 请求，且活动配置没有
-Nginx/systemd/同步客户端引用。零请求只足以退役 Archive；Books 的内部依赖阻止了退役。
+# 发布候选的 fail-fast 本地门禁；失败必须保留证据
+scripts/release-gate.sh
+~~~
 
-## Abort conditions
+发现未记录的消费者、迁移漂移、摘要不一致、权限回归、同步失败、secret 泄露或生产文件变化时立即停止，保存失败状态和证据，先更新 [security.md](security.md)、[migrations.md](migrations.md)、[deployment.md](deployment.md) 或 [operations/release-cicd.md](operations/release-cicd.md) 中的事实，再重新评估。
 
-若发现未记录的路由/服务消费者、任意状态码请求、迁移漂移、备份摘要不一致、授权回归或生产文件变化，应停止清理并用归档标签恢复对应路径。不得删除 `books`、`book_lists`、`book_list_items` 表，不得修改 FRP 认证、Mineradio、MediaMTX、首页供给链或生产数据。
-
-完整架构、迁移和部署说明见 [architecture](architecture.md)、[migrations](migrations.md)、[testing](testing.md) 和 [deployment](deployment.md)。
+相关顺序见 [architecture.md](architecture.md)、[data-formats.md](data-formats.md)、[testing.md](testing.md)、[deployment.md](deployment.md) 和 [operations/release-cicd.md](operations/release-cicd.md)。

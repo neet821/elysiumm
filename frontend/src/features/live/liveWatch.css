@@ -5,7 +5,6 @@
   aspect-ratio: 16 / 9;
   background: #000;
   border: 1px solid rgba(148, 180, 221, 0.2);
-  box-shadow: 0 36px 100px rgba(0, 0, 0, 0.48);
   overflow: hidden;
   position: relative;
 }
@@ -38,9 +37,6 @@
   padding: 0.65rem 0.9rem;
   position: absolute;
   transform: translateX(-50%);
-}
-.live-player--minimal {
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
 }
 .live-player__controls {
   align-items: center;

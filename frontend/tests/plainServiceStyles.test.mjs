@@ -19,7 +19,8 @@ test('active shell styles keep the eager plain-service presentation without reti
   const adminWorkspaceStyles = readFileSync(adminWorkspacePath, 'utf8')
 
   assert.match(plainServiceStyles, /Plain service presentation/)
-  assert.match(plainServiceStyles, /--surface-page:\s*#fff/)
+  assert.match(globalStyles, /--surface-page:\s*#faf9f6/)
+  assert.match(globalStyles, /--accent-blue:\s*#486459/)
   assert.match(plainServiceStyles, /\.service-shell:not\(\.app-shell--home\)/)
   assert.doesNotMatch(
     plainServiceStyles,
@@ -30,6 +31,8 @@ test('active shell styles keep the eager plain-service presentation without reti
     /service-shell--legacy-review|temporary-review-page|legacy-review-surface/,
   )
   assert.match(plainServiceStyles, /@media\s*\(prefers-reduced-motion:\s*reduce\)/)
+  assert.match(globalStyles, /:where\(button, a, input, textarea, select\):focus-visible/)
+  assert.doesNotMatch(plainServiceStyles, /backdrop-filter:\s*blur|transform:\s*scale|linear-gradient|radial-gradient/)
   assert.doesNotMatch(globalStyles, /Plain service presentation/)
 
   const plainServiceImport = appShell.indexOf("import './plainService.css'")

@@ -9,8 +9,8 @@ const css = applicationStyles;
 assert.doesNotMatch(html, /localStorage\.getItem\(['"]theme['"]\)/, "formal pages must not load a user theme");
 assert.doesNotMatch(html, /prefers-color-scheme/, "formal pages must not follow a system theme");
 assert.doesNotMatch(app, /useTheme/, "formal shell must not mount the theme controller");
-assert.match(css, /--surface-page:\s*#fff/i, "formal pages must use a white surface");
-assert.match(css, /--text-primary:\s*#111/i, "formal pages must use black text");
+assert.match(css, /--surface-page:\s*#faf9f6/i, "formal pages must use the shared near-white surface");
+assert.match(css, /--text-primary:\s*#252824/i, "formal pages must use the shared charcoal text");
 assert.match(css, /--shadow-card:\s*none/i, "formal pages must not use card shadows");
 assert.match(css, /--radius-card:\s*0/i, "formal pages must not use rounded cards");
 
