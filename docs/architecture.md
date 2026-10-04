@@ -18,15 +18,16 @@ Elysium 是一个 React 应用和一个 FastAPI 应用。生产数据经 SQLAlch
 
 ## 音乐侧车与许可证
 
-音乐 Node 侧车由 `backend/music_node/server.cjs` 包装，不是上游源码副本；只监听 loopback，生产由 `elysiumm-music-api.service` 与后端管理，浏览器不直连。当前锁定版本和许可证来源如下：
+音乐 Node 侧车由 `backend/music_node/server.cjs` 包装，不是上游源码副本；只监听 loopback，生产由 `elysiumm-music-api.service` 与后端管理，浏览器不直连。生产侧车使用每个 backend release 私有的 Node runtime，不依赖宿主机全局 Node。当前锁定版本和许可证来源如下：
 
 | 组件 | 固定版本 | 许可证/边界 |
 | --- | --- | --- |
+| 官方 Node.js Linux x64 runtime | `v22.23.3`；[官方归档](https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz)；归档 SHA-256：`df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de`；每个 backend `RELEASE.json` 的 `node_runtime` 记录版本、归档和 `node` 二进制摘要 | 仅兼容 Linux x86_64；随归档保留官方 `LICENSE`，按 Node.js 及随包第三方许可声明履行 |
 | `@neteasecloudmusicapienhanced/api` | 4.40.1，见 `backend/music_node/package-lock.json` | MIT，以锁文件元数据为准 |
 | `@neteasecloudmusicapienhanced/unblockmusic-utils` | 0.4.4，传递依赖 | MIT，以锁文件元数据为准 |
 | `@unblockneteasemusic/server` | 0.28.0，传递依赖 | LGPL-3.0-only，需重新审查履行义务 |
 
-Node.js 22 是 CI/CD 和音乐侧车的固定运行线。`ENABLE_GENERAL_UNBLOCK=false`，不允许跨来源静默换歌；只有未来能校验标题、艺人、时长和实际来源时，才可另行设计显式替代播放。升级必须同时审查 lockfile、Node 要求、行为和许可证。
+生产音乐侧车不再要求宿主机全局 Node 22：部署器在新的 backend release `.node/` 内完成下载、校验和安装，systemd 的 `PATH` 以 `/srv/services/elysium/backend-current/.node/bin` 开头；构建/测试使用的 Node.js 22 仍是 CI/CD 运行线，但不是生产主机全局安装要求。该 app-private runtime 只覆盖 Linux x86_64 裸机 release；frontend-only 发布不安装它，后端回滚跟随 `backend-current`。`ENABLE_GENERAL_UNBLOCK=false`，不允许跨来源静默换歌；只有未来能校验标题、艺人、时长和实际来源时，才可另行设计显式替代播放。升级必须同时审查 lockfile、Node 要求、行为和许可证。
 
 ## 上传、同步与直播
 

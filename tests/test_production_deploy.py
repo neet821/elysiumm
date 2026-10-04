@@ -933,8 +933,14 @@ class ProductionDeployTest(unittest.TestCase):
             ],
         ) as run, patch(
             "deployment.runtime_dependencies.shutil.which",
-            side_effect=lambda name, path=None: f"/usr/bin/{name}",
-        ):
+            side_effect=lambda name, path=None: str(release_root / ".node/bin" / name),
+        ), patch(
+            "deployment.runtime_dependencies.install_node_runtime",
+            return_value=(release_root / ".node", {"version": "22.23.3"}),
+            create=True,
+        ) as install_node, patch(
+            "deployment.runtime_dependencies.write_release_manifest",
+        ) as write_manifest:
             _install_backend_dependencies(assembly, requirement_lock, {})
 
         self.assertEqual(run.call_count, 3)
@@ -947,6 +953,12 @@ class ProductionDeployTest(unittest.TestCase):
         self.assertEqual(npm_call[1], "ci")
         self.assertIn("--omit=dev", npm_call)
         self.assertEqual(npm_call[-1], str(node_project))
+        install_node.assert_called_once_with(release_root)
+        self.assertEqual(npm_call[0], str(release_root / ".node/bin/npm"))
+        self.assertEqual(assembly.manifest["node_runtime"]["version"], "22.23.3")
+        write_manifest.assert_called_once_with(release_root / "RELEASE.json", assembly.manifest)
+        npm_environment = run.call_args.kwargs["env"]
+        self.assertTrue(npm_environment["PATH"].startswith(str(release_root / ".node/bin") + ":"))
 
     def test_backend_dependency_install_rejects_unsupported_node_runtime(self):
         release_root = self.root / "backend-release-old-node"
@@ -971,6 +983,10 @@ class ProductionDeployTest(unittest.TestCase):
         ), patch(
             "deployment.runtime_dependencies.shutil.which",
             side_effect=lambda name, path=None: f"/usr/bin/{name}",
+        ), patch(
+            "deployment.runtime_dependencies.install_node_runtime",
+            return_value=(release_root / ".node", {"version": "22.23.3"}),
+            create=True,
         ), self.assertRaisesRegex(ProductionDeployError, "Node.js 22 or newer"):
             _install_backend_dependencies(assembly, requirement_lock, {})
 

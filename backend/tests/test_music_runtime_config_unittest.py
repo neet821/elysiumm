@@ -42,7 +42,7 @@ class MusicRuntimeConfigTest(unittest.TestCase):
 
         self.assertIn("ELYSIUM_NETEASE_API_PORT=8765", music)
         self.assertIn("WorkingDirectory=/srv/services/elysium/backend-current/backend/music_node", music)
-        self.assertIn("Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", music)
+        self.assertIn("Environment=PATH=/srv/services/elysium/backend-current/.node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", music)
         self.assertIn("ExecStart=/usr/bin/env node /srv/services/elysium/backend-current/backend/music_node/server.cjs", music)
         self.assertIn("PrivateTmp=true", music)
         self.assertIn("elysiumm-music-api.service", backend)

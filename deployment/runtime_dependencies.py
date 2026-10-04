@@ -14,6 +14,8 @@ from deployment.deploy_types import (
     SYSTEMD_RUNTIME_PATH,
 )
 from deployment.release_builder import ReleaseAssembly
+from deployment.node_runtime import install_node_runtime
+from deployment.release_metadata import write_release_manifest
 
 
 def _install_backend_dependencies(
@@ -59,8 +61,11 @@ def _install_backend_dependencies(
             "internal music API package.json and package-lock.json must both exist"
         )
 
+    # The production host may legitimately keep Node 18 for other services.
+    # Prepare this dependency in the new release, never in a system directory.
+    node_runtime, node_metadata = install_node_runtime(release.path)
     process_environment = dict(environment)
-    search_path = SYSTEMD_RUNTIME_PATH
+    search_path = f"{node_runtime / 'bin'}:{SYSTEMD_RUNTIME_PATH}"
     process_environment["PATH"] = search_path
     node = shutil.which("node", path=search_path)
     npm = shutil.which("npm", path=search_path)
@@ -101,6 +106,8 @@ def _install_backend_dependencies(
         raise ProductionDeployError(
             f"internal music API dependency installation failed (npm ci exit code {installed.returncode})"
         )
+    release.manifest["node_runtime"] = node_metadata
+    write_release_manifest(release.path / "RELEASE.json", release.manifest)
 
 
 def _music_api_service_installed(options: DeploymentOptions) -> bool:
