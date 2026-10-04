@@ -12,7 +12,7 @@ Environment=NODE_ENV=production
 Environment=ELYSIUM_NETEASE_API_PORT=8765
 Environment=ENABLE_GENERAL_UNBLOCK=false
 Environment=CORS_ALLOW_ORIGIN=elysium-internal-service-only
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PATH=/srv/services/elysium/backend-current/.node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/env node /srv/services/elysium/backend-current/backend/music_node/server.cjs
 Restart=on-failure
 RestartSec=3

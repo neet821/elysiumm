@@ -58,7 +58,7 @@ OBS 使用管理员页显示的服务器地址和一次性推流密钥；H.264 �
 
 ### 内部侧车
 
-音乐服务监听 loopback 8765，健康路径 `/healthz`；unit 指向 `backend-current/backend/music_node/server.cjs`，固定系统 PATH 中需有 Node 22+。发布脚本在新 release 执行 `npm ci --omit=dev`，切换/回滚后端时协调该侧车；测试入口是 `npm test --prefix backend/music_node`，不在当前运行目录安装或覆盖依赖。
+音乐服务监听 loopback 8765，健康路径 `/healthz`；每个 backend release 只在新的 release `.node/` 内下载、校验并固化官方 [Node.js v22.23.3 Linux x64 归档](https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz)，不替换宿主机全局 Node。归档 SHA-256 为 `df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de`，并保留官方 `LICENSE`；`RELEASE.json` 的 `node_runtime` 记录版本、归档和解压后 `node` 二进制摘要。`elysiumm-music-api.service` 的 `PATH` 必须以 `/srv/services/elysium/backend-current/.node/bin` 开头，unit 仍指向 `backend-current/backend/music_node/server.cjs`。候选 runtime 下载、校验或安装失败时不切换 `backend-current`；后端切换/回滚沿用该 current 链接带动侧车，frontend-only 发布不安装该 Node runtime。发布脚本在新 release 执行 `npm ci --omit=dev`；测试入口是 `npm test --prefix backend/music_node`，不在当前运行目录安装或覆盖依赖。
 
 本地 tusd 可通过 `TUSD_BINARY=<已验证的二进制>` 指定。不可用时预览其他功能仍启动，但上传返回 503、按钮禁用；必须真实恢复侧车并完成断线续传验收，不能把降级提示当作上传通过。
 
@@ -87,7 +87,7 @@ sudo python3 scripts/rollback-production.py \
 
 backend release 会读取 systemd 使用的数据库环境，比较当前 revision 与目标 heads：无 pending 不备份/不迁移；pending 先备份并校验摘要，再 `alembic upgrade heads`；ahead、divergent、unknown 或环境失败都在切换 `backend-current` 前终止。回滚不猜测 downgrade；迁移后的数据恢复必须使用获批 backup/baseline。
 
-标准发布通过成功 CI 的 CD payload 执行，不使用手工简化的 `deploy-production.py` 调用。完整合约在 `.github/workflows/cd.yml` 的 `deploy_command`：staged 脚本、impact map、精确 commit/run-id、main ref、锁/API 摘要、Node 22、受信 Python、按需 tusd 二进制/摘要、前端 dist/预算及逐项 changed path。缺少其中依赖或元数据应失败，不能临时删参数绕过。
+标准发布通过成功 CI 的 CD payload 执行，不使用手工简化的 `deploy-production.py` 调用。完整合约在 `.github/workflows/cd.yml` 的 `deploy_command`：staged 脚本、impact map、精确 commit/run-id、main ref、锁/API 摘要、`--node-version "22"`（仅写入 frontend release metadata）、受信 Python、按需 tusd 二进制/摘要、前端 dist/预算及逐项 changed path。backend 的 app-private Node runtime 不通过该 CLI 传入版本或摘要；部署器使用固定的官方 v22.23.3 installer 常量，在候选 backend release 内直接下载、校验并把 `node_runtime` 写入候选 `RELEASE.json`。缺少其中依赖或元数据应失败，不能临时删参数绕过。
 
 ## 生产验收
 
