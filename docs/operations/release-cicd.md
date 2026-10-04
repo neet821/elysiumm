@@ -1,172 +1,149 @@
-# Elysium CI/CD release operations
+# Elysium CI/CD 运维
 
-This repository-side workflow has two separate responsibilities:
+本文只描述仓库内 CI/CD 与生产发布脚本的真实边界。quality 负责锁定依赖、影响范围、测试和构建；deployment 只负责经过审批的生产交付。操作员使用仓库脚本和受保护环境，不依赖 GitHub 网页手工发布。
 
-- `quality` installs the locked development dependencies, resolves
-  `release-impact.yml`, runs the relevant backend focused/full
-  checks, runs the frontend check/budget/build, and stores the built frontend
-  artifact with non-secret release metadata.
-- `deployment` is production-only. It can run only for a successful `push` to
-  `main`, when the `PRODUCTION_DEPLOY_ENABLED` variable is exactly `true` and
-  the protected `production` environment grants its required approval.
+## 触发和审批
 
-Pull requests and pushes to other branches therefore run quality checks only.
-Leaving the enable variable unset or false is the safe repository default. This
-workflow does not change FlClash or FlClashCore.
+质量流程来自 .github/workflows/ci.yml，生产流程来自 .github/workflows/cd.yml。CI 使用 Python 3.12、Node.js 22、锁定的 backend/requirements-dev.txt、frontend/package-lock.json 和 backend/music_node/package-lock.json；发布配置检查必须确认 Node 版本为 22。
 
-## GitHub configuration
+生产 deployment 只能由同一仓库 main 的成功 CI 触发，并同时满足：
 
-Create the following in the repository or the protected `production`
-environment. Keep production values scoped to that environment where possible.
+- PRODUCTION_DEPLOY_ENABLED 恰好为 true；
+- protected production environment 的人工审批已通过；
+- artifact、commit、影响范围和摘要校验匹配。
 
-| Type | Name | Required value or purpose |
+变量未设置或为 false 是安全默认值。本流程不修改 FlClash 或 FlClashCore，也不绕过 Nginx/systemd/数据库审批。
+
+## 受保护变量和密钥
+
+| 类型 | 名称 | 用途和边界 |
 | --- | --- | --- |
-| Secret | `PRODUCTION_SSH_PRIVATE_KEY` | A dedicated deploy key accepted by the production account. The workflow writes it to a mode-600 temporary file and never prints it. |
-| Secret | `PRODUCTION_SSH_KNOWN_HOSTS` | Pinned `known_hosts` line(s) for the production SSH host. The workflow requires strict host-key checking and does not call `ssh-keyscan`. |
-| Variable | `PRODUCTION_SSH_HOST` | DNS name or address of the production SSH endpoint. |
-| Variable | `PRODUCTION_SSH_USER` | SSH account with non-interactive `sudo -n` permission for the release layout and deployment commands. |
-| Variable | `PRODUCTION_ROOT` | Release root; use `/srv/services/elysium` unless the separately reviewed server layout uses another path. |
-| Variable | `PRODUCTION_BASELINE_ROOT` | Optional verified baseline parent; defaults to `/srv/backups/elysium/baseline/`. |
-| Variable | `PRODUCTION_BASELINE_ID` | Verified directory name below `${PRODUCTION_BASELINE_ROOT}`. |
-| Variable | `PRODUCTION_GIT_ORIGIN` | Repository origin URL recorded by `install-release-layout.sh`. |
-| Variable | `PRODUCTION_DEPLOY_ENABLED` | Must remain unset or `false` until baseline, staging, rollback, and operator checks are accepted; set to exactly `true` to enable the path. |
+| Secret | PRODUCTION_SSH_PRIVATE_KEY | 专用部署密钥；临时文件 mode 600，不打印。 |
+| Secret | PRODUCTION_SSH_KNOWN_HOSTS | 固定 SSH host key；严格校验，不调用 ssh-keyscan。 |
+| Variable | PRODUCTION_SSH_HOST | 生产 SSH 地址。 |
+| Variable | PRODUCTION_SSH_USER | 具备审计过的 sudo -n 权限的部署账号。 |
+| Variable | PRODUCTION_ROOT | 发布根目录，默认 /srv/services/elysium。 |
+| Variable | PRODUCTION_BASELINE_ROOT | 基线根目录，默认 /srv/backups/elysium/baseline/。 |
+| Variable | PRODUCTION_BASELINE_ID | PRODUCTION_BASELINE_ROOT 下已校验的目录名。 |
+| Variable | PRODUCTION_GIT_ORIGIN | install-release-layout.sh 记录的仓库 origin。 |
+| Variable | PRODUCTION_DEPLOY_ENABLED | 发布开关；默认关闭，审批后才可设为 true。 |
 
-Configure the `production` environment with required reviewers or an equivalent
-approval rule. The environment approval is an additional human gate; it is not
-replaced by the repository variable. Do not put database credentials,
-application secrets, or private environment-file contents in GitHub variables,
-artifacts, workflow arguments, or deployment transaction metadata.
+数据库凭据、应用 secret、生产 env 内容和用户数据不得进入变量、artifact、命令参数、部署事务元数据或日志。production environment 应配置 required reviewers；环境审批不能由仓库变量替代。
 
-## Quality and impact selection
+## 质量检查和 artifact
 
-The quality job uses Python 3.12, Node 20, `backend/requirements-dev.txt`, and
-`frontend/package-lock.json`. It checks the push/PR range with:
+影响范围由版本化 release-impact.yml 决定。需要复核某个范围时：
 
-```text
-python scripts/resolve-release-impact.py --base <base> --head <head>
-```
+~~~bash
+# 根据 base/head 解析后端、前端、基础设施和 live 影响
+python3 scripts/resolve-release-impact.py --base <base> --head <head>
 
-The resulting `release-impact.json` is uploaded with the artifact. Matching
-paths select component validation from the versioned impact map; unmatched
-paths retain the map's full-validation behavior. Backend-impacting changes run
-release-focused tests and the complete backend lint, compile, unittest,
-migration, and schema checks. Frontend-impacting changes run:
+# 检查 CI/CD 模板、Node 22、依赖锁文件和活动部署资产
+python3 scripts/check-release-config.py
+~~~
 
-```text
-npm --prefix frontend run check
-npm --prefix frontend run check:budget
-npm --prefix frontend run build
-```
+CI 为 commit 生成 `elysium-release-metadata-<commit>`、按需的 `elysium-frontend-<commit>` 和 `elysium-tusd-<commit>` artifact。包含影响图、非 secret 元数据、前端预算/产物及 tusd 许可证/摘要，不包含 .venv 或生产 env。CD 必须从触发它的 CI run 下载，并复核 commit 与摘要。
 
-The `ci.yml` workflow is the single quality and release-payload workflow. It
-runs for pull requests and pushes to `main`, and only uploads a frontend
-artifact when frontend validation is selected. The `cd.yml` workflow listens
-for a successful `main` CI run, downloads its immutable payload, and enters
-the protected `production` Environment before deployment.
+## 从修改到发布的命令行流程
 
-The artifact named `elysium-<commit>` contains `frontend/dist` when selected,
-`frontend-budget.json`, `release-impact.json`, and SHA-256 metadata. It does
-not contain `.venv`, production environment files, or credentials.
+以下命令在本地开发仓库执行，不在服务器运行目录 `git pull`。占位值必须先替换；提交、推送和合并只包含已经审查的文件。
 
-## Baseline prerequisite
+~~~bash
+# 获取最新主线；工作区有未提交修改时先保存，不强行覆盖
+git fetch origin
+git switch main
+git pull --ff-only
+git switch -c codex/<本次任务>
 
-Automatic production deployment is not a baseline creation mechanism. Before
-setting `PRODUCTION_DEPLOY_ENABLED=true`, provision the host and create a
-self-contained baseline at:
+# 修改并预览；数据库保留在本地，不重复运行已存在的预览
+bash scripts/local-preview.sh --saved
+# 手动查看页面，完成后 Ctrl+C；自动测试由 CI 运行
 
-```text
-/srv/backups/elysium/baseline/<baseline-id>/
-```
+# 审查实际差异，只暂存本次文件，中文提交
+git diff --check
+git diff -- <本次文件>
+git add -- <本次文件>
+git commit -m "本次修改的中文说明"
+git push -u origin HEAD
 
-The baseline must contain a verified `BASELINE.json`, `SHA256SUMS`, runtime and
-database copies, and the generated restore scripts. Its manifest must declare
-self-contained runtime and database state. It must not depend on an original
-release checkout or contain symlinks back to one. Shared uploads and Articles
-content remain external inputs and must be listed as such in the baseline
-manifest. Keep the production environment file outside Git, root-owned and
-mode 600 or stricter.
+# 创建 PR、等待 CI；禁用分页器，不再出现 (END) 等待 q
+GH_PAGER=cat gh pr create --base main --title "中文标题" --body "修改、验证及兼容说明"
+GH_PAGER=cat gh pr checks <PR号> --watch
+# 若失败，先读对应 run 的失败日志，修复后重新提交，不跳过检查
+GH_PAGER=cat gh run view <run-id> --log-failed
 
-Verify the exact baseline before enabling the gate:
+# 人工审查最终差异，CI 通过后压缩合并、删除临时分支
+GH_PAGER=cat gh pr diff <PR号>
+gh pr merge <PR号> --squash --delete-branch
+git switch main
+git pull --ff-only
+git fetch --prune origin
 
-```bash
+# 合并后 main CI 完成，CD 才进入 production 等待批准
+GH_PAGER=cat gh run list --workflow ci.yml --branch main --limit 3
+GH_PAGER=cat gh run list --workflow cd.yml --limit 3
+~~~
+
+**必须由人操作**：页面体验检查、平台扫码/登录，以及生产部署批准。批准人先确认目标 commit、影响范围、备份和回滚入口，再执行以下命令；代理不代替批准人执行。环境 ID 和 CD run ID 必须来自这次等待中的运行，不能复制历史值。
+
+~~~bash
+# 只读列出本次 CD 的待批准环境
+gh api repos/neet821/elysiumm/actions/runs/<CD-run-id>/pending_deployments
+
+# 由配置的批准人批准本次 production 环境，不改变审核规则
+gh api --method POST repos/neet821/elysiumm/actions/runs/<CD-run-id>/pending_deployments \
+  -F 'environment_ids[]=<production环境ID>' \
+  -f state=approved -f comment='已核对版本、备份和回滚目标，同意本次发布'
+
+# 批准后等待结果；失败先查看日志，按原发布事务处理
+GH_PAGER=cat gh run watch <CD-run-id> --exit-status
+GH_PAGER=cat gh run view <CD-run-id> --log-failed
+~~~
+
+## 基线和 preflight
+
+自动部署不是创建基线的机制。启用 PRODUCTION_DEPLOY_ENABLED=true 前，必须在外部路径建立自包含、可恢复、无旧 checkout 回指的基线，并核对 runtime、数据库副本、manifest 和 SHA256SUMS：
+
+~~~bash
+# 校验指定生产基线；命令本身不修改基线
 sudo python3 scripts/verify-baseline.py \
   --baseline /srv/backups/elysium/baseline/<baseline-id>
-```
 
-Also verify the required Python/Node/systemd/Nginx/runtime packages, writable
-shared roots, database reachability, current application health, and enough
-backup capacity. Run a staged deployment and rollback rehearsal against an
-isolated copy first. The baseline ID is checked again by the workflow before
-the release CLI is invoked.
-
-The first `data -> shared` cutover is tracked separately from ordinary release
-transactions. Initialize and update its atomic history with:
-
-```bash
-sudo python3 scripts/bootstrap-production.py \
+# 发布前检查 current、shared、数据库、env、Nginx/systemd 和健康端点
+sudo bash scripts/release-preflight.sh \
   --root /srv/services/elysium \
-  --bootstrap-id shared-cutover-<timestamp> \
-  --target-commit <release-commit> \
-  --release-deployment-id <release-deployment-id> \
-  --phase data_pre_copy --status in_progress
-```
+  --baseline-root /srv/backups/elysium/baseline \
+  --env-file /etc/elysium/backend.env \
+  --health-url http://127.0.0.1:8000/api/health
+~~~
 
-Record `data_pre_copy`, `livesync_pre_copy`, `baseline`, `maintenance_mode`,
-`final_sync`, `legacy_data_retention`, `release_layout`, and
-`release_transaction` as each reviewed operation starts and finishes. The
-transaction is finalized only after production acceptance; failed cutovers
-must record the actual rollback target and remain immutable.
+预发布/隔离环境必须先完成发布和 rollback 演练。首次 data -> shared 切换还要记录 data_pre_copy、livesync_pre_copy、baseline、maintenance_mode、final_sync、legacy_data_retention、release_layout 和 release_transaction；未完成的事务不能伪装成普通发布成功。
 
-## Deployment sequence
+## 生产布局和部署事务
 
-The deployment job downloads only the quality artifact and checks out the exact
-commit. It transfers a temporary deployment payload over SSH using pinned host
-keys, then on the server:
+生产根目录是 /srv/services/elysium，固定布局包括 repository.git、releases、backend-current、frontend-current、shared 和 releases/deployment-history。backend-current 与 frontend-current 可独立切换；Socket.IO 房间和进程内限流要求后端保持单 worker。shared 上传、文章内容、LiveSync 和恢复边界不能随 release 删除。
 
-1. runs `scripts/install-release-layout.sh --root <root> --origin <origin>`;
-2. fetches the exact commit into the bare `repository.git` without creating a
-   mutable checkout;
-3. verifies `baseline/<baseline-id>` without changing its contents when a
-   backend release is selected;
-4. installs the versioned impact map into the release root;
-5. invokes `scripts/deploy-production.py` with the commit, GitHub run ID,
-   unique deployment ID, bare repository, frontend dist artifact, budget/hash
-   metadata, and each changed path;
-6. removes the temporary payload and records the deployment transaction under
-   `<root>/releases/deployment-history/`.
+标准序列是初始化布局、获取精确 commit、校验基线、安装影响图、执行 preflight，再调用 scripts/deploy-production.py。CI 会同时传递 deployment-id、GitHub run ID、frontend dist、预算/摘要以及每个 changed path；生产端应将事务写入 deployment-history。
 
-The release CLI chooses frontend/backend/infra scope from the impact map. A
-frontend-only release supplies the CI-built dist and does not create or inspect
-the backend virtual environment or database state. A backend-only release
-prepares the backend release and does not switch the frontend current link.
-Database backup and migration remain conditional on the target backend's
-Alembic state. Secrets are not sent as command arguments and are not printed by
-the workflow.
+不提供删减参数的手工部署示例。完整调用只由 `.github/workflows/cd.yml` 的 `deploy_command` 组装：使用 stage 内脚本和 impact map、main ref、commit/run-id、lock/API 摘要与 Node 22；后端附受信 Python 和 tusd 来源/摘要，前端附 dist/预算，最后逐项附 changed path。人工审批后原样执行该合同，不能在运行目录 `git pull` 或改写 `.venv`。
+
+发布脚本按 impact map 选择 frontend/backend/infra/live 范围；不应把前后端 current 链接混切。deployment 模板、Nginx、systemd、MediaMTX、tusd 和 live 资产必须按实际消费者更新，不能因名称相似而合并或判定未使用。
 
 ## Rollback
 
-Every deployment transaction records the prior component links and the
-deployment ID. For an isolated component rollback, review the transaction and
-run the exact confirmation form on the server:
+每个事务保存前一版本 component link、commit、deployment-id 和实际健康证据。组件 rollback 只能使用对应事务和精确确认串：
 
-```bash
+~~~bash
+# 只回滚指定 immutable frontend current link，并创建新的 rollback 事务
 sudo python3 scripts/rollback-production.py \
   --root /srv/services/elysium \
   --deployment-id <deployment-id> \
   --component frontend \
   --confirm 'ROLLBACK:<deployment-id>:frontend'
-```
+~~~
 
-Use `--component backend` for a backend-only rollback. This creates a new
-rollback transaction and changes only the selected immutable current link; it
-does not guess a database downgrade. If a migration or shared infrastructure
-change is involved, stop and use the reviewed baseline restore procedure (or
-the full production rollback runbook) with database-owner approval, a preserved
-failed state, and a fresh safety backup. Verify the baseline or release bundle
-checksums before restoring, then re-check backend health, public routes,
-Socket.IO, Nginx/systemd state, and the expected data/storage paths.
+backend 组件使用 --component backend。rollback 不猜测数据库 downgrade；若涉及迁移、shared 或基础设施，保留失败状态和新安全备份，按批准的基线恢复流程处理。恢复后复核 checksum、健康端点、公开路由、Socket.IO、Nginx/systemd 和实际数据/存储路径。
 
-Do not treat a successful SSH command, a single HTTP 200, or a recorded
-transaction as complete user acceptance. Record the commit, run ID, deployment
-ID, selected components, health evidence, rollback target, and any unrun
-browser/device or production checks separately.
+## 真实验收
+
+部署命令成功、SSH 成功、单个 HTTP 200 或存在事务记录都不是用户验收。必须按影响范围记录登录/admin、首页/文章、音乐 provider/音乐房、视频 Range、tus/admin-only、直播/MediaMTX、Obsidian LiveSync、Public Sync、Nginx/systemd、current/shared 和实际浏览器/设备结果。未执行的设备或生产检查保持 UNRUN/BLOCKED。测试和发布证据见 [../testing.md](../testing.md) 与 [../release-checklist.md](../release-checklist.md)。

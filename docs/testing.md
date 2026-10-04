@@ -1,116 +1,91 @@
-# Testing and release evidence
+# Elysium 测试与发布证据
 
-## Toolchain
+本文说明如何在隔离环境验证现有实现。测试结果必须带有命令、commit、时间、环境和摘要；没有执行的检查写 UNRUN，依赖外部条件的检查写 BLOCKED，不能用静态检查或单个 HTTP 200 宣称用户验收通过。
 
-Use Python 3.12 and Node 20 for release-equivalent runs. Install backend development dependencies into `backend/.venv` and frontend packages with the lockfile:
+## 工具链和边界
 
-```bash
+发布等价线使用 Python 3.12、Node.js 22，以及锁定的 backend/requirements-dev.txt、frontend/package-lock.json 和 backend/music_node/package-lock.json。测试只能使用临时 SQLite、临时 backup/admin roots 和临时端口，不得使用生产数据库、生产凭据、真实 Nginx/systemd/FRP 控制面或生产存储。
+
+本地安装和基础检查：
+
+~~~bash
+# 创建隔离后端环境并安装锁定依赖
 python3.12 -m venv backend/.venv
 backend/.venv/bin/pip install -r backend/requirements-dev.txt
+
+# 按前端锁文件安装依赖
 npm --prefix frontend ci
-```
 
-Tests must not use production data, production credentials, live Nginx/systemd/FRP controls or configured production storage. The repository gate exports a temporary SQLite URL and temporary backup/admin roots, then removes them.
+# 检查本次补丁空白格式
+git diff --check
 
-## Primary repository gate
-
-For normal development feedback, run from the repository root:
-
-```bash
+# 运行后端、前端、迁移漂移和构建检查
 scripts/check-all.sh
-```
 
-It performs backend fatal lint checks, byte compilation, Python unittest discovery, an isolated migration/drift run, frontend lint, source tests, Vitest component tests, a production build and `git diff --check`. Warnings remain visible; errors stop the gate.
-
-The release-configuration check can also run independently:
-
-```bash
+# 单独检查版本化发布模板和 live 资产
 python3 scripts/check-release-config.py
-python3 scripts/check-release-config.py --env-file .env
-```
 
-The second command intentionally fails on placeholders, weak secrets, wildcard/invalid origins or missing required values.
-
-For a release candidate, use the fail-fast umbrella gate:
-
-```bash
+# 运行 fail-fast 发布门禁；只使用临时本地状态，不部署或回滚
 scripts/release-gate.sh
-```
+~~~
 
-It runs release configuration, the full repository gate, isolated recovery,
-accessibility/responsive browser acceptance, and the critical music, video,
-live, and Files/administrator browser flows in a fixed order. A failed
-step stops every later step. The command creates only temporary local state and
-never invokes deployment, rollback, Docker startup or privileged host actions.
+失败步骤必须保留原始错误、范围和重现命令；后续步骤未执行时不能记为 PASS。发布门禁不启动生产 Docker、不调用特权主机动作，也不改变 FlClash。
 
-## Focused backend and frontend runs
+## 聚焦测试
 
-Backend tests use standard unittest modules:
+后端使用 unittest；迁移测试必须验证空库/旧库升级、降级兼容和模型与 Alembic head 一致。目前数据库 head 是 0027_tus_upload_reservations：
 
-```bash
+~~~bash
+# 发布脚本和配置的快速回归
 backend/.venv/bin/python -m unittest -v backend.tests.test_release_scripts_unittest
+
+# 后端全量 unittest（只使用隔离测试资源）
 backend/.venv/bin/python -m unittest discover -s backend/tests -p 'test_*_unittest.py' -v
-```
 
-Frontend component tests use Vitest and source-contract checks use Node's test runner:
+# 临时 SQLite 上执行备份、恢复、完整性和清理演练
+backend/.venv/bin/python scripts/rehearse-backup-restore.py --json
+~~~
 
-```bash
+前端检查包括 source-contract、Vitest、lint 和生产构建：
+
+~~~bash
+# 运行组件测试
 npm --prefix frontend run test:unit
+
+# 运行源代码合同检查
 npm --prefix frontend run test:source
+
+# 检查 lint 和生产构建
 npm --prefix frontend run lint
 npm --prefix frontend run build
-```
+~~~
 
-## Browser acceptance
+## 浏览器和现役功能验收
 
-Browser acceptance scripts start isolated backend/frontend processes on temporary ports, create their own database/storage/browser profiles and clean them afterward. They must check console errors, failed requests, unexpected third-party traffic, credential/path leakage and horizontal overflow as applicable.
+浏览器脚本应在临时端口、临时数据库/存储和独立浏览器 profile 中运行，并检查控制台错误、失败请求、非预期第三方流量、凭据/路径泄露和横向溢出。组件测试不能替代导航、布局、媒体、重连或多客户端权限验收。
 
-The tracked domain flows are:
-
-```bash
+~~~bash
+# 音乐房多客户端、视频房多客户端和 Books/admin 流程
 node scripts/phase7-multiclient-smoke.mjs
 node scripts/phase8-video-multiclient-smoke.mjs
 node scripts/phase10-books-admin-browser-smoke.mjs
+
+# 可访问性、兼容性和直播流程
 node scripts/phase11-accessibility-compat-smoke.mjs
 node scripts/live-stream-smoke.mjs
-```
+~~~
 
-Each script has its own prerequisites and should be run from the repository root. A passing component test does not replace a real Browser acceptance for navigation, layout, media, reconnect or multi-client authority.
+验收范围至少覆盖：登录与 admin-only 路由、文章/首页、音乐 provider 和音乐房 Socket.IO、视频 Range、直播权限与 MediaMTX、管理员 Files/tus 上传、Public Sync、Obsidian 加密 LiveSync 连接以及旧路径兼容重定向。直播验收须验证 OBS/RTMP、访客隐私、录制共享路径和当前 cookie 配置；LiveSync 验收须使用现有设备和无害测试笔记，不把凭据或 .env 写入仓库。
 
-On the 2026-08-30 cleanup baseline the repository gate reaches the production build
-and then stops at the unchanged JavaScript budget: initial JS is 423,764 bytes
-(134,918 gzip) against 360,000 (120,000 gzip). CSS is 170,190 bytes and is under
-budget. This is recorded as a genuine BLOCKED performance follow-up; no threshold
-was raised and the remaining browser scripts were run separately where needed.
+## CI/CD 对应关系
 
-## Migration and recovery tests
+.github/workflows/ci.yml 固定 Python 3.12 和 Node.js 22，使用锁文件并在 main 的质量检查后运行 release gate。.github/workflows/cd.yml 是独立的生产交付流程，只有同仓库 main 的成功 CI、PRODUCTION_DEPLOY_ENABLED=true 和受保护 production 环境人工审批同时满足时才可部署；本地测试不等价于该审批。
 
-`backend/run_migrations.py` is exercised against a temporary database by the repository gate. Migration unit tests additionally cover empty/legacy upgrade, downgrade compatibility and model/head parity. Backup unit tests verify SQLite/MySQL command construction, hashes, path safety and restoration. The release preflight, stage and rollback tests use temporary fixture roots and verify that read-only modes do not mutate them.
+## 结果语义
 
-Run the complete isolated recovery rehearsal directly with:
+- PASS：指定命令在新建隔离状态下以零退出码完成，并记录了实际证据。
+- FAIL：断言、构建、迁移、预算或浏览器检查失败，必须保留失败范围。
+- BLOCKED：确实缺少外部服务、凭据、设备、人工审批或其他操作权限。
+- UNRUN：尚未执行，不能被汇总为 PASS。
 
-```bash
-backend/.venv/bin/python scripts/rehearse-backup-restore.py --json
-```
-
-It migrates a temporary SQLite database to the current head, creates a marker,
-backs up through the application service, mutates and restores the database,
-verifies the marker plus database integrity, and removes the workspace. It
-refuses repository, home and non-temporary paths. Operator staging/production
-boundaries are documented in [backup and restore drill](./backup-restore-drill.md).
-
-## CI
-
-`.github/workflows/ci.yml` installs Python 3.12 and Node 20 from lockfiles,
-then runs the impact-aware checks and, for `main`, `scripts/release-gate.sh`.
-`.github/workflows/cd.yml` is the separate production delivery workflow; it
-does not repeat CI checks and cannot deploy until CI succeeds and the protected
-`production` Environment is approved.
-
-## Interpreting results
-
-- PASS means the named command completed with exit code zero on fresh isolated state.
-- FAIL means an actionable assertion, build, migration, budget or browser check failed.
-- BLOCKED is reserved for evidence that genuinely requires an unavailable external service, credential, engine or operator authority.
-
-Record exact commands, counts, build sizes, warnings and browser engine. Never turn an unrun check into PASS, and never use a narrow focused test to claim the full gate passed.
+更具体的迁移、部署、发布检查和 CI/CD 顺序见 [migrations.md](migrations.md)、[deployment.md](deployment.md)、[release-checklist.md](release-checklist.md) 和 [operations/release-cicd.md](operations/release-cicd.md)。

@@ -1,57 +1,43 @@
-# Blue Album security model
+# Elysium 安全模型
 
-## Threat model
+## 威胁与信任边界
 
-The release assumes an untrusted browser, untrusted uploaded names and content, untrusted room payloads, untrusted device clients and potentially unavailable third-party services. It also assumes the host administrator, root-owned production environment file and database operator are trusted. The goal is to protect account data, private files, credentials, room authority and restore integrity against cross-user access, path traversal, spoofed identity, stale writes and accidental operator error.
+浏览器、上传文件名和内容、房间 payload、同步设备客户端及第三方服务都按不可信或可能不可用处理。主机管理员、root-owned 生产环境文件和数据库负责人是运维信任边界。目标是避免越权、路径穿越、身份伪造、旧版本写入、凭据泄露和恢复包被篡改。
 
-## Authentication
+## 身份认证与授权
 
-Passwords are hashed with bcrypt using 12 rounds after enforcing a byte-length policy. HTTP Authentication uses signed access and refresh JWTs with distinct token types. Protected requests resolve the named user again and reject missing, invalid, unknown or inactive accounts. Socket.IO authenticates the connection and stores the server-resolved user identity; event payload user identifiers are not trusted.
+- 密码使用 bcrypt 12 rounds，并先执行字节长度限制；HTTP 使用区分类型的 access/refresh JWT。
+- 每个受保护请求重新解析活动用户；未知、停用、缺失或非法用户都拒绝。Socket.IO 只信任握手解析出的用户，不信任事件 payload 中的 user id。
+- `SECRET_KEY` 必须存在、足够长且不能是占位值；生产放在仓库外的 mode-600 环境文件中，轮换视为协调登出事件。数据库密码、同步设备凭据和 provider Cookie 不能提交或打印。
+- 权限在 router 和 service 两层执行。普通用户只能访问自己的私有 Collection 和已加入房间；管理员接口要求活动管理员身份；停用账号应阻断新的 HTTP/Socket.IO 活动。
+- 管理员文件用认证后的数字下载路由和私有 UUID 存储名；视频/字幕流需要成员权限或短期媒体 token；公开 `/uploads` 不是私有文件根目录。
 
-`SECRET_KEY` is required. Production preflight rejects missing, short or placeholder values. It must be generated outside the repository, kept in a mode-600 environment file and rotated as a coordinated logout event. Database passwords, sync device credentials and provider cookies must never be committed or printed in release logs.
+## 浏览器、实时与限流
 
-## Authorization
+CORS 使用显式 allowlist，生产拒绝 `*`；生产 API/WebSocket 应由 Nginx 同源转发。外部链接只做普通导航，不能把 secret 拼到 URL。
 
-Authorization is enforced server-side at both route and service boundaries. Normal users may access only their own private Collection data and rooms they joined. Hosts and room members receive different controls. Administrator APIs require an active user with the administrator role; disabling an account immediately blocks new protected HTTP and Socket.IO activity.
+实时部署保持单 worker。播放控制带 bounded payload 和 expected version；旧版本请求返回冲突而不是覆盖当前状态，重连回到权威 Snapshot。登录、管理员变更、上传、provider 搜索和实时变更使用进程内限流；多 worker 需要另行设计共享 limiter/Socket.IO manager。
 
-Admin files use authenticated numeric download routes backed by private UUID storage names. Managed video and subtitle streams require room membership or a short-lived media access token. Public `/uploads` is reserved for intentionally public assets and is not the administrator/private storage root.
+Audit 记录 actor、action、resource、结果和有限安全详情，不记录 token、私信、凭据、绝对路径或异常原文。
 
-## CORS and browser boundary
+## 文件、上传与外部 URL（SSRF）
 
-CORS is explicit in release configuration and production preflight rejects `*`. Development may list localhost or Codespaces origins. Credentials are allowed only for configured origins. API and WebSocket endpoints should remain same-origin behind Nginx in production. External links open as ordinary navigation; secrets are never appended to them.
+上传先写受控临时文件，校验类型、大小、摘要和危险内容后原子发布；文件名只是显示元数据。读取、删除、备份、恢复都必须把数据库路径重新解析到配置根目录下，拒绝绝对路径、穿越、跨根和篡改路径，并清理失败的部分状态。
 
-## Socket.IO and state integrity
+管理员断点上传只经过同源 `/api/admin/tus/`，tusd loopback-only；公开传输链接只读/下载。后端不得把 tusd 地址、服务器路径或 provider Cookie 交给浏览器。
 
-The supported deployment is one backend worker. Each mutation uses the authenticated connection identity, membership and role. Playback actions carry bounded payloads and expected versions; stale versions fail with a conflict instead of overwriting current state. Reconnect obtains an authoritative snapshot.
+服务端音频解析只接受选定 provider allowlist 中的无凭据 HTTP(S) 地址。Kavita 是独立服务，网站不派生或抓取其链接。外部视频由 `external_media.py` 探测和代理：每一跳都校验 HTTP(S)、凭据、端口和公共 DNS/IP，最多 5 次重定向，探测读取有界前缀并核对真实媒体格式；HLS 和 Range 继续经过成员授权。DNS 校验不等于系统级出站隔离，部署仍需合理的网络访问限制。
 
-## File upload and path safety
+## 备份、恢复与隐私
 
-File upload endpoints stream to managed temporary files, enforce type and size limits, reject empty or dangerous content, verify declared sizes and hashes where applicable, and publish atomically. File names are display metadata only. Reads, deletion, backup and restore re-resolve a database path beneath the configured root and reject absolute, traversal, cross-root and tampered paths. Failed writes clean partial state or restore the previous file.
+发布/回滚包属于敏感配置，必须 root-owned、受限权限并在受控根目录内校验 `SHA256SUMS`。恢复拒绝根目录外路径、绝对/穿越/link 条目、摘要不匹配、缺失产物或缺失上一版本；回滚需要 root、精确确认字符串，并在变更前再留一份安全包。数据库恢复不能靠猜测 Alembic downgrade。
 
-## SSRF and external URLs
+公开序列化不返回 ownership-only 描述、凭据 digest、存储路径、provider Cookie 和内部异常。Books 只返回发布元数据，不集成 Kavita reader 链接；Public Sync 的设备 secret 只在创建/轮换时返回，房间历史按查看者过滤。
 
-SSRF controls differ by feature. The server-side audio resolver accepts only credential-free HTTP(S) URLs on the selected provider's approved host list. The website does not derive or fetch Kavita links; Kavita remains a separate server-owned service. External video URLs are syntax-checked and stored for the browser to load; the backend does not fetch them. Any future server-side fetcher must add DNS/IP-range validation, redirect limits, size limits and a host allowlist before release.
+直播观看先服务端授权，再使用短期 HttpOnly cookie；邀请撤销后后续 HLS 请求也必须失败。stream key 和 invite token 只返回一次并只存 digest；访客信息限管理员可见并默认保留 90 天，IP 地区解析使用本地数据，不发给第三方。HTTPS 部署使用 `LIVE_COOKIE_SECURE=1`；只有明确受控的 HTTP 测试环境才使用 `0`，不能从历史部署记录推定当前配置。
 
-## Rate limiting and Audit evidence
+## 已知限制与人工责任
 
-Rate limiting protects login attempts, administrator mutations, file uploads, provider searches and real-time mutations. Current limiters are in-process, which matches the single-worker boundary. Administrator and real-time Audit rows record actor, action, resource, outcome and bounded safe detail; they deliberately omit tokens, private message content, credentials, absolute paths and exception text.
+JWT 没有逐会话 denylist；短 access lifetime、停用账号和 key rotation 是现有控制。Release 包是 root-owned checksum，不是外部签名。TLS、主机防火墙、数据库 grants、异地备份、告警和系统补丁仍由运维负责。FlClash/FlClashCore 不属于 Elysium 安全或部署控制面。
 
-## Backup and restore security
-
-Release and rollback bundles are mode-restricted and contain sensitive configuration. `SHA256SUMS` detects accidental change inside the trusted root-owned backup area. Rollback rejects bundles outside that root, archive traversal, checksum mismatch, missing artifacts and missing previous code revision; applying it requires an exact confirmation string and root. A second safety bundle is created before rollback mutation.
-
-## Privacy
-
-Public serializers omit ownership-only descriptions, credential digests, storage paths, provider cookies and internal errors. Books exposes only published entries and curated metadata; it has no Kavita reader-link integration. Public Sync returns a device secret only at creation or rotation. Room histories are bounded and filtered for the current viewer. Administrators can see operational metadata but not secrets or private content through the overview/security evidence endpoints.
-
-Live viewing uses a short-lived HttpOnly cookie after server-side authorization. Public, signed-in allowlist and anonymous invite access share the same media gate, so revoking an invite also blocks later HLS requests. Raw stream keys and invite tokens are returned only once and stored as digests. Live visitor records contain IP address, locally resolved region, device, operating system, browser and watch duration; they are administrator-only and expire after 90 days. Region lookup does not send IP addresses to an external service. Recording routes resolve every file beneath the configured recording root and never return the absolute storage path.
-
-The current direct-IP HTTP deployment cannot set a usable Secure cookie, so it uses `LIVE_COOKIE_SECURE=0`. This is a documented temporary transport risk: HTTPS must be enabled before treating invite links as confidential over untrusted networks, after which the setting must return to `1`.
-
-## Known limitations
-
-- JWT revocation is not persisted as a per-session denylist; short access lifetimes, account disabling and key rotation are the available controls.
-- Rate limits, live presence and Socket.IO rooms are process-local, so multiple workers require a shared design that is not part of this release.
-- Release bundles use root-owned checksums, not an external signature or immutable remote vault.
-- TLS, host firewall, database grants, off-host backup replication, alerting and operating-system patching remain operator responsibilities.
-- Chromium is the available real browser for local acceptance; other engines receive source/build compatibility checks until run in their own environments.
+安全检查只能报告实际执行的证据；单个 HTTP 200、静态配置存在或测试构建成功都不等于生产安全验收。相关发布条件见 [部署指南](./deployment.md)、[数据格式](./data-formats.md) 和 [发布检查表](./release-checklist.md)。

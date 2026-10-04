@@ -44,8 +44,9 @@ DEFAULT_EXCLUDED_REPOSITORY_PATHS = frozenset(
         "deployment/legacy_path_scan.py",
         "scripts/check-legacy-paths.py",
         "tests/test_legacy_path_scan.py",
-        "docs/migrations/data-to-shared.md",
-        "docs/migration/elysiumm-server-layout.md",
+        "docs/migrations.md",
+        "docs/release-checklist.md",
+        "docs/operations/release-cicd.md",
         # This guide contains the literal legacy path in migration commands;
         # it is operator documentation, not a runtime consumer.
         "docs/deployment.md",
