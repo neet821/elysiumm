@@ -19,6 +19,34 @@ vi.mock('../src/features/video/VideoPlayerAdapter.js', async (importOriginal) =>
 import { useVideoRoomPlayback } from '../src/features/video/useVideoRoomPlayback.js'
 
 describe('useVideoRoomPlayback', () => {
+  it('unlocks local autoplay without replaying an already-playing server transition', async () => {
+    const socket = { emit: vi.fn() }
+    const snapshotRecord = { receivedAtMs: 10_000, snapshot: {
+      media_id: 7, media_kind: 'video', room_id: 9, position: 0,
+      state: 'playing', version: 5, server_now_ms: 10_000,
+    } }
+    const currentItem = { id: 7, source_type: 'upload', playback_url: '/media/7' }
+    const props = {
+      canControl: true, currentItem, isHost: false,
+      latestSnapshotRef: { current: { snapshot: snapshotRecord.snapshot } },
+      numericRoomId: 9, requestSnapshot: vi.fn(), selectedSubtitleId: null,
+      setNotice: vi.fn(), setSyncStatus: vi.fn(), snapshotRecord,
+      socketRef: { current: socket },
+    }
+    playbackMocks.applySnapshot.mockResolvedValueOnce({ applied: true, playbackBlocked: true })
+    const { result } = renderHook(() => useVideoRoomPlayback(props))
+    playbackMocks.adapter.snapshot = () => ({ currentTime: 2, playbackRate: 1 })
+    playbackMocks.adapter.play = vi.fn(() => {
+      result.current.onVideoEvent.onPlay()
+      return Promise.resolve()
+    })
+    act(() => result.current.setVideoElement(document.createElement('video')))
+    await waitFor(() => expect(result.current.needsUserGesture).toBe(true))
+    await act(async () => result.current.togglePlayback())
+    expect(playbackMocks.adapter.play).toHaveBeenCalledTimes(1)
+    expect(result.current.needsUserGesture).toBe(false)
+    expect(socket.emit.mock.calls.filter(([event]) => event === 'playback_control')).toHaveLength(0)
+  })
   it.each([
     ['paused', 'play', 'onPlay'],
     ['playing', 'pause', 'onPause'],
@@ -57,6 +85,24 @@ describe('useVideoRoomPlayback', () => {
     act(() => result.current.onVideoEvent.onPlay())
     expect(socket.emit).toHaveBeenCalledTimes(1)
     expect(socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({ action: 'play' }))
+  })
+
+  it('ignores native rate changes that merely restore the authoritative rate on source attachment', () => {
+    const socket = { emit: vi.fn() }
+    const { result } = renderHook(() => useVideoRoomPlayback({
+      canControl: true, currentItem: { id: 7 }, isHost: false,
+      latestSnapshotRef: { current: { snapshot: { state: 'paused', version: 5, playback_rate: 1 } } },
+      numericRoomId: 9, requestSnapshot: vi.fn(), selectedSubtitleId: null,
+      setNotice: vi.fn(), setSyncStatus: vi.fn(), snapshotRecord: null,
+      socketRef: { current: socket },
+    }))
+    playbackMocks.adapter.snapshot = () => ({ currentTime: 12, playbackRate: 1 })
+    act(() => result.current.setVideoElement(document.createElement('video')))
+    act(() => result.current.onVideoEvent.onRateChange())
+    expect(socket.emit).not.toHaveBeenCalled()
+    playbackMocks.adapter.snapshot = () => ({ currentTime: 12, playbackRate: 1.5 })
+    act(() => result.current.onVideoEvent.onRateChange())
+    expect(socket.emit).toHaveBeenCalledWith('playback_control', expect.objectContaining({ action: 'rate', rate: 1.5 }))
   })
 
   it('applies the latest room snapshot when the video element attaches after room state loads', async () => {

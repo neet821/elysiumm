@@ -47,7 +47,9 @@ export function useVideoRoom({ navigate, roomId, user }) {
   ))
 
   const acceptSnapshot = useCallback((value, { conflict = false } = {}) => {
-    if (!value || value.media_kind !== 'video' || Number(value.room_id) !== numericRoomId) {
+    // Completion clears the current media, but its version remains authoritative.
+    const empty = value?.media_kind === null && value.media_id === null && value.state === 'paused'
+    if (!value || (value.media_kind !== 'video' && !empty) || Number(value.room_id) !== numericRoomId) {
       return false
     }
     const version = Number(value.version)

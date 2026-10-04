@@ -199,7 +199,9 @@ export function useVideoRoomPlayback({
       setNeedsUserGesture(false)
       refreshMediaSource()
     }).finally(release)
-    emitControl('play', { time })
+    // An autoplay gesture only unlocks this browser when the room is already
+    // playing; repeating the server transition would be rejected as a no-op.
+    if (state !== 'playing') emitControl('play', { time })
   }, [beginRemoteApply, emitControl, latestSnapshotRef, needsUserGesture, refreshMediaSource, runPlaybackCorrection, setNotice])
 
   const seek = useCallback((time) => {
@@ -237,6 +239,7 @@ export function useVideoRoomPlayback({
     const payload = action === 'rate'
       ? { rate: adapter?.snapshot().playbackRate || 1 }
       : { time: currentTime }
+    if (action === 'rate' && Number(snapshot?.playback_rate) === payload.rate) return
     if (!emitControl(action, payload)) {
       setNotice('实时连接暂不可用，正在重新同步')
       requestSnapshot()
