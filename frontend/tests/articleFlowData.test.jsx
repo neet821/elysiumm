@@ -82,6 +82,33 @@ describe('useArticleFlowData', () => {
     expect(result.current.articles).toEqual([])
   })
 
+  it('retries a failed essay after a cooldown even when the feed is unchanged', async () => {
+    vi.useFakeTimers()
+    let attempts = 0
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (path) => {
+      if (path === '/api/articles') return { ok: true, json: async () => ({ articles: [
+        { slug: 'essay', title: '随笔', type: 'essay' },
+      ] }) }
+      if (path === '/api/articles/essay') {
+        attempts += 1
+        if (attempts === 1) throw new Error('temporary network failure')
+        return { ok: true, json: async () => ({ article: { markdown: '恢复后的正文' } }) }
+      }
+      return { ok: true, json: async () => ({ settings: {} }) }
+    })
+    const { result } = renderHook(() => useArticleFlowData())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const firstArticles = result.current.articles
+    expect(result.current.fullEssays.essay).toBeNull()
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    expect(attempts).toBe(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(result.current.fullEssays.essay?.markdown).toBe('恢复后的正文')
+    expect(result.current.articles).toBe(firstArticles)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(fetch.mock.calls.filter(([path]) => path === '/api/articles/essay')).toHaveLength(2)
+  })
+
   it('reuses unchanged essays and metadata but invalidates an updated essay', async () => {
     let revision = 1
     let storyTitle = '文章'

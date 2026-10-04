@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { articleType } from './articleFlowUtils.js'
 
@@ -29,14 +29,41 @@ export function useArticleFlowData() {
   const [homeLabel, setHomeLabel] = useState('')
   const [articleTitleScale, setArticleTitleScale] = useState(DEFAULT_ARTICLE_TITLE_SCALE)
   const [error, setError] = useState('')
-  const essayCacheRef = useRef(new Map())
 
   useEffect(() => {
     let active = true
     let hasLoaded = false
     let inFlight = false
     let lastContent = ''
+    let lastEssays = ''
     const metadataCache = new Map()
+    const essayCache = new Map()
+    const refreshEssays = async (items) => {
+      const essays = items.filter((item) => articleType(item) === 'essay')
+      const keys = new Set(essays.map((item) => JSON.stringify(item)))
+      for (const key of essayCache.keys()) if (!keys.has(key)) essayCache.delete(key)
+      const entries = await Promise.all(essays.map(async (item) => {
+        const key = JSON.stringify(item)
+        let cached = essayCache.get(key)
+        if (!cached || Date.now() >= cached.retryAt) {
+          let article = null
+          try {
+            const response = await fetch(`/api/articles/${encodeURIComponent(item.slug)}`)
+            if (response.ok) article = (await response.json()).article || null
+          } catch {
+            // A temporary failure must not become a permanent cached miss.
+          }
+          cached = { article, retryAt: article ? Infinity : Date.now() + 60_000 }
+          essayCache.set(key, cached)
+        }
+        return [item.slug, cached.article]
+      }))
+      const content = JSON.stringify(entries)
+      if (active && content !== lastEssays) {
+        lastEssays = content
+        setFullEssays(Object.fromEntries(entries))
+      }
+    }
     const refreshArticles = async () => {
       if (inFlight) return
       inFlight = true
@@ -64,6 +91,7 @@ export function useArticleFlowData() {
         }
         setError('')
         hasLoaded = true
+        await refreshEssays(items)
       } catch (reason) {
         if (active && !hasLoaded) setError(reason.message || '暂时无法打开')
       } finally {
@@ -85,27 +113,6 @@ export function useArticleFlowData() {
       document.removeEventListener('visibilitychange', refreshIfVisible)
     }
   }, [])
-
-  useEffect(() => {
-    if (!articles) return undefined
-    let active = true
-    const essays = articles.filter((item) => articleType(item) === 'essay')
-    const cache = essayCacheRef.current
-    const keys = new Set(essays.map((item) => JSON.stringify(item)))
-    for (const key of cache.keys()) if (!keys.has(key)) cache.delete(key)
-    Promise.all(essays.map(async (item) => {
-      const key = JSON.stringify(item)
-      if (!cache.has(key)) {
-        cache.set(key, fetch(`/api/articles/${encodeURIComponent(item.slug)}`)
-          .then(async (response) => response.ok ? ((await response.json()).article || null) : null)
-          .catch(() => null))
-      }
-      return [item.slug, await cache.get(key)]
-    })).then((entries) => {
-      if (active) setFullEssays(Object.fromEntries(entries))
-    })
-    return () => { active = false }
-  }, [articles])
 
   useEffect(() => {
     let active = true
