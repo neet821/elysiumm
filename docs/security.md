@@ -26,6 +26,8 @@ Audit 记录 actor、action、resource、结果和有限安全详情，不记录
 
 管理员断点上传只经过同源 `/api/admin/tus/`，tusd loopback-only；公开传输链接只读/下载。后端不得把 tusd 地址、服务器路径或 provider Cookie 交给浏览器。
 
+音乐房旧音源上传地址仍保留，但上传也要求管理员身份和房间成员资格；普通成员返回 403，不写文件、不追加队列。现有音源播放地址和普通成员一起听不受影响。
+
 服务端音频解析只接受选定 provider allowlist 中的无凭据 HTTP(S) 地址。Kavita 是独立服务，网站不派生或抓取其链接。外部视频由 `external_media.py` 探测和代理：每一跳都校验 HTTP(S)、凭据、端口和公共 DNS/IP，最多 5 次重定向，探测读取有界前缀并核对真实媒体格式；HLS 和 Range 继续经过成员授权。DNS 校验不等于系统级出站隔离，部署仍需合理的网络访问限制。
 
 ## 备份、恢复与隐私

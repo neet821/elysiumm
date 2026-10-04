@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import music_service
 from config import config
 from database import get_db
-from dependencies import get_current_user
+from dependencies import get_current_admin
 from music_room_runtime import _broadcast_queue, _room_member
 
 
@@ -27,9 +27,9 @@ async def upload_room_audio(
     artist: str = Form(default="自定义上传"),
     duration_seconds: int = Form(default=0),
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(get_current_admin),
 ):
-    """保留房间共享音源兼容入口，供已有客户端和发布验收使用。"""
+    """保留共享音源地址；仅管理员可上传，仍须是房间成员。"""
     room = _room_member(db, room_id, user)
     previous_version = room.playback_version
     original_name = Path(file.filename or "audio").name

@@ -162,7 +162,14 @@ async function main() {
     }), 'member join')
     const first = await uploadTrack(appBase, roomId, hostAuth.access_token, 'Fixture Alpha', 330)
     assert(first.queue.some((item) => item.title === 'Fixture Alpha' && item.status === 'playing'))
-    const second = await uploadTrack(appBase, roomId, memberAuth.access_token, 'Fixture Beta', 440)
+    const forbiddenUpload = new FormData()
+    forbiddenUpload.set('file', new Blob([wavBuffer(1, 440)], { type: 'audio/wav' }), 'forbidden.wav')
+    const denied = await api(appBase, `/api/music/rooms/${roomId}/uploads`, {
+      form: forbiddenUpload, method: 'POST', token: memberAuth.access_token,
+    })
+    assert.equal(denied.status, 403, 'ordinary members must not upload room audio')
+    const second = await uploadTrack(appBase, roomId, hostAuth.access_token, 'Fixture Beta', 440)
+    assert.equal(second.queue.length, 2, 'rejected uploads must not add queue entries')
     assert(second.queue.some((item) => item.title === 'Fixture Beta' && item.status !== 'playing'))
 
     for (const [label, debugPort] of [['host', hostDebugPort], ['member', memberDebugPort]]) {
