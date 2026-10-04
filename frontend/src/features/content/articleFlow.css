@@ -1,4 +1,4 @@
-/* Keep the homepage's feature styles in their original cascade order. */
+/* Feature styles: cards, layout, then homepage-specific navigation. */
 @import "./articleFlowFeed.css";
 @import "./articleFlowLayout.css";
 @import "./articleFlowNavigation.css";

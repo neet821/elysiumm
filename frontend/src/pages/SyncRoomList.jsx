@@ -36,7 +36,7 @@ const SyncRoomList = ({ styles = THEME.light, isDark = false, roomMode = "video"
   } = useSyncRoomListController({ isAdmin, navigate, roomMode, user })
 
   return (
-    <div className={`pt-24 sm:pt-28 md:pt-32 pb-16 md:pb-20 min-h-screen ${styles.bgSecondary} transition-colors duration-1000 animate-fade-in`}>
+    <div className={`room-lobby ${styles.bgSecondary}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className={`${styles.bg} border ${styles.border} rounded-xl p-4 sm:p-6 shadow-sm mb-6 md:mb-8`}

@@ -1,15 +1,11 @@
 .service-shell:not(.app-shell--home) {
-  background: #fff;
-  color: #111;
+  background: var(--surface-page);
+  color: var(--text-primary);
   isolation: isolate;
 }
 
 .service-shell:not(.app-shell--home)::before,
-.service-shell:not(.app-shell--home)::after,
-.service-shell:not(.app-shell--home)
-  .app-background::before,
-.service-shell:not(.app-shell--home)
-  .app-background::after {
+.service-shell:not(.app-shell--home)::after {
   background: none !important;
   display: none !important;
 }
@@ -31,93 +27,12 @@
   .app-shell__main {
   overflow: visible;
 }
-.service-shell:not(.app-shell--home)
-  .app-header {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  background: #fff;
-  border-bottom: 1px solid #bdbdbd;
-  padding: 0.75rem 1.25rem;
-  position: static;
-  transition: none;
-}
-.service-shell:not(.app-shell--home)
-  .app-header[data-scrolled="true"] {
-  background: #fff;
-  border-bottom-color: #bdbdbd;
-  padding-block: 0.75rem;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__inner {
-  max-width: 70rem;
-}
-.service-shell:not(.app-shell--home)
-  .brand-logo {
-  color: #111;
-  gap: 0.5rem;
-  text-decoration: none;
-}
-.service-shell:not(.app-shell--home)
-  .brand-logo__image {
-  height: 1.5rem;
-  width: 1.5rem;
-}
-.service-shell:not(.app-shell--home)
-  .brand-logo__text {
-  color: #111;
-  font: 600 1rem/1 var(--font-interface);
-  letter-spacing: 0;
-  rotate: none;
-  text-shadow: none;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__nav {
-  gap: 0;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__nav-link,
-.service-shell:not(.app-shell--home)
-  .app-header__current {
-  align-items: center;
-  border: 0;
-  border-radius: 0;
-  color: #444;
-  display: inline-flex;
-  font: 400 0.9rem/1.2 var(--font-interface);
-  min-height: 2rem;
-  padding: 0.35rem 0.6rem;
-  text-decoration: none;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__nav-link::after {
-  display: none;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__nav-link:hover,
-.service-shell:not(.app-shell--home)
-  .app-header__nav-link:focus-visible,
-.service-shell:not(.app-shell--home)
-  .app-header__nav-link.is-active,
-.service-shell:not(.app-shell--home)
-  .app-header__current {
-  background: #111;
-  color: #fff;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__current {
-  cursor: default;
-}
-.service-shell:not(.app-shell--home)
-  .app-header__menu {
-  display: none;
-}
 
 .service-shell:not(.app-shell--home)
   .skip-link {
-  background: #111;
-  border-radius: 0;
-  color: #fff;
-  transition: none;
+  background: var(--surface-inverse);
+  border-radius: var(--radius-control);
+  color: var(--text-inverse);
 }
 .service-shell:not(.app-shell--home)
   .route-shell {
@@ -135,7 +50,7 @@
 }
 .service-shell:not(.app-shell--home)
   .route-shell__eyebrow {
-  color: #555;
+  color: var(--text-secondary);
   font: 600 0.75rem/1.2 var(--font-interface);
   letter-spacing: 0.08em;
   margin-bottom: 0.6rem;
@@ -144,7 +59,7 @@
 .service-shell:not(.app-shell--home)
   .route-shell__intro
   h1 {
-  color: #111;
+  color: var(--text-primary);
   font: 600 clamp(1.7rem, 4vw, 2.4rem)/1.15 var(--font-interface);
   letter-spacing: 0;
   margin: 0;
@@ -152,15 +67,15 @@
 .service-shell:not(.app-shell--home)
   .route-shell__intro
   > p:last-child {
-  color: #444;
+  color: var(--text-secondary);
   line-height: 1.55;
   margin-top: 0.75rem;
 }
 .service-shell:not(.app-shell--home)
   .app-footer {
-  background: #fff;
-  border-top: 1px solid #bdbdbd;
-  color: #666;
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   margin-top: auto;
   padding: 1rem 1.25rem;

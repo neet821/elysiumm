@@ -1,0 +1,20 @@
+.room-lobby { padding: 16px 0 48px; }
+.music-lobby { margin: 0 auto; max-width: 1200px; padding: 0 0 48px; width: calc(100% - 64px); }
+.music-lobby__tabs { display: none; }
+.music-lobby__grid { align-items: start; display: grid; gap: 32px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.music-lobby__grid > section { min-width: 0; }
+.music-lobby .room-lobby { padding: 0; }
+.music-lobby .room-lobby > div { padding: 0; }
+.music-lobby .room-lobby .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.music-lobby__playlists > section { margin: 0; padding: 0; }
+.music-lobby__playlists > section > .grid { grid-template-columns: minmax(0, 1fr); }
+.music-lobby__playlists h1 { font-size: 20px; }
+@media (max-width: 800px) {
+  .music-lobby { width: calc(100% - 32px); }
+  .music-lobby__tabs { border-bottom: 1px solid var(--border-subtle); display: flex; gap: 8px; margin-bottom: 24px; }
+  .music-lobby__tabs button { border: 0; border-bottom: 2px solid transparent; min-height: 44px; padding: 12px 16px; }
+  .music-lobby__tabs button[aria-selected='true'] { border-bottom-color: var(--accent-blue); color: var(--accent-blue); }
+  .music-lobby__grid { display: block; }
+  .music-lobby__grid > section[data-active='false'] { display: none; }
+  .music-lobby .room-lobby .grid { grid-template-columns: minmax(0, 1fr); }
+}

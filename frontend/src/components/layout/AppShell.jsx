@@ -1,4 +1,3 @@
-import Header from '../Header.jsx'
 import Footer from '../Footer.jsx'
 import { ToastProvider } from '../ui/index.js'
 import { ArrowLeft } from 'lucide-react'
@@ -16,7 +15,8 @@ function homeNavigationView(pathname) {
   if (pathname === '/') return 'home'
   if (pathname === '/rooms/music' || pathname.startsWith('/rooms/music/')) return 'music'
   if (pathname === '/live') return 'live'
-  return 'watch'
+  if (pathname === '/rooms' || pathname.startsWith('/rooms/watch') || pathname.startsWith('/tools/sync-room')) return 'watch'
+  return ''
 }
 
 export function AppShell({ children }) {
@@ -32,10 +32,9 @@ export function AppShell({ children }) {
     || location.pathname.startsWith('/tools/sync-room')
   const isLive = location.pathname === '/live'
   const isTransferDomain = isTransferHost()
-  const hasWideNavigation = !isTransferDomain && (isHome || isRoom || isLive)
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
+  const hasWideNavigation = !isTransferDomain && !isAuthPage && !isArticleReader
   const auth = useAuth()
-  const showHeader = !isTransferDomain && !isAuthPage && !isHome && !isArticleReader && !isRoom && !isLive && !isAccount && !isAdminRoute
   const showFooter = !isTransferDomain && !isHome && !isToolbox && !isArticleReader && !isRoom && !isLive && !isAdminRoute
   const [homeSidebarOpen, setHomeSidebarOpen] = useState(false)
 
@@ -63,16 +62,13 @@ export function AppShell({ children }) {
     close: () => setHomeSidebarOpen(false),
   }
 
-  const header = showHeader ? <Header /> : null
-
   return (
     <ToastProvider>
       <HomeNavigationContext.Provider value={auth}>
         <HomeSidebarContext.Provider value={sidebarContext}>
           <div className={`app-background app-shell service-shell${isHome ? ' app-shell--home' : ''}${isToolbox ? ' app-shell--toolbox' : ''}${hasWideNavigation ? ' app-shell--wide-navigation' : ''}`}>
             <a className="skip-link" href="#main-content">跳到主要内容</a>
-            {hasWideNavigation && <HomeNavigation label={isHome ? undefined : ''} activeView={homeNavigationView(location.pathname)} className="home-nav--global" />}
-            {header}
+            {hasWideNavigation && !isHome && <HomeNavigation activeView={isAccount || isAdminRoute ? '' : homeNavigationView(location.pathname)} className="home-nav--global" />}
             {(isAccount || isRoom || isLive) && <Link className="route-back-button" to="/" aria-label="返回首页" title="返回首页"><ArrowLeft size={19} aria-hidden="true" /></Link>}
             <main className="app-shell__main" id="main-content" tabIndex={-1}>
               {children}

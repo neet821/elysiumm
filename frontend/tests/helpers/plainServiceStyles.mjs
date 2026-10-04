@@ -14,7 +14,6 @@ export const PLAIN_SERVICE_CSS_LAYERS = [
   './plainServiceShell.css',
   './plainServiceComponents.css',
   './plainServiceDirectory.css',
-  './plainServiceHomeHeader.css',
   './plainServiceResponsive.css',
 ]
 

@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ContentHomePage from '../src/pages/ContentHomePage.jsx'
 import ArticleFlowHome from '../src/pages/ArticleFlowHome.jsx'
-import { resolveArticleFlowCss } from './helpers/articleFlowStyles.mjs'
-
-const articleFlowCss = resolveArticleFlowCss()
+import { applicationStyles } from './applicationStyles.mjs'
 
 describe('ContentHomePage', () => {
   beforeEach(() => {
@@ -55,12 +53,9 @@ describe('ContentHomePage', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: '直播' })).toHaveClass('home-nav__action--live-active'))
   })
 
-  it('uses a blue pulse in light mode and an orange pulse in dark mode', () => {
-    expect(articleFlowCss).toMatch(
-      /\.legacy-old-home--flat \.home-nav__action--live-active\s*\{[^}]*color:\s*var\(--accent-blue\)/s,
-    )
-    expect(articleFlowCss).toMatch(
-      /\.dark \.legacy-old-home--flat \.home-nav__action--live-active\s*\{[^}]*color:\s*#f59e0b/s,
-    )
+  it('uses the shared semantic accent for the live action without a pulse animation', () => {
+    expect(applicationStyles).toMatch(/--accent-blue:\s*#486459/)
+    expect(applicationStyles).toMatch(/\.home-nav__action--live-active\s*\{[^}]*color:\s*var\(--accent-blue\)/s)
+    expect(applicationStyles).not.toMatch(/home-nav__action--live-active[^}]*animation:/s)
   })
 })

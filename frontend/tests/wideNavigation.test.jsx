@@ -22,13 +22,13 @@ function renderShell(initialPath) {
   )
 }
 
-describe('shared wide navigation shell', () => {
+describe('shared labelled navigation shell', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     authState = { isAdmin: true, isAuthenticated: true, user: { id: 1, username: 'neet821', avatar_url: '/avatar.png' } }
   })
 
-  it.each(['/rooms/watch', '/rooms/music', '/live'])('mounts the same navigation on %s as on the homepage', (pathName) => {
+  it.each(['/rooms/watch', '/rooms/music', '/live', '/account', '/admin/homepage'])('mounts shared navigation on %s', (pathName) => {
     renderShell(pathName)
 
     const navigation = screen.getByRole('navigation', { name: '首页导航' })
@@ -37,7 +37,7 @@ describe('shared wide navigation shell', () => {
     expect(within(navigation).getByRole('link', { name: '听歌房' })).toHaveAttribute('href', '/rooms/music')
     expect(within(navigation).getByRole('link', { name: '直播' })).toHaveAttribute('href', '/live')
     expect(within(navigation).getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin/homepage')
-    expect(screen.getByTestId('home-identity')).toHaveTextContent('neet821')
+    expect(within(navigation).getByRole('img', { name: 'neet821' })).toHaveAttribute('src', '/avatar.png')
   })
 
   it('keeps route navigation real instead of switching an embedded homepage view', () => {
@@ -53,23 +53,25 @@ describe('shared wide navigation shell', () => {
     expect(musicSource).not.toMatch(/embedded/)
   })
 
-  it('keeps the back link for compact layouts and hides it only in the wide shell', () => {
+  it('keeps the route-back action compact and does not use viewport-specific rail rules', () => {
     const css = applicationStyles
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*none/s)
-    expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*flex/s)
+    expect(css).toMatch(/\.app-shell--wide-navigation \.route-back-button\s*\{[^}]*display:\s*none/s)
+    expect(css).toMatch(/\.route-back-button\s*\{[^}]*height:\s*44px;[\s\S]*?width:\s*44px/s)
+    expect(css).not.toMatch(/home-nav-rail-width|@media \(min-width:\s*1101px\)/)
   })
 
-  it('styles the shared wide rail with a square avatar and no burgundy surface', () => {
+  it('styles one labelled top navigation on the shared content canvas', () => {
     const css = fs.readFileSync(path.join(frontendRoot, 'src', 'components', 'layout', 'homeNavigation.css'), 'utf8')
-    expect(css).toMatch(/\.home-nav--global[\s\S]*?\.home-nav__identity-avatar[\s\S]*?border-radius:\s*0/s)
-    expect(css).toMatch(/\.home-nav--global[\s\S]*?\.home-nav__admin-action[\s\S]*?margin-top:\s*auto/s)
-    expect(css).not.toMatch(/\.home-nav--global[^}]*#(?:6e|7a|8b|9a)[0-9a-f]{4,6}/i)
+    expect(css).toMatch(/\.home-nav\s*\{[^}]*max-width:\s*1200px;[\s\S]*?min-height:\s*76px/s)
+    expect(css).toMatch(/\.home-nav__action-label\s*\{[^}]*display:\s*inline/s)
+    expect(css).toMatch(/\.home-nav__action\s*\{[^}]*min-height:\s*44px;[\s\S]*?min-width:\s*44px/s)
+    expect(css).not.toMatch(/position:\s*fixed|home-nav-rail-width|backdrop-filter|linear-gradient|radial-gradient/)
   })
 
-  it('keeps ordinary wide-rail text neutral while preserving the live accent', () => {
+  it('uses semantic tokens for normal and live navigation states', () => {
     const css = fs.readFileSync(path.join(frontendRoot, 'src', 'components', 'layout', 'homeNavigation.css'), 'utf8')
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.home-nav--global \.home-nav__identity[\s\S]*?color:\s*#111\s*!important;/s)
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.home-nav--global \.home-nav__action:not\(\.home-nav__action--live-active\)[\s\S]*?color:\s*#111\s*!important;/s)
-    expect(css).toMatch(/\.home-nav--global \.home-nav__action--active:not\(\.home-nav__action--live-active\)[\s\S]*?color:\s*#fff\s*!important;/s)
+    expect(css).toMatch(/\.home-nav__action\s*\{[^}]*color:\s*var\(--text-secondary\)/s)
+    expect(css).toMatch(/\.home-nav__action--active\s*\{[^}]*color:\s*var\(--accent-blue\)/s)
+    expect(css).toMatch(/\.home-nav__action--live-active\s*\{[^}]*color:\s*var\(--accent-blue\)/s)
   })
 })

@@ -74,7 +74,7 @@ test('legacy article reader overrides load with the legacy article page', () => 
 
   assert.ok(legacyStylesIndex >= 0, 'the legacy reader must own its route-specific stylesheet')
   assert.ok(sharedStylesIndex >= 0 && sharedStylesIndex < legacyStylesIndex, 'reader overrides must load after the shared article-flow base')
-  assert.match(legacyArticleStyles, /\.service-shell:has\(\.reader--article\)/)
+  assert.match(legacyArticleStyles, /\.reader\s*\{[^}]*max-width:\s*720px/)
   assert.match(legacyArticleStyles, /\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader--article/)
   assert.match(legacyArticleStyles, /@media\s*\(max-width:\s*600px\)/)
   assert.doesNotMatch(

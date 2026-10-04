@@ -44,20 +44,13 @@ export default function HomeNavigation({ label, activeView = 'home', className =
   const { isOpen: homeSidebarOpen, toggle: toggleHomeSidebar } = useHomeSidebar()
   const isLive = useHomeLiveStatus()
   const accountTarget = isAuthenticated ? '/account' : '/login'
-  const identity = user?.username || user?.id || (isAuthenticated ? '已登录' : '登录')
 
   return (
     <div className={`home-nav ${className}`.trim()}>
-      <span className="home-nav__label">{label || '首页'}</span>
-      <Link className="home-nav__identity" to={accountTarget} data-testid="home-identity" aria-label={identity} title={identity}>
-        {isAuthenticated
-          ? <Avatar className="home-nav__identity-avatar" name={identity} src={avatarUrl(user)} size="lg" />
-          : <UserRound className="home-nav__identity-icon" size={28} aria-hidden="true" />}
-        <span className="home-nav__identity-name">{identity}</span>
-      </Link>
+      <span className="home-nav__label">{label || 'Elysium'}</span>
       <nav className="home-nav__actions" aria-label="首页导航">
         <div className="home-nav__leading-actions">
-          <button
+          {activeView === 'home' && <button
             className="home-nav__action home-nav__sidebar-toggle"
             type="button"
             aria-expanded={homeSidebarOpen}
@@ -67,7 +60,8 @@ export default function HomeNavigation({ label, activeView = 'home', className =
             onClick={toggleHomeSidebar}
           >
             {homeSidebarOpen ? <X size={19} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
-          </button>
+            <span className="home-nav__action-label">记录与随笔</span>
+          </button>}
           {isAdmin && <Link className="home-nav__action home-nav__admin-action" to="/admin/homepage" aria-label="打开管理员控制台" title="管理员控制台"><LayoutDashboard size={19} /><span className="home-nav__action-label">管理后台</span></Link>}
         </div>
         <div className="home-nav__trailing-actions">
@@ -77,6 +71,7 @@ export default function HomeNavigation({ label, activeView = 'home', className =
           <Link className={`home-nav__action${isLive ? ' home-nav__action--live-active' : ''}${activeView === 'live' ? ' home-nav__action--active' : ''}`} to="/live" aria-current={activeView === 'live' ? 'page' : undefined} aria-label="直播" title={isLive ? '正在直播' : '直播'} data-live={isLive ? 'true' : 'false'}><Radio size={19} /><span className="home-nav__action-label">直播</span></Link>
           <Link className="home-nav__action home-nav__account" to={accountTarget} aria-label={isAuthenticated ? '账户' : '登录'} title={isAuthenticated ? '账户' : '登录'}>
             {isAuthenticated ? <Avatar className="home-nav__avatar" name={user?.username} src={avatarUrl(user)} size="sm" /> : <UserRound size={19} />}
+            <span className="home-nav__action-label">{isAuthenticated ? '账户' : '登录'}</span>
           </Link>
         </div>
       </nav>

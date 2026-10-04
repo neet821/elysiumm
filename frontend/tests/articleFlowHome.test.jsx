@@ -43,22 +43,22 @@ describe('ArticleFlowHome', () => {
     expect(link).toHaveAttribute('href', '/article/hello')
   })
 
-  it('uses a smaller title scale on the legacy article reader', () => {
-    const css = `${fs.readFileSync('src/features/content/articleFlowBase.css', 'utf8')}\n${legacyArticleStyles}`
-    expect(css).toMatch(/\.legacy-old-home \.reader-header h1\s*\{[^}]*font-size:\s*clamp\(24px,\s*3\.2vw,\s*36px\);/s)
+  it('keeps the legacy article reader within the approved 720px reading measure', () => {
+    expect(legacyArticleStyles).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader\s*\{[^}]*max-width:\s*720px;/s)
+    expect(legacyArticleStyles).toMatch(/\.reader--article \.reader-header h1\s*\{[^}]*clamp\(26px,\s*5vw,\s*40px\)/s)
   })
 
-  it('gives the homepage a wider but bounded desktop canvas', () => {
+  it('keeps the homepage on the approved bounded 1200px canvas', () => {
     const css = articleFlowStyles
-    expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat\s*\{[\s\S]*?max-width:\s*1560px;/s)
-    expect(css).toMatch(/@media \(min-width: 1400px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) minmax\(280px, 340px\);/s)
+    expect(css).toMatch(/\.legacy-old-home--flat\s*\{[^}]*max-width:\s*1200px;[^}]*width:\s*min\(calc\(100% - 64px\), 1200px\);/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(260px, 320px\);/s)
   })
 
-  it('keeps the reader comfortable on mobile and gives the article stream a structural base', () => {
+  it('keeps the reader responsive and uses a plain article-stream divider', () => {
     const css = articleFlowStyles
     expect(legacyArticleStyles).toMatch(/\.legacy-old-home:not\(\.legacy-old-home--flat\) \.reader-body\s*\{[\s\S]*?max-width:\s*none;/s)
-    expect(legacyArticleStyles).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.legacy-old-home:not\(\.legacy-old-home--flat\)\s*\{[\s\S]*?width:\s*min\(calc\(100% - 0\.5rem\), 960px\);/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.articles-section__end-cap\s*\{[\s\S]*?background:\s*#f5f6f7;[\s\S]*?border-block:\s*1px solid #e1e4e8;/s)
+    expect(legacyArticleStyles).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?width:\s*calc\(100% - 32px\);/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.articles-section__end-cap\s*\{[^}]*border-top:\s*1px solid var\(--border-subtle\);/s)
     expect(css).not.toContain('articles-section__end-mask')
   })
 
@@ -130,11 +130,11 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '打瓦得分儿' })).toBeInTheDocument())
-    expect(container.querySelector('.home-main h2')).toHaveTextContent('打瓦得分儿')
+    expect(container.querySelector('.home-main .article-card h2')).toHaveTextContent('打瓦得分儿')
     expect(container.querySelector('.home-sidebar .essay-card h2')).toHaveTextContent('方便面定律')
   })
 
-  it('places photos after the article stream and before the sidebar in document order', async () => {
+  it('places photos below the article/sidebar row in document order', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -157,7 +157,7 @@ describe('ArticleFlowHome', () => {
     ])
   })
 
-  it('uses the flat priority treatment for articles, essays, and records', async () => {
+  it('uses plain article/sidebar previews with section links', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -174,7 +174,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.article-card')).toHaveClass('article-card--featured')
     expect(container.querySelector('.article-card-cover')).toHaveClass('article-card-cover--centered', 'article-card-cover--compact')
     expect(container.querySelector('.article-card-preview')).toHaveTextContent('文章预览')
-    expect(container.querySelector('.article-card-preview-time')).toHaveTextContent('August 24, 2026')
+    expect(container.querySelector('.article-card-preview-time')).toHaveTextContent('2026年8月24日')
     expect(container.querySelector('.articles-section__end-cap')).toHaveAttribute('aria-hidden', 'true')
     expect(container.querySelector('.article-card > .card-time')).toBeNull()
     expect(container.querySelector('.essay-card')).toHaveClass('essay-card--compact')
@@ -186,8 +186,11 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.record-added-time')).toHaveTextContent('添加时间：2026/08/22')
     expect(container.querySelector('.record-card > .card-time')).toBeNull()
     const sidebarSections = [...container.querySelectorAll('.home-sidebar > .sidebar-section')]
-    expect(sidebarSections[0]).toHaveClass('sidebar-section--records', 'sidebar-section--records-scroll')
+    expect(sidebarSections[0]).toHaveClass('sidebar-section--records')
+    expect(sidebarSections[0]).not.toHaveClass('sidebar-section--records-scroll')
     expect(sidebarSections[1]).toHaveClass('sidebar-section--essays')
+    expect(within(sidebarSections[0]).getByRole('link', { name: '查看全部记录' })).toHaveAttribute('href', '/content/record')
+    expect(within(sidebarSections[1]).getByRole('link', { name: '查看全部随笔' })).toHaveAttribute('href', '/content/essay')
     expect(screen.getByLabelText('电影类型')).toBeInTheDocument()
   })
 
@@ -229,7 +232,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.sidebar-section--essays')).toHaveTextContent('还没有随笔。')
   })
 
-  it('shows a flat icon for each supported record type', async () => {
+  it('shows three record previews and retains their type icons', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -243,9 +246,10 @@ describe('ArticleFlowHome', () => {
     render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByText('专辑记录')).toBeInTheDocument())
-    for (const label of ['专辑类型', '电影类型', '游戏类型', '书籍类型']) {
+    for (const label of ['专辑类型', '电影类型', '游戏类型']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument()
     }
+    expect(screen.queryByText('书籍记录')).not.toBeInTheDocument()
   })
 
   it('opens a long record comment in a local popup and closes it outside the card', async () => {
@@ -281,21 +285,20 @@ describe('ArticleFlowHome', () => {
     expect(within(container.querySelector('.record-card')).getByRole('button', { name: '展开完整评论' })).toBeInTheDocument()
   })
 
-  it('keeps fixed-size record cards from letting long text escape into the next card', () => {
+  it('keeps review text accessible without fixed-height cards or nested sidebars', () => {
     const css = articleFlowStyles
 
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\s*\{[^}]*overflow:\s*hidden;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card h2 > span:last-child\s*\{[^}]*-webkit-line-clamp:\s*2;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-card\.is-review-expanded\s*\{[^}]*overflow:\s*visible;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review-popover\s*\{[^}]*position:\s*fixed;/s)
+    expect(css).not.toMatch(/sidebar-scroll-viewport|sidebar-scroll-cue|record-row-height/)
   })
 
   it('keeps the full-comment toggle visible beside the clipped preview', () => {
     const css = articleFlowStyles
 
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-summary\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar \.record-review-toggle\s*\{[^}]*align-self:\s*start;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review-summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review\s*\{[^}]*max-height:\s*none;[^}]*overflow:\s*visible;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.record-review-toggle\s*\{[^}]*height:\s*44px;[^}]*width:\s*44px;/s)
     expect(css).toMatch(/\.legacy-old-home--flat \.record-review-popover\s*\{[^}]*position:\s*fixed;/s)
   })
 
@@ -369,7 +372,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.essay-card')).not.toHaveClass('is-expanded')
   })
 
-  it('keeps only the article title as a homepage detail link', async () => {
+  it('links article, essay, and record headlines to their full content', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -386,12 +389,12 @@ describe('ArticleFlowHome', () => {
     const articleCard = container.querySelector('.article-card')
     expect(articleCard.querySelector('h2 a')).toHaveAttribute('href', '/article/article')
     expect(articleCard.querySelector('.article-card-cover').closest('a')).toBeNull()
-    expect(container.querySelector('.essay-card a')).toBeNull()
-    expect(container.querySelector('.record-card a')).toBeNull()
+    expect(container.querySelector('.essay-card a')).toHaveAttribute('href', '/article/essay')
+    expect(container.querySelector('.record-card h2 a')).toHaveAttribute('href', '/article/record')
     expect(container.querySelector('.photo-card a')).toBeNull()
   })
 
-  it('paginates articles by three and places side content below the desktop layout', async () => {
+  it('paginates articles by three and keeps all-content links with the supporting layout', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -408,11 +411,12 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '文章一' })).toBeInTheDocument())
-    expect(container.querySelector('.section-heading')).toBeNull()
-    expect(screen.queryByText('文章')).not.toBeInTheDocument()
-    expect(screen.queryByText('随笔')).not.toBeInTheDocument()
-    expect(screen.queryByText('最近记录')).not.toBeInTheDocument()
-    expect(screen.queryByText('照片')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '文章' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '随笔' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '最近记录' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '照片' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '查看全部文章' })).toHaveAttribute('href', '/content/article')
+    expect(screen.getByRole('link', { name: '查看全部照片' })).toHaveAttribute('href', '/content/photo')
     expect(container.querySelectorAll('.home-main .article-card')).toHaveLength(3)
     expect(screen.getByRole('navigation', { name: '文章分页' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '2' })).toHaveAttribute('href', '/?page=2')
@@ -457,7 +461,7 @@ describe('ArticleFlowHome', () => {
     expect(container.querySelector('.photo-strip--bottom')).toBeInTheDocument()
   })
 
-  it('keeps mobile overflow cues while desktop hides them', async () => {
+  it('limits sidebar previews without creating nested scroll regions', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -477,13 +481,13 @@ describe('ArticleFlowHome', () => {
     )
 
     const drawer = await screen.findByRole('dialog', { name: '侧栏内容' })
-    expect(drawer.querySelector('.sidebar-section--records')).toHaveClass('sidebar-section--has-overflow')
-    expect(drawer.querySelector('.sidebar-section--essays')).toHaveClass('sidebar-section--has-overflow')
     expect(drawer.querySelectorAll('.sidebar-section--records .record-card')).toHaveLength(3)
-    expect(drawer.querySelectorAll('.sidebar-scroll-cue')).toHaveLength(2)
+    expect(drawer.querySelectorAll('.sidebar-section--essays .essay-card')).toHaveLength(2)
+    expect(drawer.querySelector('.sidebar-scroll-viewport')).toBeNull()
+    expect(drawer.querySelectorAll('.sidebar-scroll-cue')).toHaveLength(0)
   })
 
-  it('gives records and essays matching independent scroll regions', async () => {
+  it('keeps record and essay previews in the page flow', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ articles: [
@@ -495,67 +499,35 @@ describe('ArticleFlowHome', () => {
     const { container } = render(<MemoryRouter><ArticleFlowHome /></MemoryRouter>)
 
     await waitFor(() => expect(screen.getByText('可滚动随笔')).toBeInTheDocument())
-    const recordsViewport = container.querySelector('.sidebar-scroll-viewport--records')
-    const essaysViewport = container.querySelector('.sidebar-scroll-viewport--essays')
-    expect(recordsViewport).toHaveClass('sidebar-scroll-viewport--independent')
-    expect(essaysViewport).toHaveClass('sidebar-scroll-viewport--independent')
+    expect(container.querySelector('.sidebar-previews')).toBeInTheDocument()
+    expect(container.querySelector('.sidebar-scroll-viewport')).toBeNull()
   })
 
-  it('fixes the homepage chrome and joins the mobile drawer to it', () => {
+  it('uses a plain mobile drawer while preserving the article/sidebar/photo flow', () => {
     const css = articleFlowStyles
-    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s)
-    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*top:\s*0;/s)
-    expect(css).toMatch(/\.home-sidebar-backdrop\s*\{[^}]*top:\s*0;/s)
-    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-card\s*\{[^}]*grid-template-columns:\s*64px\s+minmax\(0,\s*1fr\);/s)
-    expect(css).toMatch(/\.home-sidebar\.home-sidebar--drawer-open \.record-cover\s*\{[^}]*max-width:\s*64px;[^}]*width:\s*64px;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*margin-top:\s*2rem;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*margin-top:\s*0;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*display:\s*flex;[^}]*overflow:\s*hidden;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--records\s*\{[^}]*max-block-size:\s*calc\(var\(--record-row-height\)\s*\*\s*2\);[^}]*overflow-y:\s*auto;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport\s*\{[^}]*overflow-y:\s*auto;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s)
-    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*> \.sidebar-section--essays\s*\{[^}]*border-top:\s*2px\s+solid/si)
-    const baseHomeCss = css.slice(
-      css.indexOf('.legacy-old-home--flat .home-sidebar-backdrop'),
-      css.indexOf('/* The mobile drawer'),
-    )
-    expect(baseHomeCss).toMatch(/\.sidebar-scroll-cue\s*\{\s*display:\s*none;\s*\}/s)
-    expect(baseHomeCss).toMatch(/\.home-sidebar \.essay-card:last-child\s*\{[^}]*border-bottom:\s*1px\s+solid\s+#ddd;/s)
-    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-sidebar\.home-sidebar--drawer-open \.sidebar-scroll-cue\s*\{[^}]*display:\s*flex;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*align-self:\s*stretch;[^}]*overflow:\s*hidden;/s)
-    expect(css).not.toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\s*\{[^}]*position:\s*sticky;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none(?:\s*!important)?;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--records\s*\{[^}]*max-block-size:\s*calc\(var\(--record-row-height\)\s*\*\s*2\);[^}]*overflow-y:\s*auto;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.sidebar-scroll-viewport--essays\s*\{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s)
-    expect(applicationStyles).not.toMatch(/\.home-header-portal/)
-    expect(css).not.toMatch(/\.home-sidebar__drawer-header/)
+    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.legacy-old-home--flat \.home-sidebar\.home-sidebar--drawer-open\s*\{[^}]*overflow-y:\s*auto;[^}]*position:\s*fixed;/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-sidebar-backdrop\s*\{[^}]*display:\s*none;/s)
+    expect(css).not.toMatch(/sidebar-scroll-viewport|sidebar-scroll-cue|record-row-height/)
     expect(css).toMatch(/\.article-card--featured h2\s*\{[^}]*overflow-wrap:\s*anywhere;/s)
     expect(css).not.toMatch(/\.legacy-old-home--flat \.article-card--featured h2\s*\{[^}]*white-space:\s*nowrap;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\)[\s\S]*?\.legacy-old-home--flat \.home-layout\s*\{[^}]*grid-template-areas:/s)
+    expect(css).toMatch(/\.legacy-old-home--flat \.home-layout\s*\{[^}]*grid-template-areas:\s*"articles sidebar" "photos photos";/s)
   })
 
-  it('moves homepage actions into an always-open left rail on wide screens', () => {
-    const css = articleFlowStyles
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav\s*\{[^}]*position:\s*fixed;[^}]*left:\s*0;[^}]*top:\s*0;[^}]*bottom:\s*0;/s)
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat\s*\{[^}]*margin-left:\s*var\(--home-nav-rail-width\);/s)
-    expect(css).toMatch(/@media \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*inline-flex\s*!important;/s)
-    expect(css).toMatch(/\.home-nav__action-label\s*\{/s)
+  it('keeps homepage navigation local, labelled, and free of a fixed rail', () => {
+    expect(articleFlowStyles).toMatch(/\.legacy-old-home--flat \.home-nav\s*\{[^}]*width:\s*100%;/s)
+    expect(applicationStyles).toMatch(/\.home-nav__action-label\s*\{[^}]*display:\s*inline;/s)
+    expect(applicationStyles).not.toMatch(/home-nav-rail-width|\.home-nav[^}]*position:\s*fixed/)
   })
 
-  it('keeps the compact navigation without a home action and hides the drawer trigger at medium widths', () => {
-    const css = articleFlowStyles
-    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*none\s*!important;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__action--home\s*\{[^}]*display:\s*none\s*!important;/s)
+  it('keeps compact navigation touch-sized and uses the local sidebar control only on home', () => {
+    expect(applicationStyles).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__sidebar-toggle\s*\{[^}]*display:\s*inline-flex;/s)
+    expect(applicationStyles).toMatch(/\.home-nav__action\s*\{[^}]*min-height:\s*44px;[^}]*min-width:\s*44px;/s)
   })
 
-  it('gives the wide rail a centered identity block and separates admin at the bottom', () => {
-    const css = articleFlowStyles
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity\s*\{[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s)
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__identity-name\s*\{[^}]*display:\s*block;/s)
-    expect(css).toMatch(/@media \(min-width:\s*1101px\)[\s\S]*?\.legacy-old-home--flat \.home-nav__admin-action\s*\{[^}]*margin-top:\s*auto;[^}]*border-top:/s)
-    expect(css).toMatch(/\.home-nav__account\s*\{[^}]*display:\s*none;/s)
+  it('uses one shared navigation control treatment without a rail identity block', () => {
+    expect(applicationStyles).not.toMatch(/home-nav__identity/)
+    expect(applicationStyles).toMatch(/\.home-nav__action-label\s*\{[^}]*display:\s*inline;/s)
+    expect(applicationStyles).not.toMatch(/\.home-nav__admin-action\s*\{[^}]*margin-top:\s*auto/s)
   })
 
   it('keeps room and live links as real routes instead of embedded homepage views', async () => {
@@ -579,11 +551,11 @@ describe('ArticleFlowHome', () => {
     )
 
     const navigation = await screen.findByRole('navigation', { name: '首页导航' })
-    expect(screen.getByTestId('home-identity')).toHaveTextContent('neet821')
+    expect(within(navigation).getByRole('img', { name: 'neet821' })).toHaveAttribute('src', '/avatar.png')
     expect(within(navigation).getByRole('link', { name: '首页' })).toHaveAttribute('href', '/')
     expect(within(navigation.querySelector('.home-nav__leading-actions')).getByRole('link', { name: '打开管理员控制台' })).toHaveAttribute('href', '/admin/homepage')
     expect(within(navigation.querySelector('.home-nav__trailing-actions')).getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
-    expect(screen.queryByText('账户')).not.toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: '账户' })).toHaveAttribute('href', '/account')
     expect(screen.queryByTestId('wide-home-view')).not.toBeInTheDocument()
 
     expect(within(navigation).getByRole('link', { name: '观影房' })).toHaveAttribute('href', '/rooms/watch')
@@ -595,12 +567,12 @@ describe('ArticleFlowHome', () => {
     expect(screen.queryByTestId('live-page')).not.toBeInTheDocument()
   })
 
-  it('groups compact navigation into a left control cluster and a right destination cluster', () => {
-    const css = articleFlowStyles
+  it('groups controls and destinations inside the shared labelled navigation', () => {
+    const css = applicationStyles
     expect(css).toContain('.home-nav__leading-actions')
     expect(css).toContain('.home-nav__trailing-actions')
-    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__trailing-actions\s*\{[^}]*margin-left:\s*auto;/s)
-    expect(css).toMatch(/@media \(min-width:\s*801px\) and \(max-width:\s*1100px\)[\s\S]*?\.home-nav__leading-actions\s*\{[^}]*margin-left:\s*auto;/s)
+    expect(css).toMatch(/\.home-nav__actions, \.home-nav__leading-actions, \.home-nav__trailing-actions\s*\{[^}]*display:\s*flex;/s)
+    expect(css).toMatch(/@media \(max-width:\s*800px\)[\s\S]*?\.home-nav__leading-actions\s*\{[^}]*order:\s*2;/s)
   })
 
   it('returns to the top after changing article pages', async () => {

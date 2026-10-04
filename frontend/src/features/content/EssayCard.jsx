@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { MarkdownContent } from "./ContentCatalog.jsx";
 import { contentTextLength, formatDate } from "./articleFlowUtils.js";
@@ -15,10 +16,11 @@ export default function EssayCard({ item, markdown, html }) {
     <article
       className={`essay-card essay-card--compact${collapsible ? " essay-card--collapsible" : ""}${expanded ? " is-expanded" : ""}`}
     >
-      <h2>{item.title}</h2>
+      <h2><Link to={`/article/${encodeURIComponent(item.slug)}`}>{item.title}</Link></h2>
       <MarkdownContent
         markdown={markdown}
         html={html}
+        omitLeadingTitle={item.title}
         fallback={item.excerpt}
         className="essay-body"
         id={bodyId}
@@ -35,6 +37,7 @@ export default function EssayCard({ item, markdown, html }) {
           <span className="essay-toggle-icon" aria-hidden="true">
             ⌄
           </span>
+          {expanded ? '收起' : '展开全文'}
         </button>
       )}
       <time className="card-time">

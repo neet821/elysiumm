@@ -8,11 +8,12 @@ let authState = { isAdmin: false, isAuthenticated: true, user: { id: 7, username
 vi.mock('../src/contexts/AuthContext.jsx', () => ({ useAuth: () => authState }))
 
 import { AppShell } from '../src/components/layout/AppShell.jsx'
+import HomeNavigation from '../src/components/layout/HomeNavigation.jsx'
 
 function renderShell({ initialPath = '/content' } = {}) {
   return render(
     <MemoryRouter initialEntries={[initialPath]} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-      <AppShell><h1>Page content</h1></AppShell>
+      <AppShell>{initialPath === '/' && <HomeNavigation activeView="home" />}<h1>Page content</h1></AppShell>
     </MemoryRouter>,
   )
 }
@@ -25,9 +26,9 @@ describe('Elysium plain service shell', () => {
 
   it('keeps a small global bar on formal pages', () => {
     renderShell()
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(primaryNav).getByRole('link', { name: '房间' })).toBeInTheDocument()
+    const primaryNav = screen.getByRole('navigation', { name: '首页导航' })
+    expect(within(primaryNav).getByRole('link', { name: '观影房' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '听歌房' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '直播' })).toBeInTheDocument()
   })
 
@@ -46,8 +47,8 @@ describe('Elysium plain service shell', () => {
   it('shows login instead of account to signed-out visitors', () => {
     authState = { isAdmin: false, isAuthenticated: false, user: null }
     renderShell()
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: '首页导航' })).getByRole('link', { name: '登录' })).toHaveAttribute('href', '/login')
+    expect(screen.getAllByRole('navigation', { name: '首页导航' })).toHaveLength(1)
   })
 
   it('routes every authenticated avatar to the user account', () => {
@@ -68,7 +69,7 @@ describe('Elysium plain service shell', () => {
 
   it('keeps icon-only home navigation and restores the admin control entry', () => {
     const { unmount } = renderShell({ initialPath: '/content?type=photo' })
-    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '首页导航' })).toBeInTheDocument()
 
     unmount()
     renderShell({ initialPath: '/' })
@@ -101,7 +102,7 @@ describe('Elysium plain service shell', () => {
     expect(roomHomeLink).toHaveAttribute('href', '/')
     expect(roomHomeLink).toHaveTextContent('')
     expect(roomHomeLink.querySelector('svg')).toBeInTheDocument()
-    expect(screen.queryByText(/Elysium/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Elysium')).toBeInTheDocument()
     expect(screen.queryByText('© 2026')).not.toBeInTheDocument()
 
     roomView.unmount()
@@ -160,8 +161,8 @@ describe('Elysium plain service shell', () => {
 
   it('publishes the plain surface tokens and no decorative service background', () => {
     const css = applicationStyles
-    expect(css).toMatch(/--surface-page:\s*#fff/)
+    expect(css).toMatch(/--surface-page:\s*#faf9f6/)
     expect(css).toMatch(/--shadow-card:\s*none/)
-    expect(css).toMatch(/body::before\s*\{\s*display:\s*none !important/)
+    expect(css).not.toContain('feTurbulence')
   })
 })

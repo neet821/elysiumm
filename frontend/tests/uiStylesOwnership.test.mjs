@@ -43,7 +43,7 @@ test('shared UI styles split into ordered responsibility layers', () => {
     './uiIdentity.css': ['.ui-tag {', '.ui-avatar {', '.ui-room-status {'],
     './uiFeedback.css': ['.ui-skeleton {', '.ui-empty-state {', '.ui-tabs__list {'],
     './uiOverlays.css': ['.ui-dialog {', '.ui-drawer {', '.ui-toast {', '.ui-command-palette {'],
-    './uiMotion.css': ['@keyframes ui-skeleton-pulse', '@keyframes ui-overlay-enter'],
+    './uiMotion.css': ['@keyframes ui-loading-spin', '.ui-button__spinner'],
   }
   const parsed = postcss.parse(readFileSync(uiStylesPath, 'utf8'))
   const imports = parsed.nodes
@@ -58,6 +58,7 @@ test('shared UI styles split into ordered responsibility layers', () => {
     }
   }
   assert.equal([...uiStyles.matchAll(/@tailwind components;/g)].length, 1, 'the Tailwind component layer must expand exactly once')
+  assert.doesNotMatch(uiStyles, /@keyframes ui-skeleton-pulse|@keyframes ui-overlay-enter/, 'decorative motion is retired, not relocated')
 })
 
 function resolveStylesheet(filePath, stack = []) {

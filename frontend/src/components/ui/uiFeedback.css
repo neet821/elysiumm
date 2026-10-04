@@ -1,12 +1,6 @@
 @layer components {
   .ui-skeleton {
-    animation: ui-skeleton-pulse 1.6s var(--ease-standard) infinite;
-    background: linear-gradient(
-      100deg,
-      var(--surface-card-muted),
-      var(--surface-elevated),
-      var(--surface-card-muted)
-    );
+    background: var(--surface-card-muted);
     background-size: 240% 100%;
     border-radius: var(--radius-control);
     display: block;
@@ -56,7 +50,7 @@
     cursor: pointer;
     font: 600 0.88rem/1 var(--font-interface);
     margin-bottom: -1px;
-    min-height: 2.65rem;
+    min-height: 44px;
     padding: 0.65rem 0.9rem;
     white-space: nowrap;
   }

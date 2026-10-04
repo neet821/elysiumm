@@ -9,7 +9,7 @@ function formatWritingDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
     ? String(value)
-    : new Intl.DateTimeFormat("en-US", {
+    : new Intl.DateTimeFormat("zh-CN", {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -71,6 +71,7 @@ function LegacyPhotoCard({ item }) {
 function PhotoStrip({ photos }) {
   return (
     <section className="photo-strip photo-strip--bottom">
+      <div className="section-heading"><h2>照片</h2><Link to="/content/photo">查看全部照片</Link></div>
       <div className="photo-strip-grid">
         {photos.length > 0 ? (
           photos.map((item) => <LegacyPhotoCard key={item.slug} item={item} />)
@@ -109,6 +110,7 @@ export function ArticleFlowContent({
         <section className="home-main" aria-label="文章流">
           <h1 className="sr-only">首页</h1>
           <section className="articles-section">
+            <div className="section-heading"><h2>文章</h2><Link to="/content/article">查看全部文章</Link></div>
             <div className="writing-list">
               {visibleArticles.length > 0 ? (
                 visibleArticles.map((item) => (

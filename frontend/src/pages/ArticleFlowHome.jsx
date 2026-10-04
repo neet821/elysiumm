@@ -30,9 +30,6 @@ export default function ArticleFlowHome() {
       return
     }
     homeSidebarRef.current.scrollTop = 0
-    homeSidebarRef.current.querySelectorAll('.sidebar-scroll-viewport').forEach((viewport) => {
-      viewport.scrollTop = 0
-    })
     homeSidebarRef.current.querySelector('.home-sidebar__close')?.focus()
     sidebarWasOpenRef.current = true
   }, [homeSidebarOpen])
@@ -52,6 +49,10 @@ export default function ArticleFlowHome() {
   return (
     <div className="legacy-old-home legacy-old-home--flat" style={{ '--home-article-title-scale': articleTitleScale }}>
       <HomeNavigation label={homeLabel} activeView="home" className="home-nav--local" />
+      <nav className="home-categories" aria-label="内容分类">
+        <Link to="/content/article">文章</Link><Link to="/content/record">记录</Link>
+        <Link to="/content/essay">随笔</Link><Link to="/content/photo">照片</Link>
+      </nav>
       <ArticleFlowContent
         currentPage={currentPage}
         essays={essays}
